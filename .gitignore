@@ -1,0 +1,20 @@
+# segredos — nunca versionar
+.env
+.env.*
+!.env.example
+
+# python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+
+# node (frontend, quando existir)
+node_modules/
+dist/
+.vite/
+
+# editor/os
+.DS_Store
+.vscode/
