@@ -53,13 +53,14 @@ def _fatura_referencia_para(db: Client, user_id: str, conta_id: str, data_compra
 def _insert(db: Client, row: dict) -> dict:
     try:
         result = db.table(TABLE).insert(row).execute()
-    except Exception as exc:  # noqa: BLE001 — traduzimos só a violação de unicidade conhecida
+    except Exception as exc:  # noqa: BLE001 — traduzimos a violação de unicidade conhecida; o resto vai pro log
         if "duplicate key value violates unique constraint" in str(exc) or "23505" in str(exc):
             raise HTTPException(
                 status_code=409,
                 detail="Já existe um lançamento idêntico (mesma data, valor, conta e descrição).",
             ) from exc
-        raise
+        print(f"[transacoes] falha ao inserir: {exc!r} — row={row}")
+        raise HTTPException(status_code=500, detail="Falha ao salvar a transação") from exc
     return result.data[0]
 
 
@@ -82,6 +83,7 @@ def criar(payload: TransacaoCreate, db: Client = Depends(get_db), user_id: str =
     )
     row = payload.model_dump(mode="json")
     row.update(
+        user_id=user_id,
         pagamento="avista",
         parcela_atual=None,
         parcela_total=None,
