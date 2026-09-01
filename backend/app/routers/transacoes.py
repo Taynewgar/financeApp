@@ -1,0 +1,197 @@
+from fastapi import APIRouter, Depends, HTTPException
+from supabase import Client
+
+from ..auth import get_current_user_id, get_db
+from ..schemas.transacoes import CompraParceladaCreate, MoverFaturaPayload, Transacao, TransacaoCreate
+from ..services import crud
+from ..services.dedup import compute_hash
+from ..services.fatura import calcular_fatura_referencia, somar_meses
+
+router = APIRouter(prefix="/transacoes", tags=["transacoes"])
+TABLE = "transacoes"
+
+
+def _check_refs(
+    db: Client,
+    user_id: str,
+    conta_id: str,
+    categoria_id: str | None = None,
+    subcategoria_id: str | None = None,
+    caixinha_id: str | None = None,
+    ajuste_de_transacao_id: str | None = None,
+) -> None:
+    if not crud.get_owned(db, "contas", user_id, conta_id):
+        raise HTTPException(status_code=404, detail="Conta não encontrada")
+    if categoria_id and not crud.get_owned(db, "categorias", user_id, categoria_id):
+        raise HTTPException(status_code=404, detail="Categoria não encontrada")
+    if subcategoria_id and not crud.get_owned(db, "subcategorias", user_id, subcategoria_id):
+        raise HTTPException(status_code=404, detail="Subcategoria não encontrada")
+    if caixinha_id and not crud.get_owned(db, "caixinhas", user_id, caixinha_id):
+        raise HTTPException(status_code=404, detail="Caixinha não encontrada")
+    if ajuste_de_transacao_id and not crud.get_owned(db, TABLE, user_id, ajuste_de_transacao_id):
+        raise HTTPException(status_code=404, detail="Transação de ajuste referenciada não encontrada")
+
+
+def _fatura_referencia_para(db: Client, user_id: str, conta_id: str, data_compra) -> str | None:
+    """Só se aplica a contas do tipo cartão de crédito com dia de
+    fechamento configurado; para as demais, fica None (não se aplica)."""
+    result = (
+        db.table("contas")
+        .select("tipo_conta,dia_fechamento")
+        .eq("id", conta_id)
+        .eq("user_id", user_id)
+        .execute()
+    )
+    if not result.data:
+        return None
+    conta = result.data[0]
+    if conta["tipo_conta"] != "cartao_credito" or not conta["dia_fechamento"]:
+        return None
+    return calcular_fatura_referencia(data_compra, conta["dia_fechamento"]).isoformat()
+
+
+def _insert(db: Client, row: dict) -> dict:
+    try:
+        result = db.table(TABLE).insert(row).execute()
+    except Exception as exc:  # noqa: BLE001 — traduzimos só a violação de unicidade conhecida
+        if "duplicate key value violates unique constraint" in str(exc) or "23505" in str(exc):
+            raise HTTPException(
+                status_code=409,
+                detail="Já existe um lançamento idêntico (mesma data, valor, conta e descrição).",
+            ) from exc
+        raise
+    return result.data[0]
+
+
+@router.get("", response_model=list[Transacao])
+def listar(db: Client = Depends(get_db), user_id: str = Depends(get_current_user_id)):
+    result = db.table(TABLE).select("*").eq("user_id", user_id).order("data_compra", desc=True).execute()
+    return result.data
+
+
+@router.post("", response_model=Transacao, status_code=201)
+def criar(payload: TransacaoCreate, db: Client = Depends(get_db), user_id: str = Depends(get_current_user_id)):
+    _check_refs(
+        db,
+        user_id,
+        payload.conta_id,
+        payload.categoria_id,
+        payload.subcategoria_id,
+        payload.caixinha_id,
+        payload.ajuste_de_transacao_id,
+    )
+    row = payload.model_dump(mode="json")
+    row.update(
+        pagamento="avista",
+        parcela_atual=None,
+        parcela_total=None,
+        compra_parcelada_id=None,
+        fatura_referencia=_fatura_referencia_para(db, user_id, payload.conta_id, payload.data_compra),
+        fatura_override=False,
+    )
+    row["hash_dedup"] = compute_hash(
+        user_id=user_id,
+        data_compra=row["data_compra"],
+        valor=row["valor"],
+        descricao=row["descricao"],
+        conta_id=row["conta_id"],
+        tipo_movimento=row["tipo_movimento"],
+        parcela_atual=None,
+        parcela_total=None,
+        compra_parcelada_id=None,
+    )
+    return _insert(db, row)
+
+
+@router.post("/parceladas", response_model=list[Transacao], status_code=201)
+def criar_parcelada(
+    payload: CompraParceladaCreate,
+    db: Client = Depends(get_db),
+    user_id: str = Depends(get_current_user_id),
+):
+    """Materializa uma parcela por ciclo, como já aparece na fatura real do
+    cartão — em vez de projetar parcelas futuras só na hora do relatório."""
+    _check_refs(db, user_id, payload.conta_id, payload.categoria_id, payload.subcategoria_id)
+
+    grupo = (
+        db.table("compras_parceladas")
+        .insert(
+            {
+                "user_id": user_id,
+                "descricao": payload.descricao,
+                "valor_total": payload.valor_total,
+                "parcela_total": payload.parcela_total,
+            }
+        )
+        .execute()
+        .data[0]
+    )
+
+    valor_parcela = round(payload.valor_total / payload.parcela_total, 2)
+    diferenca_arredondamento = round(payload.valor_total - valor_parcela * payload.parcela_total, 2)
+
+    criadas = []
+    for i in range(payload.parcela_total):
+        data_parcela = somar_meses(payload.data_primeira_parcela, i)
+        ultima_parcela = i == payload.parcela_total - 1
+        valor = valor_parcela + (diferenca_arredondamento if ultima_parcela else 0)
+
+        row = {
+            "user_id": user_id,
+            "data_compra": data_parcela.isoformat(),
+            "valor": valor,
+            "descricao": payload.descricao,
+            "tipo_movimento": "despesa",
+            "pagamento": "parcelado",
+            "parcela_atual": i + 1,
+            "parcela_total": payload.parcela_total,
+            "compra_parcelada_id": grupo["id"],
+            "conta_id": payload.conta_id,
+            "categoria_id": payload.categoria_id,
+            "subcategoria_id": payload.subcategoria_id,
+            "estrutura_custo": payload.estrutura_custo,
+            "fatura_referencia": _fatura_referencia_para(db, user_id, payload.conta_id, data_parcela),
+            "fatura_override": False,
+        }
+        row["hash_dedup"] = compute_hash(
+            user_id=user_id,
+            data_compra=row["data_compra"],
+            valor=row["valor"],
+            descricao=row["descricao"],
+            conta_id=row["conta_id"],
+            tipo_movimento=row["tipo_movimento"],
+            parcela_atual=row["parcela_atual"],
+            parcela_total=row["parcela_total"],
+            compra_parcelada_id=row["compra_parcelada_id"],
+        )
+        criadas.append(_insert(db, row))
+    return criadas
+
+
+@router.patch("/{transacao_id}/fatura", response_model=Transacao)
+def mover_fatura(
+    transacao_id: str,
+    payload: MoverFaturaPayload,
+    db: Client = Depends(get_db),
+    user_id: str = Depends(get_current_user_id),
+):
+    """Escape hatch para quando o banco lança a compra num ciclo diferente
+    do calculado (liquidação atrasada pelo lojista/adquirente) — move só a
+    referência de fatura, nunca a data real da compra."""
+    try:
+        return crud.update(
+            db,
+            TABLE,
+            user_id,
+            transacao_id,
+            {"fatura_referencia": payload.fatura_referencia.isoformat(), "fatura_override": True},
+        )
+    except crud.NotFound:
+        raise HTTPException(status_code=404, detail="Transação não encontrada")
+
+
+@router.delete("/{transacao_id}", status_code=204)
+def excluir(transacao_id: str, db: Client = Depends(get_db), user_id: str = Depends(get_current_user_id)):
+    result = db.table(TABLE).delete().eq("id", transacao_id).eq("user_id", user_id).execute()
+    if not result.data:
+        raise HTTPException(status_code=404, detail="Transação não encontrada")
