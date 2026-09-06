@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 
 from .config import settings
-from .routers import caixinhas, categorias, contas, estrutura_custo, orcamentos, subcategorias, transacoes
+from .routers import caixinhas, categorias, contas, dashboard, estrutura_custo, orcamentos, subcategorias, transacoes
 
 app = FastAPI(title="Finance App API")
 
@@ -12,6 +12,7 @@ app.include_router(caixinhas.router)
 app.include_router(transacoes.router)
 app.include_router(orcamentos.router)
 app.include_router(estrutura_custo.router)
+app.include_router(dashboard.router)
 
 
 @app.get("/health")

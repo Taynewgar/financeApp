@@ -24,6 +24,11 @@ PWA com backend hospedado (Render) e banco Supabase.
     lendo diretamente das transações — funciona mesmo sem orçamento
     configurado para o mês, e uma despesa sem `estrutura_custo` preenchida
     aparece no bucket `sem_estrutura` em vez de sumir da soma.
+    `GET /dashboard/mensal/{vigencia_mes}` e `GET /dashboard/evolucao` dão
+    as duas leituras financeiras herdadas do app original — fluxo de caixa
+    (bruto) e saúde financeira (líquida de estornos/ressarcimentos
+    vinculados a uma despesa, que não contam como receita nova) — com taxa
+    de poupança e resultado acumulado mês a mês.
 - `db/schema.sql` — schema inicial do Postgres (contas, categorias,
   subcategorias, caixinhas, transações, orçamento versionado por mês), com
   Row Level Security por usuário.
