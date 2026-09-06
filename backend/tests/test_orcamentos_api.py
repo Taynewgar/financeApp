@@ -208,3 +208,113 @@ def test_usuario_nao_atualiza_item_de_orcamento_de_outro_usuario(client, current
     current_user["id"] = OUTRO_USUARIO
     resposta = client.patch(f"/orcamentos/{orcamento['id']}/itens/{item['id']}", json={"orcamento_mensal": 1})
     assert resposta.status_code == 404
+
+
+# ── modelo de envelope acumulativo: POST /orcamentos/{id}/proximo-mes ──────
+
+
+def test_item_recem_criado_tem_saldo_anterior_zero_e_disponivel_igual_ao_mensal(client):
+    orcamento = _criar_orcamento(client)
+    item = client.post(
+        f"/orcamentos/{orcamento['id']}/itens", json={"bucket": "custos_fixos", "nome": "Aluguel", "orcamento_mensal": 1500}
+    ).json()
+
+    assert item["saldo_anterior"] == 0
+    assert item["disponivel"] == 1500
+
+
+def test_proximo_mes_carrega_sobra_quando_gasta_menos_que_planejado(client):
+    conta = client.post("/contas", json={"nome": "Conta", "tipo_conta": "corrente"}).json()
+    categoria = client.post("/categorias", json={"nome": "Restaurante"}).json()
+    orcamento = _criar_orcamento(client, vigencia_mes="2026-09-01")
+    client.post(
+        f"/orcamentos/{orcamento['id']}/itens",
+        json={"bucket": "custos_variaveis", "categoria_id": categoria["id"], "orcamento_mensal": 400},
+    )
+    client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-09-10",
+            "valor": 310,
+            "tipo_movimento": "despesa",
+            "conta_id": conta["id"],
+            "categoria_id": categoria["id"],
+        },
+    )
+
+    resposta = client.post(f"/orcamentos/{orcamento['id']}/proximo-mes")
+    assert resposta.status_code == 201
+    proximo = resposta.json()
+    assert proximo["vigencia_mes"] == "2026-10-01"
+
+    novo_item = client.get(f"/orcamentos/{proximo['id']}/itens").json()[0]
+    assert novo_item["orcamento_mensal"] == 400  # o valor-base recorrente nunca muda
+    assert novo_item["saldo_anterior"] == 90
+    assert novo_item["disponivel"] == 490
+
+
+def test_proximo_mes_carrega_deficit_quando_gasta_mais_que_planejado(client):
+    conta = client.post("/contas", json={"nome": "Conta", "tipo_conta": "corrente"}).json()
+    categoria = client.post("/categorias", json={"nome": "Mercado"}).json()
+    orcamento = _criar_orcamento(client, vigencia_mes="2026-09-01")
+    client.post(
+        f"/orcamentos/{orcamento['id']}/itens",
+        json={"bucket": "custos_variaveis", "categoria_id": categoria["id"], "orcamento_mensal": 400},
+    )
+    client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-09-10",
+            "valor": 500,
+            "tipo_movimento": "despesa",
+            "conta_id": conta["id"],
+            "categoria_id": categoria["id"],
+        },
+    )
+
+    proximo = client.post(f"/orcamentos/{orcamento['id']}/proximo-mes").json()
+    novo_item = client.get(f"/orcamentos/{proximo['id']}/itens").json()[0]
+    assert novo_item["saldo_anterior"] == -100
+    assert novo_item["disponivel"] == 300
+
+
+def test_proximo_mes_item_sem_vinculo_rola_o_valor_cheio(client):
+    orcamento = _criar_orcamento(client, vigencia_mes="2026-09-01")
+    client.post(
+        f"/orcamentos/{orcamento['id']}/itens",
+        json={"bucket": "investimentos", "nome": "Reserva", "orcamento_mensal": 200},
+    )
+
+    proximo = client.post(f"/orcamentos/{orcamento['id']}/proximo-mes").json()
+    novo_item = client.get(f"/orcamentos/{proximo['id']}/itens").json()[0]
+    assert novo_item["saldo_anterior"] == 200
+    assert novo_item["disponivel"] == 400
+
+
+def test_proximo_mes_ignora_item_desativado(client):
+    orcamento = _criar_orcamento(client, vigencia_mes="2026-09-01")
+    item = client.post(
+        f"/orcamentos/{orcamento['id']}/itens", json={"bucket": "custos_fixos", "nome": "Antigo", "orcamento_mensal": 100}
+    ).json()
+    client.patch(f"/orcamentos/{orcamento['id']}/itens/{item['id']}/ativo", params={"ativo": False})
+
+    proximo = client.post(f"/orcamentos/{orcamento['id']}/proximo-mes").json()
+    assert client.get(f"/orcamentos/{proximo['id']}/itens").json() == []
+
+
+def test_proximo_mes_chamado_duas_vezes_retorna_409_na_segunda(client):
+    orcamento = _criar_orcamento(client, vigencia_mes="2026-09-01")
+
+    primeira = client.post(f"/orcamentos/{orcamento['id']}/proximo-mes")
+    assert primeira.status_code == 201
+
+    repetida = client.post(f"/orcamentos/{orcamento['id']}/proximo-mes")
+    assert repetida.status_code == 409
+
+
+def test_proximo_mes_de_orcamento_de_outro_usuario_retorna_404(client, current_user):
+    orcamento = _criar_orcamento(client, vigencia_mes="2026-09-01")
+
+    current_user["id"] = OUTRO_USUARIO
+    resposta = client.post(f"/orcamentos/{orcamento['id']}/proximo-mes")
+    assert resposta.status_code == 404

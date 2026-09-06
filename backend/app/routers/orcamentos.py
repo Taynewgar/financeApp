@@ -13,10 +13,26 @@ from ..schemas.orcamentos import (
     OrcamentoUpdate,
 )
 from ..services import crud
+from ..services.fatura import somar_meses
 
 router = APIRouter(prefix="/orcamentos", tags=["orcamentos"])
 TABLE = "orcamentos"
 ITENS_TABLE = "orcamento_itens"
+
+# sinal de cada tipo de movimento para o cálculo de realizado — despesa conta
+# a favor do gasto, estorno/ressarcimento reduz (é dinheiro devolvido);
+# aplicacao/retirada só entram para itens de investimento (via conta_vinculada_id)
+_SINAL_REALIZADO = {
+    "despesa": 1,
+    "estorno": -1,
+    "ressarcimento": -1,
+    "aplicacao": 1,
+    "retirada": -1,
+}
+
+
+def _com_disponivel(item: dict) -> dict:
+    return {**item, "disponivel": round(item["orcamento_mensal"] + item.get("saldo_anterior", 0), 2)}
 
 
 def _get_orcamento_ou_404(db: Client, user_id: str, orcamento_id: str) -> dict:
@@ -102,7 +118,7 @@ def atualizar(
 def listar_itens(orcamento_id: str, db: Client = Depends(get_db), user_id: str = Depends(get_current_user_id)):
     _get_orcamento_ou_404(db, user_id, orcamento_id)
     result = db.table(ITENS_TABLE).select("*").eq("orcamento_id", orcamento_id).order("bucket").execute()
-    return result.data
+    return [_com_disponivel(item) for item in result.data]
 
 
 @router.post("/{orcamento_id}/itens", response_model=OrcamentoItem, status_code=201)
@@ -117,7 +133,7 @@ def criar_item(
     row = payload.model_dump()
     row["orcamento_id"] = orcamento_id
     result = db.table(ITENS_TABLE).insert(row).execute()
-    return result.data[0]
+    return _com_disponivel(result.data[0])
 
 
 @router.patch("/{orcamento_id}/itens/{item_id}", response_model=OrcamentoItem)
@@ -135,7 +151,7 @@ def atualizar_item(
         db, user_id, dados.get("categoria_id"), dados.get("subcategoria_id"), dados.get("conta_vinculada_id")
     )
     result = db.table(ITENS_TABLE).update(dados).eq("id", item_id).eq("orcamento_id", orcamento_id).execute()
-    return result.data[0]
+    return _com_disponivel(result.data[0])
 
 
 @router.patch("/{orcamento_id}/itens/{item_id}/ativo", response_model=OrcamentoItem)
@@ -151,4 +167,84 @@ def alternar_item_ativo(
     result = (
         db.table(ITENS_TABLE).update({"ativo": ativo}).eq("id", item_id).eq("orcamento_id", orcamento_id).execute()
     )
-    return result.data[0]
+    return _com_disponivel(result.data[0])
+
+
+def _calcular_realizado(db: Client, user_id: str, item: dict, mes_inicio: date, mes_fim: date) -> float:
+    """Soma as transações do período que contam para este item — por
+    categoria/subcategoria para os buckets de custo, ou pela conta vinculada
+    para itens de investimento. Sem nenhum dos três vínculos, não há como
+    calcular realizado (o item é só uma linha de planejamento livre)."""
+    query = (
+        db.table("transacoes")
+        .select("valor,tipo_movimento")
+        .eq("user_id", user_id)
+        .gte("data_compra", mes_inicio.isoformat())
+        .lt("data_compra", mes_fim.isoformat())
+    )
+    if item.get("categoria_id"):
+        query = query.eq("categoria_id", item["categoria_id"])
+    elif item.get("subcategoria_id"):
+        query = query.eq("subcategoria_id", item["subcategoria_id"])
+    elif item.get("conta_vinculada_id"):
+        query = query.eq("conta_id", item["conta_vinculada_id"])
+    else:
+        return 0.0
+
+    total = sum(
+        _SINAL_REALIZADO.get(t["tipo_movimento"], 0) * t["valor"] for t in query.execute().data
+    )
+    return round(total, 2)
+
+
+@router.post("/{orcamento_id}/proximo-mes", response_model=Orcamento, status_code=201)
+def gerar_proximo_mes(
+    orcamento_id: str,
+    db: Client = Depends(get_db),
+    user_id: str = Depends(get_current_user_id),
+):
+    """Modelo de envelope acumulativo combinado no redesign: fecha o mês do
+    orçamento informado calculando o realizado de cada item contra as
+    transações do período, e cria o orçamento do mês seguinte com a sobra
+    (ou o estouro, se o item passou do previsto) já somada em
+    `saldo_anterior` de cada item — nunca alterando `orcamento_mensal`, que
+    continua sendo o valor-base recorrente."""
+    atual = _get_orcamento_ou_404(db, user_id, orcamento_id)
+    mes_atual = date.fromisoformat(atual["vigencia_mes"])
+    mes_seguinte = somar_meses(mes_atual, 1)
+
+    novo_orcamento = _insert_orcamento(
+        db,
+        {
+            "user_id": user_id,
+            "vigencia_mes": mes_seguinte.isoformat(),
+            "receita_base": atual["receita_base"],
+            "percentual_geral": atual["percentual_geral"],
+            "limite_custos_fixos": atual["limite_custos_fixos"],
+            "limite_custos_variaveis": atual["limite_custos_variaveis"],
+            "limite_sazonalidades": atual["limite_sazonalidades"],
+            "limite_investimentos": atual["limite_investimentos"],
+        },
+    )
+
+    itens_atuais = (
+        db.table(ITENS_TABLE).select("*").eq("orcamento_id", orcamento_id).eq("ativo", True).execute().data
+    )
+    for item in itens_atuais:
+        realizado = _calcular_realizado(db, user_id, item, mes_atual, mes_seguinte)
+        disponivel_neste_mes = round(item["orcamento_mensal"] + item.get("saldo_anterior", 0), 2)
+        db.table(ITENS_TABLE).insert(
+            {
+                "orcamento_id": novo_orcamento["id"],
+                "bucket": item["bucket"],
+                "categoria_id": item.get("categoria_id"),
+                "subcategoria_id": item.get("subcategoria_id"),
+                "nome": item.get("nome"),
+                "conta_vinculada_id": item.get("conta_vinculada_id"),
+                "orcamento_mensal": item["orcamento_mensal"],
+                "percentual": item.get("percentual", 0),
+                "saldo_anterior": round(disponivel_neste_mes - realizado, 2),
+            }
+        ).execute()
+
+    return novo_orcamento

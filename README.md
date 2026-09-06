@@ -16,7 +16,9 @@ PWA com backend hospedado (Render) e banco Supabase.
   - `app/routers/` — CRUD de contas, categorias, subcategorias, caixinhas,
     transações (com parcelamento e fatura por ciclo de fechamento) e
     orçamento (versionado por mês de vigência, com itens por bucket:
-    custos fixos/variáveis, sazonalidades, investimentos).
+    custos fixos/variáveis, sazonalidades, investimentos — modelo de
+    envelope acumulativo via `POST /orcamentos/{id}/proximo-mes`, que
+    fecha o mês e carrega a sobra/estouro de cada item para o mês seguinte).
 - `db/schema.sql` — schema inicial do Postgres (contas, categorias,
   subcategorias, caixinhas, transações, orçamento versionado por mês), com
   Row Level Security por usuário.
@@ -35,6 +37,21 @@ PWA com backend hospedado (Render) e banco Supabase.
    que as 4 variáveis estão preenchidas: `SUPABASE_URL`,
    `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `DATABASE_URL` — cole
    os valores direto no painel do Render, nunca em texto de chat ou commit.
+
+### Migração pendente no seu Supabase: `orcamento_itens.saldo_anterior`
+
+Se o seu projeto Supabase já existia antes desta entrega (envelope
+acumulativo no orçamento), rode isto uma vez no *SQL Editor* antes de usar
+`POST /orcamentos/{id}/proximo-mes` ou os testes de integração de orçamento
+— sem essa coluna, a API responde 500 nesse endpoint:
+
+```sql
+alter table orcamento_itens
+  add column if not exists saldo_anterior numeric(14,2) not null default 0;
+```
+
+Um projeto novo, criado rodando `db/schema.sql` já com esta versão, não
+precisa desse passo — a coluna já nasce criada.
 
 ## Desenvolvimento local
 

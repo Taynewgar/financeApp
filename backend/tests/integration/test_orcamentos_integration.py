@@ -78,6 +78,64 @@ def test_rls_impede_outro_usuario_de_ver_itens_do_orcamento(real_client, headers
     assert listagem_b.status_code == 404  # o próprio orçamento já não é visível para B
 
 
+def test_proximo_mes_carrega_sobra_contra_banco_real(real_client, headers_a, cleanup):
+    """Exige a migração de backend/tests/../../db/schema.sql (coluna
+    orcamento_itens.saldo_anterior) já aplicada no seu projeto Supabase —
+    veja o passo a passo no README antes de rodar esta suíte."""
+    conta = real_client.post(
+        "/contas", json={"nome": "Conta Integração", "tipo_conta": "corrente"}, headers=headers_a
+    ).json()
+    cleanup.append(("contas", conta["id"]))
+    categoria = real_client.post(
+        "/categorias", json={"nome": "Restaurante Integração"}, headers=headers_a
+    ).json()
+    cleanup.append(("categorias", categoria["id"]))
+
+    orcamento = _criar_orcamento(real_client, headers_a, vigencia_mes="2026-09-01")
+    cleanup.append(("orcamentos", orcamento["id"]))
+    item = real_client.post(
+        f"/orcamentos/{orcamento['id']}/itens",
+        json={"bucket": "custos_variaveis", "categoria_id": categoria["id"], "orcamento_mensal": 400},
+        headers=headers_a,
+    ).json()
+    cleanup.append(("orcamento_itens", item["id"]))
+
+    transacao = real_client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-09-10",
+            "valor": 310,
+            "tipo_movimento": "despesa",
+            "conta_id": conta["id"],
+            "categoria_id": categoria["id"],
+        },
+        headers=headers_a,
+    ).json()
+    cleanup.append(("transacoes", transacao["id"]))
+
+    proximo = real_client.post(f"/orcamentos/{orcamento['id']}/proximo-mes", headers=headers_a)
+    assert proximo.status_code == 201
+    proximo_orcamento = proximo.json()
+    cleanup.append(("orcamentos", proximo_orcamento["id"]))
+
+    itens_proximo = real_client.get(f"/orcamentos/{proximo_orcamento['id']}/itens", headers=headers_a).json()
+    cleanup.append(("orcamento_itens", itens_proximo[0]["id"]))
+    assert itens_proximo[0]["saldo_anterior"] == 90
+    assert itens_proximo[0]["disponivel"] == 490
+
+
+def test_proximo_mes_chamado_duas_vezes_retorna_409_na_segunda_contra_banco_real(real_client, headers_a, cleanup):
+    orcamento = _criar_orcamento(real_client, headers_a, vigencia_mes="2026-09-01")
+    cleanup.append(("orcamentos", orcamento["id"]))
+
+    primeira = real_client.post(f"/orcamentos/{orcamento['id']}/proximo-mes", headers=headers_a)
+    assert primeira.status_code == 201
+    cleanup.append(("orcamentos", primeira.json()["id"]))
+
+    repetida = real_client.post(f"/orcamentos/{orcamento['id']}/proximo-mes", headers=headers_a)
+    assert repetida.status_code == 409
+
+
 def test_desativar_item_persiste_no_banco_real(real_client, headers_a, cleanup):
     orcamento = _criar_orcamento(real_client, headers_a)
     cleanup.append(("orcamentos", orcamento["id"]))

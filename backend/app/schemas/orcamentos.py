@@ -55,3 +55,9 @@ class OrcamentoItem(OrcamentoItemCreate):
     id: str
     orcamento_id: str
     ativo: bool
+    # sobra (ou estouro, se negativo) trazida do mês anterior — só é
+    # diferente de zero em itens gerados por POST /orcamentos/{id}/proximo-mes
+    saldo_anterior: float = 0
+    # calculado (não é coluna): orcamento_mensal + saldo_anterior, ou seja,
+    # quanto esse item realmente tem disponível neste mês
+    disponivel: float

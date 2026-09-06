@@ -153,6 +153,10 @@ create table orcamento_itens (
 
     orcamento_mensal numeric(14,2) not null default 0,
     percentual numeric(5,2) not null default 0 check (percentual between 0 and 100),
+    -- modelo de envelope acumulativo: sobra (ou estouro, se negativo) trazida
+    -- do mês anterior para este item, gerada por POST /orcamentos/{id}/proximo-mes;
+    -- "disponível neste mês" = orcamento_mensal + saldo_anterior
+    saldo_anterior numeric(14,2) not null default 0,
     ativo boolean not null default true,
 
     created_at timestamptz not null default now()

@@ -30,7 +30,7 @@ class FakeQuery:
     def __init__(self, rows: list[dict[str, Any]], table: str = ""):
         self._rows = rows
         self._table = table
-        self._filters: list[tuple[str, Any]] = []
+        self._filters: list[tuple[str, str, Any]] = []
         self._order_key: str | None = None
         self._order_desc = False
         self._op: str | None = None
@@ -55,7 +55,15 @@ class FakeQuery:
         return self
 
     def eq(self, key: str, value: Any) -> "FakeQuery":
-        self._filters.append((key, value))
+        self._filters.append(("eq", key, value))
+        return self
+
+    def gte(self, key: str, value: Any) -> "FakeQuery":
+        self._filters.append(("gte", key, value))
+        return self
+
+    def lt(self, key: str, value: Any) -> "FakeQuery":
+        self._filters.append(("lt", key, value))
         return self
 
     def order(self, key: str, desc: bool = False) -> "FakeQuery":
@@ -64,7 +72,15 @@ class FakeQuery:
         return self
 
     def _matches(self, row: dict[str, Any]) -> bool:
-        return all(row.get(k) == v for k, v in self._filters)
+        for op, key, value in self._filters:
+            atual = row.get(key)
+            if op == "eq" and atual != value:
+                return False
+            if op == "gte" and not (atual is not None and atual >= value):
+                return False
+            if op == "lt" and not (atual is not None and atual < value):
+                return False
+        return True
 
     def execute(self) -> FakeResult:
         if self._op == "select":
@@ -79,6 +95,8 @@ class FakeQuery:
             # espelha os defaults de coluna do schema.sql (Postgres preenche
             # isso sozinho; o app nunca envia "ativo" na criação)
             row.setdefault("ativo", True)
+            if self._table == "orcamento_itens":
+                row.setdefault("saldo_anterior", 0)
             if "hash_dedup" in row:
                 for existing in self._rows:
                     if existing.get("hash_dedup") == row["hash_dedup"]:
