@@ -19,6 +19,11 @@ PWA com backend hospedado (Render) e banco Supabase.
     custos fixos/variáveis, sazonalidades, investimentos — modelo de
     envelope acumulativo via `POST /orcamentos/{id}/proximo-mes`, que
     fecha o mês e carrega a sobra/estouro de cada item para o mês seguinte).
+    `GET /estrutura-custo/{vigencia_mes}` compara orçado x realizado do mês
+    (por categoria/subcategoria, agrupado nos mesmos buckets do orçamento),
+    lendo diretamente das transações — funciona mesmo sem orçamento
+    configurado para o mês, e uma despesa sem `estrutura_custo` preenchida
+    aparece no bucket `sem_estrutura` em vez de sumir da soma.
 - `db/schema.sql` — schema inicial do Postgres (contas, categorias,
   subcategorias, caixinhas, transações, orçamento versionado por mês), com
   Row Level Security por usuário.
