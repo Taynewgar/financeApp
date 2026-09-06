@@ -19,9 +19,17 @@ class FakeResult:
         self.data = data
 
 
+# espelha constraints UNIQUE(...) compostas do schema.sql que não são
+# cobertas pelo caso genérico de hash_dedup (ex: orcamentos(user_id, vigencia_mes))
+_UNIQUE_CONSTRAINTS: dict[str, tuple[str, ...]] = {
+    "orcamentos": ("user_id", "vigencia_mes"),
+}
+
+
 class FakeQuery:
-    def __init__(self, rows: list[dict[str, Any]]):
+    def __init__(self, rows: list[dict[str, Any]], table: str = ""):
         self._rows = rows
+        self._table = table
         self._filters: list[tuple[str, Any]] = []
         self._order_key: str | None = None
         self._order_desc = False
@@ -77,6 +85,14 @@ class FakeQuery:
                         raise Exception(
                             "duplicate key value violates unique constraint \"transacoes_hash_dedup_key\""
                         )
+            colunas_unicas = _UNIQUE_CONSTRAINTS.get(self._table)
+            if colunas_unicas:
+                chave = tuple(row.get(c) for c in colunas_unicas)
+                for existing in self._rows:
+                    if tuple(existing.get(c) for c in colunas_unicas) == chave:
+                        raise Exception(
+                            f"duplicate key value violates unique constraint \"{self._table}_{'_'.join(colunas_unicas)}_key\""
+                        )
             self._rows.append(row)
             return FakeResult([dict(row)])
 
@@ -104,4 +120,4 @@ class FakeSupabaseClient:
 
     def table(self, name: str) -> FakeQuery:
         self._store.setdefault(name, [])
-        return FakeQuery(self._store[name])
+        return FakeQuery(self._store[name], table=name)

@@ -13,9 +13,10 @@ PWA com backend hospedado (Render) e banco Supabase.
     como o usuário da requisição, respeita RLS).
   - `app/auth.py` — valida o token `Authorization: Bearer <token>` de cada
     requisição.
-  - `app/routers/` — CRUD de contas, categorias, subcategorias, caixinhas e
-    transações (com parcelamento e fatura por ciclo de fechamento).
-    Orçamento entra numa próxima entrega.
+  - `app/routers/` — CRUD de contas, categorias, subcategorias, caixinhas,
+    transações (com parcelamento e fatura por ciclo de fechamento) e
+    orçamento (versionado por mês de vigência, com itens por bucket:
+    custos fixos/variáveis, sazonalidades, investimentos).
 - `db/schema.sql` — schema inicial do Postgres (contas, categorias,
   subcategorias, caixinhas, transações, orçamento versionado por mês), com
   Row Level Security por usuário.
