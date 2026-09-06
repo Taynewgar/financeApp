@@ -66,6 +66,15 @@ class FakeQuery:
         self._filters.append(("lt", key, value))
         return self
 
+    def lte(self, key: str, value: Any) -> "FakeQuery":
+        self._filters.append(("lte", key, value))
+        return self
+
+    def ilike(self, key: str, pattern: str) -> "FakeQuery":
+        # só cobre o uso real do código: sempre "%termo%" (contains, case-insensitive)
+        self._filters.append(("ilike", key, pattern.strip("%").lower()))
+        return self
+
     def order(self, key: str, desc: bool = False) -> "FakeQuery":
         self._order_key = key
         self._order_desc = desc
@@ -79,6 +88,10 @@ class FakeQuery:
             if op == "gte" and not (atual is not None and atual >= value):
                 return False
             if op == "lt" and not (atual is not None and atual < value):
+                return False
+            if op == "lte" and not (atual is not None and atual <= value):
+                return False
+            if op == "ilike" and value not in (atual or "").lower():
                 return False
         return True
 

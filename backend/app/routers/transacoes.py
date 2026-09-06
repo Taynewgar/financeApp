@@ -1,14 +1,64 @@
+from datetime import date
+
 from fastapi import APIRouter, Depends, HTTPException
 from supabase import Client
 
 from ..auth import get_current_user_id, get_db
-from ..schemas.transacoes import CompraParceladaCreate, MoverFaturaPayload, Transacao, TransacaoCreate
+from ..schemas.transacoes import (
+    CompraParceladaCreate,
+    EstruturaCusto,
+    MoverFaturaPayload,
+    ResumoLancamentos,
+    Transacao,
+    TransacaoCreate,
+    TipoMovimento,
+)
 from ..services import crud
 from ..services.dedup import compute_hash
 from ..services.fatura import calcular_fatura_referencia, somar_meses
+from ..services.resumo_financeiro import calcular_resumo
 
 router = APIRouter(prefix="/transacoes", tags=["transacoes"])
 TABLE = "transacoes"
+
+
+def _query_filtrada(
+    db: Client,
+    user_id: str,
+    categoria_id: str | None,
+    subcategoria_id: str | None,
+    conta_id: str | None,
+    caixinha_id: str | None,
+    tipo_movimento: TipoMovimento | None,
+    estrutura_custo: EstruturaCusto | None,
+    data_inicio: date | None,
+    data_fim: date | None,
+    descricao: str | None,
+):
+    """Monta a query de busca/filtro usada tanto pela listagem quanto pelo
+    resumo — os mesmos filtros da aba "Busca de Lançamentos" do app
+    original (categoria, subcategoria, conta, caixinha, tipo de movimento,
+    estrutura de custo, período e texto na descrição)."""
+    query = db.table(TABLE).select("*").eq("user_id", user_id)
+    if categoria_id:
+        query = query.eq("categoria_id", categoria_id)
+    if subcategoria_id:
+        query = query.eq("subcategoria_id", subcategoria_id)
+    if conta_id:
+        query = query.eq("conta_id", conta_id)
+    if caixinha_id:
+        query = query.eq("caixinha_id", caixinha_id)
+    if tipo_movimento:
+        query = query.eq("tipo_movimento", tipo_movimento)
+    if estrutura_custo:
+        query = query.eq("estrutura_custo", estrutura_custo)
+    if data_inicio:
+        query = query.gte("data_compra", data_inicio.isoformat())
+    if data_fim:
+        query = query.lte("data_compra", data_fim.isoformat())
+    if descricao:
+        query = query.ilike("descricao", f"%{descricao}%")
+    return query
 
 
 def _check_refs(
@@ -65,9 +115,72 @@ def _insert(db: Client, row: dict) -> dict:
 
 
 @router.get("", response_model=list[Transacao])
-def listar(db: Client = Depends(get_db), user_id: str = Depends(get_current_user_id)):
-    result = db.table(TABLE).select("*").eq("user_id", user_id).order("data_compra", desc=True).execute()
-    return result.data
+def listar(
+    db: Client = Depends(get_db),
+    user_id: str = Depends(get_current_user_id),
+    categoria_id: str | None = None,
+    subcategoria_id: str | None = None,
+    conta_id: str | None = None,
+    caixinha_id: str | None = None,
+    tipo_movimento: TipoMovimento | None = None,
+    estrutura_custo: EstruturaCusto | None = None,
+    data_inicio: date | None = None,
+    data_fim: date | None = None,
+    descricao: str | None = None,
+):
+    query = _query_filtrada(
+        db,
+        user_id,
+        categoria_id,
+        subcategoria_id,
+        conta_id,
+        caixinha_id,
+        tipo_movimento,
+        estrutura_custo,
+        data_inicio,
+        data_fim,
+        descricao,
+    )
+    return query.order("data_compra", desc=True).execute().data
+
+
+# precisa vir antes de GET /{transacao_id} — senão "/transacoes/resumo"
+# seria interpretado como transacao_id="resumo" pelo roteamento
+@router.get("/resumo", response_model=ResumoLancamentos)
+def resumo(
+    db: Client = Depends(get_db),
+    user_id: str = Depends(get_current_user_id),
+    categoria_id: str | None = None,
+    subcategoria_id: str | None = None,
+    conta_id: str | None = None,
+    caixinha_id: str | None = None,
+    tipo_movimento: TipoMovimento | None = None,
+    estrutura_custo: EstruturaCusto | None = None,
+    data_inicio: date | None = None,
+    data_fim: date | None = None,
+    descricao: str | None = None,
+):
+    """Os mesmos cartões de resumo da aba Busca de Lançamentos do app
+    original, calculados sobre exatamente o mesmo conjunto de lançamentos
+    que os filtros acima retornariam."""
+    query = _query_filtrada(
+        db,
+        user_id,
+        categoria_id,
+        subcategoria_id,
+        conta_id,
+        caixinha_id,
+        tipo_movimento,
+        estrutura_custo,
+        data_inicio,
+        data_fim,
+        descricao,
+    )
+    dados = query.execute().data
+    resultado = calcular_resumo(dados)
+    resultado.pop("_receita_ajustada")
+    resultado["total_lancamentos"] = len(dados)
+    return resultado
 
 
 @router.get("/{transacao_id}", response_model=Transacao)

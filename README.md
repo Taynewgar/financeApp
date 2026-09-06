@@ -19,6 +19,11 @@ PWA com backend hospedado (Render) e banco Supabase.
     custos fixos/variáveis, sazonalidades, investimentos — modelo de
     envelope acumulativo via `POST /orcamentos/{id}/proximo-mes`, que
     fecha o mês e carrega a sobra/estouro de cada item para o mês seguinte).
+    `GET /transacoes` aceita filtros (categoria, subcategoria, conta,
+    caixinha, tipo de movimento, estrutura de custo, período, texto na
+    descrição) — é a Busca de Lançamentos do app original; `GET
+    /transacoes/resumo` calcula os mesmos cartões de resumo (as duas
+    leituras financeiras) sobre o conjunto filtrado.
     `GET /estrutura-custo/{vigencia_mes}` compara orçado x realizado do mês
     (por categoria/subcategoria, agrupado nos mesmos buckets do orçamento),
     lendo diretamente das transações — funciona mesmo sem orçamento

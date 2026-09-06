@@ -38,6 +38,21 @@ class MoverFaturaPayload(BaseModel):
     fatura_referencia: date
 
 
+class ResumoLancamentos(BaseModel):
+    total_lancamentos: int
+    receitas: float
+    despesas_brutas: float
+    despesas_liquidas: float
+    ajustes_vinculados: float
+    ajustes_nao_vinculados: float
+    aplicacoes: float
+    retiradas: float
+    reservas: float
+    resultado_fluxo_caixa: float
+    resultado_saude: float
+    taxa_poupanca: float | None = None
+
+
 class Transacao(BaseModel):
     id: str
     data_compra: date

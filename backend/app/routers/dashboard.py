@@ -6,19 +6,11 @@ from supabase import Client
 from ..auth import get_current_user_id, get_db
 from ..schemas.dashboard import EvolucaoMensal, ResumoMensal
 from ..services.fatura import somar_meses
+from ..services.resumo_financeiro import calcular_resumo
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 
 _MESES_MAXIMO_NA_EVOLUCAO = 60  # 5 anos — limite defensivo contra range gigante por engano
-
-# Duas leituras financeiras, herdadas do app original:
-#   * fluxo de caixa (bruto): o que de fato entrou/saiu, sem nenhum ajuste.
-#   * saúde financeira (líquida): um estorno/ressarcimento VINCULADO a uma
-#     despesa (ajuste_de_transacao_id preenchido) não é uma nova receita —
-#     ele só desfaz parte daquela despesa, então reduz despesas_liquidas.
-#     Um ajuste SOLTO (sem vínculo) não desfaz nada específico, então conta
-#     como receita extra na leitura de saúde. No fluxo de caixa os dois
-#     tipos são ignorados (só receita/despesa brutas importam ali).
 
 
 def _resumo_do_mes(db: Client, user_id: str, mes_inicio: date) -> dict:
@@ -32,45 +24,9 @@ def _resumo_do_mes(db: Client, user_id: str, mes_inicio: date) -> dict:
         .execute()
         .data
     )
-
-    receitas = despesas_brutas = ajustes_vinculados = ajustes_nao_vinculados = 0.0
-    aplicacoes = retiradas = 0.0
-    for t in transacoes:
-        valor = t["valor"]
-        tipo = t["tipo_movimento"]
-        if tipo == "receita":
-            receitas += valor
-        elif tipo == "despesa":
-            despesas_brutas += valor
-        elif tipo in ("estorno", "ressarcimento"):
-            if t.get("ajuste_de_transacao_id"):
-                ajustes_vinculados += valor
-            else:
-                ajustes_nao_vinculados += valor
-        elif tipo == "aplicacao":
-            aplicacoes += valor
-        elif tipo == "retirada":
-            retiradas += valor
-
-    despesas_liquidas = round(despesas_brutas - ajustes_vinculados, 2)
-    receita_ajustada = round(receitas + ajustes_nao_vinculados, 2)
-    resultado_saude = round(receita_ajustada - despesas_liquidas, 2)
-
-    return {
-        "vigencia_mes": mes_inicio.isoformat(),
-        "receitas": round(receitas, 2),
-        "despesas_brutas": round(despesas_brutas, 2),
-        "despesas_liquidas": despesas_liquidas,
-        "ajustes_vinculados": round(ajustes_vinculados, 2),
-        "ajustes_nao_vinculados": round(ajustes_nao_vinculados, 2),
-        "aplicacoes": round(aplicacoes, 2),
-        "retiradas": round(retiradas, 2),
-        "reservas": round(aplicacoes - retiradas, 2),
-        "resultado_fluxo_caixa": round(receitas - despesas_brutas, 2),
-        "resultado_saude": resultado_saude,
-        "taxa_poupanca": round(resultado_saude / receita_ajustada * 100, 2) if receita_ajustada else None,
-        "_receita_ajustada": receita_ajustada,  # uso interno para o acumulado; nunca sai na resposta
-    }
+    resumo = calcular_resumo(transacoes)
+    resumo["vigencia_mes"] = mes_inicio.isoformat()
+    return resumo
 
 
 @router.get("/mensal/{vigencia_mes}", response_model=ResumoMensal)
