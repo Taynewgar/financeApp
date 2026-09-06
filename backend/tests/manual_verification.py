@@ -76,7 +76,14 @@ def main() -> None:
     token_b = sign_in(email_b, password_b)
     headers_b = {"Authorization": f"Bearer {token_b}"}
 
-    created_ids: dict[str, list[str]] = {"contas": [], "categorias": [], "subcategorias": [], "caixinhas": []}
+    created_ids: dict[str, list[str]] = {
+        "contas": [],
+        "categorias": [],
+        "subcategorias": [],
+        "caixinhas": [],
+        "transacoes": [],
+    }
+    created_grupos_parcela: list[str] = []
 
     try:
         # --- CRUD básico como usuário A ---
@@ -116,6 +123,73 @@ def main() -> None:
         caixinha = r.json()
         created_ids["caixinhas"].append(caixinha.get("id", ""))
 
+        # --- Conta cartão de crédito + transação com fatura por ciclo ---
+        r = client.post(
+            "/contas",
+            json={"nome": "Cartão Verificação", "tipo_conta": "cartao_credito", "dia_fechamento": 8},
+            headers=headers_a,
+        )
+        check("POST /contas (cartão) cria com 201", r.status_code == 201, f"status={r.status_code} body={r.text}")
+        cartao = r.json()
+        created_ids["contas"].append(cartao.get("id", ""))
+
+        r = client.get(f"/contas/{cartao['id']}", headers=headers_a)
+        check(
+            "GET /contas/{id} recupera a conta cartão",
+            r.status_code == 200 and r.json().get("id") == cartao.get("id"),
+            f"status={r.status_code} body={r.text}",
+        )
+
+        r = client.post(
+            "/transacoes",
+            json={"data_compra": "2026-08-05", "valor": 89.90, "tipo_movimento": "despesa", "conta_id": cartao["id"]},
+            headers=headers_a,
+        )
+        check("POST /transacoes cria com 201", r.status_code == 201, f"status={r.status_code} body={r.text}")
+        transacao = r.json()
+        created_ids["transacoes"].append(transacao.get("id", ""))
+        check(
+            "fatura_referencia calculada corretamente (fechamento dia 8, compra dia 5 -> mesma fatura)",
+            transacao.get("fatura_referencia") == "2026-08-08",
+            f"fatura_referencia={transacao.get('fatura_referencia')}",
+        )
+
+        r = client.get(f"/transacoes/{transacao['id']}", headers=headers_a)
+        check(
+            "GET /transacoes/{id} recupera a transação",
+            r.status_code == 200 and r.json().get("id") == transacao.get("id"),
+            f"status={r.status_code} body={r.text}",
+        )
+
+        # --- Compra parcelada: materializa uma parcela por ciclo ---
+        r = client.post(
+            "/transacoes/parceladas",
+            json={
+                "descricao": "Notebook Verificação",
+                "valor_total": 300.00,
+                "parcela_total": 3,
+                "data_primeira_parcela": "2026-08-05",
+                "conta_id": cartao["id"],
+            },
+            headers=headers_a,
+        )
+        check("POST /transacoes/parceladas cria com 201", r.status_code == 201, f"status={r.status_code} body={r.text}")
+        parcelas = r.json() if r.status_code == 201 else []
+        for p in parcelas:
+            created_ids["transacoes"].append(p.get("id", ""))
+            if p.get("compra_parcelada_id"):
+                created_grupos_parcela.append(p["compra_parcelada_id"])
+        check(
+            "gera exatamente 3 parcelas, cada uma em um mês seguinte",
+            [p.get("data_compra") for p in parcelas] == ["2026-08-05", "2026-09-05", "2026-10-05"],
+            f"datas={[p.get('data_compra') for p in parcelas]}",
+        )
+        check(
+            "soma das parcelas bate com o valor total (sem perda por arredondamento)",
+            round(sum(p.get("valor", 0) for p in parcelas), 2) == 300.00,
+            f"soma={sum(p.get('valor', 0) for p in parcelas)}",
+        )
+
         # --- Isolamento entre usuários (RLS) ---
         r = client.get("/contas", headers=headers_b)
         check(
@@ -141,6 +215,8 @@ def main() -> None:
             for item_id in ids:
                 if item_id:
                     admin.table(table).delete().eq("id", item_id).execute()
+        for grupo_id in set(created_grupos_parcela):
+            admin.table("compras_parceladas").delete().eq("id", grupo_id).execute()
         delete_user(user_b_id)
         print("Limpeza concluída.")
 

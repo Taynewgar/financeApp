@@ -5,7 +5,18 @@ from app.main import app
 
 client = TestClient(app)
 
-PROTECTED_GET_ENDPOINTS = ["/contas", "/categorias", "/subcategorias", "/caixinhas", "/transacoes"]
+PROTECTED_GET_ENDPOINTS = [
+    "/contas",
+    "/contas/00000000-0000-0000-0000-000000000000",
+    "/categorias",
+    "/categorias/00000000-0000-0000-0000-000000000000",
+    "/subcategorias",
+    "/subcategorias/00000000-0000-0000-0000-000000000000",
+    "/caixinhas",
+    "/caixinhas/00000000-0000-0000-0000-000000000000",
+    "/transacoes",
+    "/transacoes/00000000-0000-0000-0000-000000000000",
+]
 
 
 @pytest.mark.parametrize("path", PROTECTED_GET_ENDPOINTS)

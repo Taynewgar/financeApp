@@ -12,6 +12,13 @@ def list_all(db: Client, table: str, user_id: str, order: str = "nome") -> list[
     return result.data
 
 
+def get_one(db: Client, table: str, user_id: str, item_id: str) -> dict[str, Any]:
+    result = db.table(table).select("*").eq("id", item_id).eq("user_id", user_id).execute()
+    if not result.data:
+        raise NotFound(item_id)
+    return result.data[0]
+
+
 def create(db: Client, table: str, user_id: str, payload: dict[str, Any]) -> dict[str, Any]:
     row = {**payload, "user_id": user_id}
     result = db.table(table).insert(row).execute()

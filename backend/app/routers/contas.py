@@ -14,6 +14,14 @@ def listar(db: Client = Depends(get_db), user_id: str = Depends(get_current_user
     return crud.list_all(db, TABLE, user_id)
 
 
+@router.get("/{conta_id}", response_model=Conta)
+def obter(conta_id: str, db: Client = Depends(get_db), user_id: str = Depends(get_current_user_id)):
+    try:
+        return crud.get_one(db, TABLE, user_id, conta_id)
+    except crud.NotFound:
+        raise HTTPException(status_code=404, detail="Conta não encontrada")
+
+
 @router.post("", response_model=Conta, status_code=201)
 def criar(payload: ContaCreate, db: Client = Depends(get_db), user_id: str = Depends(get_current_user_id)):
     return crud.create(db, TABLE, user_id, payload.model_dump())

@@ -70,6 +70,14 @@ def listar(db: Client = Depends(get_db), user_id: str = Depends(get_current_user
     return result.data
 
 
+@router.get("/{transacao_id}", response_model=Transacao)
+def obter(transacao_id: str, db: Client = Depends(get_db), user_id: str = Depends(get_current_user_id)):
+    try:
+        return crud.get_one(db, TABLE, user_id, transacao_id)
+    except crud.NotFound:
+        raise HTTPException(status_code=404, detail="Transação não encontrada")
+
+
 @router.post("", response_model=Transacao, status_code=201)
 def criar(payload: TransacaoCreate, db: Client = Depends(get_db), user_id: str = Depends(get_current_user_id)):
     _check_refs(
