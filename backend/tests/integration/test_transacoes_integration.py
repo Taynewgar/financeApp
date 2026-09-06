@@ -97,6 +97,49 @@ def test_mover_fatura_manualmente_contra_banco_real(real_client, headers_a, clea
     assert movida.json()["fatura_override"] is True
 
 
+def test_mover_fatura_em_conta_que_nao_e_cartao_retorna_422_contra_banco_real(real_client, headers_a, cleanup):
+    conta = real_client.post(
+        "/contas", json={"nome": "Conta Corrente Integração", "tipo_conta": "corrente"}, headers=headers_a
+    ).json()
+    cleanup.append(("contas", conta["id"]))
+    transacao = real_client.post(
+        "/transacoes",
+        json={"data_compra": "2026-08-05", "valor": 30, "tipo_movimento": "despesa", "conta_id": conta["id"]},
+        headers=headers_a,
+    ).json()
+    cleanup.append(("transacoes", transacao["id"]))
+
+    resposta = real_client.patch(
+        f"/transacoes/{transacao['id']}/fatura", json={"fatura_referencia": "2026-09-08"}, headers=headers_a
+    )
+    assert resposta.status_code == 422
+
+
+def test_pix_parcelado_em_conta_corrente_contra_banco_real(real_client, headers_a, cleanup):
+    conta = real_client.post(
+        "/contas", json={"nome": "Conta Pix Parcelado Integração", "tipo_conta": "corrente"}, headers=headers_a
+    ).json()
+    cleanup.append(("contas", conta["id"]))
+
+    resposta = real_client.post(
+        "/transacoes/parceladas",
+        json={
+            "descricao": "Pix Parcelado Integração",
+            "valor_total": 300,
+            "parcela_total": 3,
+            "data_primeira_parcela": "2026-08-05",
+            "conta_id": conta["id"],
+            "meio_pagamento": "pix",
+        },
+        headers=headers_a,
+    )
+    assert resposta.status_code == 201
+    parcelas = resposta.json()
+    cleanup.append(("compras_parceladas", parcelas[0]["compra_parcelada_id"]))
+    assert all(p["fatura_referencia"] is None for p in parcelas)
+    assert all(p["meio_pagamento"] == "pix" for p in parcelas)
+
+
 def test_excluir_transacao_contra_banco_real(real_client, headers_a, cleanup):
     cartao = _criar_cartao(real_client, headers_a)
     cleanup.append(("contas", cartao["id"]))

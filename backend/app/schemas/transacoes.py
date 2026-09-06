@@ -5,6 +5,10 @@ from pydantic import BaseModel, Field
 
 TipoMovimento = Literal["receita", "despesa", "aplicacao", "retirada", "estorno", "ressarcimento"]
 EstruturaCusto = Literal["fixo", "variavel", "sazonal"]
+# etiqueta descritiva de como a transação saiu da conta — sem saldo próprio
+# nem transferência entre contas, só metadado pra filtro/análise (ex:
+# distinguir Pix de boleto dentro da mesma conta corrente)
+MeioPagamento = Literal["pix", "cartao_debito", "boleto", "debito_automatico", "dinheiro", "transferencia", "outro"]
 
 
 class TransacaoCreate(BaseModel):
@@ -19,6 +23,7 @@ class TransacaoCreate(BaseModel):
     # mistas como Lazer podem ter gastos em mais de uma estrutura)
     estrutura_custo: EstruturaCusto | None = None
     caixinha_id: str | None = None
+    meio_pagamento: MeioPagamento | None = None
     # vincula um estorno/ressarcimento à despesa original
     ajuste_de_transacao_id: str | None = None
 
@@ -32,6 +37,7 @@ class CompraParceladaCreate(BaseModel):
     categoria_id: str | None = None
     subcategoria_id: str | None = None
     estrutura_custo: EstruturaCusto | None = None
+    meio_pagamento: MeioPagamento | None = None
 
 
 class MoverFaturaPayload(BaseModel):
@@ -68,6 +74,7 @@ class Transacao(BaseModel):
     subcategoria_id: str | None = None
     estrutura_custo: EstruturaCusto | None = None
     caixinha_id: str | None = None
+    meio_pagamento: MeioPagamento | None = None
     fatura_referencia: date | None = None
     fatura_override: bool
     ajuste_de_transacao_id: str | None = None

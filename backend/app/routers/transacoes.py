@@ -7,6 +7,7 @@ from ..auth import get_current_user_id, get_db
 from ..schemas.transacoes import (
     CompraParceladaCreate,
     EstruturaCusto,
+    MeioPagamento,
     MoverFaturaPayload,
     ResumoLancamentos,
     Transacao,
@@ -31,6 +32,7 @@ def _query_filtrada(
     caixinha_id: str | None,
     tipo_movimento: TipoMovimento | None,
     estrutura_custo: EstruturaCusto | None,
+    meio_pagamento: MeioPagamento | None,
     data_inicio: date | None,
     data_fim: date | None,
     descricao: str | None,
@@ -38,7 +40,7 @@ def _query_filtrada(
     """Monta a query de busca/filtro usada tanto pela listagem quanto pelo
     resumo — os mesmos filtros da aba "Busca de Lançamentos" do app
     original (categoria, subcategoria, conta, caixinha, tipo de movimento,
-    estrutura de custo, período e texto na descrição)."""
+    estrutura de custo, meio de pagamento, período e texto na descrição)."""
     query = db.table(TABLE).select("*").eq("user_id", user_id)
     if categoria_id:
         query = query.eq("categoria_id", categoria_id)
@@ -52,6 +54,8 @@ def _query_filtrada(
         query = query.eq("tipo_movimento", tipo_movimento)
     if estrutura_custo:
         query = query.eq("estrutura_custo", estrutura_custo)
+    if meio_pagamento:
+        query = query.eq("meio_pagamento", meio_pagamento)
     if data_inicio:
         query = query.gte("data_compra", data_inicio.isoformat())
     if data_fim:
@@ -124,6 +128,7 @@ def listar(
     caixinha_id: str | None = None,
     tipo_movimento: TipoMovimento | None = None,
     estrutura_custo: EstruturaCusto | None = None,
+    meio_pagamento: MeioPagamento | None = None,
     data_inicio: date | None = None,
     data_fim: date | None = None,
     descricao: str | None = None,
@@ -137,6 +142,7 @@ def listar(
         caixinha_id,
         tipo_movimento,
         estrutura_custo,
+        meio_pagamento,
         data_inicio,
         data_fim,
         descricao,
@@ -156,6 +162,7 @@ def resumo(
     caixinha_id: str | None = None,
     tipo_movimento: TipoMovimento | None = None,
     estrutura_custo: EstruturaCusto | None = None,
+    meio_pagamento: MeioPagamento | None = None,
     data_inicio: date | None = None,
     data_fim: date | None = None,
     descricao: str | None = None,
@@ -172,6 +179,7 @@ def resumo(
         caixinha_id,
         tipo_movimento,
         estrutura_custo,
+        meio_pagamento,
         data_inicio,
         data_fim,
         descricao,
@@ -273,6 +281,7 @@ def criar_parcelada(
             "categoria_id": payload.categoria_id,
             "subcategoria_id": payload.subcategoria_id,
             "estrutura_custo": payload.estrutura_custo,
+            "meio_pagamento": payload.meio_pagamento,
             "fatura_referencia": _fatura_referencia_para(db, user_id, payload.conta_id, data_parcela),
             "fatura_override": False,
         }
@@ -300,7 +309,19 @@ def mover_fatura(
 ):
     """Escape hatch para quando o banco lança a compra num ciclo diferente
     do calculado (liquidação atrasada pelo lojista/adquirente) — move só a
-    referência de fatura, nunca a data real da compra."""
+    referência de fatura, nunca a data real da compra. Só existe fatura
+    (ciclo de fechamento) pra conta do tipo cartão de crédito — mover fatura
+    de qualquer outro tipo de conta não tem o que mover."""
+    try:
+        transacao = crud.get_one(db, TABLE, user_id, transacao_id)
+    except crud.NotFound:
+        raise HTTPException(status_code=404, detail="Transação não encontrada")
+    conta = crud.get_one(db, "contas", user_id, transacao["conta_id"])
+    if conta["tipo_conta"] != "cartao_credito":
+        raise HTTPException(
+            status_code=422,
+            detail="Só é possível mover fatura de uma transação em conta do tipo cartão de crédito",
+        )
     try:
         return crud.update(
             db,

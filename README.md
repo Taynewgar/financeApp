@@ -20,10 +20,17 @@ PWA com backend hospedado (Render) e banco Supabase.
     envelope acumulativo via `POST /orcamentos/{id}/proximo-mes`, que
     fecha o mês e carrega a sobra/estouro de cada item para o mês seguinte).
     `GET /transacoes` aceita filtros (categoria, subcategoria, conta,
-    caixinha, tipo de movimento, estrutura de custo, período, texto na
-    descrição) — é a Busca de Lançamentos do app original; `GET
-    /transacoes/resumo` calcula os mesmos cartões de resumo (as duas
-    leituras financeiras) sobre o conjunto filtrado.
+    caixinha, tipo de movimento, estrutura de custo, meio de pagamento,
+    período, texto na descrição) — é a Busca de Lançamentos do app
+    original; `GET /transacoes/resumo` calcula os mesmos cartões de resumo
+    (as duas leituras financeiras) sobre o conjunto filtrado. `meio_pagamento`
+    é só uma etiqueta (pix/cartao_debito/boleto/debito_automatico/dinheiro/
+    transferencia/outro) — não tem saldo próprio nem gera transferência
+    entre contas, é `conta` que continua sendo o ledger de verdade.
+    Parcelamento (`POST /transacoes/parceladas`) não é exclusivo de cartão
+    de crédito (ex: Pix parcelado numa conta corrente) — só "mover fatura"
+    (`PATCH /transacoes/{id}/fatura`) exige conta do tipo `cartao_credito`,
+    retornando 422 caso contrário.
     `GET /estrutura-custo/{vigencia_mes}` compara orçado x realizado do mês
     (por categoria/subcategoria, agrupado nos mesmos buckets do orçamento),
     lendo diretamente das transações — funciona mesmo sem orçamento
@@ -67,6 +74,17 @@ alter table orcamento_itens
 
 Um projeto novo, criado rodando `db/schema.sql` já com esta versão, não
 precisa desse passo — a coluna já nasce criada.
+
+### Migração pendente no seu Supabase: `transacoes.meio_pagamento`
+
+Mesma situação para a etiqueta de meio de pagamento — se o projeto já
+existia antes desta entrega, rode uma vez no *SQL Editor*:
+
+```sql
+alter table transacoes
+  add column if not exists meio_pagamento text
+    check (meio_pagamento in ('pix', 'cartao_debito', 'boleto', 'debito_automatico', 'dinheiro', 'transferencia', 'outro'));
+```
 
 ## Desenvolvimento local
 

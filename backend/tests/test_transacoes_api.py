@@ -129,6 +129,87 @@ def test_estorno_vinculado_a_transacao_de_outro_usuario_retorna_404(client, curr
     assert resposta.status_code == 404
 
 
+def test_mover_fatura_em_conta_que_nao_e_cartao_retorna_422(client):
+    conta = _criar_conta_corrente(client)
+    transacao = client.post(
+        "/transacoes",
+        json={"data_compra": "2026-09-05", "valor": 50, "tipo_movimento": "despesa", "conta_id": conta["id"]},
+    ).json()
+
+    resposta = client.patch(
+        f"/transacoes/{transacao['id']}/fatura", json={"fatura_referencia": "2026-10-01"}
+    )
+    assert resposta.status_code == 422
+
+
+def test_meio_pagamento_e_gravado_e_pode_ser_filtrado(client):
+    conta = _criar_conta_corrente(client)
+    client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-09-05",
+            "valor": 40,
+            "tipo_movimento": "despesa",
+            "conta_id": conta["id"],
+            "meio_pagamento": "pix",
+        },
+    )
+    client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-09-06",
+            "valor": 60,
+            "tipo_movimento": "despesa",
+            "conta_id": conta["id"],
+            "meio_pagamento": "boleto",
+        },
+    )
+
+    resposta = client.get("/transacoes", params={"meio_pagamento": "pix"})
+    dados = resposta.json()
+    assert len(dados) == 1
+    assert dados[0]["meio_pagamento"] == "pix"
+
+
+def test_meio_pagamento_invalido_retorna_422(client):
+    conta = _criar_conta_corrente(client)
+    resposta = client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-09-05",
+            "valor": 10,
+            "tipo_movimento": "despesa",
+            "conta_id": conta["id"],
+            "meio_pagamento": "cheque",
+        },
+    )
+    assert resposta.status_code == 422
+
+
+def test_pix_parcelado_em_conta_corrente_e_permitido_e_sem_fatura(client):
+    """Parcelamento não é exclusivo de cartão de crédito — Pix parcelado
+    numa conta corrente é um caso real, e não deve ter fatura nenhuma
+    (fatura só existe pra ciclo de fechamento de cartão)."""
+    conta = _criar_conta_corrente(client)
+
+    resposta = client.post(
+        "/transacoes/parceladas",
+        json={
+            "descricao": "Geladeira via Pix parcelado",
+            "valor_total": 900,
+            "parcela_total": 3,
+            "data_primeira_parcela": "2026-09-05",
+            "conta_id": conta["id"],
+            "meio_pagamento": "pix",
+        },
+    )
+    assert resposta.status_code == 201
+    parcelas = resposta.json()
+    assert len(parcelas) == 3
+    assert all(p["fatura_referencia"] is None for p in parcelas)
+    assert all(p["meio_pagamento"] == "pix" for p in parcelas)
+
+
 def test_mover_fatura_manualmente_marca_override(client):
     cartao = _criar_conta_cartao(client)
     transacao = client.post(

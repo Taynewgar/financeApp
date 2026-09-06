@@ -100,6 +100,13 @@ create table transacoes (
     estrutura_custo text check (estrutura_custo in ('fixo', 'variavel', 'sazonal')),
     caixinha_id uuid references caixinhas(id),
 
+    -- etiqueta descritiva de como a transação saiu da conta — não tem
+    -- saldo próprio nem vira transferência entre contas, é só metadado
+    -- pra filtro/análise (ex: distinguir Pix de boleto numa conta corrente)
+    meio_pagamento text check (meio_pagamento in (
+        'pix', 'cartao_debito', 'boleto', 'debito_automatico', 'dinheiro', 'transferencia', 'outro'
+    )),
+
     -- fatura de cartão: calculada por padrão (data_compra + dia_fechamento
     -- da conta), com override manual para o caso de liquidação atrasada
     fatura_referencia date,
