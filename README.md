@@ -13,8 +13,9 @@ PWA com backend hospedado (Render) e banco Supabase.
     como o usuário da requisição, respeita RLS).
   - `app/auth.py` — valida o token `Authorization: Bearer <token>` de cada
     requisição.
-  - `app/routers/` — CRUD de contas, categorias, subcategorias e caixinhas.
-    Transações e orçamento entram numa próxima entrega.
+  - `app/routers/` — CRUD de contas, categorias, subcategorias, caixinhas e
+    transações (com parcelamento e fatura por ciclo de fechamento).
+    Orçamento entra numa próxima entrega.
 - `db/schema.sql` — schema inicial do Postgres (contas, categorias,
   subcategorias, caixinhas, transações, orçamento versionado por mês), com
   Row Level Security por usuário.
@@ -48,8 +49,37 @@ desde que informe um token de usuário válido no botão "Authorize".
 
 ## Testes
 
+Duas suítes, com propósitos diferentes:
+
+**Testes offline** (`tests/*.py`, exceto `tests/integration/`) — não tocam
+rede nem Supabase. Usam um dublê do cliente do banco (`tests/fakes.py`) que
+reproduz o mesmo encadeamento de chamadas, então validam a lógica da API de
+verdade (validação de campos, cálculo de fatura por ciclo, deduplicação,
+checagem de posse entre recursos) de forma instantânea, em qualquer máquina
+Linux, sem precisar de `.env`:
+
 ```bash
 cd backend
 pip install -r requirements-dev.txt
 pytest -q
 ```
+
+**Testes de integração** (`tests/integration/`) — tocam o Supabase real.
+Validam o que o dublê não pode provar: que o RLS do Postgres isola os dados
+entre usuários de verdade, e que a constraint UNIQUE de `hash_dedup` existe
+no banco. São pulados automaticamente (com uma mensagem explicando por quê)
+se `backend/.env` não estiver preenchido ou as variáveis abaixo não
+existirem — não quebram em CI nem numa máquina sem rede:
+
+```bash
+cd backend
+cp .env.example .env   # preencha os 4 valores do seu Supabase
+TEST_USER_EMAIL=teste@teste.com TEST_USER_PASSWORD=teste pytest -q
+```
+
+Rodar `pytest -q` sozinho, sem essas variáveis, executa só a suíte offline
+e pula a de integração — é seguro rodar sempre o mesmo comando.
+
+O script `tests/manual_verification.py` (anterior a essa suíte) continua
+funcionando como um roteiro único de fumaça, mas os testes de integração
+acima são mais completos e específicos — prefira-os.
