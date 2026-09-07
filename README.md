@@ -113,6 +113,9 @@ PWA com backend hospedado (Render) e banco Supabase.
   (lista real de contas, provando que auth + API já estão conectados
   ponta a ponta). Detalhes em `frontend/README.md`.
 - `render.yaml` — blueprint de deploy no Render (backend).
+- `vercel.json` — build do frontend no Vercel a partir da raiz do repo
+  (entra em `frontend/` sozinho — evita depender do campo Root Directory
+  na tela de import do Vercel). Detalhes em `frontend/README.md`.
 
 ## Setup
 

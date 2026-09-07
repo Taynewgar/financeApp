@@ -49,24 +49,33 @@ service worker do PWA já embutidos via `vite-plugin-pwa`).
 
 ## Deploy (Vercel)
 
-`vercel.json` já está na pasta (rewrite pra `index.html` — necessário
-porque as rotas são client-side via `react-router-dom`; sem isso, abrir
-`/dashboard` direto ou dar F5 numa rota interna retorna 404).
+O `vercel.json` fica na **raiz do repositório** (não dentro de `frontend/`)
+de propósito: em vez de exigir que você mude o campo *Root Directory* na
+tela de import do Vercel (esse campo às vezes nem aparece editável até o
+projeto já existir), o `buildCommand` já entra na pasta `frontend` sozinho
+— zero configuração manual de diretório. Ele também cuida do rewrite pra
+`index.html` (necessário porque as rotas são client-side via
+`react-router-dom`; sem isso, abrir `/dashboard` direto ou dar F5 numa
+rota interna retorna 404).
 
 1. Em [vercel.com](https://vercel.com), *Add New → Project*, importe este
-   repositório (GitHub).
-2. Em *Root Directory*, aponte pra `frontend` — é obrigatório, o projeto
-   real fica nessa subpasta, não na raiz do repo. O resto (build command,
-   output directory) o Vercel detecta sozinho por ser um projeto Vite.
-3. Em *Environment Variables*, adicione as 3 mesmas variáveis do
+   repositório (GitHub). Não precisa mexer em Root Directory nem em build
+   command/output — o `vercel.json` da raiz já resolve isso.
+2. Em *Environment Variables*, adicione as 3 mesmas variáveis do
    `.env.local`: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` (mesmas do
    backend), `VITE_API_BASE_URL` (a URL do backend no Render — algo como
    `https://financeapp-api.onrender.com`, sem barra no final).
-4. Deploy. O Vercel dá uma URL (`https://seu-projeto.vercel.app`).
-5. **Passo final, no Render**: defina `FRONTEND_ORIGINS` com essa URL do
+3. Deploy. O Vercel dá uma URL (`https://seu-projeto.vercel.app`).
+4. **Passo final, no Render**: defina `FRONTEND_ORIGINS` com essa URL do
    Vercel (ver `README.md` da raiz, passo 6 do Setup do backend) — sem
    isso o navegador bloqueia por CORS toda chamada do frontend publicado
    pro backend, mesmo com tudo certo.
+
+Se em algum momento preferir usar o campo *Root Directory* do Vercel em
+vez do `vercel.json` da raiz (ex: outro projeto for adicionado depois
+neste mesmo monorepo), é só apontar Root Directory pra `frontend` e
+apagar o `vercel.json` da raiz — o projeto Vite continua funcionando do
+mesmo jeito, é só uma forma alternativa de configurar a mesma coisa.
 
 Depois de configurado, todo `git push` nesta branch redeploya sozinho —
 sem precisar rodar nada manualmente.
