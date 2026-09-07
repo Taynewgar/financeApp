@@ -10,7 +10,13 @@ PWA com backend hospedado (Render) e banco Supabase.
     Supabase configurado.
   - `app/db.py` — dois clientes Supabase: `get_service_client()` (só para
     tarefas administrativas, ignora RLS) e `get_user_client()` (autenticado
-    como o usuário da requisição, respeita RLS).
+    como o usuário da requisição, respeita RLS). Os dois compartilham um
+    único `httpx.Client` (conexão TCP/TLS reaproveitada entre requisições)
+    — criar um novo a cada chamada, como o SDK faz por padrão, paga o
+    handshake inteiro toda vez, o maior fator por trás da lentidão notável
+    em cada troca de tela. O token de autenticação continua isolado por
+    requisição (nunca é escrito no `httpx.Client` compartilhado), então
+    não há risco de misturar sessão entre usuários concorrentes.
   - `app/auth.py` — valida o token `Authorization: Bearer <token>` de cada
     requisição. Local, via a chave pública do projeto (JWKS, buscada a
     partir da `SUPABASE_URL` e cacheada — sem segredo pra configurar);
