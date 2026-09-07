@@ -79,9 +79,12 @@ def test_resumo_contra_banco_real(real_client, headers_a, cleanup):
     ).json()
     cleanup.append(("transacoes", despesa["id"]))
 
+    # filtra por conta_id, não só por período — sem isso o teste conta
+    # também outras transações reais do mesmo usuário no mesmo mês (ex: uso
+    # manual do app durante testes), quebrando a igualdade exata
     resumo = real_client.get(
         "/transacoes/resumo",
-        params={"data_inicio": "2026-09-01", "data_fim": "2026-09-30"},
+        params={"conta_id": conta["id"], "data_inicio": "2026-09-01", "data_fim": "2026-09-30"},
         headers=headers_a,
     ).json()
     assert resumo["total_lancamentos"] == 2

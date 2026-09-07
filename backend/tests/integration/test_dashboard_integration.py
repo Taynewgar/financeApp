@@ -1,4 +1,11 @@
 def test_resumo_mensal_contra_banco_real(real_client, headers_a, cleanup):
+    # /dashboard/mensal agrega o mês inteiro do usuário sem filtro por
+    # conta (é o resumo financeiro completo, por design) — por isso mede a
+    # DIFERENÇA antes/depois de criar as transações do teste, em vez de
+    # assumir que não há mais nada lançado nesse mês (o usuário pode ter
+    # uso manual real do app misturado no mesmo período).
+    antes = real_client.get("/dashboard/mensal/2026-09-01", headers=headers_a).json()
+
     conta = real_client.post(
         "/contas", json={"nome": "Conta Dashboard Integração", "tipo_conta": "corrente"}, headers=headers_a
     ).json()
@@ -30,9 +37,9 @@ def test_resumo_mensal_contra_banco_real(real_client, headers_a, cleanup):
 
     resposta = real_client.get("/dashboard/mensal/2026-09-01", headers=headers_a)
     assert resposta.status_code == 200
-    corpo = resposta.json()
-    assert corpo["receitas"] == 4000
-    assert corpo["resultado_saude"] == 2500
+    depois = resposta.json()
+    assert depois["receitas"] - antes["receitas"] == 4000
+    assert depois["resultado_saude"] - antes["resultado_saude"] == 2500
 
 
 def test_rls_nao_mistura_dados_de_outro_usuario(real_client, headers_a, headers_b, cleanup):
