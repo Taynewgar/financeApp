@@ -14,8 +14,6 @@ services:
         sync: false
       - key: DATABASE_URL
         sync: false
-      - key: SUPABASE_JWT_SECRET
-        sync: false
       - key: FRONTEND_ORIGINS
         sync: false
     healthCheckPath: /health

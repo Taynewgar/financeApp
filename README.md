@@ -12,10 +12,15 @@ PWA com backend hospedado (Render) e banco Supabase.
     tarefas administrativas, ignora RLS) e `get_user_client()` (autenticado
     como o usuário da requisição, respeita RLS).
   - `app/auth.py` — valida o token `Authorization: Bearer <token>` de cada
-    requisição.
+    requisição. Local, via a chave pública do projeto (JWKS, buscada a
+    partir da `SUPABASE_URL` e cacheada — sem segredo pra configurar);
+    se o projeto ainda usa assinatura simétrica (HS256) legada, sem chave
+    pública pra publicar, cai automaticamente pra validar direto contra o
+    endpoint do Supabase (mais lento — uma chamada de rede a mais por
+    request — mas funciona sem exigir nada a mais do usuário).
   - `app/routers/` — CRUD de contas, categorias (cada uma com um `tipo`:
-    `receita`/`despesa`/`investimento` — receita e investimento têm 1
-    categoria "pai" fixa por usuário, despesa é onde mora a variedade),
+    `receita`/`despesa`/`investimento` — receita e investimento podem ter
+    mais de uma categoria cada, despesa é onde mora a maior variedade),
     subcategorias, caixinhas, transações (com parcelamento e fatura por
     ciclo de fechamento) e
     orçamento (versionado por mês de vigência, com itens por bucket:
@@ -103,20 +108,21 @@ PWA com backend hospedado (Render) e banco Supabase.
 
 1. Crie um projeto em [supabase.com](https://supabase.com) (sua própria conta).
 2. Em *SQL Editor*, rode o conteúdo de `db/schema.sql`.
-3. Em *Project Settings → API*: copie a **Project URL**, a **anon key**, a
-   **service_role key** e o **JWT Secret**. Em *Project Settings →
-   Database → Connection string*: copie a URI (pooler).
-4. Copie `backend/.env.example` para `backend/.env` e preencha os cinco
+3. Em *Project Settings → API*: copie a **Project URL**, a **anon key** (ou
+   **publishable key**, no formato novo) e a **service_role key** (ou
+   **secret key**). Em *Project Settings → Database → Connection string*:
+   copie a URI (pooler).
+4. Copie `backend/.env.example` para `backend/.env` e preencha os quatro
    valores localmente (esse arquivo nunca é commitado).
 5. No serviço do Render (criado via blueprint), confirme em *Environment*
-   que as 5 variáveis estão preenchidas: `SUPABASE_URL`,
-   `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `DATABASE_URL`,
-   `SUPABASE_JWT_SECRET` — cole os valores direto no painel do Render,
-   nunca em texto de chat ou commit. `SUPABASE_JWT_SECRET` é o que faz a
-   validação de token virar local em vez de uma chamada extra ao Supabase
-   a cada requisição — sem ele o backend ainda funciona, só que mais
-   devagar (uma chamada de rede a mais por request, notável na troca de
-   tela do frontend).
+   que as 4 variáveis estão preenchidas: `SUPABASE_URL`,
+   `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `DATABASE_URL` — cole
+   os valores direto no painel do Render, nunca em texto de chat ou commit.
+   (Não precisa de nenhum segredo de JWT: a validação de token usa a
+   chave pública do projeto via JWKS, buscada automaticamente a partir da
+   `SUPABASE_URL` — funciona tanto com o par anon/service_role legado
+   quanto com o publishable/secret novo, e não depende do JWT Secret que
+   o Supabase está descontinuando.)
 6. Ainda no Render, defina `FRONTEND_ORIGINS` com a URL do frontend
    publicado (ex: `https://seu-app.vercel.app`) — sem isso, o navegador
    bloqueia por CORS toda chamada do frontend em produção pro backend,

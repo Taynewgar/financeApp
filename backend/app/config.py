@@ -13,12 +13,6 @@ class Settings(BaseSettings):
     supabase_url: str | None = None
     supabase_anon_key: str | None = None
     supabase_service_role_key: str | None = None
-    # Settings > API > JWT Secret no painel do Supabase. Com isso setado,
-    # cada request valida o token localmente (assinatura HS256) em vez de
-    # fazer uma chamada de rede extra pro Supabase a cada chamada à API —
-    # sem ele, get_current_user_id cai de volta pro validador remoto (mais
-    # lento, mas funciona sem configurar nada a mais).
-    supabase_jwt_secret: str | None = None
     database_url: str | None = None
     # origens do frontend com permissão de CORS, separadas por vírgula —
     # já vem com as portas padrão do Vite pra funcionar em dev local sem
