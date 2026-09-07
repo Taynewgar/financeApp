@@ -4,11 +4,13 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 TipoMovimento = Literal["receita", "despesa", "aplicacao", "retirada", "estorno", "ressarcimento"]
-EstruturaCusto = Literal["fixo", "variavel", "sazonal"]
+EstruturaCusto = Literal["fixo", "variavel", "sazonal", "investimentos"]
 # etiqueta descritiva de como a transação saiu da conta — sem saldo próprio
 # nem transferência entre contas, só metadado pra filtro/análise (ex:
 # distinguir Pix de boleto dentro da mesma conta corrente)
-MeioPagamento = Literal["pix", "cartao_debito", "boleto", "debito_automatico", "dinheiro", "transferencia", "outro"]
+MeioPagamento = Literal[
+    "pix", "cartao_debito", "cartao_credito", "boleto", "debito_automatico", "dinheiro", "transferencia", "outro"
+]
 
 
 class TransacaoCreate(BaseModel):

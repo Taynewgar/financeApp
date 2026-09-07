@@ -47,3 +47,17 @@ def test_estrutura_custo_invalida_retorna_422(client):
         json={"categoria_id": categoria["id"], "nome": "Viagens", "estrutura_custo_padrao": "eventual"},
     )
     assert resposta.status_code == 422
+
+
+def test_estrutura_custo_padrao_aceita_investimentos(client):
+    investimentos = client.post("/categorias", json={"nome": "Investimentos", "tipo": "investimento"}).json()
+    resposta = client.post(
+        "/subcategorias",
+        json={
+            "categoria_id": investimentos["id"],
+            "nome": "Reserva de Emergência",
+            "estrutura_custo_padrao": "investimentos",
+        },
+    )
+    assert resposta.status_code == 201
+    assert resposta.json()["estrutura_custo_padrao"] == "investimentos"

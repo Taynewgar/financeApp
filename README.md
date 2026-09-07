@@ -13,8 +13,11 @@ PWA com backend hospedado (Render) e banco Supabase.
     como o usuário da requisição, respeita RLS).
   - `app/auth.py` — valida o token `Authorization: Bearer <token>` de cada
     requisição.
-  - `app/routers/` — CRUD de contas, categorias, subcategorias, caixinhas,
-    transações (com parcelamento e fatura por ciclo de fechamento) e
+  - `app/routers/` — CRUD de contas, categorias (cada uma com um `tipo`:
+    `receita`/`despesa`/`investimento` — receita e investimento têm 1
+    categoria "pai" fixa por usuário, despesa é onde mora a variedade),
+    subcategorias, caixinhas, transações (com parcelamento e fatura por
+    ciclo de fechamento) e
     orçamento (versionado por mês de vigência, com itens por bucket:
     custos fixos/variáveis, sazonalidades, investimentos — modelo de
     envelope acumulativo via `POST /orcamentos/{id}/proximo-mes`, que
@@ -24,18 +27,26 @@ PWA com backend hospedado (Render) e banco Supabase.
     período, texto na descrição) — é a Busca de Lançamentos do app
     original; `GET /transacoes/resumo` calcula os mesmos cartões de resumo
     (as duas leituras financeiras) sobre o conjunto filtrado. `meio_pagamento`
-    é só uma etiqueta (pix/cartao_debito/boleto/debito_automatico/dinheiro/
-    transferencia/outro) — não tem saldo próprio nem gera transferência
-    entre contas, é `conta` que continua sendo o ledger de verdade.
-    Parcelamento (`POST /transacoes/parceladas`) não é exclusivo de cartão
-    de crédito (ex: Pix parcelado numa conta corrente) — só "mover fatura"
-    (`PATCH /transacoes/{id}/fatura`) exige conta do tipo `cartao_credito`,
-    retornando 422 caso contrário.
+    é só uma etiqueta (pix/cartao_debito/cartao_credito/boleto/
+    debito_automatico/dinheiro/transferencia/outro) — não tem saldo próprio
+    nem gera transferência entre contas, é `conta` que continua sendo o
+    ledger de verdade. Parcelamento (`POST /transacoes/parceladas`) não é
+    exclusivo de cartão de crédito (ex: Pix parcelado numa conta corrente)
+    — só "mover fatura" (`PATCH /transacoes/{id}/fatura`) exige conta do
+    tipo `cartao_credito`, retornando 422 caso contrário. Caixinha é
+    reserva, não despesa nem investimento: só pode ser vinculada a uma
+    transação de `aplicacao`/`retirada`, e uma categoria vinculada precisa
+    ter o `tipo` compatível com o tipo de movimento (receita/despesa/
+    investimento) — qualquer uma dessas combinações erradas retorna 422.
     `GET /estrutura-custo/{vigencia_mes}` compara orçado x realizado do mês
     (por categoria/subcategoria, agrupado nos mesmos buckets do orçamento),
     lendo diretamente das transações — funciona mesmo sem orçamento
     configurado para o mês, e uma despesa sem `estrutura_custo` preenchida
-    aparece no bucket `sem_estrutura` em vez de sumir da soma.
+    aparece no bucket `sem_estrutura` em vez de sumir da soma. Aplicação/
+    retirada vinculada a uma categoria de investimento cai no bucket
+    `investimentos` (com teto/piso); vinculada a uma caixinha cai no bucket
+    `reservas` (só informativo, sem teto nem piso — reserva não é meta de
+    investimento).
 
     **Orçamento: macro em %, micro em R$.** O orçamento define percentuais
     (`percentual_geral` e `limite_*` por bucket) sobre `receita_base` — isso
@@ -127,6 +138,44 @@ alter table transacoes
   add column if not exists meio_pagamento text
     check (meio_pagamento in ('pix', 'cartao_debito', 'boleto', 'debito_automatico', 'dinheiro', 'transferencia', 'outro'));
 ```
+
+### Migração pendente no seu Supabase: `categorias.tipo` + estrutura "investimentos" + "cartão de crédito"
+
+Categoria agora sabe se é receita/despesa/investimento (receita e
+investimento têm 1 categoria "pai" fixa; despesa é onde mora a variedade),
+estrutura de custo ganhou o valor `investimentos` (fixo pra transações de
+investimento) e meio de pagamento ganhou `cartao_credito`. Se o projeto já
+existia antes desta entrega, rode uma vez no *SQL Editor* (os nomes de
+constraint abaixo são os que o Postgres gera por padrão — confira com `\d
+transacoes` / `\d subcategorias` se algum `drop constraint` der erro de
+"does not exist"):
+
+```sql
+alter table categorias
+  add column if not exists tipo text not null default 'despesa'
+    check (tipo in ('receita', 'despesa', 'investimento'));
+
+alter table subcategorias drop constraint if exists subcategorias_estrutura_custo_padrao_check;
+alter table subcategorias
+  add constraint subcategorias_estrutura_custo_padrao_check
+  check (estrutura_custo_padrao in ('fixo', 'variavel', 'sazonal', 'investimentos'));
+
+alter table transacoes drop constraint if exists transacoes_estrutura_custo_check;
+alter table transacoes
+  add constraint transacoes_estrutura_custo_check
+  check (estrutura_custo in ('fixo', 'variavel', 'sazonal', 'investimentos'));
+
+alter table transacoes drop constraint if exists transacoes_meio_pagamento_check;
+alter table transacoes
+  add constraint transacoes_meio_pagamento_check
+  check (meio_pagamento in ('pix', 'cartao_debito', 'cartao_credito', 'boleto', 'debito_automatico', 'dinheiro', 'transferencia', 'outro'));
+```
+
+Depois de rodar isso, todas as categorias existentes ficam com
+`tipo = 'despesa'` — use a nova tela de Categorias (Configurações no
+frontend, ou `PATCH /categorias/{id}`) pra marcar qual categoria é a de
+Receita e qual é a de Investimentos (o Novo Lançamento usa essas duas
+automaticamente).
 
 ## Desenvolvimento local
 

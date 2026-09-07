@@ -12,11 +12,31 @@ def test_mes_sem_orcamento_e_sem_transacoes_retorna_todos_buckets_zerados(client
         "custos_variaveis",
         "sazonalidades",
         "investimentos",
+        "reservas",
         "sem_estrutura",
     }
     assert all(b["orcado"] == 0 and b["realizado"] == 0 and b["itens"] == [] for b in corpo["buckets"])
     assert corpo["pool_despesas"] is None
     assert corpo["piso_investimentos"] is None
+
+
+def test_aplicacao_em_caixinha_vai_para_bucket_reservas_nao_investimentos(client):
+    conta = client.post("/contas", json={"nome": "Conta", "tipo_conta": "corrente"}).json()
+    caixinha = client.post("/caixinhas", json={"nome": "Reserva de Emergência"}).json()
+    client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-09-05",
+            "valor": 500,
+            "tipo_movimento": "aplicacao",
+            "conta_id": conta["id"],
+            "caixinha_id": caixinha["id"],
+        },
+    )
+
+    resposta = client.get("/estrutura-custo/2026-09-01")
+    assert _bucket(resposta, "reservas")["realizado"] == 500
+    assert _bucket(resposta, "investimentos")["realizado"] == 0
 
 
 def test_despesa_com_estrutura_fixo_aparece_em_custos_fixos(client):

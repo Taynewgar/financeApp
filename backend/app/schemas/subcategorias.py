@@ -2,7 +2,7 @@ from typing import Literal
 
 from pydantic import BaseModel
 
-EstruturaCusto = Literal["fixo", "variavel", "sazonal"]
+EstruturaCusto = Literal["fixo", "variavel", "sazonal", "investimentos"]
 
 
 class SubcategoriaCreate(BaseModel):

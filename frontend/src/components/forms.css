@@ -95,6 +95,46 @@
   align-items: center;
 }
 
+.busca-resultados {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+  max-height: 220px;
+  overflow-y: auto;
+  border: 1px solid var(--cor-borda);
+  border-radius: 8px;
+}
+
+.busca-resultados li + li {
+  border-top: 1px solid var(--cor-borda);
+}
+
+.busca-resultados button {
+  width: 100%;
+  text-align: left;
+  padding: 8px 12px;
+  border: none;
+  background: none;
+  color: var(--cor-texto);
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.busca-resultados button:hover {
+  background: var(--cor-fundo);
+}
+
+.despesa-selecionada {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 12px;
+  border: 1px solid var(--cor-borda);
+  border-radius: 8px;
+  font-size: 14px;
+}
+
 .mensagem-erro {
   color: var(--cor-perigo);
   font-size: 14px;

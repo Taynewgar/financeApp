@@ -37,6 +37,10 @@ create table categorias (
     id uuid primary key default gen_random_uuid(),
     user_id uuid not null references auth.users(id) on delete cascade,
     nome text not null,
+    -- receita/investimento têm 1 categoria "pai" fixa por usuário (a
+    -- escolha do lançamento fica só na subcategoria); despesa é onde mora
+    -- a variedade real de categorias/subcategorias
+    tipo text not null default 'despesa' check (tipo in ('receita', 'despesa', 'investimento')),
     ativo boolean not null default true,
     created_at timestamptz not null default now(),
     unique (user_id, nome)
@@ -49,7 +53,7 @@ create table subcategorias (
     nome text not null,
     -- sugestão pré-preenchida no formulário; null = força escolha explícita
     -- (subcategorias sabidamente mistas, ex: Lazer > Viagens)
-    estrutura_custo_padrao text check (estrutura_custo_padrao in ('fixo', 'variavel', 'sazonal')),
+    estrutura_custo_padrao text check (estrutura_custo_padrao in ('fixo', 'variavel', 'sazonal', 'investimentos')),
     ativo boolean not null default true,
     created_at timestamptz not null default now(),
     unique (categoria_id, nome)
@@ -97,14 +101,14 @@ create table transacoes (
     categoria_id uuid references categorias(id),
     subcategoria_id uuid references subcategorias(id),
     -- editável por transação mesmo quando a subcategoria sugere um valor
-    estrutura_custo text check (estrutura_custo in ('fixo', 'variavel', 'sazonal')),
+    estrutura_custo text check (estrutura_custo in ('fixo', 'variavel', 'sazonal', 'investimentos')),
     caixinha_id uuid references caixinhas(id),
 
     -- etiqueta descritiva de como a transação saiu da conta — não tem
     -- saldo próprio nem vira transferência entre contas, é só metadado
     -- pra filtro/análise (ex: distinguir Pix de boleto numa conta corrente)
     meio_pagamento text check (meio_pagamento in (
-        'pix', 'cartao_debito', 'boleto', 'debito_automatico', 'dinheiro', 'transferencia', 'outro'
+        'pix', 'cartao_debito', 'cartao_credito', 'boleto', 'debito_automatico', 'dinheiro', 'transferencia', 'outro'
     )),
 
     -- fatura de cartão: calculada por padrão (data_compra + dia_fechamento

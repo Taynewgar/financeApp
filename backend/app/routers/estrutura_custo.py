@@ -15,16 +15,18 @@ router = APIRouter(prefix="/estrutura-custo", tags=["estrutura-custo"])
 # investimentos fica de fora — não é teto, é piso (ver VereditoPiso).
 _BUCKETS_POOL = ("custos_fixos", "custos_variaveis", "sazonalidades")
 
-# mesmo vocabulário de bucket usado em orcamentos, +2 casos que só existem
-# aqui: "investimentos" pega aplicacao/retirada (sem estrutura_custo própria)
-# e "sem_estrutura" cobre despesas sem estrutura_custo preenchida — visível
+# mesmo vocabulário de bucket usado em orcamentos, +3 casos que só existem
+# aqui: "investimentos" pega aplicacao/retirada vinculada a categoria de
+# investimento, "reservas" pega aplicacao/retirada vinculada a caixinha
+# (reserva não é investimento — sem teto/piso, só informativo) e
+# "sem_estrutura" cobre despesas sem estrutura_custo preenchida — visível
 # de propósito, em vez de sumir da soma (diagnóstico de qualidade de dados)
 _BUCKET_POR_ESTRUTURA = {
     "fixo": "custos_fixos",
     "variavel": "custos_variaveis",
     "sazonal": "sazonalidades",
 }
-_BUCKETS = ("custos_fixos", "custos_variaveis", "sazonalidades", "investimentos", "sem_estrutura")
+_BUCKETS = ("custos_fixos", "custos_variaveis", "sazonalidades", "investimentos", "reservas", "sem_estrutura")
 
 _SINAL_REALIZADO = {
     "despesa": 1,
@@ -37,7 +39,7 @@ _SINAL_REALIZADO = {
 
 def _bucket_da_transacao(t: dict) -> str:
     if t["tipo_movimento"] in ("aplicacao", "retirada"):
-        return "investimentos"
+        return "reservas" if t.get("caixinha_id") else "investimentos"
     if t.get("estrutura_custo"):
         return _BUCKET_POR_ESTRUTURA[t["estrutura_custo"]]
     return "sem_estrutura"
@@ -94,7 +96,7 @@ def obter(vigencia_mes: date, db: Client = Depends(get_db), user_id: str = Depen
 
     transacoes = (
         db.table("transacoes")
-        .select("valor,tipo_movimento,estrutura_custo,categoria_id,subcategoria_id,conta_id")
+        .select("valor,tipo_movimento,estrutura_custo,categoria_id,subcategoria_id,conta_id,caixinha_id")
         .eq("user_id", user_id)
         .gte("data_compra", mes_inicio.isoformat())
         .lt("data_compra", mes_fim.isoformat())

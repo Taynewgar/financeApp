@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from supabase import Client
 
 from ..auth import get_current_user_id, get_db
-from ..schemas.categorias import Categoria, CategoriaCreate, CategoriaUpdate
+from ..schemas.categorias import Categoria, CategoriaCreate, CategoriaUpdate, TipoCategoria
 from ..services import crud
 
 router = APIRouter(prefix="/categorias", tags=["categorias"])
@@ -10,8 +10,15 @@ TABLE = "categorias"
 
 
 @router.get("", response_model=list[Categoria])
-def listar(db: Client = Depends(get_db), user_id: str = Depends(get_current_user_id)):
-    return crud.list_all(db, TABLE, user_id)
+def listar(
+    db: Client = Depends(get_db),
+    user_id: str = Depends(get_current_user_id),
+    tipo: TipoCategoria | None = None,
+):
+    categorias = crud.list_all(db, TABLE, user_id)
+    if tipo:
+        categorias = [c for c in categorias if c["tipo"] == tipo]
+    return categorias
 
 
 @router.get("/{categoria_id}", response_model=Categoria)

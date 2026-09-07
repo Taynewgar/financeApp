@@ -477,3 +477,106 @@ def test_compra_parcelada_com_conta_de_outro_usuario_retorna_404(client, current
         },
     )
     assert resposta.status_code == 404
+
+
+def test_receita_com_categoria_de_despesa_retorna_422(client):
+    conta = _criar_conta_corrente(client)
+    mercado = client.post("/categorias", json={"nome": "Mercado"}).json()  # tipo despesa (default)
+
+    resposta = client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-09-05",
+            "valor": 100,
+            "tipo_movimento": "receita",
+            "conta_id": conta["id"],
+            "categoria_id": mercado["id"],
+        },
+    )
+    assert resposta.status_code == 422
+
+
+def test_aplicacao_com_categoria_de_investimento_e_aceita(client):
+    conta = _criar_conta_corrente(client)
+    investimentos = client.post("/categorias", json={"nome": "Investimentos", "tipo": "investimento"}).json()
+
+    resposta = client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-09-05",
+            "valor": 500,
+            "tipo_movimento": "aplicacao",
+            "conta_id": conta["id"],
+            "categoria_id": investimentos["id"],
+        },
+    )
+    assert resposta.status_code == 201
+
+
+def test_aplicacao_com_categoria_de_despesa_retorna_422(client):
+    conta = _criar_conta_corrente(client)
+    mercado = client.post("/categorias", json={"nome": "Mercado"}).json()
+
+    resposta = client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-09-05",
+            "valor": 500,
+            "tipo_movimento": "aplicacao",
+            "conta_id": conta["id"],
+            "categoria_id": mercado["id"],
+        },
+    )
+    assert resposta.status_code == 422
+
+
+def test_despesa_com_caixinha_retorna_422(client):
+    conta = _criar_conta_corrente(client)
+    caixinha = client.post("/caixinhas", json={"nome": "Reserva"}).json()
+
+    resposta = client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-09-05",
+            "valor": 50,
+            "tipo_movimento": "despesa",
+            "conta_id": conta["id"],
+            "caixinha_id": caixinha["id"],
+        },
+    )
+    assert resposta.status_code == 422
+
+
+def test_retirada_com_caixinha_e_aceita(client):
+    conta = _criar_conta_corrente(client)
+    caixinha = client.post("/caixinhas", json={"nome": "Reserva"}).json()
+
+    resposta = client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-09-05",
+            "valor": 50,
+            "tipo_movimento": "retirada",
+            "conta_id": conta["id"],
+            "caixinha_id": caixinha["id"],
+        },
+    )
+    assert resposta.status_code == 201
+
+
+def test_compra_parcelada_com_categoria_de_receita_retorna_422(client):
+    cartao = _criar_conta_cartao(client)
+    receita = client.post("/categorias", json={"nome": "Receita", "tipo": "receita"}).json()
+
+    resposta = client.post(
+        "/transacoes/parceladas",
+        json={
+            "descricao": "Notebook",
+            "valor_total": 300,
+            "parcela_total": 3,
+            "data_primeira_parcela": "2026-08-05",
+            "conta_id": cartao["id"],
+            "categoria_id": receita["id"],
+        },
+    )
+    assert resposta.status_code == 422

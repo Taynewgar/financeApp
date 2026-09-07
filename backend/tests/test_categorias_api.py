@@ -6,11 +6,29 @@ def test_criar_categoria_e_listar(client):
     assert resposta.status_code == 201
     categoria = resposta.json()
     assert categoria["nome"] == "Alimentação"
+    assert categoria["tipo"] == "despesa"  # default, quando não informado
     assert categoria["ativo"] is True
 
     listagem = client.get("/categorias")
     assert listagem.status_code == 200
     assert any(c["id"] == categoria["id"] for c in listagem.json())
+
+
+def test_criar_categoria_com_tipo_receita_ou_investimento(client):
+    receita = client.post("/categorias", json={"nome": "Receita", "tipo": "receita"}).json()
+    investimento = client.post("/categorias", json={"nome": "Investimentos", "tipo": "investimento"}).json()
+    assert receita["tipo"] == "receita"
+    assert investimento["tipo"] == "investimento"
+
+
+def test_filtrar_categorias_por_tipo(client):
+    client.post("/categorias", json={"nome": "Mercado"})
+    client.post("/categorias", json={"nome": "Receita", "tipo": "receita"})
+
+    listagem = client.get("/categorias", params={"tipo": "receita"})
+    assert listagem.status_code == 200
+    nomes = {c["nome"] for c in listagem.json()}
+    assert nomes == {"Receita"}
 
 
 def test_criar_categoria_sem_campo_obrigatorio_retorna_422(client):

@@ -14,13 +14,16 @@ export type Conta = {
   ativo: boolean
 }
 
+export type TipoCategoria = 'receita' | 'despesa' | 'investimento'
+
 export type Categoria = {
   id: string
   nome: string
+  tipo: TipoCategoria
   ativo: boolean
 }
 
-export type EstruturaCusto = 'fixo' | 'variavel' | 'sazonal'
+export type EstruturaCusto = 'fixo' | 'variavel' | 'sazonal' | 'investimentos'
 
 export type Subcategoria = {
   id: string
@@ -42,6 +45,7 @@ export type TipoMovimento = 'receita' | 'despesa' | 'aplicacao' | 'retirada' | '
 export type MeioPagamento =
   | 'pix'
   | 'cartao_debito'
+  | 'cartao_credito'
   | 'boleto'
   | 'debito_automatico'
   | 'dinheiro'

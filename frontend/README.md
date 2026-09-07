@@ -16,11 +16,13 @@ PWA em React + Vite + TypeScript, consumindo a API do `backend/`.
   flutuante de "+" pra Novo Lançamento a partir de qualquer tela.
 - `src/lib/types.ts` — tipos TS espelhando os schemas Pydantic do backend
   (mesmos nomes de campo, pra não precisar traduzir mentalmente).
-- `src/routes/` — uma tela por seção. `Dashboard` e `Configuracoes` já
-  fazem chamada real à API (a segunda lista as contas de verdade, prova
-  que autenticação + API estão conectadas ponta a ponta); `NovoLancamento`
-  é o formulário completo de lançamento (ver abaixo); as demais ainda são
-  placeholders.
+- `src/routes/` — uma tela por seção. `Dashboard` faz chamada real à API;
+  `Configuracoes` tem os CRUDs de Contas/Categorias/Caixinhas (ver abaixo);
+  `NovoLancamento` é o formulário completo de lançamento (ver abaixo);
+  Lançamentos, Planejamento e Estruturas de Custo ainda são placeholders.
+- `src/routes/configuracoes/` — uma seção por aba de Configurações
+  (`ContasSection`, `CategoriasSection`, `CaixinhasSection`), cada uma com
+  seu próprio listar/criar/editar/ativar-desativar.
 
 ## Setup
 
@@ -54,25 +56,35 @@ service worker do PWA já embutidos via `vite-plugin-pwa`).
   inferior).
 - Tema claro/escuro automático (`prefers-color-scheme`, sem toggle manual
   ainda).
-- Chamada real e autenticada à API (`Configurações` lista as contas).
+- Chamada real e autenticada à API.
+- **Configurações**: CRUD completo (criar/editar/ativar/desativar) de
+  Contas, Categorias (com subcategorias aninhadas, expansíveis por
+  categoria) e Caixinhas, em abas.
 - **Novo Lançamento** (`/lancamentos/novo`), formulário completo:
-  - Tipo: Receita / Despesa / Aplicação / Retirada / Estorno-Ressarcimento
-    (segmentado, não é um select cru com os 6 valores do banco).
-  - Despesa ganha o sub-toggle À vista / Parcelado — parcelado troca pros
-    campos de `POST /transacoes/parceladas` (valor total, nº de parcelas,
-    data da 1ª); à vista usa `POST /transacoes` normal.
-  - Estorno/Ressarcimento mostra um seletor com as despesas recentes pra
-    vincular (`ajuste_de_transacao_id`), alimentado pelo filtro
-    `GET /transacoes?tipo_movimento=despesa` que a Busca já expõe.
-  - Categoria → Subcategoria (dependente) → ao escolher a subcategoria, a
-    Estrutura de Custo é pré-preenchida com `estrutura_custo_padrao` dela,
-    mas continua editável manualmente.
-  - Conta, Caixinha (só aparece se você tiver alguma) e Meio de Pagamento.
+  - Tipo: Receita / Despesa / Investimento / Reserva / Estorno-Ressarcimento
+    (segmentado, não é um select cru com os 6 valores do banco). Cada tipo
+    só mostra os campos que fazem sentido pra ele:
+    - **Despesa**: categoria/subcategoria (só categorias tipo despesa),
+      estrutura de custo, meio de pagamento, sub-toggle À vista/Parcelado
+      (parcelado usa `POST /transacoes/parceladas`).
+    - **Receita**: categoria é fixa (a única categoria tipo `receita` do
+      usuário) — só escolhe a subcategoria. Sem estrutura de custo, sem
+      meio de pagamento, sem caixinha.
+    - **Investimento**: categoria fixa (tipo `investimento`) e estrutura
+      de custo fixa (`investimentos`) — só escolhe subcategoria e a
+      direção (Aplicação/Retirada). Sem meio de pagamento, sem caixinha.
+    - **Reserva**: escolhe a caixinha (obrigatório) e a direção
+      (Aplicação/Retirada). Sem categoria, sem estrutura de custo, sem
+      meio de pagamento — caixinha é reserva, não despesa nem investimento.
+    - **Estorno/Ressarcimento**: busca a despesa original por descrição
+      (`GET /transacoes?tipo_movimento=despesa&descricao=...`, com debounce
+      — não carrega o histórico inteiro de despesas na abertura do
+      formulário) e pré-preenche conta/categoria/subcategoria/estrutura a
+      partir dela.
   - Ao salvar, tela de confirmação com atalho pra lançar outro ou voltar
     ao Dashboard.
 
 ## O que falta (próximas entregas)
 
 Lançamentos (lista/busca), Planejamento (orçamento) e Estruturas de Custo
-ainda são placeholders. Configurações só lista contas — falta criar/editar
-contas/categorias/subcategorias/caixinhas.
+ainda são placeholders.

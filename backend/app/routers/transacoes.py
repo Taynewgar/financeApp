@@ -86,6 +86,45 @@ def _check_refs(
         raise HTTPException(status_code=404, detail="Transação de ajuste referenciada não encontrada")
 
 
+# receita usa a categoria "pai" tipo receita, despesa/estorno/ressarcimento
+# usam categoria tipo despesa, aplicação/retirada (investimento) usam
+# categoria tipo investimento — ver TipoCategoria em schemas/categorias.py
+_TIPO_CATEGORIA_ESPERADO = {
+    "receita": "receita",
+    "despesa": "despesa",
+    "estorno": "despesa",
+    "ressarcimento": "despesa",
+    "aplicacao": "investimento",
+    "retirada": "investimento",
+}
+
+
+def _check_regras_tipo_movimento(
+    db: Client,
+    user_id: str,
+    tipo_movimento: str,
+    categoria_id: str | None,
+    caixinha_id: str | None,
+) -> None:
+    """Caixinha é reserva, não investimento nem despesa — só faz sentido em
+    aplicação/retirada. Categoria (quando informada) precisa ser do tipo
+    compatível com o tipo de movimento (ver _TIPO_CATEGORIA_ESPERADO)."""
+    if categoria_id:
+        categoria = db.table("categorias").select("tipo").eq("id", categoria_id).eq("user_id", user_id).execute()
+        if categoria.data:
+            esperado = _TIPO_CATEGORIA_ESPERADO[tipo_movimento]
+            if categoria.data[0]["tipo"] != esperado:
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"Categoria precisa ser do tipo '{esperado}' para esse tipo de lançamento",
+                )
+    if caixinha_id and tipo_movimento not in ("aplicacao", "retirada"):
+        raise HTTPException(
+            status_code=422,
+            detail="Caixinha (reserva) só pode ser usada em lançamentos de aplicação/retirada",
+        )
+
+
 def _fatura_referencia_para(db: Client, user_id: str, conta_id: str, data_compra) -> str | None:
     """Só se aplica a contas do tipo cartão de crédito com dia de
     fechamento configurado; para as demais, fica None (não se aplica)."""
@@ -210,6 +249,7 @@ def criar(payload: TransacaoCreate, db: Client = Depends(get_db), user_id: str =
         payload.caixinha_id,
         payload.ajuste_de_transacao_id,
     )
+    _check_regras_tipo_movimento(db, user_id, payload.tipo_movimento, payload.categoria_id, payload.caixinha_id)
     row = payload.model_dump(mode="json")
     row.update(
         user_id=user_id,
@@ -243,6 +283,7 @@ def criar_parcelada(
     """Materializa uma parcela por ciclo, como já aparece na fatura real do
     cartão — em vez de projetar parcelas futuras só na hora do relatório."""
     _check_refs(db, user_id, payload.conta_id, payload.categoria_id, payload.subcategoria_id)
+    _check_regras_tipo_movimento(db, user_id, "despesa", payload.categoria_id, None)
 
     grupo = (
         db.table("compras_parceladas")

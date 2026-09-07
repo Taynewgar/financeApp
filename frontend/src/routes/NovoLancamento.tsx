@@ -2,15 +2,25 @@ import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import '../components/forms.css'
 import { ApiError, apiFetch } from '../lib/api'
-import type { Caixinha, Categoria, Conta, EstruturaCusto, MeioPagamento, Subcategoria, Transacao } from '../lib/types'
+import type {
+  Caixinha,
+  Categoria,
+  Conta,
+  EstruturaCusto,
+  MeioPagamento,
+  Subcategoria,
+  Transacao,
+  TipoMovimento,
+} from '../lib/types'
 
-type TipoSelecionado = 'receita' | 'despesa' | 'aplicacao' | 'retirada' | 'ajuste'
+type TipoSelecionado = 'receita' | 'despesa' | 'investimento' | 'reserva' | 'ajuste'
+type Direcao = 'aplicacao' | 'retirada'
 
 const TIPOS: { valor: TipoSelecionado; rotulo: string }[] = [
   { valor: 'despesa', rotulo: 'Despesa' },
   { valor: 'receita', rotulo: 'Receita' },
-  { valor: 'aplicacao', rotulo: 'Aplicação' },
-  { valor: 'retirada', rotulo: 'Retirada' },
+  { valor: 'investimento', rotulo: 'Investimento' },
+  { valor: 'reserva', rotulo: 'Reserva' },
   { valor: 'ajuste', rotulo: 'Estorno/Ressarcimento' },
 ]
 
@@ -23,6 +33,7 @@ const ESTRUTURAS: { valor: EstruturaCusto; rotulo: string }[] = [
 const MEIOS_PAGAMENTO: { valor: MeioPagamento; rotulo: string }[] = [
   { valor: 'pix', rotulo: 'Pix' },
   { valor: 'cartao_debito', rotulo: 'Cartão de débito' },
+  { valor: 'cartao_credito', rotulo: 'Cartão de crédito' },
   { valor: 'boleto', rotulo: 'Boleto' },
   { valor: 'debito_automatico', rotulo: 'Débito automático' },
   { valor: 'dinheiro', rotulo: 'Dinheiro' },
@@ -39,24 +50,24 @@ export function NovoLancamento() {
   const [categorias, setCategorias] = useState<Categoria[]>([])
   const [subcategorias, setSubcategorias] = useState<Subcategoria[]>([])
   const [caixinhas, setCaixinhas] = useState<Caixinha[]>([])
-  const [despesasRecentes, setDespesasRecentes] = useState<Transacao[]>([])
   const [carregando, setCarregando] = useState(true)
   const [erroCarga, setErroCarga] = useState<string | null>(null)
 
+  // só o essencial pra montar a tela — a busca da despesa original (usada
+  // só no Estorno/Ressarcimento) é feita sob demanda, não aqui, pra não
+  // pesar a abertura do formulário com o histórico inteiro de despesas
   useEffect(() => {
     Promise.all([
       apiFetch<Conta[]>('/contas'),
       apiFetch<Categoria[]>('/categorias'),
       apiFetch<Subcategoria[]>('/subcategorias'),
       apiFetch<Caixinha[]>('/caixinhas'),
-      apiFetch<Transacao[]>('/transacoes?tipo_movimento=despesa'),
     ])
-      .then(([c, cat, sub, cx, desp]) => {
+      .then(([c, cat, sub, cx]) => {
         setContas(c.filter((x) => x.ativo))
         setCategorias(cat.filter((x) => x.ativo))
         setSubcategorias(sub.filter((x) => x.ativo))
         setCaixinhas(cx.filter((x) => x.ativo))
-        setDespesasRecentes(desp.slice(0, 30))
       })
       .catch((e) => setErroCarga(e instanceof ApiError ? e.message : 'Falha ao carregar dados do formulário'))
       .finally(() => setCarregando(false))
@@ -64,7 +75,7 @@ export function NovoLancamento() {
 
   const [tipo, setTipo] = useState<TipoSelecionado>('despesa')
   const [ajusteTipo, setAjusteTipo] = useState<'estorno' | 'ressarcimento'>('estorno')
-  const [ajusteDeTransacaoId, setAjusteDeTransacaoId] = useState('')
+  const [direcao, setDirecao] = useState<Direcao>('aplicacao')
   const [pagamento, setPagamento] = useState<'avista' | 'parcelado'>('avista')
 
   const [dataCompra, setDataCompra] = useState(hoje())
@@ -81,27 +92,93 @@ export function NovoLancamento() {
   const [parcelaTotal, setParcelaTotal] = useState('2')
   const [dataPrimeiraParcela, setDataPrimeiraParcela] = useState(hoje())
 
+  // busca da despesa original do estorno/ressarcimento: sob demanda e
+  // filtrada no backend, em vez de um <select> com todo o histórico
+  const [buscaDespesa, setBuscaDespesa] = useState('')
+  const [buscandoDespesa, setBuscandoDespesa] = useState(false)
+  const [resultadosDespesa, setResultadosDespesa] = useState<Transacao[]>([])
+  const [despesaSelecionada, setDespesaSelecionada] = useState<Transacao | null>(null)
+
   const [enviando, setEnviando] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
   const [sucesso, setSucesso] = useState(false)
+
+  // receita e investimento têm categoria "pai" fixa — o usuário só escolhe
+  // a subcategoria (ver regra em backend/app/schemas/categorias.py)
+  const categoriasDespesa = useMemo(() => categorias.filter((c) => c.tipo === 'despesa'), [categorias])
+  const categoriaReceita = useMemo(() => categorias.find((c) => c.tipo === 'receita'), [categorias])
+  const categoriaInvestimento = useMemo(() => categorias.find((c) => c.tipo === 'investimento'), [categorias])
 
   const subcategoriasDaCategoria = useMemo(
     () => subcategorias.filter((s) => s.categoria_id === categoriaId),
     [subcategorias, categoriaId],
   )
 
+  // ao trocar o tipo, fixa (ou limpa) categoria/estrutura de acordo com a
+  // regra de cada tipo — o usuário nunca escolhe isso manualmente em
+  // receita/investimento
+  useEffect(() => {
+    setSubcategoriaId('')
+    if (tipo === 'receita' && categoriaReceita) {
+      setCategoriaId(categoriaReceita.id)
+      setEstruturaCusto('')
+    } else if (tipo === 'investimento' && categoriaInvestimento) {
+      setCategoriaId(categoriaInvestimento.id)
+      setEstruturaCusto('investimentos')
+    } else {
+      setCategoriaId('')
+      setEstruturaCusto('')
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tipo])
+
+  // debounce simples: espera parar de digitar antes de consultar a API
+  useEffect(() => {
+    if (tipo !== 'ajuste' || despesaSelecionada) return
+    if (!buscaDespesa.trim()) {
+      setResultadosDespesa([])
+      return
+    }
+    setBuscandoDespesa(true)
+    const timer = setTimeout(() => {
+      apiFetch<Transacao[]>(`/transacoes?tipo_movimento=despesa&descricao=${encodeURIComponent(buscaDespesa.trim())}`)
+        .then((res) => setResultadosDespesa(res.slice(0, 20)))
+        .catch(() => setResultadosDespesa([]))
+        .finally(() => setBuscandoDespesa(false))
+    }, 350)
+    return () => clearTimeout(timer)
+  }, [buscaDespesa, tipo, despesaSelecionada])
+
   function selecionarSubcategoria(id: string) {
     setSubcategoriaId(id)
-    const sub = subcategorias.find((s) => s.id === id)
-    if (sub?.estrutura_custo_padrao) {
-      setEstruturaCusto(sub.estrutura_custo_padrao)
+    // a sugestão de estrutura de custo da subcategoria só se aplica quando
+    // a estrutura é livre (despesa/ajuste) — investimento já é fixa
+    if (tipo === 'despesa' || tipo === 'ajuste') {
+      const sub = subcategorias.find((s) => s.id === id)
+      if (sub?.estrutura_custo_padrao) {
+        setEstruturaCusto(sub.estrutura_custo_padrao)
+      }
     }
+  }
+
+  function selecionarDespesaOriginal(d: Transacao) {
+    setDespesaSelecionada(d)
+    setContaId(d.conta_id)
+    setCategoriaId(d.categoria_id ?? '')
+    setSubcategoriaId(d.subcategoria_id ?? '')
+    setEstruturaCusto(d.estrutura_custo ?? '')
+  }
+
+  function trocarDespesaOriginal() {
+    setDespesaSelecionada(null)
+    setBuscaDespesa('')
+    setResultadosDespesa([])
   }
 
   function resetarFormulario() {
     setTipo('despesa')
     setAjusteTipo('estorno')
-    setAjusteDeTransacaoId('')
+    setDirecao('aplicacao')
     setPagamento('avista')
     setDataCompra(hoje())
     setValor('')
@@ -115,6 +192,7 @@ export function NovoLancamento() {
     setValorTotal('')
     setParcelaTotal('2')
     setDataPrimeiraParcela(hoje())
+    trocarDespesaOriginal()
     setSucesso(false)
   }
 
@@ -126,8 +204,20 @@ export function NovoLancamento() {
       setErro('Escolha uma conta.')
       return
     }
-    if (tipo === 'ajuste' && !ajusteDeTransacaoId) {
+    if (tipo === 'ajuste' && !despesaSelecionada) {
       setErro('Escolha a despesa original que está sendo estornada/ressarcida.')
+      return
+    }
+    if (tipo === 'reserva' && !caixinhaId) {
+      setErro('Escolha uma caixinha.')
+      return
+    }
+    if (tipo === 'receita' && !categoriaReceita) {
+      setErro('Crie uma categoria do tipo Receita em Configurações antes de lançar receitas.')
+      return
+    }
+    if (tipo === 'investimento' && !categoriaInvestimento) {
+      setErro('Crie uma categoria do tipo Investimento em Configurações antes de lançar investimentos.')
       return
     }
 
@@ -152,7 +242,9 @@ export function NovoLancamento() {
           }),
         })
       } else {
-        const tipoMovimento = tipo === 'ajuste' ? ajusteTipo : tipo
+        const tipoMovimento: TipoMovimento =
+          tipo === 'ajuste' ? ajusteTipo : tipo === 'investimento' || tipo === 'reserva' ? direcao : tipo
+
         await apiFetch('/transacoes', {
           method: 'POST',
           body: JSON.stringify({
@@ -164,9 +256,9 @@ export function NovoLancamento() {
             categoria_id: categoriaId || null,
             subcategoria_id: subcategoriaId || null,
             estrutura_custo: estruturaCusto || null,
-            caixinha_id: caixinhaId || null,
-            meio_pagamento: meioPagamento || null,
-            ajuste_de_transacao_id: tipo === 'ajuste' ? ajusteDeTransacaoId : null,
+            caixinha_id: tipo === 'reserva' ? caixinhaId : null,
+            meio_pagamento: tipo === 'despesa' || tipo === 'ajuste' ? meioPagamento || null : null,
+            ajuste_de_transacao_id: tipo === 'ajuste' ? despesaSelecionada!.id : null,
           }),
         })
       }
@@ -241,38 +333,77 @@ export function NovoLancamento() {
         </div>
 
         {tipo === 'ajuste' && (
-          <>
-            <div className="campo">
-              <span>É um</span>
-              <div className="segmentado">
-                <button
-                  type="button"
-                  className={ajusteTipo === 'estorno' ? 'ativo' : ''}
-                  onClick={() => setAjusteTipo('estorno')}
-                >
-                  Estorno
-                </button>
-                <button
-                  type="button"
-                  className={ajusteTipo === 'ressarcimento' ? 'ativo' : ''}
-                  onClick={() => setAjusteTipo('ressarcimento')}
-                >
-                  Ressarcimento
+          <div className="campo">
+            <span>É um</span>
+            <div className="segmentado">
+              <button
+                type="button"
+                className={ajusteTipo === 'estorno' ? 'ativo' : ''}
+                onClick={() => setAjusteTipo('estorno')}
+              >
+                Estorno
+              </button>
+              <button
+                type="button"
+                className={ajusteTipo === 'ressarcimento' ? 'ativo' : ''}
+                onClick={() => setAjusteTipo('ressarcimento')}
+              >
+                Ressarcimento
+              </button>
+            </div>
+          </div>
+        )}
+
+        {(tipo === 'investimento' || tipo === 'reserva') && (
+          <div className="campo">
+            <span>Direção</span>
+            <div className="segmentado">
+              <button type="button" className={direcao === 'aplicacao' ? 'ativo' : ''} onClick={() => setDirecao('aplicacao')}>
+                Aplicação
+              </button>
+              <button type="button" className={direcao === 'retirada' ? 'ativo' : ''} onClick={() => setDirecao('retirada')}>
+                Retirada
+              </button>
+            </div>
+          </div>
+        )}
+
+        {tipo === 'ajuste' && (
+          <div className="campo">
+            <span>Despesa original</span>
+            {despesaSelecionada ? (
+              <div className="despesa-selecionada">
+                <span>
+                  {despesaSelecionada.data_compra} — {despesaSelecionada.descricao ?? '(sem descrição)'} — R${' '}
+                  {despesaSelecionada.valor.toFixed(2)}
+                </span>
+                <button type="button" className="botao-secundario" onClick={trocarDespesaOriginal}>
+                  Trocar
                 </button>
               </div>
-            </div>
-            <label className="campo">
-              Despesa original
-              <select value={ajusteDeTransacaoId} onChange={(e) => setAjusteDeTransacaoId(e.target.value)} required>
-                <option value="">Selecione…</option>
-                {despesasRecentes.map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.data_compra} — {d.descricao ?? '(sem descrição)'} — R$ {d.valor.toFixed(2)}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </>
+            ) : (
+              <>
+                <input
+                  type="text"
+                  placeholder="Buscar pela descrição da despesa…"
+                  value={buscaDespesa}
+                  onChange={(e) => setBuscaDespesa(e.target.value)}
+                />
+                {buscandoDespesa && <p>Buscando…</p>}
+                {resultadosDespesa.length > 0 && (
+                  <ul className="busca-resultados">
+                    {resultadosDespesa.map((d) => (
+                      <li key={d.id}>
+                        <button type="button" onClick={() => selecionarDespesaOriginal(d)}>
+                          {d.data_compra} — {d.descricao ?? '(sem descrição)'} — R$ {d.valor.toFixed(2)}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </>
+            )}
+          </div>
         )}
 
         {tipo === 'despesa' && (
@@ -373,78 +504,125 @@ export function NovoLancamento() {
           </select>
         </label>
 
-        <div className="campo-linha">
-          <label className="campo">
-            Categoria
-            <select
-              value={categoriaId}
-              onChange={(e) => {
-                setCategoriaId(e.target.value)
-                setSubcategoriaId('')
-              }}
-            >
-              <option value="">Nenhuma</option>
-              {categorias.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.nome}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="campo">
-            Subcategoria
-            <select
-              value={subcategoriaId}
-              onChange={(e) => selecionarSubcategoria(e.target.value)}
-              disabled={!categoriaId}
-            >
-              <option value="">Nenhuma</option>
-              {subcategoriasDaCategoria.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.nome}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
+        {tipo === 'reserva' &&
+          (caixinhas.length === 0 ? (
+            <p className="mensagem-erro">
+              Você ainda não tem nenhuma caixinha cadastrada. Crie uma em Configurações.
+            </p>
+          ) : (
+            <label className="campo">
+              Caixinha
+              <select value={caixinhaId} onChange={(e) => setCaixinhaId(e.target.value)} required>
+                <option value="">Selecione…</option>
+                {caixinhas.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.nome}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ))}
 
-        <div className="campo-linha">
-          <label className="campo">
-            Estrutura de custo
-            <select value={estruturaCusto} onChange={(e) => setEstruturaCusto(e.target.value as EstruturaCusto | '')}>
-              <option value="">Nenhuma</option>
-              {ESTRUTURAS.map((e) => (
-                <option key={e.valor} value={e.valor}>
-                  {e.rotulo}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="campo">
-            Meio de pagamento
-            <select value={meioPagamento} onChange={(e) => setMeioPagamento(e.target.value as MeioPagamento | '')}>
-              <option value="">Nenhum</option>
-              {MEIOS_PAGAMENTO.map((m) => (
-                <option key={m.valor} value={m.valor}>
-                  {m.rotulo}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
+        {(tipo === 'despesa' || tipo === 'ajuste') && (
+          <div className="campo-linha">
+            <label className="campo">
+              Categoria
+              <select
+                value={categoriaId}
+                onChange={(e) => {
+                  setCategoriaId(e.target.value)
+                  setSubcategoriaId('')
+                }}
+              >
+                <option value="">Nenhuma</option>
+                {categoriasDespesa.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.nome}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="campo">
+              Subcategoria
+              <select
+                value={subcategoriaId}
+                onChange={(e) => selecionarSubcategoria(e.target.value)}
+                disabled={!categoriaId}
+              >
+                <option value="">Nenhuma</option>
+                {subcategoriasDaCategoria.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.nome}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+        )}
 
-        {caixinhas.length > 0 && (
-          <label className="campo">
-            Caixinha
-            <select value={caixinhaId} onChange={(e) => setCaixinhaId(e.target.value)}>
-              <option value="">Nenhuma</option>
-              {caixinhas.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.nome}
-                </option>
-              ))}
-            </select>
-          </label>
+        {tipo === 'receita' &&
+          (categoriaReceita ? (
+            <label className="campo">
+              Subcategoria
+              <select value={subcategoriaId} onChange={(e) => selecionarSubcategoria(e.target.value)}>
+                <option value="">Nenhuma</option>
+                {subcategoriasDaCategoria.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.nome}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : (
+            <p className="mensagem-erro">
+              Crie uma categoria do tipo Receita em Configurações antes de lançar receitas.
+            </p>
+          ))}
+
+        {tipo === 'investimento' &&
+          (categoriaInvestimento ? (
+            <label className="campo">
+              Subcategoria
+              <select value={subcategoriaId} onChange={(e) => selecionarSubcategoria(e.target.value)}>
+                <option value="">Nenhuma</option>
+                {subcategoriasDaCategoria.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.nome}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : (
+            <p className="mensagem-erro">
+              Crie uma categoria do tipo Investimento em Configurações antes de lançar investimentos.
+            </p>
+          ))}
+
+        {(tipo === 'despesa' || tipo === 'ajuste') && (
+          <div className="campo-linha">
+            <label className="campo">
+              Estrutura de custo
+              <select value={estruturaCusto} onChange={(e) => setEstruturaCusto(e.target.value as EstruturaCusto | '')}>
+                <option value="">Nenhuma</option>
+                {ESTRUTURAS.map((e) => (
+                  <option key={e.valor} value={e.valor}>
+                    {e.rotulo}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="campo">
+              Meio de pagamento
+              <select value={meioPagamento} onChange={(e) => setMeioPagamento(e.target.value as MeioPagamento | '')}>
+                <option value="">Nenhum</option>
+                {MEIOS_PAGAMENTO.map((m) => (
+                  <option key={m.valor} value={m.valor}>
+                    {m.rotulo}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
         )}
 
         {erro && (
