@@ -36,6 +36,26 @@ PWA com backend hospedado (Render) e banco Supabase.
     lendo diretamente das transações — funciona mesmo sem orçamento
     configurado para o mês, e uma despesa sem `estrutura_custo` preenchida
     aparece no bucket `sem_estrutura` em vez de sumir da soma.
+
+    **Orçamento: macro em %, micro em R$.** O orçamento define percentuais
+    (`percentual_geral` e `limite_*` por bucket) sobre `receita_base` — isso
+    gera um teto em R$ por bucket (`receita_base × percentual_geral% ×
+    limite_bucket%`). Dentro de cada bucket, os itens são cadastrados em R$
+    (`orcamento_mensal`), e a API calcula e devolve as duas leituras de
+    percentual de cada item (`percentual_da_renda` = sobre a renda total;
+    `percentual_do_teto` = sobre o teto do próprio bucket) — nenhuma delas é
+    aceita como entrada, são sempre calculadas. Criar/editar/reativar um
+    item que faria a soma do bucket ultrapassar o teto retorna `422` (você
+    digita livre, mas não salva estourado).
+
+    **Pool de despesas e piso de investimentos** (`GET
+    /estrutura-custo/{vigencia_mes}`, campos `pool_despesas` e
+    `piso_investimentos`): `custos_fixos` + `custos_variaveis` +
+    `sazonalidades` são tratados como um teto agregado único — estourar um
+    deles não compromete o mês se sobrar nos outros dois, e só o total dos
+    três é comparado contra a soma dos três tetos (mais o `saldo_anterior`
+    acumulado dos itens desses buckets). `investimentos` é o oposto: não é
+    teto, é piso — a meta é bater pelo menos aquele valor.
     `GET /dashboard/mensal/{vigencia_mes}` e `GET /dashboard/evolucao` dão
     as duas leituras financeiras herdadas do app original — fluxo de caixa
     (bruto) e saúde financeira (líquida de estornos/ressarcimentos

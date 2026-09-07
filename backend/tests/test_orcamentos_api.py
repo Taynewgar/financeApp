@@ -2,7 +2,11 @@ from .conftest import OUTRO_USUARIO
 
 
 def _criar_orcamento(client, vigencia_mes="2026-09-01", **extra):
-    return client.post("/orcamentos", json={"vigencia_mes": vigencia_mes, **extra}).json()
+    # receita_base/percentual_geral folgados por padrão — dão teto grande o
+    # bastante pra qualquer valor de item usado nos testes que não estão
+    # testando a validação de teto em si (esses passam valores explícitos)
+    payload = {"vigencia_mes": vigencia_mes, "receita_base": 100000, "percentual_geral": 100, **extra}
+    return client.post("/orcamentos", json=payload).json()
 
 
 def test_criar_orcamento_e_listar(client):
@@ -318,3 +322,110 @@ def test_proximo_mes_de_orcamento_de_outro_usuario_retorna_404(client, current_u
     current_user["id"] = OUTRO_USUARIO
     resposta = client.post(f"/orcamentos/{orcamento['id']}/proximo-mes")
     assert resposta.status_code == 404
+
+
+# ── teto por bucket (regra 1: renda × percentual_geral × limite_bucket) ────
+# mesmo exemplo usado na conversa: renda 15000, percentual_geral 90%,
+# limite_custos_fixos 40% (default) → teto de custos_fixos = 5400
+
+
+def _criar_orcamento_do_exemplo(client, vigencia_mes="2026-09-01"):
+    return _criar_orcamento(client, vigencia_mes=vigencia_mes, receita_base=15000, percentual_geral=90)
+
+
+def test_item_expoe_as_duas_leituras_de_percentual(client):
+    orcamento = _criar_orcamento_do_exemplo(client)
+    categoria = client.post("/categorias", json={"nome": "Aluguel"}).json()
+
+    item = client.post(
+        f"/orcamentos/{orcamento['id']}/itens",
+        json={"bucket": "custos_fixos", "categoria_id": categoria["id"], "orcamento_mensal": 1600},
+    ).json()
+
+    assert item["percentual_da_renda"] == 10.67  # 1600 / 15000 * 100
+    assert item["percentual_do_teto"] == 29.63  # 1600 / 5400 * 100
+
+
+def test_itens_dentro_do_teto_do_bucket_sao_aceitos(client):
+    orcamento = _criar_orcamento_do_exemplo(client)
+
+    aluguel = client.post(
+        f"/orcamentos/{orcamento['id']}/itens",
+        json={"bucket": "custos_fixos", "nome": "Aluguel", "orcamento_mensal": 1600},
+    )
+    condominio = client.post(
+        f"/orcamentos/{orcamento['id']}/itens",
+        json={"bucket": "custos_fixos", "nome": "Condomínio", "orcamento_mensal": 900},
+    )
+    assert aluguel.status_code == 201
+    assert condominio.status_code == 201  # soma 2500, teto do bucket é 5400
+
+
+def test_criar_item_que_estoura_teto_do_bucket_retorna_422(client):
+    orcamento = _criar_orcamento_do_exemplo(client)
+    client.post(
+        f"/orcamentos/{orcamento['id']}/itens",
+        json={"bucket": "custos_fixos", "nome": "Aluguel", "orcamento_mensal": 5000},
+    )
+
+    resposta = client.post(
+        f"/orcamentos/{orcamento['id']}/itens",
+        json={"bucket": "custos_fixos", "nome": "Condomínio", "orcamento_mensal": 500},
+    )
+    assert resposta.status_code == 422  # 5000 + 500 = 5500 > teto de 5400
+
+
+def test_atualizar_item_que_estoura_teto_do_bucket_retorna_422(client):
+    orcamento = _criar_orcamento_do_exemplo(client)
+    client.post(
+        f"/orcamentos/{orcamento['id']}/itens",
+        json={"bucket": "custos_fixos", "nome": "Aluguel", "orcamento_mensal": 3000},
+    )
+    condominio = client.post(
+        f"/orcamentos/{orcamento['id']}/itens",
+        json={"bucket": "custos_fixos", "nome": "Condomínio", "orcamento_mensal": 1000},
+    ).json()
+
+    resposta = client.patch(
+        f"/orcamentos/{orcamento['id']}/itens/{condominio['id']}", json={"orcamento_mensal": 3000}
+    )
+    assert resposta.status_code == 422  # 3000 (aluguel) + 3000 (novo condomínio) = 6000 > 5400
+
+
+def test_atualizar_item_para_o_proprio_valor_atual_nao_estoura(client):
+    """Editar um item sem mudar o quanto ele consome do teto (ex: só o
+    nome) não deve ser bloqueado por reconferir a soma do bucket."""
+    orcamento = _criar_orcamento_do_exemplo(client)
+    item = client.post(
+        f"/orcamentos/{orcamento['id']}/itens",
+        json={"bucket": "custos_fixos", "nome": "Aluguel", "orcamento_mensal": 5400},
+    ).json()
+
+    resposta = client.patch(f"/orcamentos/{orcamento['id']}/itens/{item['id']}", json={"orcamento_mensal": 5400})
+    assert resposta.status_code == 200
+
+
+def test_reativar_item_que_estoura_teto_do_bucket_retorna_422(client):
+    orcamento = _criar_orcamento_do_exemplo(client)
+    antigo = client.post(
+        f"/orcamentos/{orcamento['id']}/itens",
+        json={"bucket": "custos_fixos", "nome": "Antigo", "orcamento_mensal": 5000},
+    ).json()
+    client.patch(f"/orcamentos/{orcamento['id']}/itens/{antigo['id']}/ativo", params={"ativo": False})
+    client.post(
+        f"/orcamentos/{orcamento['id']}/itens",
+        json={"bucket": "custos_fixos", "nome": "Novo", "orcamento_mensal": 5000},
+    )
+
+    resposta = client.patch(f"/orcamentos/{orcamento['id']}/itens/{antigo['id']}/ativo", params={"ativo": True})
+    assert resposta.status_code == 422  # 5000 (novo) + 5000 (reativado) = 10000 > 5400
+
+
+def test_item_com_orcamento_zero_e_receita_base_zero_nao_gera_erro_de_divisao(client):
+    orcamento = _criar_orcamento(client, receita_base=0, percentual_geral=0)
+    item = client.post(
+        f"/orcamentos/{orcamento['id']}/itens", json={"bucket": "custos_fixos", "nome": "Vazio", "orcamento_mensal": 0}
+    )
+    assert item.status_code == 201
+    assert item.json()["percentual_da_renda"] == 0.0
+    assert item.json()["percentual_do_teto"] == 0.0

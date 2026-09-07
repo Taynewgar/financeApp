@@ -15,6 +15,8 @@ def test_mes_sem_orcamento_e_sem_transacoes_retorna_todos_buckets_zerados(client
         "sem_estrutura",
     }
     assert all(b["orcado"] == 0 and b["realizado"] == 0 and b["itens"] == [] for b in corpo["buckets"])
+    assert corpo["pool_despesas"] is None
+    assert corpo["piso_investimentos"] is None
 
 
 def test_despesa_com_estrutura_fixo_aparece_em_custos_fixos(client):
@@ -111,7 +113,9 @@ def test_estorno_reduz_realizado_do_bucket(client):
 
 def test_orcado_aparece_mesmo_sem_realizado(client):
     categoria = client.post("/categorias", json={"nome": "Streaming"}).json()
-    orcamento = client.post("/orcamentos", json={"vigencia_mes": "2026-09-01"}).json()
+    orcamento = client.post(
+        "/orcamentos", json={"vigencia_mes": "2026-09-01", "receita_base": 100000, "percentual_geral": 100}
+    ).json()
     client.post(
         f"/orcamentos/{orcamento['id']}/itens",
         json={"bucket": "custos_variaveis", "categoria_id": categoria["id"], "orcamento_mensal": 60},
@@ -194,3 +198,125 @@ def test_receita_nao_entra_no_calculo_de_nenhum_bucket(client):
 
     resposta = client.get("/estrutura-custo/2026-09-01")
     assert all(b["realizado"] == 0 for b in resposta.json()["buckets"])
+
+
+# ── pool de despesas e piso de investimentos (regra 2) ──────────────────────
+# mesmo exemplo: renda 15000, percentual_geral 90% → teto_fixos=5400,
+# teto_variaveis=3375, teto_sazonalidades=1350 (pool=10125), teto_investimentos=3375
+
+
+def _criar_orcamento_do_exemplo(client, vigencia_mes="2026-09-01"):
+    return client.post(
+        "/orcamentos", json={"vigencia_mes": vigencia_mes, "receita_base": 15000, "percentual_geral": 90}
+    ).json()
+
+
+def _despesa(client, conta_id, valor, estrutura_custo, data="2026-09-05"):
+    return client.post(
+        "/transacoes",
+        json={
+            "data_compra": data,
+            "valor": valor,
+            "tipo_movimento": "despesa",
+            "conta_id": conta_id,
+            "estrutura_custo": estrutura_custo,
+        },
+    )
+
+
+def test_pool_despesas_absorve_estouro_de_um_bucket_quando_outros_tem_folga(client):
+    """O mesmo cenário da conversa: fixos estourou, variáveis e
+    sazonalidades sobraram — o agregado dos 3 continua dentro do teto."""
+    _criar_orcamento_do_exemplo(client)
+    conta = client.post("/contas", json={"nome": "Conta", "tipo_conta": "corrente"}).json()
+
+    _despesa(client, conta["id"], 5800, "fixo")
+    _despesa(client, conta["id"], 2500, "variavel")
+    _despesa(client, conta["id"], 1000, "sazonal")
+
+    resposta = client.get("/estrutura-custo/2026-09-01").json()
+    assert _bucket(client.get("/estrutura-custo/2026-09-01"), "custos_fixos")["realizado"] == 5800  # estourou sozinho
+    assert resposta["pool_despesas"]["teto"] == 10125
+    assert resposta["pool_despesas"]["realizado"] == 9300
+    assert resposta["pool_despesas"]["dentro_do_teto"] is True
+
+
+def test_pool_despesas_estoura_quando_soma_total_passa_do_teto_agregado(client):
+    _criar_orcamento_do_exemplo(client)
+    conta = client.post("/contas", json={"nome": "Conta", "tipo_conta": "corrente"}).json()
+
+    _despesa(client, conta["id"], 6000, "fixo")
+    _despesa(client, conta["id"], 3000, "variavel")
+    _despesa(client, conta["id"], 1500, "sazonal")
+
+    resposta = client.get("/estrutura-custo/2026-09-01").json()
+    assert resposta["pool_despesas"]["realizado"] == 10500
+    assert resposta["pool_despesas"]["dentro_do_teto"] is False
+
+
+def test_pool_despesas_considera_saldo_anterior_do_envelope(client):
+    """A sobra de setembro em custos_fixos amplia o teto agregado de
+    outubro — não só o teto individual do bucket, o pool inteiro."""
+    conta = client.post("/contas", json={"nome": "Conta", "tipo_conta": "corrente"}).json()
+    categoria = client.post("/categorias", json={"nome": "Aluguel"}).json()
+
+    setembro = _criar_orcamento_do_exemplo(client, vigencia_mes="2026-09-01")
+    client.post(
+        f"/orcamentos/{setembro['id']}/itens",
+        json={"bucket": "custos_fixos", "categoria_id": categoria["id"], "orcamento_mensal": 1000},
+    )
+    client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-09-05",
+            "valor": 700,
+            "tipo_movimento": "despesa",
+            "conta_id": conta["id"],
+            "categoria_id": categoria["id"],
+            "estrutura_custo": "fixo",
+        },
+    )
+    client.post(f"/orcamentos/{setembro['id']}/proximo-mes")  # outubro nasce com saldo_anterior=300 no item de fixos
+
+    client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-10-05",
+            "valor": 10200,
+            "tipo_movimento": "despesa",
+            "conta_id": conta["id"],
+            "categoria_id": categoria["id"],
+            "estrutura_custo": "fixo",
+        },
+    )
+
+    resposta = client.get("/estrutura-custo/2026-10-01").json()
+    assert resposta["pool_despesas"]["teto"] == 10425  # 10125 (baseline) + 300 (saldo_anterior carregado)
+    assert resposta["pool_despesas"]["realizado"] == 10200
+    assert resposta["pool_despesas"]["dentro_do_teto"] is True  # sem o saldo_anterior, 10200 > 10125 estouraria
+
+
+def test_piso_investimentos_meta_batida(client):
+    _criar_orcamento_do_exemplo(client)
+    conta = client.post("/contas", json={"nome": "Investimento", "tipo_conta": "investimento"}).json()
+    client.post(
+        "/transacoes",
+        json={"data_compra": "2026-09-05", "valor": 4000, "tipo_movimento": "aplicacao", "conta_id": conta["id"]},
+    )
+
+    resposta = client.get("/estrutura-custo/2026-09-01").json()
+    assert resposta["piso_investimentos"]["teto"] == 3375
+    assert resposta["piso_investimentos"]["realizado"] == 4000
+    assert resposta["piso_investimentos"]["meta_batida"] is True
+
+
+def test_piso_investimentos_meta_nao_batida(client):
+    _criar_orcamento_do_exemplo(client)
+    conta = client.post("/contas", json={"nome": "Investimento", "tipo_conta": "investimento"}).json()
+    client.post(
+        "/transacoes",
+        json={"data_compra": "2026-09-05", "valor": 2000, "tipo_movimento": "aplicacao", "conta_id": conta["id"]},
+    )
+
+    resposta = client.get("/estrutura-custo/2026-09-01").json()
+    assert resposta["piso_investimentos"]["meta_batida"] is False

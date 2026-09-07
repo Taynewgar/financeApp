@@ -38,7 +38,6 @@ class OrcamentoItemCreate(BaseModel):
     # liga um item de investimento/reserva à conta real que guarda o saldo
     conta_vinculada_id: str | None = None
     orcamento_mensal: float = Field(ge=0, default=0)
-    percentual: float = Field(ge=0, le=100, default=0)
 
 
 class OrcamentoItemUpdate(BaseModel):
@@ -48,7 +47,6 @@ class OrcamentoItemUpdate(BaseModel):
     nome: str | None = None
     conta_vinculada_id: str | None = None
     orcamento_mensal: float | None = Field(default=None, ge=0)
-    percentual: float | None = Field(default=None, ge=0, le=100)
 
 
 class OrcamentoItem(OrcamentoItemCreate):
@@ -61,3 +59,8 @@ class OrcamentoItem(OrcamentoItemCreate):
     # calculado (não é coluna): orcamento_mensal + saldo_anterior, ou seja,
     # quanto esse item realmente tem disponível neste mês
     disponivel: float
+    # calculados (nunca gravados) — duas leituras do mesmo valor:
+    # quanto da renda total esse item consome, e quanto do teto do próprio
+    # bucket ele consome
+    percentual_da_renda: float
+    percentual_do_teto: float

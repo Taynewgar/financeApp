@@ -14,6 +14,7 @@ from ..schemas.orcamentos import (
 )
 from ..services import crud
 from ..services.fatura import somar_meses
+from ..services.orcamento_teto import calcular_teto_bucket
 
 router = APIRouter(prefix="/orcamentos", tags=["orcamentos"])
 TABLE = "orcamentos"
@@ -31,8 +32,45 @@ _SINAL_REALIZADO = {
 }
 
 
-def _com_disponivel(item: dict) -> dict:
-    return {**item, "disponivel": round(item["orcamento_mensal"] + item.get("saldo_anterior", 0), 2)}
+def _enriquecer_item(item: dict, orcamento: dict) -> dict:
+    """Acrescenta os campos calculados (nunca gravados) que dependem do
+    orçamento-pai: disponivel (envelope acumulado) e as duas leituras de
+    percentual (sobre a renda total e sobre o teto do próprio bucket)."""
+    disponivel = round(item["orcamento_mensal"] + item.get("saldo_anterior", 0), 2)
+    receita_base = orcamento["receita_base"]
+    teto_bucket = calcular_teto_bucket(orcamento, item["bucket"])
+    return {
+        **item,
+        "disponivel": disponivel,
+        "percentual_da_renda": round(item["orcamento_mensal"] / receita_base * 100, 2) if receita_base else 0.0,
+        "percentual_do_teto": round(item["orcamento_mensal"] / teto_bucket * 100, 2) if teto_bucket else 0.0,
+    }
+
+
+def _validar_teto_bucket(db: Client, orcamento: dict, bucket: str, item_id_excluir: str | None, novo_valor: float) -> None:
+    """Bloqueia a gravação se a soma dos itens ativos do bucket (excluindo o
+    item que está sendo editado, se houver, e somando o novo valor no lugar
+    dele) ultrapassar o teto do bucket. O saldo_anterior de cada item não
+    entra aqui — ele apareceria dos dois lados da conta e se cancelaria."""
+    itens = (
+        db.table(ITENS_TABLE)
+        .select("id,orcamento_mensal")
+        .eq("orcamento_id", orcamento["id"])
+        .eq("bucket", bucket)
+        .eq("ativo", True)
+        .execute()
+        .data
+    )
+    soma = sum(i["orcamento_mensal"] for i in itens if i["id"] != item_id_excluir) + novo_valor
+    teto = calcular_teto_bucket(orcamento, bucket)
+    if soma > teto + 0.005:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                f"Itens de {bucket} somariam R$ {soma:.2f}, acima do teto de "
+                f"R$ {teto:.2f} para este bucket neste orçamento."
+            ),
+        )
 
 
 def _get_orcamento_ou_404(db: Client, user_id: str, orcamento_id: str) -> dict:
@@ -116,9 +154,9 @@ def atualizar(
 
 @router.get("/{orcamento_id}/itens", response_model=list[OrcamentoItem])
 def listar_itens(orcamento_id: str, db: Client = Depends(get_db), user_id: str = Depends(get_current_user_id)):
-    _get_orcamento_ou_404(db, user_id, orcamento_id)
+    orcamento = _get_orcamento_ou_404(db, user_id, orcamento_id)
     result = db.table(ITENS_TABLE).select("*").eq("orcamento_id", orcamento_id).order("bucket").execute()
-    return [_com_disponivel(item) for item in result.data]
+    return [_enriquecer_item(item, orcamento) for item in result.data]
 
 
 @router.post("/{orcamento_id}/itens", response_model=OrcamentoItem, status_code=201)
@@ -128,12 +166,13 @@ def criar_item(
     db: Client = Depends(get_db),
     user_id: str = Depends(get_current_user_id),
 ):
-    _get_orcamento_ou_404(db, user_id, orcamento_id)
+    orcamento = _get_orcamento_ou_404(db, user_id, orcamento_id)
     _check_refs_item(db, user_id, payload.categoria_id, payload.subcategoria_id, payload.conta_vinculada_id)
+    _validar_teto_bucket(db, orcamento, payload.bucket, item_id_excluir=None, novo_valor=payload.orcamento_mensal)
     row = payload.model_dump()
     row["orcamento_id"] = orcamento_id
     result = db.table(ITENS_TABLE).insert(row).execute()
-    return _com_disponivel(result.data[0])
+    return _enriquecer_item(result.data[0], orcamento)
 
 
 @router.patch("/{orcamento_id}/itens/{item_id}", response_model=OrcamentoItem)
@@ -144,14 +183,22 @@ def atualizar_item(
     db: Client = Depends(get_db),
     user_id: str = Depends(get_current_user_id),
 ):
-    _get_orcamento_ou_404(db, user_id, orcamento_id)
-    _get_item_ou_404(db, orcamento_id, item_id)
+    orcamento = _get_orcamento_ou_404(db, user_id, orcamento_id)
+    item_atual = _get_item_ou_404(db, orcamento_id, item_id)
     dados = payload.model_dump(exclude_unset=True)
     _check_refs_item(
         db, user_id, dados.get("categoria_id"), dados.get("subcategoria_id"), dados.get("conta_vinculada_id")
     )
+    if "orcamento_mensal" in dados or "bucket" in dados:
+        _validar_teto_bucket(
+            db,
+            orcamento,
+            dados.get("bucket", item_atual["bucket"]),
+            item_id_excluir=item_id,
+            novo_valor=dados.get("orcamento_mensal", item_atual["orcamento_mensal"]),
+        )
     result = db.table(ITENS_TABLE).update(dados).eq("id", item_id).eq("orcamento_id", orcamento_id).execute()
-    return _com_disponivel(result.data[0])
+    return _enriquecer_item(result.data[0], orcamento)
 
 
 @router.patch("/{orcamento_id}/itens/{item_id}/ativo", response_model=OrcamentoItem)
@@ -162,12 +209,17 @@ def alternar_item_ativo(
     db: Client = Depends(get_db),
     user_id: str = Depends(get_current_user_id),
 ):
-    _get_orcamento_ou_404(db, user_id, orcamento_id)
-    _get_item_ou_404(db, orcamento_id, item_id)
+    orcamento = _get_orcamento_ou_404(db, user_id, orcamento_id)
+    item_atual = _get_item_ou_404(db, orcamento_id, item_id)
+    if ativo:
+        # reativar um item pode fazer a soma do bucket passar do teto de novo
+        _validar_teto_bucket(
+            db, orcamento, item_atual["bucket"], item_id_excluir=item_id, novo_valor=item_atual["orcamento_mensal"]
+        )
     result = (
         db.table(ITENS_TABLE).update({"ativo": ativo}).eq("id", item_id).eq("orcamento_id", orcamento_id).execute()
     )
-    return _com_disponivel(result.data[0])
+    return _enriquecer_item(result.data[0], orcamento)
 
 
 def _calcular_realizado(db: Client, user_id: str, item: dict, mes_inicio: date, mes_fim: date) -> float:
@@ -242,7 +294,6 @@ def gerar_proximo_mes(
                 "nome": item.get("nome"),
                 "conta_vinculada_id": item.get("conta_vinculada_id"),
                 "orcamento_mensal": item["orcamento_mensal"],
-                "percentual": item.get("percentual", 0),
                 "saldo_anterior": round(disponivel_neste_mes - realizado, 2),
             }
         ).execute()

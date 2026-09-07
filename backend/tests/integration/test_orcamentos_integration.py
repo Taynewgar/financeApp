@@ -1,7 +1,9 @@
 def _criar_orcamento(real_client, headers, vigencia_mes="2026-09-01"):
+    # percentual_geral=100 dá teto folgado o bastante pra qualquer valor
+    # usado nos testes que não estão testando o teto em si
     return real_client.post(
         "/orcamentos",
-        json={"vigencia_mes": vigencia_mes, "receita_base": 5000},
+        json={"vigencia_mes": vigencia_mes, "receita_base": 5000, "percentual_geral": 100},
         headers=headers,
     ).json()
 
@@ -134,6 +136,38 @@ def test_proximo_mes_chamado_duas_vezes_retorna_409_na_segunda_contra_banco_real
 
     repetida = real_client.post(f"/orcamentos/{orcamento['id']}/proximo-mes", headers=headers_a)
     assert repetida.status_code == 409
+
+
+def test_item_que_estoura_teto_do_bucket_retorna_422_contra_banco_real(real_client, headers_a, cleanup):
+    orcamento = _criar_orcamento(real_client, headers_a)  # receita_base=5000, teto_custos_fixos=2000
+    cleanup.append(("orcamentos", orcamento["id"]))
+    primeiro = real_client.post(
+        f"/orcamentos/{orcamento['id']}/itens",
+        json={"bucket": "custos_fixos", "nome": "Aluguel", "orcamento_mensal": 1800},
+        headers=headers_a,
+    ).json()
+    cleanup.append(("orcamento_itens", primeiro["id"]))
+
+    resposta = real_client.post(
+        f"/orcamentos/{orcamento['id']}/itens",
+        json={"bucket": "custos_fixos", "nome": "Condomínio", "orcamento_mensal": 500},
+        headers=headers_a,
+    )
+    assert resposta.status_code == 422  # 1800 + 500 = 2300 > teto de 2000
+
+
+def test_item_expoe_percentuais_calculados_contra_banco_real(real_client, headers_a, cleanup):
+    orcamento = _criar_orcamento(real_client, headers_a)  # receita_base=5000
+    cleanup.append(("orcamentos", orcamento["id"]))
+    item = real_client.post(
+        f"/orcamentos/{orcamento['id']}/itens",
+        json={"bucket": "custos_fixos", "nome": "Aluguel", "orcamento_mensal": 1000},
+        headers=headers_a,
+    ).json()
+    cleanup.append(("orcamento_itens", item["id"]))
+
+    assert item["percentual_da_renda"] == 20.0  # 1000 / 5000 * 100
+    assert item["percentual_do_teto"] == 50.0  # 1000 / 2000 * 100
 
 
 def test_desativar_item_persiste_no_banco_real(real_client, headers_a, cleanup):
