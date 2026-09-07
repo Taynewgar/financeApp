@@ -47,6 +47,30 @@ As 3 variáveis em `.env.local`:
 `npm run build` gera a versão de produção em `dist/` (com manifest e
 service worker do PWA já embutidos via `vite-plugin-pwa`).
 
+## Deploy (Vercel)
+
+`vercel.json` já está na pasta (rewrite pra `index.html` — necessário
+porque as rotas são client-side via `react-router-dom`; sem isso, abrir
+`/dashboard` direto ou dar F5 numa rota interna retorna 404).
+
+1. Em [vercel.com](https://vercel.com), *Add New → Project*, importe este
+   repositório (GitHub).
+2. Em *Root Directory*, aponte pra `frontend` — é obrigatório, o projeto
+   real fica nessa subpasta, não na raiz do repo. O resto (build command,
+   output directory) o Vercel detecta sozinho por ser um projeto Vite.
+3. Em *Environment Variables*, adicione as 3 mesmas variáveis do
+   `.env.local`: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` (mesmas do
+   backend), `VITE_API_BASE_URL` (a URL do backend no Render — algo como
+   `https://financeapp-api.onrender.com`, sem barra no final).
+4. Deploy. O Vercel dá uma URL (`https://seu-projeto.vercel.app`).
+5. **Passo final, no Render**: defina `FRONTEND_ORIGINS` com essa URL do
+   Vercel (ver `README.md` da raiz, passo 6 do Setup do backend) — sem
+   isso o navegador bloqueia por CORS toda chamada do frontend publicado
+   pro backend, mesmo com tudo certo.
+
+Depois de configurado, todo `git push` nesta branch redeploya sozinho —
+sem precisar rodar nada manualmente.
+
 ## O que já funciona nesta entrega
 
 - Login (Supabase Auth, e-mail/senha) e logout.
