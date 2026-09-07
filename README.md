@@ -72,7 +72,14 @@ PWA com backend hospedado (Render) e banco Supabase.
 - `db/schema.sql` — schema inicial do Postgres (contas, categorias,
   subcategorias, caixinhas, transações, orçamento versionado por mês), com
   Row Level Security por usuário.
-- `render.yaml` — blueprint de deploy no Render.
+- `frontend/` — PWA em React + Vite + TypeScript, consome a API do
+  `backend/`. Primeira entrega: login (Supabase Auth), rotas protegidas e
+  a casca de navegação (sidebar no desktop, barra inferior no mobile,
+  botão flutuante de Novo Lançamento) — as telas de cada seção ainda são
+  placeholders, exceto Dashboard (status de conexão) e Configurações
+  (lista real de contas, provando que auth + API já estão conectados
+  ponta a ponta). Detalhes em `frontend/README.md`.
+- `render.yaml` — blueprint de deploy no Render (backend).
 
 ## Setup
 

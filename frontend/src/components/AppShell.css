@@ -1,0 +1,136 @@
+.shell {
+  display: flex;
+  min-height: 100vh;
+}
+
+.shell-nav {
+  width: 220px;
+  flex-shrink: 0;
+  border-right: 1px solid var(--cor-borda);
+  background: var(--cor-superficie);
+  display: flex;
+  flex-direction: column;
+  padding: 16px 12px;
+  gap: 4px;
+}
+
+.shell-nav-header {
+  padding: 8px 12px 20px;
+  font-weight: 700;
+  font-size: 16px;
+}
+
+.shell-nav-link {
+  display: block;
+  padding: 10px 12px;
+  border-radius: 8px;
+  text-decoration: none;
+  color: var(--cor-texto);
+  font-size: 14px;
+}
+
+.shell-nav-link:hover {
+  background: var(--cor-fundo);
+}
+
+.shell-nav-link.ativo {
+  background: var(--cor-acento);
+  color: var(--cor-acento-texto);
+}
+
+.shell-nav-footer {
+  margin-top: auto;
+  padding: 12px;
+  font-size: 13px;
+  color: var(--cor-texto-suave);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.shell-sair {
+  align-self: flex-start;
+  background: none;
+  border: 1px solid var(--cor-borda);
+  border-radius: 8px;
+  padding: 6px 10px;
+  cursor: pointer;
+  color: var(--cor-texto);
+}
+
+.shell-conteudo {
+  flex: 1;
+  min-width: 0;
+  padding: 24px;
+  padding-bottom: 88px;
+}
+
+.shell-fab {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  width: 56px;
+  height: 56px;
+  border-radius: 999px;
+  background: var(--cor-acento);
+  color: var(--cor-acento-texto);
+  border: none;
+  font-size: 28px;
+  line-height: 1;
+  box-shadow: var(--sombra);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  text-decoration: none;
+}
+
+.shell-bottom-nav {
+  display: none;
+}
+
+/* mobile: nav vira barra inferior, sidebar some */
+@media (max-width: 720px) {
+  .shell-nav {
+    display: none;
+  }
+
+  .shell-conteudo {
+    padding: 16px;
+    padding-bottom: 88px;
+  }
+
+  .shell-bottom-nav {
+    display: flex;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: var(--cor-superficie);
+    border-top: 1px solid var(--cor-borda);
+    padding: 6px 2px;
+  }
+
+  .shell-bottom-nav-link {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    font-size: 10px;
+    line-height: 1.2;
+    text-align: center;
+    text-decoration: none;
+    color: var(--cor-texto-suave);
+    padding: 4px 2px;
+  }
+
+  .shell-bottom-nav-link.ativo {
+    color: var(--cor-acento);
+  }
+
+  .shell-fab {
+    right: 16px;
+    bottom: 72px;
+  }
+}
