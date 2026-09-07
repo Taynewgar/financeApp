@@ -32,22 +32,14 @@ def test_criar_caixinha_com_conta_de_outro_usuario_retorna_404(client, current_u
     assert resposta.status_code == 404
 
 
-def test_trocar_conta_de_caixinha_ja_vinculada_retorna_422(client):
+def test_trocar_conta_vinculada_da_caixinha_e_aceito(client):
     conta_a = client.post("/contas", json={"nome": "Conta A", "tipo_conta": "caixinha"}).json()
     conta_b = client.post("/contas", json={"nome": "Conta B", "tipo_conta": "caixinha"}).json()
     caixinha = client.post("/caixinhas", json={"nome": "Emergência", "conta_id": conta_a["id"]}).json()
 
     resposta = client.patch(f"/caixinhas/{caixinha['id']}", json={"conta_id": conta_b["id"]})
-    assert resposta.status_code == 422
-
-
-def test_reenviar_a_mesma_conta_da_caixinha_e_aceito(client):
-    conta = client.post("/contas", json={"nome": "Conta", "tipo_conta": "caixinha"}).json()
-    caixinha = client.post("/caixinhas", json={"nome": "Emergência", "conta_id": conta["id"]}).json()
-
-    resposta = client.patch(f"/caixinhas/{caixinha['id']}", json={"nome": "Emergência 2", "conta_id": conta["id"]})
     assert resposta.status_code == 200
-    assert resposta.json()["nome"] == "Emergência 2"
+    assert resposta.json()["conta_id"] == conta_b["id"]
 
 
 def test_vincular_conta_em_caixinha_sem_conta_e_aceito(client):

@@ -43,6 +43,10 @@ PWA com backend hospedado (Render) e banco Supabase.
     transação de `aplicacao`/`retirada`, e uma categoria vinculada precisa
     ter o `tipo` compatível com o tipo de movimento (receita/despesa/
     investimento) — qualquer uma dessas combinações erradas retorna 422.
+    Caixinha vinculada a uma conta "mora" nessa conta: a transação
+    precisa usar a mesma `conta_id` da caixinha (422 se não bater) — a
+    conta vinculada da caixinha em si pode ser trocada livremente via
+    `PATCH /caixinhas/{id}`.
     Despesa exige `categoria_id`, `estrutura_custo` e `meio_pagamento`
     preenchidos (422 se faltar algum — vale pra `POST /transacoes` e
     `POST /transacoes/parceladas`); aplicação/retirada sem `caixinha_id`

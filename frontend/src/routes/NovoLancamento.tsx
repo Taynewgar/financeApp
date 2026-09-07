@@ -121,6 +121,7 @@ export function NovoLancamento() {
   )
 
   const contaSelecionada = useMemo(() => contas.find((c) => c.id === contaId), [contas, contaId])
+  const caixinhaSelecionada = useMemo(() => caixinhas.find((c) => c.id === caixinhaId), [caixinhas, caixinhaId])
 
   // ao trocar o tipo, a categoria elegível muda — limpa a escolha anterior;
   // investimento tem estrutura de custo fixa, independente da categoria
@@ -137,6 +138,14 @@ export function NovoLancamento() {
       setMeioPagamento('cartao_credito')
     }
   }, [tipo, contaSelecionada])
+
+  // caixinha vinculada a uma conta "mora" nessa conta — trava a conta do
+  // lançamento na conta da caixinha em vez de deixar escolher outra
+  useEffect(() => {
+    if (tipo === 'reserva' && caixinhaSelecionada?.conta_id) {
+      setContaId(caixinhaSelecionada.conta_id)
+    }
+  }, [tipo, caixinhaSelecionada])
 
   // debounce simples: espera parar de digitar antes de consultar a API
   useEffect(() => {
@@ -508,7 +517,12 @@ export function NovoLancamento() {
 
         <label className="campo">
           Conta
-          <select value={contaId} onChange={(e) => setContaId(e.target.value)} required>
+          <select
+            value={contaId}
+            onChange={(e) => setContaId(e.target.value)}
+            required
+            disabled={tipo === 'reserva' && !!caixinhaSelecionada?.conta_id}
+          >
             <option value="">Selecione…</option>
             {contas.map((c) => (
               <option key={c.id} value={c.id}>
@@ -516,6 +530,11 @@ export function NovoLancamento() {
               </option>
             ))}
           </select>
+          {tipo === 'reserva' && caixinhaSelecionada?.conta_id && (
+            <span style={{ fontSize: 12, color: 'var(--cor-texto-suave)' }}>
+              Fixo na conta vinculada à caixinha "{caixinhaSelecionada.nome}".
+            </span>
+          )}
         </label>
 
         {tipo === 'reserva' &&

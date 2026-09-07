@@ -61,9 +61,8 @@ service worker do PWA já embutidos via `vite-plugin-pwa`).
   Contas, Categorias (com subcategorias aninhadas, expansíveis por
   categoria, também editáveis) e Caixinhas, em abas. Listas sempre
   ordenadas por nome, mesmo logo após criar/editar (sem precisar
-  recarregar a página). Caixinha vinculada a uma conta trava essa conta —
-  uma vez vinculada, não dá mais pra trocar (nem desvincular) por esse
-  formulário; o backend também recusa (422) se a troca vier por outra via.
+  recarregar a página). A conta vinculada de uma caixinha pode ser
+  trocada livremente aqui — quem trava é o Novo Lançamento (ver abaixo).
 - Ao entrar no app, dispara um `GET /health` em segundo plano pra começar
   a "acordar" o backend (planos free do Render hibernam após
   inatividade) antes que a primeira tela realmente precise de dados.
@@ -88,6 +87,11 @@ service worker do PWA já embutidos via `vite-plugin-pwa`).
     - **Reserva**: escolhe a caixinha (obrigatório) e a direção
       (Aplicação/Retirada). Sem categoria, sem estrutura de custo, sem
       meio de pagamento — caixinha é reserva, não despesa nem investimento.
+      Se a caixinha escolhida tem uma conta vinculada, o campo Conta trava
+      nela automaticamente (mesmo princípio do cartão de crédito travando
+      o meio de pagamento) — a reserva "mora" numa conta específica, não
+      faz sentido lançar a movimentação em outra. Backend também recusa
+      (422) se a conta enviada não bater com a da caixinha.
     - **Estorno/Ressarcimento**: busca a despesa original por descrição
       (`GET /transacoes?tipo_movimento=despesa&descricao=...`, com debounce
       — não carrega o histórico inteiro de despesas na abertura do

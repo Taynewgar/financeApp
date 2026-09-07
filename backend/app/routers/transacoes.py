@@ -105,10 +105,14 @@ def _check_regras_tipo_movimento(
     tipo_movimento: str,
     categoria_id: str | None,
     caixinha_id: str | None,
+    conta_id: str | None = None,
 ) -> None:
     """Caixinha é reserva, não investimento nem despesa — só faz sentido em
     aplicação/retirada. Categoria (quando informada) precisa ser do tipo
-    compatível com o tipo de movimento (ver _TIPO_CATEGORIA_ESPERADO)."""
+    compatível com o tipo de movimento (ver _TIPO_CATEGORIA_ESPERADO).
+    Caixinha vinculada a uma conta "mora" nessa conta — o lançamento
+    precisa usar a mesma conta, senão a reserva fica registrada num ledger
+    diferente de onde o dinheiro realmente está."""
     if categoria_id:
         categoria = db.table("categorias").select("tipo").eq("id", categoria_id).eq("user_id", user_id).execute()
         if categoria.data:
@@ -123,6 +127,13 @@ def _check_regras_tipo_movimento(
             status_code=422,
             detail="Caixinha (reserva) só pode ser usada em lançamentos de aplicação/retirada",
         )
+    if caixinha_id and conta_id:
+        caixinha = db.table("caixinhas").select("conta_id").eq("id", caixinha_id).eq("user_id", user_id).execute()
+        if caixinha.data and caixinha.data[0]["conta_id"] and caixinha.data[0]["conta_id"] != conta_id:
+            raise HTTPException(
+                status_code=422,
+                detail="A conta do lançamento precisa ser a mesma conta vinculada à caixinha",
+            )
 
 
 def _check_campos_obrigatorios(
@@ -274,7 +285,9 @@ def criar(payload: TransacaoCreate, db: Client = Depends(get_db), user_id: str =
         payload.caixinha_id,
         payload.ajuste_de_transacao_id,
     )
-    _check_regras_tipo_movimento(db, user_id, payload.tipo_movimento, payload.categoria_id, payload.caixinha_id)
+    _check_regras_tipo_movimento(
+        db, user_id, payload.tipo_movimento, payload.categoria_id, payload.caixinha_id, payload.conta_id
+    )
     _check_campos_obrigatorios(
         payload.tipo_movimento, payload.categoria_id, payload.estrutura_custo, payload.meio_pagamento,
         payload.caixinha_id,

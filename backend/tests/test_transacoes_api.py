@@ -771,3 +771,57 @@ def test_aplicacao_em_caixinha_sem_estrutura_custo_e_aceita(client):
         },
     )
     assert resposta.status_code == 201
+
+
+def test_retirada_com_conta_diferente_da_caixinha_retorna_422(client):
+    conta_da_caixinha = client.post("/contas", json={"nome": "Conta Reserva", "tipo_conta": "corrente"}).json()
+    outra_conta = client.post("/contas", json={"nome": "Outra Conta", "tipo_conta": "corrente"}).json()
+    caixinha = client.post(
+        "/caixinhas", json={"nome": "Emergência", "conta_id": conta_da_caixinha["id"]}
+    ).json()
+
+    resposta = client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-09-05",
+            "valor": 100,
+            "tipo_movimento": "retirada",
+            "conta_id": outra_conta["id"],
+            "caixinha_id": caixinha["id"],
+        },
+    )
+    assert resposta.status_code == 422
+
+
+def test_retirada_com_a_mesma_conta_da_caixinha_e_aceita(client):
+    conta = client.post("/contas", json={"nome": "Conta Reserva", "tipo_conta": "corrente"}).json()
+    caixinha = client.post("/caixinhas", json={"nome": "Emergência", "conta_id": conta["id"]}).json()
+
+    resposta = client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-09-05",
+            "valor": 100,
+            "tipo_movimento": "retirada",
+            "conta_id": conta["id"],
+            "caixinha_id": caixinha["id"],
+        },
+    )
+    assert resposta.status_code == 201
+
+
+def test_retirada_em_caixinha_sem_conta_vinculada_aceita_qualquer_conta(client):
+    conta = client.post("/contas", json={"nome": "Qualquer Conta", "tipo_conta": "corrente"}).json()
+    caixinha = client.post("/caixinhas", json={"nome": "Viagem"}).json()
+
+    resposta = client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-09-05",
+            "valor": 100,
+            "tipo_movimento": "retirada",
+            "conta_id": conta["id"],
+            "caixinha_id": caixinha["id"],
+        },
+    )
+    assert resposta.status_code == 201

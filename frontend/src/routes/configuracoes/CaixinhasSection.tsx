@@ -13,9 +13,6 @@ export function CaixinhasSection() {
   const [erro, setErro] = useState<string | null>(null)
   const [mostrarForm, setMostrarForm] = useState(false)
   const [editandoId, setEditandoId] = useState<string | null>(null)
-  // guarda a conta original ao editar — vinculada a caixinha, a conta fica
-  // travada (evita "teleportar" o saldo da reserva de uma conta pra outra)
-  const [contaTravada, setContaTravada] = useState(false)
   const [form, setForm] = useState<FormState>({ nome: '', conta_id: '' })
   const [salvando, setSalvando] = useState(false)
 
@@ -31,14 +28,12 @@ export function CaixinhasSection() {
   function iniciarCriacao() {
     setForm({ nome: '', conta_id: '' })
     setEditandoId(null)
-    setContaTravada(false)
     setMostrarForm(true)
   }
 
   function iniciarEdicao(caixinha: Caixinha) {
     setForm({ nome: caixinha.nome, conta_id: caixinha.conta_id ?? '' })
     setEditandoId(caixinha.id)
-    setContaTravada(!!caixinha.conta_id)
     setMostrarForm(true)
   }
 
@@ -55,10 +50,7 @@ export function CaixinhasSection() {
     setSalvando(true)
     setErro(null)
     try {
-      const payload: { nome: string; conta_id?: string | null } = { nome: form.nome }
-      if (!contaTravada) {
-        payload.conta_id = form.conta_id || null
-      }
+      const payload = { nome: form.nome, conta_id: form.conta_id || null }
       if (editandoId) {
         const atualizada = await apiFetch<Caixinha>(`/caixinhas/${editandoId}`, {
           method: 'PATCH',
@@ -110,11 +102,7 @@ export function CaixinhasSection() {
             </label>
             <label className="campo">
               Conta vinculada
-              <select
-                value={form.conta_id}
-                onChange={(e) => setForm({ ...form, conta_id: e.target.value })}
-                disabled={contaTravada}
-              >
+              <select value={form.conta_id} onChange={(e) => setForm({ ...form, conta_id: e.target.value })}>
                 <option value="">Nenhuma</option>
                 {contas.map((c) => (
                   <option key={c.id} value={c.id}>
@@ -122,11 +110,6 @@ export function CaixinhasSection() {
                   </option>
                 ))}
               </select>
-              {contaTravada && (
-                <span style={{ fontSize: 12, color: 'var(--cor-texto-suave)' }}>
-                  Já vinculada — não é possível trocar a conta depois de vinculada.
-                </span>
-              )}
             </label>
           </div>
           <div className="form-acoes">
