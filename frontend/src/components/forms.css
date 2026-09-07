@@ -1,0 +1,108 @@
+.form {
+  max-width: 560px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.campo {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 14px;
+}
+
+.campo input,
+.campo select,
+.campo textarea {
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--cor-borda);
+  background: var(--cor-fundo);
+  color: var(--cor-texto);
+}
+
+.campo-linha {
+  display: flex;
+  gap: 12px;
+}
+
+.campo-linha > .campo {
+  flex: 1;
+  min-width: 0;
+}
+
+.segmentado {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.segmentado button {
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--cor-borda);
+  background: var(--cor-superficie);
+  color: var(--cor-texto);
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.segmentado button.ativo {
+  background: var(--cor-acento);
+  border-color: var(--cor-acento);
+  color: var(--cor-acento-texto);
+  font-weight: 600;
+}
+
+.checkbox-linha {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+}
+
+.form-acoes {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.botao-primario {
+  padding: 10px 20px;
+  border-radius: 8px;
+  border: none;
+  background: var(--cor-acento);
+  color: var(--cor-acento-texto);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.botao-primario:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.botao-secundario {
+  padding: 10px 20px;
+  border-radius: 8px;
+  border: 1px solid var(--cor-borda);
+  background: none;
+  color: var(--cor-texto);
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+}
+
+.mensagem-erro {
+  color: var(--cor-perigo);
+  font-size: 14px;
+  margin: 0;
+}
+
+.mensagem-sucesso {
+  color: var(--cor-sucesso);
+  font-size: 14px;
+  margin: 0;
+}

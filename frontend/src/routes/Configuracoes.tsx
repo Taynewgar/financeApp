@@ -1,12 +1,6 @@
 import { useEffect, useState } from 'react'
 import { ApiError, apiFetch } from '../lib/api'
-
-type Conta = {
-  id: string
-  nome: string
-  tipo_conta: string
-  ativo: boolean
-}
+import type { Conta } from '../lib/types'
 
 export function Configuracoes() {
   const [contas, setContas] = useState<Conta[] | null>(null)
