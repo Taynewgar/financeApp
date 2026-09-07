@@ -222,6 +222,18 @@ export function NovoLancamento() {
       setErro(`Crie uma categoria do tipo ${rotuloTipoCategoria} em Configurações antes de lançar.`)
       return
     }
+    if (tipo === 'despesa' && !categoriaId) {
+      setErro('Escolha uma categoria.')
+      return
+    }
+    if (tipo === 'despesa' && !estruturaCusto) {
+      setErro('Escolha uma estrutura de custo.')
+      return
+    }
+    if (tipo === 'despesa' && !meioPagamento) {
+      setErro('Escolha um meio de pagamento.')
+      return
+    }
 
     setEnviando(true)
     try {
@@ -540,8 +552,9 @@ export function NovoLancamento() {
                     setCategoriaId(e.target.value)
                     setSubcategoriaId('')
                   }}
+                  required={tipo === 'despesa'}
                 >
-                  <option value="">Nenhuma</option>
+                  <option value="">{tipo === 'despesa' ? 'Selecione…' : 'Nenhuma'}</option>
                   {categoriasElegiveis.map((c) => (
                     <option key={c.id} value={c.id}>
                       {c.nome}
@@ -571,8 +584,12 @@ export function NovoLancamento() {
           <div className="campo-linha">
             <label className="campo">
               Estrutura de custo
-              <select value={estruturaCusto} onChange={(e) => setEstruturaCusto(e.target.value as EstruturaCusto | '')}>
-                <option value="">Nenhuma</option>
+              <select
+                value={estruturaCusto}
+                onChange={(e) => setEstruturaCusto(e.target.value as EstruturaCusto | '')}
+                required={tipo === 'despesa'}
+              >
+                <option value="">{tipo === 'despesa' ? 'Selecione…' : 'Nenhuma'}</option>
                 {ESTRUTURAS.map((e) => (
                   <option key={e.valor} value={e.valor}>
                     {e.rotulo}
@@ -586,8 +603,9 @@ export function NovoLancamento() {
                 value={meioPagamento}
                 onChange={(e) => setMeioPagamento(e.target.value as MeioPagamento | '')}
                 disabled={tipo === 'despesa' && contaSelecionada?.tipo_conta === 'cartao_credito'}
+                required={tipo === 'despesa'}
               >
-                <option value="">Nenhum</option>
+                <option value="">{tipo === 'despesa' ? 'Selecione…' : 'Nenhum'}</option>
                 {MEIOS_PAGAMENTO.map((m) => (
                   <option key={m.valor} value={m.valor}>
                     {m.rotulo}

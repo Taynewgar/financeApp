@@ -125,6 +125,31 @@ def _check_regras_tipo_movimento(
         )
 
 
+def _check_campos_obrigatorios(
+    tipo_movimento: str,
+    categoria_id: str | None,
+    estrutura_custo: str | None,
+    meio_pagamento: str | None,
+    caixinha_id: str | None,
+) -> None:
+    """Despesa exige classificação completa — sem categoria/estrutura de
+    custo/meio de pagamento a Estrutura de Custo e a Busca perdem precisão.
+    Investimento (aplicação/retirada sem caixinha) sempre exige estrutura
+    de custo; reserva (com caixinha) não usa nenhum desses campos."""
+    faltando = []
+    if tipo_movimento == "despesa":
+        if not categoria_id:
+            faltando.append("categoria_id")
+        if not estrutura_custo:
+            faltando.append("estrutura_custo")
+        if not meio_pagamento:
+            faltando.append("meio_pagamento")
+    elif tipo_movimento in ("aplicacao", "retirada") and not caixinha_id and not estrutura_custo:
+        faltando.append("estrutura_custo")
+    if faltando:
+        raise HTTPException(status_code=422, detail=f"Campo(s) obrigatório(s) faltando: {', '.join(faltando)}")
+
+
 def _fatura_referencia_para(db: Client, user_id: str, conta_id: str, data_compra) -> str | None:
     """Só se aplica a contas do tipo cartão de crédito com dia de
     fechamento configurado; para as demais, fica None (não se aplica)."""
@@ -250,6 +275,10 @@ def criar(payload: TransacaoCreate, db: Client = Depends(get_db), user_id: str =
         payload.ajuste_de_transacao_id,
     )
     _check_regras_tipo_movimento(db, user_id, payload.tipo_movimento, payload.categoria_id, payload.caixinha_id)
+    _check_campos_obrigatorios(
+        payload.tipo_movimento, payload.categoria_id, payload.estrutura_custo, payload.meio_pagamento,
+        payload.caixinha_id,
+    )
     row = payload.model_dump(mode="json")
     row.update(
         user_id=user_id,
@@ -284,6 +313,7 @@ def criar_parcelada(
     cartão — em vez de projetar parcelas futuras só na hora do relatório."""
     _check_refs(db, user_id, payload.conta_id, payload.categoria_id, payload.subcategoria_id)
     _check_regras_tipo_movimento(db, user_id, "despesa", payload.categoria_id, None)
+    _check_campos_obrigatorios("despesa", payload.categoria_id, payload.estrutura_custo, payload.meio_pagamento, None)
 
     grupo = (
         db.table("compras_parceladas")

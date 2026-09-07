@@ -1,4 +1,5 @@
 import httpx
+import jwt
 from fastapi import Depends, Header, HTTPException
 from supabase import Client
 
@@ -12,10 +13,29 @@ def get_token(authorization: str | None = Header(default=None)) -> str:
     return authorization.removeprefix("Bearer ").strip()
 
 
-def get_current_user_id(token: str = Depends(get_token)) -> str:
+def _validar_localmente(token: str) -> str:
+    """Verifica a assinatura HS256 do token com o JWT Secret do projeto —
+    sem chamada de rede. É o mesmo token que o Supabase Auth emitiu, só
+    verificado no processo local em vez de perguntar pro Supabase."""
+    try:
+        payload = jwt.decode(
+            token,
+            settings.supabase_jwt_secret,
+            algorithms=["HS256"],
+            audience="authenticated",
+        )
+    except jwt.PyJWTError as exc:
+        print(f"[auth] token rejeitado na validação local: {exc!r}")
+        raise HTTPException(status_code=401, detail="Token inválido ou expirado") from exc
+    return payload["sub"]
+
+
+def _validar_remoto(token: str) -> str:
     # Chamada direta ao endpoint do Supabase (em vez de passar pelo SDK) para
     # que uma falha real apareça no log do servidor, não vire um "token
-    # inválido" genérico que esconde a causa de verdade.
+    # inválido" genérico que esconde a causa de verdade. Custa uma
+    # requisição de rede extra por chamada — use SUPABASE_JWT_SECRET pra
+    # evitar isso (ver _validar_localmente).
     try:
         response = httpx.get(
             f"{settings.supabase_url}/auth/v1/user",
@@ -31,6 +51,12 @@ def get_current_user_id(token: str = Depends(get_token)) -> str:
         raise HTTPException(status_code=401, detail="Token inválido ou expirado")
 
     return response.json()["id"]
+
+
+def get_current_user_id(token: str = Depends(get_token)) -> str:
+    if settings.supabase_jwt_secret:
+        return _validar_localmente(token)
+    return _validar_remoto(token)
 
 
 def get_db(token: str = Depends(get_token)) -> Client:

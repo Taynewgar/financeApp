@@ -71,12 +71,14 @@ service worker do PWA já embutidos via `vite-plugin-pwa`).
   - Tipo: Receita / Despesa / Investimento / Reserva / Estorno-Ressarcimento
     (segmentado, não é um select cru com os 6 valores do banco). Cada tipo
     só mostra os campos que fazem sentido pra ele:
-    - **Despesa**: categoria/subcategoria (só categorias tipo despesa),
-      estrutura de custo, meio de pagamento, sub-toggle À vista/Parcelado
-      (parcelado usa `POST /transacoes/parceladas`).
-      Se a conta escolhida é do tipo `cartao_credito`, o meio de pagamento
-      trava automaticamente em "Cartão de crédito" (não faz sentido pagar
-      uma despesa lançada no cartão de outra forma).
+    - **Despesa**: categoria, estrutura de custo e meio de pagamento são
+      **obrigatórios** (o backend também recusa com 422 se faltar algum —
+      ver `_check_campos_obrigatorios` em `backend/app/routers/
+      transacoes.py`); subcategoria continua opcional. Sub-toggle À
+      vista/Parcelado (parcelado usa `POST /transacoes/parceladas`, mesma
+      obrigatoriedade). Se a conta escolhida é do tipo `cartao_credito`, o
+      meio de pagamento trava automaticamente em "Cartão de crédito" (não
+      faz sentido pagar uma despesa lançada no cartão de outra forma).
     - **Receita**: escolhe entre as categorias do tipo `receita` (pode ter
       mais de uma — ex: "Salário", "Freelance") + subcategoria. Sem
       estrutura de custo, sem meio de pagamento, sem caixinha.

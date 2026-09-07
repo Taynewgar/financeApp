@@ -580,3 +580,95 @@ def test_compra_parcelada_com_categoria_de_receita_retorna_422(client):
         },
     )
     assert resposta.status_code == 422
+
+
+def test_despesa_sem_categoria_estrutura_ou_meio_pagamento_retorna_422(client):
+    conta = _criar_conta_corrente(client)
+
+    resposta = client.post(
+        "/transacoes",
+        json={"data_compra": "2026-09-05", "valor": 50, "tipo_movimento": "despesa", "conta_id": conta["id"]},
+    )
+    assert resposta.status_code == 422
+    assert "categoria_id" in resposta.json()["detail"]
+    assert "estrutura_custo" in resposta.json()["detail"]
+    assert "meio_pagamento" in resposta.json()["detail"]
+
+
+def test_despesa_com_categoria_estrutura_e_meio_pagamento_e_aceita(client):
+    conta = _criar_conta_corrente(client)
+    mercado = client.post("/categorias", json={"nome": "Mercado"}).json()
+
+    resposta = client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-09-05",
+            "valor": 50,
+            "tipo_movimento": "despesa",
+            "conta_id": conta["id"],
+            "categoria_id": mercado["id"],
+            "estrutura_custo": "variavel",
+            "meio_pagamento": "pix",
+        },
+    )
+    assert resposta.status_code == 201
+
+
+def test_compra_parcelada_sem_categoria_estrutura_ou_meio_pagamento_retorna_422(client):
+    cartao = _criar_conta_cartao(client)
+
+    resposta = client.post(
+        "/transacoes/parceladas",
+        json={
+            "descricao": "Notebook",
+            "valor_total": 300,
+            "parcela_total": 3,
+            "data_primeira_parcela": "2026-08-05",
+            "conta_id": cartao["id"],
+        },
+    )
+    assert resposta.status_code == 422
+
+
+def test_aplicacao_sem_caixinha_e_sem_estrutura_custo_retorna_422(client):
+    conta = _criar_conta_corrente(client)
+
+    resposta = client.post(
+        "/transacoes",
+        json={"data_compra": "2026-09-05", "valor": 300, "tipo_movimento": "aplicacao", "conta_id": conta["id"]},
+    )
+    assert resposta.status_code == 422
+    assert "estrutura_custo" in resposta.json()["detail"]
+
+
+def test_aplicacao_com_estrutura_investimentos_e_aceita(client):
+    conta = _criar_conta_corrente(client)
+
+    resposta = client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-09-05",
+            "valor": 300,
+            "tipo_movimento": "aplicacao",
+            "conta_id": conta["id"],
+            "estrutura_custo": "investimentos",
+        },
+    )
+    assert resposta.status_code == 201
+
+
+def test_aplicacao_em_caixinha_sem_estrutura_custo_e_aceita(client):
+    conta = _criar_conta_corrente(client)
+    caixinha = client.post("/caixinhas", json={"nome": "Reserva"}).json()
+
+    resposta = client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-09-05",
+            "valor": 300,
+            "tipo_movimento": "aplicacao",
+            "conta_id": conta["id"],
+            "caixinha_id": caixinha["id"],
+        },
+    )
+    assert resposta.status_code == 201

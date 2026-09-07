@@ -38,6 +38,13 @@ PWA com backend hospedado (Render) e banco Supabase.
     transação de `aplicacao`/`retirada`, e uma categoria vinculada precisa
     ter o `tipo` compatível com o tipo de movimento (receita/despesa/
     investimento) — qualquer uma dessas combinações erradas retorna 422.
+    Despesa exige `categoria_id`, `estrutura_custo` e `meio_pagamento`
+    preenchidos (422 se faltar algum — vale pra `POST /transacoes` e
+    `POST /transacoes/parceladas`); aplicação/retirada sem `caixinha_id`
+    (ou seja, investimento de verdade, não reserva) exige `estrutura_custo`
+    preenchido pelo mesmo motivo. Os demais tipos de movimento (receita,
+    estorno, ressarcimento, e aplicação/retirada COM caixinha) continuam
+    sem exigir nenhum desses três campos.
     `GET /estrutura-custo/{vigencia_mes}` compara orçado x realizado do mês
     (por categoria/subcategoria, agrupado nos mesmos buckets do orçamento),
     lendo diretamente das transações — funciona mesmo sem orçamento
@@ -96,15 +103,20 @@ PWA com backend hospedado (Render) e banco Supabase.
 
 1. Crie um projeto em [supabase.com](https://supabase.com) (sua própria conta).
 2. Em *SQL Editor*, rode o conteúdo de `db/schema.sql`.
-3. Em *Project Settings → API*: copie a **Project URL**, a **anon key** e a
-   **service_role key**. Em *Project Settings → Database → Connection
-   string*: copie a URI (pooler).
-4. Copie `backend/.env.example` para `backend/.env` e preencha os quatro
+3. Em *Project Settings → API*: copie a **Project URL**, a **anon key**, a
+   **service_role key** e o **JWT Secret**. Em *Project Settings →
+   Database → Connection string*: copie a URI (pooler).
+4. Copie `backend/.env.example` para `backend/.env` e preencha os cinco
    valores localmente (esse arquivo nunca é commitado).
 5. No serviço do Render (criado via blueprint), confirme em *Environment*
-   que as 4 variáveis estão preenchidas: `SUPABASE_URL`,
-   `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `DATABASE_URL` — cole
-   os valores direto no painel do Render, nunca em texto de chat ou commit.
+   que as 5 variáveis estão preenchidas: `SUPABASE_URL`,
+   `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `DATABASE_URL`,
+   `SUPABASE_JWT_SECRET` — cole os valores direto no painel do Render,
+   nunca em texto de chat ou commit. `SUPABASE_JWT_SECRET` é o que faz a
+   validação de token virar local em vez de uma chamada extra ao Supabase
+   a cada requisição — sem ele o backend ainda funciona, só que mais
+   devagar (uma chamada de rede a mais por request, notável na troca de
+   tela do frontend).
 6. Ainda no Render, defina `FRONTEND_ORIGINS` com a URL do frontend
    publicado (ex: `https://seu-app.vercel.app`) — sem isso, o navegador
    bloqueia por CORS toda chamada do frontend em produção pro backend,
