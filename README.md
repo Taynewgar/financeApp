@@ -94,6 +94,13 @@ PWA com backend hospedado (Render) e banco Supabase.
    que as 4 variáveis estão preenchidas: `SUPABASE_URL`,
    `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `DATABASE_URL` — cole
    os valores direto no painel do Render, nunca em texto de chat ou commit.
+6. Ainda no Render, defina `FRONTEND_ORIGINS` com a URL do frontend
+   publicado (ex: `https://seu-app.vercel.app`) — sem isso, o navegador
+   bloqueia por CORS toda chamada do frontend em produção pro backend,
+   mesmo com tudo certo (dá pra confirmar isso no DevTools do navegador:
+   erro de CORS no console, não erro de rede). Em dev local não precisa
+   configurar nada — `http://localhost:5173` (porta padrão do Vite) já
+   vem liberado por padrão.
 
 ### Migração pendente no seu Supabase: `orcamento_itens.saldo_anterior`
 
