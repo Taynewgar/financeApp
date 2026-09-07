@@ -50,11 +50,14 @@ def _enriquecer_item(item: dict, orcamento: dict) -> dict:
 def _validar_teto_bucket(db: Client, orcamento: dict, bucket: str, item_id_excluir: str | None, novo_valor: float) -> None:
     """Bloqueia a gravação se a soma dos itens ativos do bucket (excluindo o
     item que está sendo editado, se houver, e somando o novo valor no lugar
-    dele) ultrapassar o teto do bucket. O saldo_anterior de cada item não
-    entra aqui — ele apareceria dos dois lados da conta e se cancelaria."""
+    dele) ultrapassar o teto do bucket. O teto aqui já é o efetivo — o teto
+    puro (percentual) somado à sobra acumulada de meses anteriores nesse
+    bucket (soma do saldo_anterior de todos os itens ativos dele): se Fixo
+    sobrou R$200 no total, o teto disponível pra alocar itens novos/maiores
+    esse mês já nasce R$200 mais folgado."""
     itens = (
         db.table(ITENS_TABLE)
-        .select("id,orcamento_mensal")
+        .select("id,orcamento_mensal,saldo_anterior")
         .eq("orcamento_id", orcamento["id"])
         .eq("bucket", bucket)
         .eq("ativo", True)
@@ -62,13 +65,14 @@ def _validar_teto_bucket(db: Client, orcamento: dict, bucket: str, item_id_exclu
         .data
     )
     soma = sum(i["orcamento_mensal"] for i in itens if i["id"] != item_id_excluir) + novo_valor
-    teto = calcular_teto_bucket(orcamento, bucket)
+    saldo_anterior_bucket = sum(i.get("saldo_anterior", 0) for i in itens)
+    teto = round(calcular_teto_bucket(orcamento, bucket) + saldo_anterior_bucket, 2)
     if soma > teto + 0.005:
         raise HTTPException(
             status_code=422,
             detail=(
                 f"Itens de {bucket} somariam R$ {soma:.2f}, acima do teto de "
-                f"R$ {teto:.2f} para este bucket neste orçamento."
+                f"R$ {teto:.2f} para este bucket neste orçamento (já considerando a sobra acumulada)."
             ),
         )
 

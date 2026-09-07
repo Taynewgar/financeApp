@@ -18,6 +18,11 @@ class BucketEstruturaCusto(BaseModel):
     orcado: float
     realizado: float
     itens: list[ItemEstruturaCusto]
+    # soma do saldo_anterior de todos os itens ativos deste bucket — a
+    # sobra (ou o furo) acumulada de meses anteriores, agregada por bucket.
+    # Só existe quando há orçamento pro mês (senão fica 0); o detalhe por
+    # item continua disponível em GET /orcamentos/{id}/itens.
+    saldo_anterior_acumulado: float = 0
 
 
 class VereditoTeto(BaseModel):

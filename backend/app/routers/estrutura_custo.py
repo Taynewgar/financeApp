@@ -110,7 +110,16 @@ def obter(vigencia_mes: date, db: Client = Depends(get_db), user_id: str = Depen
         sinal = _SINAL_REALIZADO.get(t["tipo_movimento"], 0)
         realizado_por_chave[chave_completa] = realizado_por_chave.get(chave_completa, 0) + sinal * t["valor"]
 
-    buckets = {b: {"bucket": b, "orcado": 0.0, "realizado": 0.0, "itens": []} for b in _BUCKETS}
+    buckets = {
+        b: {
+            "bucket": b,
+            "orcado": 0.0,
+            "realizado": 0.0,
+            "itens": [],
+            "saldo_anterior_acumulado": round(saldo_anterior_por_bucket.get(b, 0), 2),
+        }
+        for b in _BUCKETS
+    }
     for chave_completa in set(orcado_por_chave) | set(realizado_por_chave):
         bucket, (tipo_chave, valor_chave) = chave_completa
         orcado = round(orcado_por_chave.get(chave_completa, 0), 2)

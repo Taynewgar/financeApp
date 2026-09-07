@@ -46,7 +46,15 @@ PWA com backend hospedado (Render) e banco Supabase.
     `percentual_do_teto` = sobre o teto do próprio bucket) — nenhuma delas é
     aceita como entrada, são sempre calculadas. Criar/editar/reativar um
     item que faria a soma do bucket ultrapassar o teto retorna `422` (você
-    digita livre, mas não salva estourado).
+    digita livre, mas não salva estourado). O teto usado nessa validação já
+    é o efetivo: teto puro + a soma do `saldo_anterior` de todos os itens
+    ativos daquele bucket (a sobra acumulada do envelope) — se Custos Fixos
+    sobrou R$200 no total do mês passado, o teto pra alocar itens novos
+    esse mês já nasce R$200 maior. Essa mesma soma por bucket (sem misturar
+    com os outros) também aparece em `GET /estrutura-custo/{vigencia_mes}`,
+    campo `saldo_anterior_acumulado` de cada bucket — o detalhe por item
+    continua disponível em `GET /orcamentos/{id}/itens`, isso é só a visão
+    agregada.
 
     **Pool de despesas e piso de investimentos** (`GET
     /estrutura-custo/{vigencia_mes}`, campos `pool_despesas` e

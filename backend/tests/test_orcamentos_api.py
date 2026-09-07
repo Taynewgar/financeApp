@@ -429,3 +429,67 @@ def test_item_com_orcamento_zero_e_receita_base_zero_nao_gera_erro_de_divisao(cl
     assert item.status_code == 201
     assert item.json()["percentual_da_renda"] == 0.0
     assert item.json()["percentual_do_teto"] == 0.0
+
+
+def test_sobra_acumulada_do_bucket_amplia_o_teto_para_novos_itens(client):
+    """O exemplo combinado: Fixo sobrou R$200 no total (soma dos itens),
+    então o teto efetivo desse mês para alocar itens em Fixo é o teto puro
+    + essa sobra — não só o teto puro sozinho."""
+    conta = client.post("/contas", json={"nome": "Conta", "tipo_conta": "corrente"}).json()
+    categoria = client.post("/categorias", json={"nome": "Aluguel"}).json()
+
+    setembro = _criar_orcamento_do_exemplo(client, vigencia_mes="2026-09-01")  # teto_custos_fixos = 5400
+    client.post(
+        f"/orcamentos/{setembro['id']}/itens",
+        json={"bucket": "custos_fixos", "categoria_id": categoria["id"], "orcamento_mensal": 1000},
+    )
+    client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-09-05",
+            "valor": 800,
+            "tipo_movimento": "despesa",
+            "conta_id": conta["id"],
+            "categoria_id": categoria["id"],
+        },
+    )
+    outubro = client.post(f"/orcamentos/{setembro['id']}/proximo-mes").json()
+    # outubro nasce com o item de Aluguel carregando saldo_anterior = 200 (1000 - 800)
+
+    sem_sobra = client.post(
+        f"/orcamentos/{outubro['id']}/itens",
+        json={"bucket": "custos_fixos", "nome": "Novo item", "orcamento_mensal": 5400},
+    )
+    assert sem_sobra.status_code == 422  # 1000 (aluguel) + 5400 = 6400 > 5400 (teto puro, sem sobra)
+
+    com_sobra = client.post(
+        f"/orcamentos/{outubro['id']}/itens",
+        json={"bucket": "custos_fixos", "nome": "Novo item", "orcamento_mensal": 4600},
+    )
+    assert com_sobra.status_code == 201  # 1000 + 4600 = 5600 ≤ 5600 (5400 teto puro + 200 de sobra)
+
+
+def test_estrutura_custo_expoe_saldo_anterior_acumulado_por_bucket(client):
+    conta = client.post("/contas", json={"nome": "Conta", "tipo_conta": "corrente"}).json()
+    categoria = client.post("/categorias", json={"nome": "Aluguel"}).json()
+
+    setembro = _criar_orcamento_do_exemplo(client, vigencia_mes="2026-09-01")
+    client.post(
+        f"/orcamentos/{setembro['id']}/itens",
+        json={"bucket": "custos_fixos", "categoria_id": categoria["id"], "orcamento_mensal": 1000},
+    )
+    client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-09-05",
+            "valor": 800,
+            "tipo_movimento": "despesa",
+            "conta_id": conta["id"],
+            "categoria_id": categoria["id"],
+        },
+    )
+    client.post(f"/orcamentos/{setembro['id']}/proximo-mes")
+
+    resposta = client.get("/estrutura-custo/2026-10-01").json()
+    fixos = next(b for b in resposta["buckets"] if b["bucket"] == "custos_fixos")
+    assert fixos["saldo_anterior_acumulado"] == 200

@@ -170,6 +170,57 @@ def test_item_expoe_percentuais_calculados_contra_banco_real(real_client, header
     assert item["percentual_do_teto"] == 50.0  # 1000 / 2000 * 100
 
 
+def test_sobra_acumulada_do_bucket_amplia_teto_contra_banco_real(real_client, headers_a, cleanup):
+    conta = real_client.post(
+        "/contas", json={"nome": "Conta Sobra Integração", "tipo_conta": "corrente"}, headers=headers_a
+    ).json()
+    cleanup.append(("contas", conta["id"]))
+    categoria = real_client.post(
+        "/categorias", json={"nome": "Aluguel Integração"}, headers=headers_a
+    ).json()
+    cleanup.append(("categorias", categoria["id"]))
+
+    setembro = _criar_orcamento(real_client, headers_a)  # receita_base=5000, teto_custos_fixos=2000
+    cleanup.append(("orcamentos", setembro["id"]))
+    item = real_client.post(
+        f"/orcamentos/{setembro['id']}/itens",
+        json={"bucket": "custos_fixos", "categoria_id": categoria["id"], "orcamento_mensal": 1000},
+        headers=headers_a,
+    ).json()
+    cleanup.append(("orcamento_itens", item["id"]))
+    transacao = real_client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-09-05",
+            "valor": 800,
+            "tipo_movimento": "despesa",
+            "conta_id": conta["id"],
+            "categoria_id": categoria["id"],
+        },
+        headers=headers_a,
+    ).json()
+    cleanup.append(("transacoes", transacao["id"]))
+
+    outubro = real_client.post(f"/orcamentos/{setembro['id']}/proximo-mes", headers=headers_a).json()
+    cleanup.append(("orcamentos", outubro["id"]))
+    itens_outubro = real_client.get(f"/orcamentos/{outubro['id']}/itens", headers=headers_a).json()
+    cleanup.append(("orcamento_itens", itens_outubro[0]["id"]))
+
+    # sem a sobra de 200, 1000 (aluguel) + 1000 = 2000 caberia exato; com a
+    # sobra, o teto efetivo é 2200, então cabe mais um item de 1000 também
+    resposta = real_client.post(
+        f"/orcamentos/{outubro['id']}/itens",
+        json={"bucket": "custos_fixos", "nome": "Novo item", "orcamento_mensal": 1200},
+        headers=headers_a,
+    )
+    assert resposta.status_code == 201
+    cleanup.append(("orcamento_itens", resposta.json()["id"]))
+
+    estrutura = real_client.get("/estrutura-custo/2026-10-01", headers=headers_a).json()
+    fixos = next(b for b in estrutura["buckets"] if b["bucket"] == "custos_fixos")
+    assert fixos["saldo_anterior_acumulado"] == 200
+
+
 def test_desativar_item_persiste_no_banco_real(real_client, headers_a, cleanup):
     orcamento = _criar_orcamento(real_client, headers_a)
     cleanup.append(("orcamentos", orcamento["id"]))
