@@ -21,8 +21,12 @@ PWA em React + Vite + TypeScript, consumindo a API do `backend/`.
 
 ## Setup
 
+Requer **Node 20+** (o `vite-plugin-pwa` depende do `workbox-build`, que
+exige isso). Se usa `nvm`, o `.nvmrc` já fixa a versão certa:
+
 ```bash
 cd frontend
+nvm use          # troca pro Node 20 automaticamente, lendo o .nvmrc
 npm install
 cp .env.example .env.local   # preencha com o mesmo Supabase do backend
 npm run dev
