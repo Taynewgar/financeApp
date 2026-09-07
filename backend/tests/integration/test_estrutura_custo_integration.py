@@ -57,6 +57,14 @@ def test_pool_despesas_e_piso_investimentos_contra_banco_real(real_client, heade
     ).json()
     cleanup.append(("orcamentos", orcamento["id"]))
 
+    # pool_despesas/piso_investimentos somam o mês inteiro do usuário, sem
+    # filtro por conta (mesmo motivo do /dashboard/mensal) — mede a
+    # diferença antes/depois em vez do total absoluto, pra não quebrar
+    # com outras transações reais do usuário no mesmo mês.
+    antes = real_client.get("/estrutura-custo/2026-09-01", headers=headers_a).json()
+    realizado_pool_antes = antes["pool_despesas"]["realizado"]
+    realizado_investimentos_antes = antes["piso_investimentos"]["realizado"]
+
     conta = real_client.post(
         "/contas", json={"nome": "Conta Pool Integração", "tipo_conta": "corrente"}, headers=headers_a
     ).json()
@@ -99,8 +107,10 @@ def test_pool_despesas_e_piso_investimentos_contra_banco_real(real_client, heade
     cleanup.append(("transacoes", aplicacao["id"]))
 
     resposta = real_client.get("/estrutura-custo/2026-09-01", headers=headers_a).json()
-    assert resposta["pool_despesas"] == {"teto": 10125.0, "realizado": 9300.0, "dentro_do_teto": True}
-    assert resposta["piso_investimentos"] == {"teto": 3375.0, "realizado": 4000.0, "meta_batida": True}
+    assert resposta["pool_despesas"]["teto"] == 10125.0
+    assert resposta["pool_despesas"]["realizado"] - realizado_pool_antes == 9300.0
+    assert resposta["piso_investimentos"]["teto"] == 3375.0
+    assert resposta["piso_investimentos"]["realizado"] - realizado_investimentos_antes == 4000.0
 
 
 def test_rls_nao_mistura_dados_de_outro_usuario(real_client, headers_a, headers_b, cleanup):
