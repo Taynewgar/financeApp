@@ -16,6 +16,8 @@ def test_filtro_por_categoria_e_periodo_contra_banco_real(real_client, headers_a
             "tipo_movimento": "despesa",
             "conta_id": conta["id"],
             "categoria_id": categoria["id"],
+            "estrutura_custo": "variavel",
+            "meio_pagamento": "pix",
             "descricao": "Compra do mês",
         },
         headers=headers_a,
@@ -29,6 +31,8 @@ def test_filtro_por_categoria_e_periodo_contra_banco_real(real_client, headers_a
             "tipo_movimento": "despesa",
             "conta_id": conta["id"],
             "categoria_id": categoria["id"],
+            "estrutura_custo": "variavel",
+            "meio_pagamento": "pix",
         },
         headers=headers_a,
     ).json()
@@ -56,9 +60,21 @@ def test_resumo_contra_banco_real(real_client, headers_a, cleanup):
         headers=headers_a,
     ).json()
     cleanup.append(("transacoes", receita["id"]))
+    categoria = real_client.post(
+        "/categorias", json={"nome": "Categoria Resumo Integração"}, headers=headers_a
+    ).json()
+    cleanup.append(("categorias", categoria["id"]))
     despesa = real_client.post(
         "/transacoes",
-        json={"data_compra": "2026-09-05", "valor": 1000, "tipo_movimento": "despesa", "conta_id": conta["id"]},
+        json={
+            "data_compra": "2026-09-05",
+            "valor": 1000,
+            "tipo_movimento": "despesa",
+            "conta_id": conta["id"],
+            "categoria_id": categoria["id"],
+            "estrutura_custo": "variavel",
+            "meio_pagamento": "pix",
+        },
         headers=headers_a,
     ).json()
     cleanup.append(("transacoes", despesa["id"]))
@@ -77,9 +93,21 @@ def test_rls_nao_mistura_dados_de_outro_usuario(real_client, headers_a, headers_
         "/contas", json={"nome": "Conta A Busca", "tipo_conta": "corrente"}, headers=headers_a
     ).json()
     cleanup.append(("contas", conta["id"]))
+    categoria = real_client.post(
+        "/categorias", json={"nome": "Categoria RLS Busca Integração"}, headers=headers_a
+    ).json()
+    cleanup.append(("categorias", categoria["id"]))
     transacao = real_client.post(
         "/transacoes",
-        json={"data_compra": "2026-09-05", "valor": 500, "tipo_movimento": "despesa", "conta_id": conta["id"]},
+        json={
+            "data_compra": "2026-09-05",
+            "valor": 500,
+            "tipo_movimento": "despesa",
+            "conta_id": conta["id"],
+            "categoria_id": categoria["id"],
+            "estrutura_custo": "variavel",
+            "meio_pagamento": "pix",
+        },
         headers=headers_a,
     ).json()
     cleanup.append(("transacoes", transacao["id"]))

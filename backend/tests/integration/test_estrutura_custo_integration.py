@@ -34,6 +34,7 @@ def test_orcado_e_realizado_contra_banco_real(real_client, headers_a, cleanup):
             "conta_id": conta["id"],
             "categoria_id": categoria["id"],
             "estrutura_custo": "variavel",
+            "meio_pagamento": "pix",
         },
         headers=headers_a,
     ).json()
@@ -60,6 +61,10 @@ def test_pool_despesas_e_piso_investimentos_contra_banco_real(real_client, heade
         "/contas", json={"nome": "Conta Pool Integração", "tipo_conta": "corrente"}, headers=headers_a
     ).json()
     cleanup.append(("contas", conta["id"]))
+    categoria = real_client.post(
+        "/categorias", json={"nome": "Categoria Pool Integração"}, headers=headers_a
+    ).json()
+    cleanup.append(("categorias", categoria["id"]))
     for valor, estrutura in ((5800, "fixo"), (2500, "variavel"), (1000, "sazonal")):
         t = real_client.post(
             "/transacoes",
@@ -68,7 +73,9 @@ def test_pool_despesas_e_piso_investimentos_contra_banco_real(real_client, heade
                 "valor": valor,
                 "tipo_movimento": "despesa",
                 "conta_id": conta["id"],
+                "categoria_id": categoria["id"],
                 "estrutura_custo": estrutura,
+                "meio_pagamento": "pix",
             },
             headers=headers_a,
         ).json()
@@ -85,6 +92,7 @@ def test_pool_despesas_e_piso_investimentos_contra_banco_real(real_client, heade
             "valor": 4000,
             "tipo_movimento": "aplicacao",
             "conta_id": conta_investimento["id"],
+            "estrutura_custo": "investimentos",
         },
         headers=headers_a,
     ).json()
@@ -100,6 +108,10 @@ def test_rls_nao_mistura_dados_de_outro_usuario(real_client, headers_a, headers_
         "/contas", json={"nome": "Conta A", "tipo_conta": "corrente"}, headers=headers_a
     ).json()
     cleanup.append(("contas", conta["id"]))
+    categoria = real_client.post(
+        "/categorias", json={"nome": "Categoria RLS Integração"}, headers=headers_a
+    ).json()
+    cleanup.append(("categorias", categoria["id"]))
     transacao = real_client.post(
         "/transacoes",
         json={
@@ -107,7 +119,9 @@ def test_rls_nao_mistura_dados_de_outro_usuario(real_client, headers_a, headers_
             "valor": 999,
             "tipo_movimento": "despesa",
             "conta_id": conta["id"],
+            "categoria_id": categoria["id"],
             "estrutura_custo": "fixo",
+            "meio_pagamento": "pix",
         },
         headers=headers_a,
     ).json()

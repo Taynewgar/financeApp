@@ -110,6 +110,8 @@ def test_proximo_mes_carrega_sobra_contra_banco_real(real_client, headers_a, cle
             "tipo_movimento": "despesa",
             "conta_id": conta["id"],
             "categoria_id": categoria["id"],
+            "estrutura_custo": "variavel",
+            "meio_pagamento": "pix",
         },
         headers=headers_a,
     ).json()
@@ -196,6 +198,8 @@ def test_sobra_acumulada_do_bucket_amplia_teto_contra_banco_real(real_client, he
             "tipo_movimento": "despesa",
             "conta_id": conta["id"],
             "categoria_id": categoria["id"],
+            "estrutura_custo": "fixo",
+            "meio_pagamento": "pix",
         },
         headers=headers_a,
     ).json()

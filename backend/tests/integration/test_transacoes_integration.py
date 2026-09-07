@@ -9,10 +9,22 @@ def _criar_cartao(real_client, headers, dia_fechamento=8):
 def test_fatura_por_ciclo_contra_banco_real(real_client, headers_a, cleanup):
     cartao = _criar_cartao(real_client, headers_a)
     cleanup.append(("contas", cartao["id"]))
+    categoria = real_client.post(
+        "/categorias", json={"nome": "Categoria Integração"}, headers=headers_a
+    ).json()
+    cleanup.append(("categorias", categoria["id"]))
 
     transacao = real_client.post(
         "/transacoes",
-        json={"data_compra": "2026-08-05", "valor": 42.50, "tipo_movimento": "despesa", "conta_id": cartao["id"]},
+        json={
+            "data_compra": "2026-08-05",
+            "valor": 42.50,
+            "tipo_movimento": "despesa",
+            "conta_id": cartao["id"],
+            "categoria_id": categoria["id"],
+            "estrutura_custo": "variavel",
+            "meio_pagamento": "cartao_credito",
+        },
         headers=headers_a,
     ).json()
     cleanup.append(("transacoes", transacao["id"]))
@@ -23,6 +35,10 @@ def test_fatura_por_ciclo_contra_banco_real(real_client, headers_a, cleanup):
 def test_duplicata_e_bloqueada_pela_constraint_real(real_client, headers_a, cleanup):
     cartao = _criar_cartao(real_client, headers_a)
     cleanup.append(("contas", cartao["id"]))
+    categoria = real_client.post(
+        "/categorias", json={"nome": "Categoria Integração"}, headers=headers_a
+    ).json()
+    cleanup.append(("categorias", categoria["id"]))
 
     payload = {
         "data_compra": "2026-08-05",
@@ -30,6 +46,9 @@ def test_duplicata_e_bloqueada_pela_constraint_real(real_client, headers_a, clea
         "tipo_movimento": "despesa",
         "conta_id": cartao["id"],
         "descricao": "Duplicata integração",
+        "categoria_id": categoria["id"],
+        "estrutura_custo": "variavel",
+        "meio_pagamento": "cartao_credito",
     }
     primeira = real_client.post("/transacoes", json=payload, headers=headers_a)
     assert primeira.status_code == 201
@@ -42,9 +61,21 @@ def test_duplicata_e_bloqueada_pela_constraint_real(real_client, headers_a, clea
 def test_rls_impede_outro_usuario_de_ver_a_transacao(real_client, headers_a, headers_b, cleanup):
     cartao = _criar_cartao(real_client, headers_a)
     cleanup.append(("contas", cartao["id"]))
+    categoria = real_client.post(
+        "/categorias", json={"nome": "Categoria Integração"}, headers=headers_a
+    ).json()
+    cleanup.append(("categorias", categoria["id"]))
     transacao = real_client.post(
         "/transacoes",
-        json={"data_compra": "2026-08-05", "valor": 30, "tipo_movimento": "despesa", "conta_id": cartao["id"]},
+        json={
+            "data_compra": "2026-08-05",
+            "valor": 30,
+            "tipo_movimento": "despesa",
+            "conta_id": cartao["id"],
+            "categoria_id": categoria["id"],
+            "estrutura_custo": "variavel",
+            "meio_pagamento": "cartao_credito",
+        },
         headers=headers_a,
     ).json()
     cleanup.append(("transacoes", transacao["id"]))
@@ -56,6 +87,10 @@ def test_rls_impede_outro_usuario_de_ver_a_transacao(real_client, headers_a, hea
 def test_compra_parcelada_contra_banco_real(real_client, headers_a, cleanup):
     cartao = _criar_cartao(real_client, headers_a)
     cleanup.append(("contas", cartao["id"]))
+    categoria = real_client.post(
+        "/categorias", json={"nome": "Categoria Integração"}, headers=headers_a
+    ).json()
+    cleanup.append(("categorias", categoria["id"]))
 
     resposta = real_client.post(
         "/transacoes/parceladas",
@@ -65,6 +100,9 @@ def test_compra_parcelada_contra_banco_real(real_client, headers_a, cleanup):
             "parcela_total": 3,
             "data_primeira_parcela": "2026-08-05",
             "conta_id": cartao["id"],
+            "categoria_id": categoria["id"],
+            "estrutura_custo": "variavel",
+            "meio_pagamento": "cartao_credito",
         },
         headers=headers_a,
     )
@@ -83,9 +121,21 @@ def test_compra_parcelada_contra_banco_real(real_client, headers_a, cleanup):
 def test_mover_fatura_manualmente_contra_banco_real(real_client, headers_a, cleanup):
     cartao = _criar_cartao(real_client, headers_a)
     cleanup.append(("contas", cartao["id"]))
+    categoria = real_client.post(
+        "/categorias", json={"nome": "Categoria Integração"}, headers=headers_a
+    ).json()
+    cleanup.append(("categorias", categoria["id"]))
     transacao = real_client.post(
         "/transacoes",
-        json={"data_compra": "2026-08-05", "valor": 30, "tipo_movimento": "despesa", "conta_id": cartao["id"]},
+        json={
+            "data_compra": "2026-08-05",
+            "valor": 30,
+            "tipo_movimento": "despesa",
+            "conta_id": cartao["id"],
+            "categoria_id": categoria["id"],
+            "estrutura_custo": "variavel",
+            "meio_pagamento": "cartao_credito",
+        },
         headers=headers_a,
     ).json()
     cleanup.append(("transacoes", transacao["id"]))
@@ -102,9 +152,21 @@ def test_mover_fatura_em_conta_que_nao_e_cartao_retorna_422_contra_banco_real(re
         "/contas", json={"nome": "Conta Corrente Integração", "tipo_conta": "corrente"}, headers=headers_a
     ).json()
     cleanup.append(("contas", conta["id"]))
+    categoria = real_client.post(
+        "/categorias", json={"nome": "Categoria Integração"}, headers=headers_a
+    ).json()
+    cleanup.append(("categorias", categoria["id"]))
     transacao = real_client.post(
         "/transacoes",
-        json={"data_compra": "2026-08-05", "valor": 30, "tipo_movimento": "despesa", "conta_id": conta["id"]},
+        json={
+            "data_compra": "2026-08-05",
+            "valor": 30,
+            "tipo_movimento": "despesa",
+            "conta_id": conta["id"],
+            "categoria_id": categoria["id"],
+            "estrutura_custo": "variavel",
+            "meio_pagamento": "pix",
+        },
         headers=headers_a,
     ).json()
     cleanup.append(("transacoes", transacao["id"]))
@@ -120,6 +182,10 @@ def test_pix_parcelado_em_conta_corrente_contra_banco_real(real_client, headers_
         "/contas", json={"nome": "Conta Pix Parcelado Integração", "tipo_conta": "corrente"}, headers=headers_a
     ).json()
     cleanup.append(("contas", conta["id"]))
+    categoria = real_client.post(
+        "/categorias", json={"nome": "Categoria Integração"}, headers=headers_a
+    ).json()
+    cleanup.append(("categorias", categoria["id"]))
 
     resposta = real_client.post(
         "/transacoes/parceladas",
@@ -129,6 +195,8 @@ def test_pix_parcelado_em_conta_corrente_contra_banco_real(real_client, headers_
             "parcela_total": 3,
             "data_primeira_parcela": "2026-08-05",
             "conta_id": conta["id"],
+            "categoria_id": categoria["id"],
+            "estrutura_custo": "variavel",
             "meio_pagamento": "pix",
         },
         headers=headers_a,
@@ -143,9 +211,21 @@ def test_pix_parcelado_em_conta_corrente_contra_banco_real(real_client, headers_
 def test_excluir_transacao_contra_banco_real(real_client, headers_a, cleanup):
     cartao = _criar_cartao(real_client, headers_a)
     cleanup.append(("contas", cartao["id"]))
+    categoria = real_client.post(
+        "/categorias", json={"nome": "Categoria Integração"}, headers=headers_a
+    ).json()
+    cleanup.append(("categorias", categoria["id"]))
     transacao = real_client.post(
         "/transacoes",
-        json={"data_compra": "2026-08-05", "valor": 30, "tipo_movimento": "despesa", "conta_id": cartao["id"]},
+        json={
+            "data_compra": "2026-08-05",
+            "valor": 30,
+            "tipo_movimento": "despesa",
+            "conta_id": cartao["id"],
+            "categoria_id": categoria["id"],
+            "estrutura_custo": "variavel",
+            "meio_pagamento": "cartao_credito",
+        },
         headers=headers_a,
     ).json()
 

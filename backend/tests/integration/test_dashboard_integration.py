@@ -9,9 +9,21 @@ def test_resumo_mensal_contra_banco_real(real_client, headers_a, cleanup):
         headers=headers_a,
     ).json()
     cleanup.append(("transacoes", receita["id"]))
+    categoria = real_client.post(
+        "/categorias", json={"nome": "Categoria Dashboard Integração"}, headers=headers_a
+    ).json()
+    cleanup.append(("categorias", categoria["id"]))
     despesa = real_client.post(
         "/transacoes",
-        json={"data_compra": "2026-09-05", "valor": 1500, "tipo_movimento": "despesa", "conta_id": conta["id"]},
+        json={
+            "data_compra": "2026-09-05",
+            "valor": 1500,
+            "tipo_movimento": "despesa",
+            "conta_id": conta["id"],
+            "categoria_id": categoria["id"],
+            "estrutura_custo": "variavel",
+            "meio_pagamento": "pix",
+        },
         headers=headers_a,
     ).json()
     cleanup.append(("transacoes", despesa["id"]))

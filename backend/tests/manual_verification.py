@@ -142,7 +142,15 @@ def main() -> None:
 
         r = client.post(
             "/transacoes",
-            json={"data_compra": "2026-08-05", "valor": 89.90, "tipo_movimento": "despesa", "conta_id": cartao["id"]},
+            json={
+                "data_compra": "2026-08-05",
+                "valor": 89.90,
+                "tipo_movimento": "despesa",
+                "conta_id": cartao["id"],
+                "categoria_id": categoria["id"],
+                "estrutura_custo": "variavel",
+                "meio_pagamento": "cartao_credito",
+            },
             headers=headers_a,
         )
         check("POST /transacoes cria com 201", r.status_code == 201, f"status={r.status_code} body={r.text}")
@@ -170,6 +178,9 @@ def main() -> None:
                 "parcela_total": 3,
                 "data_primeira_parcela": "2026-08-05",
                 "conta_id": cartao["id"],
+                "categoria_id": categoria["id"],
+                "estrutura_custo": "variavel",
+                "meio_pagamento": "cartao_credito",
             },
             headers=headers_a,
         )

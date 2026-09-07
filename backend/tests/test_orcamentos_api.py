@@ -243,6 +243,8 @@ def test_proximo_mes_carrega_sobra_quando_gasta_menos_que_planejado(client):
             "tipo_movimento": "despesa",
             "conta_id": conta["id"],
             "categoria_id": categoria["id"],
+            "estrutura_custo": "variavel",
+            "meio_pagamento": "pix",
         },
     )
 
@@ -273,6 +275,8 @@ def test_proximo_mes_carrega_deficit_quando_gasta_mais_que_planejado(client):
             "tipo_movimento": "despesa",
             "conta_id": conta["id"],
             "categoria_id": categoria["id"],
+            "estrutura_custo": "variavel",
+            "meio_pagamento": "pix",
         },
     )
 
@@ -451,6 +455,8 @@ def test_sobra_acumulada_do_bucket_amplia_o_teto_para_novos_itens(client):
             "tipo_movimento": "despesa",
             "conta_id": conta["id"],
             "categoria_id": categoria["id"],
+            "estrutura_custo": "fixo",
+            "meio_pagamento": "pix",
         },
     )
     outubro = client.post(f"/orcamentos/{setembro['id']}/proximo-mes").json()
@@ -486,6 +492,8 @@ def test_estrutura_custo_expoe_saldo_anterior_acumulado_por_bucket(client):
             "tipo_movimento": "despesa",
             "conta_id": conta["id"],
             "categoria_id": categoria["id"],
+            "estrutura_custo": "fixo",
+            "meio_pagamento": "pix",
         },
     )
     client.post(f"/orcamentos/{setembro['id']}/proximo-mes")

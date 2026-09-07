@@ -16,6 +16,7 @@ def _criar_conta_corrente(client):
 
 def test_despesa_no_cartao_calcula_fatura_por_ciclo(client):
     cartao = _criar_conta_cartao(client, dia_fechamento=8)
+    categoria = client.post("/categorias", json={"nome": "Categoria Teste"}).json()
 
     resposta = client.post(
         "/transacoes",
@@ -24,6 +25,9 @@ def test_despesa_no_cartao_calcula_fatura_por_ciclo(client):
             "valor": 89.90,
             "tipo_movimento": "despesa",
             "conta_id": cartao["id"],
+            "categoria_id": categoria["id"],
+            "estrutura_custo": "variavel",
+            "meio_pagamento": "cartao_credito",
         },
     )
     assert resposta.status_code == 201
@@ -56,12 +60,16 @@ def test_transacao_com_conta_de_outro_usuario_retorna_404(client, current_user):
 
 def test_transacao_identica_repetida_retorna_409(client):
     cartao = _criar_conta_cartao(client)
+    categoria = client.post("/categorias", json={"nome": "Categoria Teste"}).json()
     payload = {
         "data_compra": "2026-08-05",
         "valor": 50,
         "tipo_movimento": "despesa",
         "conta_id": cartao["id"],
         "descricao": "Mesma compra",
+        "categoria_id": categoria["id"],
+        "estrutura_custo": "variavel",
+        "meio_pagamento": "cartao_credito",
     }
 
     primeira = client.post("/transacoes", json=payload)
@@ -73,11 +81,15 @@ def test_transacao_identica_repetida_retorna_409(client):
 
 def test_transacao_com_valor_diferente_nao_e_bloqueada_como_duplicada(client):
     cartao = _criar_conta_cartao(client)
+    categoria = client.post("/categorias", json={"nome": "Categoria Teste"}).json()
     base = {
         "data_compra": "2026-08-05",
         "tipo_movimento": "despesa",
         "conta_id": cartao["id"],
         "descricao": "Compras diferentes",
+        "categoria_id": categoria["id"],
+        "estrutura_custo": "variavel",
+        "meio_pagamento": "cartao_credito",
     }
 
     primeira = client.post("/transacoes", json={**base, "valor": 50})
@@ -88,9 +100,18 @@ def test_transacao_com_valor_diferente_nao_e_bloqueada_como_duplicada(client):
 
 def test_estorno_vinculado_a_despesa_original(client):
     cartao = _criar_conta_cartao(client)
+    categoria = client.post("/categorias", json={"nome": "Categoria Teste"}).json()
     despesa = client.post(
         "/transacoes",
-        json={"data_compra": "2026-08-05", "valor": 100, "tipo_movimento": "despesa", "conta_id": cartao["id"]},
+        json={
+            "data_compra": "2026-08-05",
+            "valor": 100,
+            "tipo_movimento": "despesa",
+            "conta_id": cartao["id"],
+            "categoria_id": categoria["id"],
+            "estrutura_custo": "variavel",
+            "meio_pagamento": "cartao_credito",
+        },
     ).json()
 
     estorno = client.post(
@@ -109,9 +130,18 @@ def test_estorno_vinculado_a_despesa_original(client):
 
 def test_estorno_vinculado_a_transacao_de_outro_usuario_retorna_404(client, current_user):
     cartao = _criar_conta_cartao(client)
+    categoria = client.post("/categorias", json={"nome": "Categoria Teste"}).json()
     despesa = client.post(
         "/transacoes",
-        json={"data_compra": "2026-08-05", "valor": 100, "tipo_movimento": "despesa", "conta_id": cartao["id"]},
+        json={
+            "data_compra": "2026-08-05",
+            "valor": 100,
+            "tipo_movimento": "despesa",
+            "conta_id": cartao["id"],
+            "categoria_id": categoria["id"],
+            "estrutura_custo": "variavel",
+            "meio_pagamento": "cartao_credito",
+        },
     ).json()
 
     current_user["id"] = OUTRO_USUARIO
@@ -131,9 +161,18 @@ def test_estorno_vinculado_a_transacao_de_outro_usuario_retorna_404(client, curr
 
 def test_mover_fatura_em_conta_que_nao_e_cartao_retorna_422(client):
     conta = _criar_conta_corrente(client)
+    categoria = client.post("/categorias", json={"nome": "Categoria Teste"}).json()
     transacao = client.post(
         "/transacoes",
-        json={"data_compra": "2026-09-05", "valor": 50, "tipo_movimento": "despesa", "conta_id": conta["id"]},
+        json={
+            "data_compra": "2026-09-05",
+            "valor": 50,
+            "tipo_movimento": "despesa",
+            "conta_id": conta["id"],
+            "categoria_id": categoria["id"],
+            "estrutura_custo": "variavel",
+            "meio_pagamento": "pix",
+        },
     ).json()
 
     resposta = client.patch(
@@ -144,6 +183,7 @@ def test_mover_fatura_em_conta_que_nao_e_cartao_retorna_422(client):
 
 def test_meio_pagamento_e_gravado_e_pode_ser_filtrado(client):
     conta = _criar_conta_corrente(client)
+    categoria = client.post("/categorias", json={"nome": "Categoria Teste"}).json()
     client.post(
         "/transacoes",
         json={
@@ -151,6 +191,8 @@ def test_meio_pagamento_e_gravado_e_pode_ser_filtrado(client):
             "valor": 40,
             "tipo_movimento": "despesa",
             "conta_id": conta["id"],
+            "categoria_id": categoria["id"],
+            "estrutura_custo": "variavel",
             "meio_pagamento": "pix",
         },
     )
@@ -161,6 +203,8 @@ def test_meio_pagamento_e_gravado_e_pode_ser_filtrado(client):
             "valor": 60,
             "tipo_movimento": "despesa",
             "conta_id": conta["id"],
+            "categoria_id": categoria["id"],
+            "estrutura_custo": "variavel",
             "meio_pagamento": "boleto",
         },
     )
@@ -191,6 +235,7 @@ def test_pix_parcelado_em_conta_corrente_e_permitido_e_sem_fatura(client):
     numa conta corrente é um caso real, e não deve ter fatura nenhuma
     (fatura só existe pra ciclo de fechamento de cartão)."""
     conta = _criar_conta_corrente(client)
+    categoria = client.post("/categorias", json={"nome": "Categoria Teste"}).json()
 
     resposta = client.post(
         "/transacoes/parceladas",
@@ -200,6 +245,8 @@ def test_pix_parcelado_em_conta_corrente_e_permitido_e_sem_fatura(client):
             "parcela_total": 3,
             "data_primeira_parcela": "2026-09-05",
             "conta_id": conta["id"],
+            "categoria_id": categoria["id"],
+            "estrutura_custo": "variavel",
             "meio_pagamento": "pix",
         },
     )
@@ -212,9 +259,18 @@ def test_pix_parcelado_em_conta_corrente_e_permitido_e_sem_fatura(client):
 
 def test_mover_fatura_manualmente_marca_override(client):
     cartao = _criar_conta_cartao(client)
+    categoria = client.post("/categorias", json={"nome": "Categoria Teste"}).json()
     transacao = client.post(
         "/transacoes",
-        json={"data_compra": "2026-08-05", "valor": 30, "tipo_movimento": "despesa", "conta_id": cartao["id"]},
+        json={
+            "data_compra": "2026-08-05",
+            "valor": 30,
+            "tipo_movimento": "despesa",
+            "conta_id": cartao["id"],
+            "categoria_id": categoria["id"],
+            "estrutura_custo": "variavel",
+            "meio_pagamento": "cartao_credito",
+        },
     ).json()
     assert transacao["fatura_referencia"] == "2026-08-08"
 
@@ -226,9 +282,18 @@ def test_mover_fatura_manualmente_marca_override(client):
 
 def test_excluir_transacao(client):
     cartao = _criar_conta_cartao(client)
+    categoria = client.post("/categorias", json={"nome": "Categoria Teste"}).json()
     transacao = client.post(
         "/transacoes",
-        json={"data_compra": "2026-08-05", "valor": 30, "tipo_movimento": "despesa", "conta_id": cartao["id"]},
+        json={
+            "data_compra": "2026-08-05",
+            "valor": 30,
+            "tipo_movimento": "despesa",
+            "conta_id": cartao["id"],
+            "categoria_id": categoria["id"],
+            "estrutura_custo": "variavel",
+            "meio_pagamento": "cartao_credito",
+        },
     ).json()
 
     excluida = client.delete(f"/transacoes/{transacao['id']}")
@@ -245,6 +310,7 @@ def test_excluir_transacao_inexistente_retorna_404(client):
 
 def test_compra_parcelada_gera_uma_transacao_por_ciclo(client):
     cartao = _criar_conta_cartao(client)
+    categoria = client.post("/categorias", json={"nome": "Categoria Teste"}).json()
 
     resposta = client.post(
         "/transacoes/parceladas",
@@ -254,6 +320,9 @@ def test_compra_parcelada_gera_uma_transacao_por_ciclo(client):
             "parcela_total": 3,
             "data_primeira_parcela": "2026-08-05",
             "conta_id": cartao["id"],
+            "categoria_id": categoria["id"],
+            "estrutura_custo": "variavel",
+            "meio_pagamento": "cartao_credito",
         },
     )
     assert resposta.status_code == 201
@@ -270,6 +339,7 @@ def test_compra_parcelada_gera_uma_transacao_por_ciclo(client):
 
 def test_compra_parcelada_calcula_fatura_de_cada_parcela(client):
     cartao = _criar_conta_cartao(client, dia_fechamento=8)
+    categoria = client.post("/categorias", json={"nome": "Categoria Teste"}).json()
 
     parcelas = client.post(
         "/transacoes/parceladas",
@@ -279,6 +349,9 @@ def test_compra_parcelada_calcula_fatura_de_cada_parcela(client):
             "parcela_total": 2,
             "data_primeira_parcela": "2026-08-05",
             "conta_id": cartao["id"],
+            "categoria_id": categoria["id"],
+            "estrutura_custo": "variavel",
+            "meio_pagamento": "cartao_credito",
         },
     ).json()
 
@@ -301,6 +374,8 @@ def test_filtrar_por_categoria(client):
             "tipo_movimento": "despesa",
             "conta_id": conta["id"],
             "categoria_id": mercado["id"],
+            "estrutura_custo": "variavel",
+            "meio_pagamento": "pix",
         },
     )
     client.post(
@@ -311,6 +386,8 @@ def test_filtrar_por_categoria(client):
             "tipo_movimento": "despesa",
             "conta_id": conta["id"],
             "categoria_id": lazer["id"],
+            "estrutura_custo": "variavel",
+            "meio_pagamento": "pix",
         },
     )
 
@@ -340,18 +417,17 @@ def test_filtrar_por_tipo_movimento(client):
 
 def test_filtrar_por_periodo(client):
     conta = _criar_conta_corrente(client)
-    client.post(
-        "/transacoes",
-        json={"data_compra": "2026-08-31", "valor": 10, "tipo_movimento": "despesa", "conta_id": conta["id"]},
-    )
-    client.post(
-        "/transacoes",
-        json={"data_compra": "2026-09-15", "valor": 20, "tipo_movimento": "despesa", "conta_id": conta["id"]},
-    )
-    client.post(
-        "/transacoes",
-        json={"data_compra": "2026-10-01", "valor": 30, "tipo_movimento": "despesa", "conta_id": conta["id"]},
-    )
+    categoria = client.post("/categorias", json={"nome": "Categoria Teste"}).json()
+    payload_base = {
+        "tipo_movimento": "despesa",
+        "conta_id": conta["id"],
+        "categoria_id": categoria["id"],
+        "estrutura_custo": "variavel",
+        "meio_pagamento": "pix",
+    }
+    client.post("/transacoes", json={**payload_base, "data_compra": "2026-08-31", "valor": 10})
+    client.post("/transacoes", json={**payload_base, "data_compra": "2026-09-15", "valor": 20})
+    client.post("/transacoes", json={**payload_base, "data_compra": "2026-10-01", "valor": 30})
 
     resposta = client.get("/transacoes", params={"data_inicio": "2026-09-01", "data_fim": "2026-09-30"})
     dados = resposta.json()
@@ -361,6 +437,7 @@ def test_filtrar_por_periodo(client):
 
 def test_buscar_por_descricao_parcial_case_insensitive(client):
     conta = _criar_conta_corrente(client)
+    categoria = client.post("/categorias", json={"nome": "Categoria Teste"}).json()
     client.post(
         "/transacoes",
         json={
@@ -368,6 +445,9 @@ def test_buscar_por_descricao_parcial_case_insensitive(client):
             "valor": 40,
             "tipo_movimento": "despesa",
             "conta_id": conta["id"],
+            "categoria_id": categoria["id"],
+            "estrutura_custo": "variavel",
+            "meio_pagamento": "pix",
             "descricao": "Supermercado Extra",
         },
     )
@@ -378,6 +458,9 @@ def test_buscar_por_descricao_parcial_case_insensitive(client):
             "valor": 15,
             "tipo_movimento": "despesa",
             "conta_id": conta["id"],
+            "categoria_id": categoria["id"],
+            "estrutura_custo": "variavel",
+            "meio_pagamento": "pix",
             "descricao": "Farmácia",
         },
     )
@@ -390,27 +473,38 @@ def test_buscar_por_descricao_parcial_case_insensitive(client):
 
 def test_listar_sem_filtro_continua_retornando_tudo(client):
     conta = _criar_conta_corrente(client)
-    client.post(
-        "/transacoes",
-        json={"data_compra": "2026-09-05", "valor": 10, "tipo_movimento": "despesa", "conta_id": conta["id"]},
-    )
-    client.post(
-        "/transacoes",
-        json={"data_compra": "2026-09-06", "valor": 20, "tipo_movimento": "despesa", "conta_id": conta["id"]},
-    )
+    categoria = client.post("/categorias", json={"nome": "Categoria Teste"}).json()
+    payload_base = {
+        "tipo_movimento": "despesa",
+        "conta_id": conta["id"],
+        "categoria_id": categoria["id"],
+        "estrutura_custo": "variavel",
+        "meio_pagamento": "pix",
+    }
+    client.post("/transacoes", json={**payload_base, "data_compra": "2026-09-05", "valor": 10})
+    client.post("/transacoes", json={**payload_base, "data_compra": "2026-09-06", "valor": 20})
 
     assert len(client.get("/transacoes").json()) == 2
 
 
 def test_resumo_sem_filtro_soma_tudo(client):
     conta = _criar_conta_corrente(client)
+    categoria = client.post("/categorias", json={"nome": "Categoria Teste"}).json()
     client.post(
         "/transacoes",
         json={"data_compra": "2026-09-01", "valor": 5000, "tipo_movimento": "receita", "conta_id": conta["id"]},
     )
     client.post(
         "/transacoes",
-        json={"data_compra": "2026-09-05", "valor": 2000, "tipo_movimento": "despesa", "conta_id": conta["id"]},
+        json={
+            "data_compra": "2026-09-05",
+            "valor": 2000,
+            "tipo_movimento": "despesa",
+            "conta_id": conta["id"],
+            "categoria_id": categoria["id"],
+            "estrutura_custo": "variavel",
+            "meio_pagamento": "pix",
+        },
     )
 
     resumo = client.get("/transacoes/resumo").json()
@@ -431,6 +525,8 @@ def test_resumo_respeita_filtro_de_categoria(client):
             "tipo_movimento": "despesa",
             "conta_id": conta["id"],
             "categoria_id": mercado["id"],
+            "estrutura_custo": "variavel",
+            "meio_pagamento": "pix",
         },
     )
     client.post(
@@ -441,6 +537,8 @@ def test_resumo_respeita_filtro_de_categoria(client):
             "tipo_movimento": "despesa",
             "conta_id": conta["id"],
             "categoria_id": lazer["id"],
+            "estrutura_custo": "variavel",
+            "meio_pagamento": "pix",
         },
     )
 
@@ -508,6 +606,7 @@ def test_aplicacao_com_categoria_de_investimento_e_aceita(client):
             "tipo_movimento": "aplicacao",
             "conta_id": conta["id"],
             "categoria_id": investimentos["id"],
+            "estrutura_custo": "investimentos",
         },
     )
     assert resposta.status_code == 201

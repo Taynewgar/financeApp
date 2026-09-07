@@ -51,6 +51,7 @@ def test_despesa_com_estrutura_fixo_aparece_em_custos_fixos(client):
             "conta_id": conta["id"],
             "categoria_id": categoria["id"],
             "estrutura_custo": "fixo",
+            "meio_pagamento": "pix",
         },
     )
 
@@ -61,22 +62,26 @@ def test_despesa_com_estrutura_fixo_aparece_em_custos_fixos(client):
     assert fixos["itens"][0]["categoria_id"] == categoria["id"]
 
 
-def test_despesa_sem_estrutura_custo_cai_em_sem_estrutura(client):
-    conta = client.post("/contas", json={"nome": "Conta", "tipo_conta": "corrente"}).json()
-    client.post(
-        "/transacoes",
-        json={"data_compra": "2026-09-05", "valor": 80, "tipo_movimento": "despesa", "conta_id": conta["id"]},
-    )
-
-    resposta = client.get("/estrutura-custo/2026-09-01")
-    assert _bucket(resposta, "sem_estrutura")["realizado"] == 80
+# test_despesa_sem_estrutura_custo_cai_em_sem_estrutura removido: seu
+# premissa (despesa sem estrutura_custo) não é mais alcançável pela API —
+# categoria_id/estrutura_custo/meio_pagamento agora são obrigatórios para
+# despesa (ver _check_campos_obrigatorios em routers/transacoes.py). O
+# bucket "sem_estrutura" continua existindo no código (diagnóstico de dados
+# legados) e sua presença na lista de buckets segue coberta por
+# test_mes_sem_orcamento_e_sem_transacoes_retorna_todos_buckets_zerados.
 
 
 def test_aplicacao_aparece_em_investimentos(client):
     conta = client.post("/contas", json={"nome": "Investimento", "tipo_conta": "investimento"}).json()
     client.post(
         "/transacoes",
-        json={"data_compra": "2026-09-05", "valor": 300, "tipo_movimento": "aplicacao", "conta_id": conta["id"]},
+        json={
+            "data_compra": "2026-09-05",
+            "valor": 300,
+            "tipo_movimento": "aplicacao",
+            "conta_id": conta["id"],
+            "estrutura_custo": "investimentos",
+        },
     )
 
     resposta = client.get("/estrutura-custo/2026-09-01")
@@ -89,11 +94,23 @@ def test_retirada_reduz_realizado_de_investimentos(client):
     conta = client.post("/contas", json={"nome": "Investimento", "tipo_conta": "investimento"}).json()
     client.post(
         "/transacoes",
-        json={"data_compra": "2026-09-05", "valor": 300, "tipo_movimento": "aplicacao", "conta_id": conta["id"]},
+        json={
+            "data_compra": "2026-09-05",
+            "valor": 300,
+            "tipo_movimento": "aplicacao",
+            "conta_id": conta["id"],
+            "estrutura_custo": "investimentos",
+        },
     )
     client.post(
         "/transacoes",
-        json={"data_compra": "2026-09-15", "valor": 100, "tipo_movimento": "retirada", "conta_id": conta["id"]},
+        json={
+            "data_compra": "2026-09-15",
+            "valor": 100,
+            "tipo_movimento": "retirada",
+            "conta_id": conta["id"],
+            "estrutura_custo": "investimentos",
+        },
     )
 
     resposta = client.get("/estrutura-custo/2026-09-01")
@@ -112,6 +129,7 @@ def test_estorno_reduz_realizado_do_bucket(client):
             "conta_id": conta["id"],
             "categoria_id": categoria["id"],
             "estrutura_custo": "variavel",
+            "meio_pagamento": "pix",
         },
     ).json()
     client.post(
@@ -161,6 +179,7 @@ def test_categorias_diferentes_nao_se_misturam_no_mesmo_bucket(client):
             "conta_id": conta["id"],
             "categoria_id": aluguel["id"],
             "estrutura_custo": "fixo",
+            "meio_pagamento": "pix",
         },
     )
     client.post(
@@ -172,6 +191,7 @@ def test_categorias_diferentes_nao_se_misturam_no_mesmo_bucket(client):
             "conta_id": conta["id"],
             "categoria_id": internet["id"],
             "estrutura_custo": "fixo",
+            "meio_pagamento": "pix",
         },
     )
 
@@ -184,6 +204,7 @@ def test_categorias_diferentes_nao_se_misturam_no_mesmo_bucket(client):
 
 def test_transacao_fora_do_mes_nao_entra_no_calculo(client):
     conta = client.post("/contas", json={"nome": "Conta", "tipo_conta": "corrente"}).json()
+    categoria = client.post("/categorias", json={"nome": "Categoria Teste"}).json()
     client.post(
         "/transacoes",
         json={
@@ -191,7 +212,9 @@ def test_transacao_fora_do_mes_nao_entra_no_calculo(client):
             "valor": 999,
             "tipo_movimento": "despesa",
             "conta_id": conta["id"],
+            "categoria_id": categoria["id"],
             "estrutura_custo": "fixo",
+            "meio_pagamento": "pix",
         },
     )
     client.post(
@@ -201,7 +224,9 @@ def test_transacao_fora_do_mes_nao_entra_no_calculo(client):
             "valor": 999,
             "tipo_movimento": "despesa",
             "conta_id": conta["id"],
+            "categoria_id": categoria["id"],
             "estrutura_custo": "fixo",
+            "meio_pagamento": "pix",
         },
     )
 
@@ -231,7 +256,9 @@ def _criar_orcamento_do_exemplo(client, vigencia_mes="2026-09-01"):
     ).json()
 
 
-def _despesa(client, conta_id, valor, estrutura_custo, data="2026-09-05"):
+def _despesa(client, conta_id, valor, estrutura_custo, data="2026-09-05", categoria_id=None):
+    if categoria_id is None:
+        categoria_id = client.post("/categorias", json={"nome": "Categoria Teste"}).json()["id"]
     return client.post(
         "/transacoes",
         json={
@@ -239,7 +266,9 @@ def _despesa(client, conta_id, valor, estrutura_custo, data="2026-09-05"):
             "valor": valor,
             "tipo_movimento": "despesa",
             "conta_id": conta_id,
+            "categoria_id": categoria_id,
             "estrutura_custo": estrutura_custo,
+            "meio_pagamento": "pix",
         },
     )
 
@@ -294,6 +323,7 @@ def test_pool_despesas_considera_saldo_anterior_do_envelope(client):
             "conta_id": conta["id"],
             "categoria_id": categoria["id"],
             "estrutura_custo": "fixo",
+            "meio_pagamento": "pix",
         },
     )
     client.post(f"/orcamentos/{setembro['id']}/proximo-mes")  # outubro nasce com saldo_anterior=300 no item de fixos
@@ -307,6 +337,7 @@ def test_pool_despesas_considera_saldo_anterior_do_envelope(client):
             "conta_id": conta["id"],
             "categoria_id": categoria["id"],
             "estrutura_custo": "fixo",
+            "meio_pagamento": "pix",
         },
     )
 
@@ -321,7 +352,13 @@ def test_piso_investimentos_meta_batida(client):
     conta = client.post("/contas", json={"nome": "Investimento", "tipo_conta": "investimento"}).json()
     client.post(
         "/transacoes",
-        json={"data_compra": "2026-09-05", "valor": 4000, "tipo_movimento": "aplicacao", "conta_id": conta["id"]},
+        json={
+            "data_compra": "2026-09-05",
+            "valor": 4000,
+            "tipo_movimento": "aplicacao",
+            "conta_id": conta["id"],
+            "estrutura_custo": "investimentos",
+        },
     )
 
     resposta = client.get("/estrutura-custo/2026-09-01").json()
@@ -335,7 +372,13 @@ def test_piso_investimentos_meta_nao_batida(client):
     conta = client.post("/contas", json={"nome": "Investimento", "tipo_conta": "investimento"}).json()
     client.post(
         "/transacoes",
-        json={"data_compra": "2026-09-05", "valor": 2000, "tipo_movimento": "aplicacao", "conta_id": conta["id"]},
+        json={
+            "data_compra": "2026-09-05",
+            "valor": 2000,
+            "tipo_movimento": "aplicacao",
+            "conta_id": conta["id"],
+            "estrutura_custo": "investimentos",
+        },
     )
 
     resposta = client.get("/estrutura-custo/2026-09-01").json()
