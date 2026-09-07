@@ -103,34 +103,40 @@ export function NovoLancamento() {
   const [erro, setErro] = useState<string | null>(null)
   const [sucesso, setSucesso] = useState(false)
 
-  // receita e investimento têm categoria "pai" fixa — o usuário só escolhe
-  // a subcategoria (ver regra em backend/app/schemas/categorias.py)
-  const categoriasDespesa = useMemo(() => categorias.filter((c) => c.tipo === 'despesa'), [categorias])
-  const categoriaReceita = useMemo(() => categorias.find((c) => c.tipo === 'receita'), [categorias])
-  const categoriaInvestimento = useMemo(() => categorias.find((c) => c.tipo === 'investimento'), [categorias])
+  // categoria é escolhida entre as do tipo compatível (receita/despesa/
+  // investimento) — igual pra qualquer tipo de lançamento, sem parentesco
+  // fixo (ver regra em backend/app/schemas/categorias.py)
+  const categoriasElegiveis = useMemo(() => {
+    const tipoCategoria = tipo === 'ajuste' ? 'despesa' : tipo
+    if (tipoCategoria !== 'despesa' && tipoCategoria !== 'receita' && tipoCategoria !== 'investimento') return []
+    return categorias.filter((c) => c.tipo === tipoCategoria)
+  }, [categorias, tipo])
+
+  const rotuloTipoCategoria =
+    tipo === 'receita' ? 'Receita' : tipo === 'investimento' ? 'Investimento' : 'Despesa'
 
   const subcategoriasDaCategoria = useMemo(
     () => subcategorias.filter((s) => s.categoria_id === categoriaId),
     [subcategorias, categoriaId],
   )
 
-  // ao trocar o tipo, fixa (ou limpa) categoria/estrutura de acordo com a
-  // regra de cada tipo — o usuário nunca escolhe isso manualmente em
-  // receita/investimento
+  const contaSelecionada = useMemo(() => contas.find((c) => c.id === contaId), [contas, contaId])
+
+  // ao trocar o tipo, a categoria elegível muda — limpa a escolha anterior;
+  // investimento tem estrutura de custo fixa, independente da categoria
   useEffect(() => {
+    setCategoriaId('')
     setSubcategoriaId('')
-    if (tipo === 'receita' && categoriaReceita) {
-      setCategoriaId(categoriaReceita.id)
-      setEstruturaCusto('')
-    } else if (tipo === 'investimento' && categoriaInvestimento) {
-      setCategoriaId(categoriaInvestimento.id)
-      setEstruturaCusto('investimentos')
-    } else {
-      setCategoriaId('')
-      setEstruturaCusto('')
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    setEstruturaCusto(tipo === 'investimento' ? 'investimentos' : '')
   }, [tipo])
+
+  // despesa numa conta de cartão de crédito só pode ter sido paga no
+  // cartão — trava o campo em vez de deixar escolher outra coisa
+  useEffect(() => {
+    if (tipo === 'despesa' && contaSelecionada?.tipo_conta === 'cartao_credito') {
+      setMeioPagamento('cartao_credito')
+    }
+  }, [tipo, contaSelecionada])
 
   // debounce simples: espera parar de digitar antes de consultar a API
   useEffect(() => {
@@ -212,12 +218,8 @@ export function NovoLancamento() {
       setErro('Escolha uma caixinha.')
       return
     }
-    if (tipo === 'receita' && !categoriaReceita) {
-      setErro('Crie uma categoria do tipo Receita em Configurações antes de lançar receitas.')
-      return
-    }
-    if (tipo === 'investimento' && !categoriaInvestimento) {
-      setErro('Crie uma categoria do tipo Investimento em Configurações antes de lançar investimentos.')
+    if ((tipo === 'receita' || tipo === 'investimento') && categoriasElegiveis.length === 0) {
+      setErro(`Crie uma categoria do tipo ${rotuloTipoCategoria} em Configurações antes de lançar.`)
       return
     }
 
@@ -523,79 +525,46 @@ export function NovoLancamento() {
             </label>
           ))}
 
-        {(tipo === 'despesa' || tipo === 'ajuste') && (
-          <div className="campo-linha">
-            <label className="campo">
-              Categoria
-              <select
-                value={categoriaId}
-                onChange={(e) => {
-                  setCategoriaId(e.target.value)
-                  setSubcategoriaId('')
-                }}
-              >
-                <option value="">Nenhuma</option>
-                {categoriasDespesa.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.nome}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="campo">
-              Subcategoria
-              <select
-                value={subcategoriaId}
-                onChange={(e) => selecionarSubcategoria(e.target.value)}
-                disabled={!categoriaId}
-              >
-                <option value="">Nenhuma</option>
-                {subcategoriasDaCategoria.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.nome}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
-        )}
-
-        {tipo === 'receita' &&
-          (categoriaReceita ? (
-            <label className="campo">
-              Subcategoria
-              <select value={subcategoriaId} onChange={(e) => selecionarSubcategoria(e.target.value)}>
-                <option value="">Nenhuma</option>
-                {subcategoriasDaCategoria.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.nome}
-                  </option>
-                ))}
-              </select>
-            </label>
-          ) : (
+        {tipo !== 'reserva' &&
+          (categoriasElegiveis.length === 0 && tipo !== 'despesa' && tipo !== 'ajuste' ? (
             <p className="mensagem-erro">
-              Crie uma categoria do tipo Receita em Configurações antes de lançar receitas.
+              Crie uma categoria do tipo {rotuloTipoCategoria} em Configurações antes de lançar.
             </p>
-          ))}
-
-        {tipo === 'investimento' &&
-          (categoriaInvestimento ? (
-            <label className="campo">
-              Subcategoria
-              <select value={subcategoriaId} onChange={(e) => selecionarSubcategoria(e.target.value)}>
-                <option value="">Nenhuma</option>
-                {subcategoriasDaCategoria.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.nome}
-                  </option>
-                ))}
-              </select>
-            </label>
           ) : (
-            <p className="mensagem-erro">
-              Crie uma categoria do tipo Investimento em Configurações antes de lançar investimentos.
-            </p>
+            <div className="campo-linha">
+              <label className="campo">
+                Categoria
+                <select
+                  value={categoriaId}
+                  onChange={(e) => {
+                    setCategoriaId(e.target.value)
+                    setSubcategoriaId('')
+                  }}
+                >
+                  <option value="">Nenhuma</option>
+                  {categoriasElegiveis.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.nome}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="campo">
+                Subcategoria
+                <select
+                  value={subcategoriaId}
+                  onChange={(e) => selecionarSubcategoria(e.target.value)}
+                  disabled={!categoriaId}
+                >
+                  <option value="">Nenhuma</option>
+                  {subcategoriasDaCategoria.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.nome}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
           ))}
 
         {(tipo === 'despesa' || tipo === 'ajuste') && (
@@ -613,7 +582,11 @@ export function NovoLancamento() {
             </label>
             <label className="campo">
               Meio de pagamento
-              <select value={meioPagamento} onChange={(e) => setMeioPagamento(e.target.value as MeioPagamento | '')}>
+              <select
+                value={meioPagamento}
+                onChange={(e) => setMeioPagamento(e.target.value as MeioPagamento | '')}
+                disabled={tipo === 'despesa' && contaSelecionada?.tipo_conta === 'cartao_credito'}
+              >
                 <option value="">Nenhum</option>
                 {MEIOS_PAGAMENTO.map((m) => (
                   <option key={m.valor} value={m.valor}>
@@ -621,6 +594,11 @@ export function NovoLancamento() {
                   </option>
                 ))}
               </select>
+              {tipo === 'despesa' && contaSelecionada?.tipo_conta === 'cartao_credito' && (
+                <span style={{ fontSize: 12, color: 'var(--cor-texto-suave)' }}>
+                  Fixo em Cartão de crédito — a conta escolhida é um cartão.
+                </span>
+              )}
             </label>
           </div>
         )}

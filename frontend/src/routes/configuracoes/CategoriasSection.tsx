@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import '../../components/crud.css'
 import '../../components/forms.css'
 import { ApiError, apiFetch } from '../../lib/api'
+import { ordenarPorNome } from '../../lib/ordenar'
 import type { Categoria, EstruturaCusto, Subcategoria, TipoCategoria } from '../../lib/types'
 
 const TIPOS_CATEGORIA: { valor: TipoCategoria; rotulo: string }[] = [
@@ -38,6 +39,7 @@ export function CategoriasSection() {
 
   const [expandida, setExpandida] = useState<string | null>(null)
   const [novaSubcategoriaDe, setNovaSubcategoriaDe] = useState<string | null>(null)
+  const [editandoSubcategoria, setEditandoSubcategoria] = useState<Subcategoria | null>(null)
   const [formSubcategoria, setFormSubcategoria] = useState<FormSubcategoria>({
     nome: '',
     estrutura_custo_padrao: '',
@@ -47,8 +49,8 @@ export function CategoriasSection() {
   useEffect(() => {
     Promise.all([apiFetch<Categoria[]>('/categorias'), apiFetch<Subcategoria[]>('/subcategorias')])
       .then(([cat, sub]) => {
-        setCategorias(cat)
-        setSubcategorias(sub)
+        setCategorias(ordenarPorNome(cat))
+        setSubcategorias(ordenarPorNome(sub))
       })
       .catch((e) => setErro(e instanceof ApiError ? e.message : 'Falha ao carregar categorias'))
   }, [])
@@ -93,13 +95,13 @@ export function CategoriasSection() {
           method: 'PATCH',
           body: JSON.stringify(formCategoria),
         })
-        setCategorias((atual) => atual!.map((c) => (c.id === atualizada.id ? atualizada : c)))
+        setCategorias((atual) => ordenarPorNome(atual!.map((c) => (c.id === atualizada.id ? atualizada : c))))
       } else {
         const criada = await apiFetch<Categoria>('/categorias', {
           method: 'POST',
           body: JSON.stringify(formCategoria),
         })
-        setCategorias((atual) => [...(atual ?? []), criada])
+        setCategorias((atual) => ordenarPorNome([...(atual ?? []), criada]))
       }
       setMostrarFormCategoria(false)
     } catch (e) {
@@ -114,6 +116,18 @@ export function CategoriasSection() {
   function iniciarCriacaoSubcategoria(categoriaId: string) {
     setFormSubcategoria({ nome: '', estrutura_custo_padrao: '' })
     setNovaSubcategoriaDe(categoriaId)
+    setEditandoSubcategoria(null)
+  }
+
+  function iniciarEdicaoSubcategoria(sub: Subcategoria) {
+    setFormSubcategoria({ nome: sub.nome, estrutura_custo_padrao: sub.estrutura_custo_padrao ?? '' })
+    setEditandoSubcategoria(sub)
+    setNovaSubcategoriaDe(null)
+  }
+
+  function cancelarFormSubcategoria() {
+    setNovaSubcategoriaDe(null)
+    setEditandoSubcategoria(null)
   }
 
   async function toggleAtivoSubcategoria(sub: Subcategoria) {
@@ -129,16 +143,25 @@ export function CategoriasSection() {
     setSalvando(true)
     setErro(null)
     try {
-      const criada = await apiFetch<Subcategoria>('/subcategorias', {
-        method: 'POST',
-        body: JSON.stringify({
-          categoria_id: categoriaId,
-          nome: formSubcategoria.nome,
-          estrutura_custo_padrao: formSubcategoria.estrutura_custo_padrao || null,
-        }),
-      })
-      setSubcategorias((atual) => [...atual, criada])
-      setNovaSubcategoriaDe(null)
+      const payload = {
+        nome: formSubcategoria.nome,
+        estrutura_custo_padrao: formSubcategoria.estrutura_custo_padrao || null,
+      }
+      if (editandoSubcategoria) {
+        const atualizada = await apiFetch<Subcategoria>(`/subcategorias/${editandoSubcategoria.id}`, {
+          method: 'PATCH',
+          body: JSON.stringify(payload),
+        })
+        setSubcategorias((atual) => ordenarPorNome(atual.map((s) => (s.id === atualizada.id ? atualizada : s))))
+        setEditandoSubcategoria(null)
+      } else {
+        const criada = await apiFetch<Subcategoria>('/subcategorias', {
+          method: 'POST',
+          body: JSON.stringify({ categoria_id: categoriaId, ...payload }),
+        })
+        setSubcategorias((atual) => ordenarPorNome([...atual, criada]))
+        setNovaSubcategoriaDe(null)
+      }
     } catch (e) {
       setErro(
         e instanceof ApiError
@@ -162,8 +185,9 @@ export function CategoriasSection() {
       </div>
 
       <p style={{ color: 'var(--cor-texto-suave)', fontSize: 13, marginTop: -4 }}>
-        Receita e Investimento devem ter exatamente 1 categoria cada — é ela que o Novo Lançamento usa
-        automaticamente. Despesa pode ter quantas categorias fizer sentido.
+        Receita e Investimento podem ter mais de uma categoria (ex: "Salário", "Freelance" em Receita) — o Novo
+        Lançamento deixa escolher entre as do tipo certo. Investimento sempre usa estrutura de custo fixa; Receita
+        não usa estrutura de custo nem meio de pagamento.
       </p>
 
       {erro && <p className="mensagem-erro">{erro}</p>}
@@ -212,6 +236,8 @@ export function CategoriasSection() {
           {categorias.map((categoria) => {
             const subs = subcategoriasPorCategoria.get(categoria.id) ?? []
             const aberta = expandida === categoria.id
+            const formAbertoAqui =
+              novaSubcategoriaDe === categoria.id || editandoSubcategoria?.categoria_id === categoria.id
             return (
               <li key={categoria.id} className={categoria.ativo ? '' : 'item-inativo'}>
                 <div className="item-linha">
@@ -251,14 +277,23 @@ export function CategoriasSection() {
                               {!sub.ativo && ' — inativa'}
                             </span>
                           </div>
-                          <button type="button" className="botao-link" onClick={() => toggleAtivoSubcategoria(sub)}>
-                            {sub.ativo ? 'Desativar' : 'Reativar'}
-                          </button>
+                          <div className="item-acoes">
+                            <button
+                              type="button"
+                              className="botao-link"
+                              onClick={() => iniciarEdicaoSubcategoria(sub)}
+                            >
+                              Editar
+                            </button>
+                            <button type="button" className="botao-link" onClick={() => toggleAtivoSubcategoria(sub)}>
+                              {sub.ativo ? 'Desativar' : 'Reativar'}
+                            </button>
+                          </div>
                         </div>
                       </li>
                     ))}
 
-                    {novaSubcategoriaDe === categoria.id ? (
+                    {formAbertoAqui ? (
                       <li>
                         <form
                           className="form"
@@ -299,13 +334,9 @@ export function CategoriasSection() {
                           </div>
                           <div className="form-acoes">
                             <button type="submit" className="botao-primario" disabled={salvando}>
-                              {salvando ? 'Salvando…' : 'Criar subcategoria'}
+                              {salvando ? 'Salvando…' : editandoSubcategoria ? 'Salvar alterações' : 'Criar subcategoria'}
                             </button>
-                            <button
-                              type="button"
-                              className="botao-secundario"
-                              onClick={() => setNovaSubcategoriaDe(null)}
-                            >
+                            <button type="button" className="botao-secundario" onClick={cancelarFormSubcategoria}>
                               Cancelar
                             </button>
                           </div>

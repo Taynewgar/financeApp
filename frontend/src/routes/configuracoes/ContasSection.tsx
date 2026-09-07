@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react'
 import '../../components/crud.css'
 import '../../components/forms.css'
 import { ApiError, apiFetch } from '../../lib/api'
+import { ordenarPorNome } from '../../lib/ordenar'
 import type { Conta, TipoConta } from '../../lib/types'
 
 const TIPOS_CONTA: { valor: TipoConta; rotulo: string }[] = [
@@ -40,7 +41,7 @@ export function ContasSection() {
 
   useEffect(() => {
     apiFetch<Conta[]>('/contas')
-      .then(setContas)
+      .then((c) => setContas(ordenarPorNome(c)))
       .catch((e) => setErro(e instanceof ApiError ? e.message : 'Falha ao carregar contas'))
   }, [])
 
@@ -86,10 +87,10 @@ export function ContasSection() {
           method: 'PATCH',
           body: JSON.stringify(payload),
         })
-        setContas((atual) => atual!.map((c) => (c.id === atualizada.id ? atualizada : c)))
+        setContas((atual) => ordenarPorNome(atual!.map((c) => (c.id === atualizada.id ? atualizada : c))))
       } else {
         const criada = await apiFetch<Conta>('/contas', { method: 'POST', body: JSON.stringify(payload) })
-        setContas((atual) => [...(atual ?? []), criada])
+        setContas((atual) => ordenarPorNome([...(atual ?? []), criada]))
       }
       setMostrarForm(false)
     } catch (e) {

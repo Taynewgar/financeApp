@@ -59,7 +59,14 @@ service worker do PWA já embutidos via `vite-plugin-pwa`).
 - Chamada real e autenticada à API.
 - **Configurações**: CRUD completo (criar/editar/ativar/desativar) de
   Contas, Categorias (com subcategorias aninhadas, expansíveis por
-  categoria) e Caixinhas, em abas.
+  categoria, também editáveis) e Caixinhas, em abas. Listas sempre
+  ordenadas por nome, mesmo logo após criar/editar (sem precisar
+  recarregar a página). Caixinha vinculada a uma conta trava essa conta —
+  uma vez vinculada, não dá mais pra trocar (nem desvincular) por esse
+  formulário; o backend também recusa (422) se a troca vier por outra via.
+- Ao entrar no app, dispara um `GET /health` em segundo plano pra começar
+  a "acordar" o backend (planos free do Render hibernam após
+  inatividade) antes que a primeira tela realmente precise de dados.
 - **Novo Lançamento** (`/lancamentos/novo`), formulário completo:
   - Tipo: Receita / Despesa / Investimento / Reserva / Estorno-Ressarcimento
     (segmentado, não é um select cru com os 6 valores do banco). Cada tipo
@@ -67,12 +74,15 @@ service worker do PWA já embutidos via `vite-plugin-pwa`).
     - **Despesa**: categoria/subcategoria (só categorias tipo despesa),
       estrutura de custo, meio de pagamento, sub-toggle À vista/Parcelado
       (parcelado usa `POST /transacoes/parceladas`).
-    - **Receita**: categoria é fixa (a única categoria tipo `receita` do
-      usuário) — só escolhe a subcategoria. Sem estrutura de custo, sem
-      meio de pagamento, sem caixinha.
-    - **Investimento**: categoria fixa (tipo `investimento`) e estrutura
-      de custo fixa (`investimentos`) — só escolhe subcategoria e a
-      direção (Aplicação/Retirada). Sem meio de pagamento, sem caixinha.
+      Se a conta escolhida é do tipo `cartao_credito`, o meio de pagamento
+      trava automaticamente em "Cartão de crédito" (não faz sentido pagar
+      uma despesa lançada no cartão de outra forma).
+    - **Receita**: escolhe entre as categorias do tipo `receita` (pode ter
+      mais de uma — ex: "Salário", "Freelance") + subcategoria. Sem
+      estrutura de custo, sem meio de pagamento, sem caixinha.
+    - **Investimento**: escolhe entre as categorias do tipo `investimento`
+      + subcategoria; estrutura de custo sempre fixa em `investimentos`,
+      qualquer que seja a categoria. Sem meio de pagamento, sem caixinha.
     - **Reserva**: escolhe a caixinha (obrigatório) e a direção
       (Aplicação/Retirada). Sem categoria, sem estrutura de custo, sem
       meio de pagamento — caixinha é reserva, não despesa nem investimento.

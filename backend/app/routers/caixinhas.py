@@ -44,9 +44,22 @@ def atualizar(
     db: Client = Depends(get_db),
     user_id: str = Depends(get_current_user_id),
 ):
-    _check_conta(db, user_id, payload.conta_id)
+    dados = payload.model_dump(exclude_unset=True)
+    if "conta_id" in dados:
+        try:
+            atual = crud.get_one(db, TABLE, user_id, caixinha_id)
+        except crud.NotFound:
+            raise HTTPException(status_code=404, detail="Caixinha não encontrada")
+        # uma vez vinculada, a conta fica fixa — trocar "teleportaria" a
+        # reserva de uma conta pra outra sem uma transação real por trás
+        if atual["conta_id"] and dados["conta_id"] != atual["conta_id"]:
+            raise HTTPException(
+                status_code=422,
+                detail="Caixinha já vinculada a uma conta — não é possível trocar a conta vinculada",
+            )
+        _check_conta(db, user_id, dados["conta_id"])
     try:
-        return crud.update(db, TABLE, user_id, caixinha_id, payload.model_dump(exclude_unset=True))
+        return crud.update(db, TABLE, user_id, caixinha_id, dados)
     except crud.NotFound:
         raise HTTPException(status_code=404, detail="Caixinha não encontrada")
 

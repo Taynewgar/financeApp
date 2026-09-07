@@ -1,6 +1,7 @@
-import type { ReactNode } from 'react'
+import { useEffect, type ReactNode } from 'react'
 import { Link, NavLink, Outlet } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
+import { checkHealth } from '../lib/api'
 import './AppShell.css'
 
 const SECOES = [
@@ -17,6 +18,13 @@ function linkClasse(base: string) {
 
 export function AppShell({ children }: { children?: ReactNode }) {
   const { session, signOut } = useAuth()
+
+  // dispara assim que o usuário entra no app — se o backend estiver
+  // "dormindo" (plano free do Render hiberna após inatividade), começa a
+  // acordar aqui em vez de só quando a primeira tela pedir dados de verdade
+  useEffect(() => {
+    checkHealth().catch(() => {})
+  }, [])
 
   return (
     <div className="shell">
