@@ -1,0 +1,56 @@
+.resumo-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.resumo-card {
+  padding: 12px 14px;
+  background: var(--cor-superficie);
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.resumo-card-rotulo {
+  font-size: 12px;
+  color: var(--cor-texto-suave);
+}
+
+.resumo-card-valor {
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.filtros {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 20px;
+  padding: 14px;
+  background: var(--cor-superficie);
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio);
+}
+
+.filtros-linha {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.filtros-linha > .campo {
+  flex: 1;
+  min-width: 140px;
+}
+
+.valor-receita {
+  color: var(--cor-sucesso);
+}
+
+.valor-despesa {
+  color: var(--cor-perigo);
+}

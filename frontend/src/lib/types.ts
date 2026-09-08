@@ -52,6 +52,21 @@ export type MeioPagamento =
   | 'transferencia'
   | 'outro'
 
+export type ResumoLancamentos = {
+  total_lancamentos: number
+  receitas: number
+  despesas_brutas: number
+  despesas_liquidas: number
+  ajustes_vinculados: number
+  ajustes_nao_vinculados: number
+  aplicacoes: number
+  retiradas: number
+  reservas: number
+  resultado_fluxo_caixa: number
+  resultado_saude: number
+  taxa_poupanca: number | null
+}
+
 export type Transacao = {
   id: string
   data_compra: string

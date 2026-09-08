@@ -19,7 +19,8 @@ PWA em React + Vite + TypeScript, consumindo a API do `backend/`.
 - `src/routes/` — uma tela por seção. `Dashboard` faz chamada real à API;
   `Configuracoes` tem os CRUDs de Contas/Categorias/Caixinhas (ver abaixo);
   `NovoLancamento` é o formulário completo de lançamento (ver abaixo);
-  Lançamentos, Planejamento e Estruturas de Custo ainda são placeholders.
+  `Lancamentos` é a lista/busca de lançamentos (ver abaixo); Planejamento e
+  Estruturas de Custo ainda são placeholders.
 - `src/routes/configuracoes/` — uma seção por aba de Configurações
   (`ContasSection`, `CategoriasSection`, `CaixinhasSection`), cada uma com
   seu próprio listar/criar/editar/ativar-desativar.
@@ -133,7 +134,19 @@ sem precisar rodar nada manualmente.
   - Ao salvar, tela de confirmação com atalho pra lançar outro ou voltar
     ao Dashboard.
 
+- **Lançamentos** (`/lancamentos`), lista/busca:
+  - Filtros: tipo de movimento, texto na descrição (com debounce), período,
+    conta, categoria, subcategoria (dependente da categoria), caixinha,
+    estrutura de custo e meio de pagamento — mesmos filtros de
+    `GET /transacoes` no backend.
+  - Cartões de resumo (total de lançamentos, receitas, despesas líquidas,
+    fluxo de caixa, taxa de poupança) vindos de `GET /transacoes/resumo`,
+    recalculados sobre exatamente o mesmo conjunto filtrado.
+  - Cada lançamento mostra data, descrição, valor (colorido por tipo),
+    conta/categoria/subcategoria/caixinha/meio de pagamento e parcela (se
+    parcelado). Exclusão direta na lista (`DELETE /transacoes/{id}`, com
+    confirmação) — útil pra corrigir um lançamento de teste.
+
 ## O que falta (próximas entregas)
 
-Lançamentos (lista/busca), Planejamento (orçamento) e Estruturas de Custo
-ainda são placeholders.
+Planejamento (orçamento) e Estruturas de Custo ainda são placeholders.
