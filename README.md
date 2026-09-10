@@ -44,7 +44,12 @@ PWA com backend hospedado (Render) e banco Supabase.
     ledger de verdade. Parcelamento (`POST /transacoes/parceladas`) não é
     exclusivo de cartão de crédito (ex: Pix parcelado numa conta corrente)
     — só "mover fatura" (`PATCH /transacoes/{id}/fatura`) exige conta do
-    tipo `cartao_credito`, retornando 422 caso contrário. Caixinha é
+    tipo `cartao_credito`, retornando 422 caso contrário. `PATCH
+    /transacoes/{id}` edita um lançamento à vista por completo (mesmas
+    validações do `POST`) — parcela de compra parcelada retorna 422 (edite
+    excluindo e lançando de novo, pra não quebrar a consistência do grupo);
+    se a fatura já tinha sido movida manualmente, a edição preserva essa
+    referência em vez de recalcular pelo dia de fechamento. Caixinha é
     reserva, não despesa nem investimento: só pode ser vinculada a uma
     transação de `aplicacao`/`retirada`, e uma categoria vinculada precisa
     ter o `tipo` compatível com o tipo de movimento (receita/despesa/
@@ -256,3 +261,24 @@ e pula a de integração — é seguro rodar sempre o mesmo comando.
 O script `tests/manual_verification.py` (anterior a essa suíte) continua
 funcionando como um roteiro único de fumaça, mas os testes de integração
 acima são mais completos e específicos — prefira-os.
+
+### Popular dados de teste (`tests/seed_dados_teste.py`)
+
+Pra testar telas manualmente (Lançamentos, Dashboard, Estrutura de Custo)
+com uma massa de dados mais coerente do que uns poucos lançamentos soltos,
+sem digitar cada um na mão: cria contas/categorias/caixinhas (reaproveita se
+já existirem, pelo nome) e alguns meses de lançamentos variados — salário,
+aluguel, mercado, lazer, aporte, reserva, uma compra parcelada. Tudo com
+descrição prefixada `[seed]`, pra dar pra identificar e remover depois:
+
+```bash
+cd backend
+source venv/bin/activate
+TEST_USER_EMAIL=teste@teste.com TEST_USER_PASSWORD=teste python tests/seed_dados_teste.py
+
+# pra remover depois (só o que tem o prefixo [seed], nunca lançamentos seus):
+TEST_USER_EMAIL=teste@teste.com TEST_USER_PASSWORD=teste python tests/seed_dados_teste.py --limpar
+```
+
+Roda contra o Supabase de verdade (mesmo usuário dos testes de integração)
+— não é ambiente de CI.

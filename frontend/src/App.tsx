@@ -4,6 +4,7 @@ import { ProtectedRoute } from './auth/ProtectedRoute'
 import { AppShell } from './components/AppShell'
 import { Configuracoes } from './routes/Configuracoes'
 import { Dashboard } from './routes/Dashboard'
+import { EditarLancamento } from './routes/EditarLancamento'
 import { Lancamentos } from './routes/Lancamentos'
 import { Login } from './routes/Login'
 import { NovoLancamento } from './routes/NovoLancamento'
@@ -27,6 +28,7 @@ function App() {
             <Route path="dashboard" element={<Dashboard />} />
             <Route path="lancamentos" element={<Lancamentos />} />
             <Route path="lancamentos/novo" element={<NovoLancamento />} />
+            <Route path="lancamentos/:id/editar" element={<EditarLancamento />} />
             <Route path="planejamento" element={<Placeholder titulo="Planejamento (Orçamento)" />} />
             <Route path="estruturas-de-custo" element={<Placeholder titulo="Estruturas de Custo" />} />
             <Route path="configuracoes" element={<Configuracoes />} />

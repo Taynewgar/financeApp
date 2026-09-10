@@ -16,11 +16,16 @@ PWA em React + Vite + TypeScript, consumindo a API do `backend/`.
   flutuante de "+" pra Novo Lançamento a partir de qualquer tela.
 - `src/lib/types.ts` — tipos TS espelhando os schemas Pydantic do backend
   (mesmos nomes de campo, pra não precisar traduzir mentalmente).
+- `src/lib/rotulos.ts` — rótulos/mapeamentos compartilhados entre
+  `NovoLancamento`, `EditarLancamento` e `Lancamentos` (estrutura de custo,
+  meio de pagamento, tipo de movimento).
+- `src/lib/formatar.ts` — `formatarMoeda`/`formatarData` (pt-BR).
 - `src/routes/` — uma tela por seção. `Dashboard` faz chamada real à API;
   `Configuracoes` tem os CRUDs de Contas/Categorias/Caixinhas (ver abaixo);
   `NovoLancamento` é o formulário completo de lançamento (ver abaixo);
-  `Lancamentos` é a lista/busca de lançamentos (ver abaixo); Planejamento e
-  Estruturas de Custo ainda são placeholders.
+  `Lancamentos` é a lista/busca (ver abaixo); `EditarLancamento` edita um
+  lançamento à vista existente; Planejamento e Estruturas de Custo ainda
+  são placeholders.
 - `src/routes/configuracoes/` — uma seção por aba de Configurações
   (`ContasSection`, `CategoriasSection`, `CaixinhasSection`), cada uma com
   seu próprio listar/criar/editar/ativar-desativar.
@@ -99,7 +104,11 @@ sem precisar rodar nada manualmente.
   trocada livremente aqui — quem trava é o Novo Lançamento (ver abaixo).
 - Ao entrar no app, dispara um `GET /health` em segundo plano pra começar
   a "acordar" o backend (planos free do Render hibernam após
-  inatividade) antes que a primeira tela realmente precise de dados.
+  inatividade) antes que a primeira tela realmente precise de dados. Se
+  isso demorar mais que ~1,5s, um banner no topo avisa que o servidor pode
+  estar "acordando" e mostra um contador de segundos, em vez de deixar a
+  tela parecendo travada sem explicação; se falhar, o banner vira um aviso
+  de erro com botão "Tentar novamente".
 - **Novo Lançamento** (`/lancamentos/novo`), formulário completo:
   - Tipo: Receita / Despesa / Investimento / Reserva / Estorno-Ressarcimento
     (segmentado, não é um select cru com os 6 valores do banco). Cada tipo
@@ -135,17 +144,25 @@ sem precisar rodar nada manualmente.
     ao Dashboard.
 
 - **Lançamentos** (`/lancamentos`), lista/busca:
-  - Filtros: tipo de movimento, texto na descrição (com debounce), período,
-    conta, categoria, subcategoria (dependente da categoria), caixinha,
-    estrutura de custo e meio de pagamento — mesmos filtros de
-    `GET /transacoes` no backend.
+  - Filtros: tipo de movimento, texto na descrição (com debounce), mês+ano
+    rápido (preenche período automaticamente, mas o período personalizado
+    continua editável à parte) ou período customizado, conta, categoria,
+    subcategoria (dependente da categoria), caixinha, estrutura de custo e
+    meio de pagamento — mesmos filtros de `GET /transacoes` no backend. Uma
+    resposta de um filtro antigo que chegue depois de um filtro mais novo é
+    descartada (guarda contra corrida de requisições), pra nunca mostrar um
+    resultado que não bate com os filtros atuais na tela.
   - Cartões de resumo (total de lançamentos, receitas, despesas líquidas,
     fluxo de caixa, taxa de poupança) vindos de `GET /transacoes/resumo`,
-    recalculados sobre exatamente o mesmo conjunto filtrado.
-  - Cada lançamento mostra data, descrição, valor (colorido por tipo),
-    conta/categoria/subcategoria/caixinha/meio de pagamento e parcela (se
-    parcelado). Exclusão direta na lista (`DELETE /transacoes/{id}`, com
-    confirmação) — útil pra corrigir um lançamento de teste.
+    recalculados sobre exatamente o mesmo conjunto filtrado — cada cartão
+    tem um tooltip (passar o mouse) explicando o que o número significa.
+  - Cada lançamento mostra data, descrição, valor (colorido por tipo —
+    verde receita/ajuste, vermelho despesa, azul aplicação/retirada),
+    conta/categoria/subcategoria/caixinha/estrutura de custo/meio de
+    pagamento e parcela (se parcelado). Edição direta na lista
+    (`/lancamentos/:id/editar`, `PATCH /transacoes/{id}`) pra lançamentos à
+    vista — parcela de compra parcelada não é editável (exclua e lance de
+    novo). Exclusão direta (`DELETE /transacoes/{id}`, com confirmação).
 
 ## O que falta (próximas entregas)
 

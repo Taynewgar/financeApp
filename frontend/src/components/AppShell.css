@@ -1,6 +1,36 @@
+.shell-raiz {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
 .shell {
   display: flex;
-  min-height: 100vh;
+  flex: 1;
+  min-height: 0;
+}
+
+.shell-banner-backend {
+  padding: 8px 16px;
+  background: var(--cor-acento);
+  color: var(--cor-acento-texto);
+  font-size: 13px;
+  text-align: center;
+}
+
+.shell-banner-backend.falhou {
+  background: var(--cor-perigo);
+  color: #fff;
+}
+
+.shell-banner-backend button {
+  border: 1px solid currentColor;
+  background: none;
+  color: inherit;
+  border-radius: 6px;
+  padding: 2px 8px;
+  cursor: pointer;
+  font-size: 12px;
 }
 
 .shell-nav {

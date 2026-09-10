@@ -54,3 +54,13 @@
 .valor-despesa {
   color: var(--cor-perigo);
 }
+
+.valor-investimento {
+  color: #2563eb;
+}
+
+@media (prefers-color-scheme: dark) {
+  .valor-investimento {
+    color: #60a5fa;
+  }
+}

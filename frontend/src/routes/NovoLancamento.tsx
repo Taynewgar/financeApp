@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import '../components/forms.css'
 import { ApiError, apiFetch } from '../lib/api'
+import { ESTRUTURAS, MEIOS_PAGAMENTO } from '../lib/rotulos'
 import type {
   Caixinha,
   Categoria,
@@ -22,23 +23,6 @@ const TIPOS: { valor: TipoSelecionado; rotulo: string }[] = [
   { valor: 'investimento', rotulo: 'Investimento' },
   { valor: 'reserva', rotulo: 'Reserva' },
   { valor: 'ajuste', rotulo: 'Estorno/Ressarcimento' },
-]
-
-const ESTRUTURAS: { valor: EstruturaCusto; rotulo: string }[] = [
-  { valor: 'fixo', rotulo: 'Fixo' },
-  { valor: 'variavel', rotulo: 'Variável' },
-  { valor: 'sazonal', rotulo: 'Sazonal' },
-]
-
-const MEIOS_PAGAMENTO: { valor: MeioPagamento; rotulo: string }[] = [
-  { valor: 'pix', rotulo: 'Pix' },
-  { valor: 'cartao_debito', rotulo: 'Cartão de débito' },
-  { valor: 'cartao_credito', rotulo: 'Cartão de crédito' },
-  { valor: 'boleto', rotulo: 'Boleto' },
-  { valor: 'debito_automatico', rotulo: 'Débito automático' },
-  { valor: 'dinheiro', rotulo: 'Dinheiro' },
-  { valor: 'transferencia', rotulo: 'Transferência' },
-  { valor: 'outro', rotulo: 'Outro' },
 ]
 
 function hoje() {
@@ -609,7 +593,8 @@ export function NovoLancamento() {
                 required={tipo === 'despesa'}
               >
                 <option value="">{tipo === 'despesa' ? 'Selecione…' : 'Nenhuma'}</option>
-                {ESTRUTURAS.map((e) => (
+                {/* 'investimentos' é fixada automaticamente só pro tipo Investimento — não é opção aqui */}
+                {ESTRUTURAS.filter((e) => e.valor !== 'investimentos').map((e) => (
                   <option key={e.valor} value={e.valor}>
                     {e.rotulo}
                   </option>

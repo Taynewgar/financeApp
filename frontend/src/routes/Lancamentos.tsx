@@ -1,9 +1,19 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
 import '../components/crud.css'
 import '../components/forms.css'
 import '../components/lancamentos.css'
 import { ApiError, apiFetch } from '../lib/api'
 import { formatarData, formatarMoeda } from '../lib/formatar'
+import {
+  ESTRUTURAS,
+  MEIOS_PAGAMENTO,
+  TIPOS_MOVIMENTO,
+  TIPO_CATEGORIA_ESPERADO,
+  rotuloEstruturaCusto,
+  rotuloMeioPagamento,
+  rotuloTipoMovimento,
+} from '../lib/rotulos'
 import type {
   Caixinha,
   Categoria,
@@ -16,42 +26,26 @@ import type {
   TipoMovimento,
 } from '../lib/types'
 
-const TIPOS_MOVIMENTO: { valor: TipoMovimento; rotulo: string }[] = [
-  { valor: 'receita', rotulo: 'Receita' },
-  { valor: 'despesa', rotulo: 'Despesa' },
-  { valor: 'aplicacao', rotulo: 'Aplicação' },
-  { valor: 'retirada', rotulo: 'Retirada' },
-  { valor: 'estorno', rotulo: 'Estorno' },
-  { valor: 'ressarcimento', rotulo: 'Ressarcimento' },
+const MESES = [
+  'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+  'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro',
 ]
 
-const ESTRUTURAS: { valor: EstruturaCusto; rotulo: string }[] = [
-  { valor: 'fixo', rotulo: 'Fixo' },
-  { valor: 'variavel', rotulo: 'Variável' },
-  { valor: 'sazonal', rotulo: 'Sazonal' },
-  { valor: 'investimentos', rotulo: 'Investimentos' },
-]
+const EXPLICACAO_RESUMO: Record<string, string> = {
+  total: 'Quantidade de lançamentos que batem com os filtros aplicados.',
+  receitas: 'Soma de todos os lançamentos do tipo Receita no período filtrado.',
+  despesas_liquidas: 'Despesas menos estornos/ressarcimentos vinculados a elas — o quanto de fato saiu do bolso.',
+  fluxo_caixa: 'Receitas menos despesas brutas (sem descontar estornos) — o que de fato entrou e saiu das contas.',
+  taxa_poupanca: 'Percentual da receita (já somando ajustes soltos) que sobrou depois das despesas líquidas.',
+}
 
-const MEIOS_PAGAMENTO: { valor: MeioPagamento; rotulo: string }[] = [
-  { valor: 'pix', rotulo: 'Pix' },
-  { valor: 'cartao_debito', rotulo: 'Cartão de débito' },
-  { valor: 'cartao_credito', rotulo: 'Cartão de crédito' },
-  { valor: 'boleto', rotulo: 'Boleto' },
-  { valor: 'debito_automatico', rotulo: 'Débito automático' },
-  { valor: 'dinheiro', rotulo: 'Dinheiro' },
-  { valor: 'transferencia', rotulo: 'Transferência' },
-  { valor: 'outro', rotulo: 'Outro' },
-]
+// último dia do mês (JS: dia 0 do mês seguinte)
+function ultimoDiaDoMes(ano: number, mesIndice: number): number {
+  return new Date(ano, mesIndice + 1, 0).getDate()
+}
 
-// mesmo mapeamento de backend/app/routers/transacoes.py::_TIPO_CATEGORIA_ESPERADO
-// — usado só pra restringir o <select> de categoria do filtro ao tipo certo
-const TIPO_CATEGORIA_ESPERADO: Record<TipoMovimento, 'receita' | 'despesa' | 'investimento'> = {
-  receita: 'receita',
-  despesa: 'despesa',
-  estorno: 'despesa',
-  ressarcimento: 'despesa',
-  aplicacao: 'investimento',
-  retirada: 'investimento',
+function pad2(n: number): string {
+  return String(n).padStart(2, '0')
 }
 
 type Filtros = {
@@ -80,13 +74,10 @@ const FILTROS_VAZIOS: Filtros = {
   descricao: '',
 }
 
-function rotuloTipoMovimento(tipo: TipoMovimento): string {
-  return TIPOS_MOVIMENTO.find((t) => t.valor === tipo)?.rotulo ?? tipo
-}
-
 function classeValor(tipo: TipoMovimento): string {
   if (tipo === 'receita' || tipo === 'estorno' || tipo === 'ressarcimento') return 'valor-receita'
   if (tipo === 'despesa') return 'valor-despesa'
+  if (tipo === 'aplicacao' || tipo === 'retirada') return 'valor-investimento'
   return ''
 }
 
@@ -119,6 +110,8 @@ export function Lancamentos() {
   const caixinhasPorId = useMemo(() => new Map(caixinhas.map((c) => [c.id, c])), [caixinhas])
 
   const [filtros, setFiltros] = useState<Filtros>(FILTROS_VAZIOS)
+  const [mesRapido, setMesRapido] = useState('')
+  const [anoRapido, setAnoRapido] = useState(String(new Date().getFullYear()))
 
   const categoriasFiltro = useMemo(() => {
     if (!filtros.tipoMovimento) return categorias
@@ -130,7 +123,13 @@ export function Lancamentos() {
     [subcategorias, filtros.categoriaId],
   )
 
+  const anosDisponiveis = useMemo(() => {
+    const atual = new Date().getFullYear()
+    return Array.from({ length: 6 }, (_, i) => atual - 4 + i)
+  }, [])
+
   function atualizarFiltro<K extends keyof Filtros>(campo: K, valor: Filtros[K]) {
+    setMesRapido('')
     setFiltros((atual) => {
       const proximo = { ...atual, [campo]: valor }
       if (campo === 'tipoMovimento') {
@@ -142,6 +141,18 @@ export function Lancamentos() {
       }
       return proximo
     })
+  }
+
+  function aplicarMesRapido(mesIndice: string) {
+    setMesRapido(mesIndice)
+    if (mesIndice === '') return
+    const ano = Number(anoRapido)
+    const mes = Number(mesIndice)
+    setFiltros((atual) => ({
+      ...atual,
+      dataInicio: `${ano}-${pad2(mes + 1)}-01`,
+      dataFim: `${ano}-${pad2(mes + 1)}-${pad2(ultimoDiaDoMes(ano, mes))}`,
+    }))
   }
 
   const [transacoes, setTransacoes] = useState<Transacao[] | null>(null)
@@ -164,17 +175,27 @@ export function Lancamentos() {
     return params.toString()
   }, [filtros])
 
+  // guarda contra corrida: se o filtro mudar de novo antes da resposta
+  // anterior voltar, essa resposta desatualizada (de um filtro mais largo,
+  // por exemplo) não pode sobrescrever o resultado do filtro atual
+  const ultimaRequisicao = useRef(0)
+
   function carregar() {
+    const idRequisicao = ++ultimaRequisicao.current
     setErro(null)
     Promise.all([
       apiFetch<Transacao[]>(`/transacoes${queryString ? `?${queryString}` : ''}`),
       apiFetch<ResumoLancamentos>(`/transacoes/resumo${queryString ? `?${queryString}` : ''}`),
     ])
       .then(([lista, res]) => {
+        if (idRequisicao !== ultimaRequisicao.current) return
         setTransacoes(lista)
         setResumo(res)
       })
-      .catch((e) => setErro(e instanceof ApiError ? e.message : 'Falha ao buscar lançamentos'))
+      .catch((e) => {
+        if (idRequisicao !== ultimaRequisicao.current) return
+        setErro(e instanceof ApiError ? e.message : 'Falha ao buscar lançamentos')
+      })
   }
 
   // debounce: espera parar de trocar filtro (ou digitar na descrição) antes de consultar a API
@@ -208,25 +229,25 @@ export function Lancamentos() {
 
       {resumo && (
         <div className="resumo-cards">
-          <div className="resumo-card">
+          <div className="resumo-card" title={EXPLICACAO_RESUMO.total}>
             <span className="resumo-card-rotulo">Lançamentos</span>
             <span className="resumo-card-valor">{resumo.total_lancamentos}</span>
           </div>
-          <div className="resumo-card">
+          <div className="resumo-card" title={EXPLICACAO_RESUMO.receitas}>
             <span className="resumo-card-rotulo">Receitas</span>
             <span className="resumo-card-valor valor-receita">{formatarMoeda(resumo.receitas)}</span>
           </div>
-          <div className="resumo-card">
+          <div className="resumo-card" title={EXPLICACAO_RESUMO.despesas_liquidas}>
             <span className="resumo-card-rotulo">Despesas líquidas</span>
             <span className="resumo-card-valor valor-despesa">{formatarMoeda(resumo.despesas_liquidas)}</span>
           </div>
-          <div className="resumo-card">
+          <div className="resumo-card" title={EXPLICACAO_RESUMO.fluxo_caixa}>
             <span className="resumo-card-rotulo">Fluxo de caixa</span>
             <span className={`resumo-card-valor ${resumo.resultado_fluxo_caixa >= 0 ? 'valor-receita' : 'valor-despesa'}`}>
               {formatarMoeda(resumo.resultado_fluxo_caixa)}
             </span>
           </div>
-          <div className="resumo-card">
+          <div className="resumo-card" title={EXPLICACAO_RESUMO.taxa_poupanca}>
             <span className="resumo-card-rotulo">Taxa de poupança</span>
             <span className="resumo-card-valor">
               {resumo.taxa_poupanca === null ? '—' : `${resumo.taxa_poupanca.toFixed(1)}%`}
@@ -261,6 +282,36 @@ export function Lancamentos() {
             />
           </label>
           <label className="campo">
+            Mês
+            <select value={mesRapido} onChange={(e) => aplicarMesRapido(e.target.value)}>
+              <option value="">Personalizado</option>
+              {MESES.map((nome, indice) => (
+                <option key={nome} value={indice}>
+                  {nome}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="campo">
+            Ano
+            <select
+              value={anoRapido}
+              onChange={(e) => {
+                setAnoRapido(e.target.value)
+                if (mesRapido !== '') aplicarMesRapido(mesRapido)
+              }}
+            >
+              {anosDisponiveis.map((ano) => (
+                <option key={ano} value={ano}>
+                  {ano}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+
+        <div className="filtros-linha">
+          <label className="campo">
             De
             <input type="date" value={filtros.dataInicio} onChange={(e) => atualizarFiltro('dataInicio', e.target.value)} />
           </label>
@@ -268,9 +319,6 @@ export function Lancamentos() {
             Até
             <input type="date" value={filtros.dataFim} onChange={(e) => atualizarFiltro('dataFim', e.target.value)} />
           </label>
-        </div>
-
-        <div className="filtros-linha">
           <label className="campo">
             Conta
             <select value={filtros.contaId} onChange={(e) => atualizarFiltro('contaId', e.target.value)}>
@@ -282,6 +330,20 @@ export function Lancamentos() {
               ))}
             </select>
           </label>
+          <label className="campo">
+            Caixinha
+            <select value={filtros.caixinhaId} onChange={(e) => atualizarFiltro('caixinhaId', e.target.value)}>
+              <option value="">Todas</option>
+              {caixinhas.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.nome}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+
+        <div className="filtros-linha">
           <label className="campo">
             Categoria
             <select value={filtros.categoriaId} onChange={(e) => atualizarFiltro('categoriaId', e.target.value)}>
@@ -308,20 +370,6 @@ export function Lancamentos() {
               ))}
             </select>
           </label>
-          <label className="campo">
-            Caixinha
-            <select value={filtros.caixinhaId} onChange={(e) => atualizarFiltro('caixinhaId', e.target.value)}>
-              <option value="">Todas</option>
-              {caixinhas.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.nome}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-
-        <div className="filtros-linha">
           <label className="campo">
             Estrutura de custo
             <select
@@ -350,11 +398,19 @@ export function Lancamentos() {
               ))}
             </select>
           </label>
-          <div className="campo" style={{ justifyContent: 'flex-end' }}>
-            <button type="button" className="botao-secundario" onClick={() => setFiltros(FILTROS_VAZIOS)}>
-              Limpar filtros
-            </button>
-          </div>
+        </div>
+
+        <div className="filtros-linha">
+          <button
+            type="button"
+            className="botao-secundario"
+            onClick={() => {
+              setMesRapido('')
+              setFiltros(FILTROS_VAZIOS)
+            }}
+          >
+            Limpar filtros
+          </button>
         </div>
       </div>
 
@@ -369,7 +425,6 @@ export function Lancamentos() {
             const categoria = t.categoria_id ? categoriasPorId.get(t.categoria_id) : undefined
             const subcategoria = t.subcategoria_id ? subcategoriasPorId.get(t.subcategoria_id) : undefined
             const caixinha = t.caixinha_id ? caixinhasPorId.get(t.caixinha_id) : undefined
-            const meioPagamento = MEIOS_PAGAMENTO.find((m) => m.valor === t.meio_pagamento)?.rotulo
 
             const detalhes = [
               rotuloTipoMovimento(t.tipo_movimento),
@@ -377,7 +432,8 @@ export function Lancamentos() {
               categoria?.nome,
               subcategoria?.nome,
               caixinha?.nome,
-              meioPagamento,
+              t.estrutura_custo ? rotuloEstruturaCusto(t.estrutura_custo) : null,
+              t.meio_pagamento ? rotuloMeioPagamento(t.meio_pagamento) : null,
               t.pagamento === 'parcelado' ? `parcela ${t.parcela_atual}/${t.parcela_total}` : null,
             ].filter(Boolean)
 
@@ -394,6 +450,11 @@ export function Lancamentos() {
                     <span className={classeValor(t.tipo_movimento)} style={{ fontWeight: 600 }}>
                       {formatarMoeda(t.valor)}
                     </span>
+                    {t.pagamento === 'avista' && (
+                      <Link to={`/lancamentos/${t.id}/editar`} className="botao-link">
+                        Editar
+                      </Link>
+                    )}
                     <button
                       type="button"
                       className="botao-link"

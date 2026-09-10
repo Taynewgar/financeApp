@@ -384,6 +384,72 @@ def criar_parcelada(
     return criadas
 
 
+@router.patch("/{transacao_id}", response_model=Transacao)
+def atualizar(
+    transacao_id: str,
+    payload: TransacaoCreate,
+    db: Client = Depends(get_db),
+    user_id: str = Depends(get_current_user_id),
+):
+    """Edita um lançamento à vista. Parcela de compra parcelada não é
+    editável por aqui — mexer numa parcela isolada quebraria a
+    consistência do grupo (valor_total, hash por parcela); o caminho é
+    excluir e lançar de novo. Se a fatura já foi movida manualmente
+    (fatura_override), a edição preserva essa referência em vez de
+    recalcular pelo dia de fechamento."""
+    try:
+        atual = crud.get_one(db, TABLE, user_id, transacao_id)
+    except crud.NotFound:
+        raise HTTPException(status_code=404, detail="Transação não encontrada")
+    if atual["pagamento"] == "parcelado":
+        raise HTTPException(
+            status_code=422,
+            detail="Parcela de compra parcelada não pode ser editada — exclua e lance novamente",
+        )
+    _check_refs(
+        db, user_id, payload.conta_id, payload.categoria_id, payload.subcategoria_id,
+        payload.caixinha_id, payload.ajuste_de_transacao_id,
+    )
+    _check_regras_tipo_movimento(
+        db, user_id, payload.tipo_movimento, payload.categoria_id, payload.caixinha_id, payload.conta_id
+    )
+    _check_campos_obrigatorios(
+        payload.tipo_movimento, payload.categoria_id, payload.estrutura_custo, payload.meio_pagamento,
+        payload.caixinha_id,
+    )
+    row = payload.model_dump(mode="json")
+    row.update(pagamento="avista", parcela_atual=None, parcela_total=None, compra_parcelada_id=None)
+    if atual["fatura_override"]:
+        row["fatura_referencia"] = atual["fatura_referencia"]
+        row["fatura_override"] = True
+    else:
+        row["fatura_referencia"] = _fatura_referencia_para(db, user_id, payload.conta_id, payload.data_compra)
+        row["fatura_override"] = False
+    row["hash_dedup"] = compute_hash(
+        user_id=user_id,
+        data_compra=row["data_compra"],
+        valor=row["valor"],
+        descricao=row["descricao"],
+        conta_id=row["conta_id"],
+        tipo_movimento=row["tipo_movimento"],
+        parcela_atual=None,
+        parcela_total=None,
+        compra_parcelada_id=None,
+    )
+    try:
+        return crud.update(db, TABLE, user_id, transacao_id, row)
+    except crud.NotFound:
+        raise HTTPException(status_code=404, detail="Transação não encontrada")
+    except Exception as exc:  # noqa: BLE001 — mesma tradução de unicidade usada em _insert
+        if "duplicate key value violates unique constraint" in str(exc) or "23505" in str(exc):
+            raise HTTPException(
+                status_code=409,
+                detail="Já existe um lançamento idêntico (mesma data, valor, conta e descrição).",
+            ) from exc
+        print(f"[transacoes] falha ao atualizar: {exc!r} — id={transacao_id}")
+        raise HTTPException(status_code=500, detail="Falha ao salvar a transação") from exc
+
+
 @router.patch("/{transacao_id}/fatura", response_model=Transacao)
 def mover_fatura(
     transacao_id: str,
