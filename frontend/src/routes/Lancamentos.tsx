@@ -74,10 +74,15 @@ const FILTROS_VAZIOS: Filtros = {
   descricao: '',
 }
 
-function classeValor(tipo: TipoMovimento): string {
+// aplicação/retirada em caixinha é reserva, sem cor especial (fica no
+// texto padrão); só quando é investimento de verdade (categoria
+// investimento, sem caixinha) fica azul — ver Estrutura de Custo, mesma
+// distinção de bucket "reservas" vs "investimentos"
+function classeValor(transacao: Transacao): string {
+  const { tipo_movimento: tipo, caixinha_id: caixinhaId } = transacao
   if (tipo === 'receita' || tipo === 'estorno' || tipo === 'ressarcimento') return 'valor-receita'
   if (tipo === 'despesa') return 'valor-despesa'
-  if (tipo === 'aplicacao' || tipo === 'retirada') return 'valor-investimento'
+  if ((tipo === 'aplicacao' || tipo === 'retirada') && !caixinhaId) return 'valor-investimento'
   return ''
 }
 
@@ -143,10 +148,12 @@ export function Lancamentos() {
     })
   }
 
-  function aplicarMesRapido(mesIndice: string) {
+  // recebe o ano como parâmetro em vez de ler `anoRapido` do escopo — trocar
+  // ano e mês quase juntos (o clique no Ano dispara isso antes do
+  // setAnoRapido de cima re-renderizar) pegaria o valor antigo do estado
+  function aplicarMesRapido(mesIndice: string, ano = Number(anoRapido)) {
     setMesRapido(mesIndice)
     if (mesIndice === '') return
-    const ano = Number(anoRapido)
     const mes = Number(mesIndice)
     setFiltros((atual) => ({
       ...atual,
@@ -298,7 +305,7 @@ export function Lancamentos() {
               value={anoRapido}
               onChange={(e) => {
                 setAnoRapido(e.target.value)
-                if (mesRapido !== '') aplicarMesRapido(mesRapido)
+                if (mesRapido !== '') aplicarMesRapido(mesRapido, Number(e.target.value))
               }}
             >
               {anosDisponiveis.map((ano) => (
@@ -447,7 +454,7 @@ export function Lancamentos() {
                     <span className="item-detalhe">{detalhes.join(' — ')}</span>
                   </div>
                   <div className="item-acoes">
-                    <span className={classeValor(t.tipo_movimento)} style={{ fontWeight: 600 }}>
+                    <span className={classeValor(t)} style={{ fontWeight: 600 }}>
                       {formatarMoeda(t.valor)}
                     </span>
                     {t.pagamento === 'avista' && (
