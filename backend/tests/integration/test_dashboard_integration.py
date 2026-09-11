@@ -38,8 +38,10 @@ def test_resumo_mensal_contra_banco_real(real_client, headers_a, cleanup):
     resposta = real_client.get("/dashboard/mensal/2026-09-01", headers=headers_a)
     assert resposta.status_code == 200
     depois = resposta.json()
-    assert depois["receitas"] - antes["receitas"] == 4000
-    assert depois["resultado_saude"] - antes["resultado_saude"] == 2500
+    assert round(depois["receitas"] - antes["receitas"], 2) == 4000
+    # arredonda antes de comparar — soma de floats de centavos (ex: dados de
+    # seed com valores aleatórios) pode deixar a subtração tipo 2500.0000000000005
+    assert round(depois["resultado_saude"] - antes["resultado_saude"], 2) == 2500
 
 
 def test_rls_nao_mistura_dados_de_outro_usuario(real_client, headers_a, headers_b, cleanup):
