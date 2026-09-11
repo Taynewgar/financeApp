@@ -1,0 +1,144 @@
+/* Cores da paleta categórica validada (slots 1/2 — azul/laranja), já
+ * comprovada acessível (CVD + contraste) na ordem padrão do método de
+ * dataviz. Ver skill "dataviz", references/palette.md. */
+.evolucao-chart {
+  --serie-receitas: #2a78d6;
+  --serie-despesas: #eb6834;
+  --grade-cor: #e1e0d9;
+  --eixo-cor: #898781;
+}
+
+@media (prefers-color-scheme: dark) {
+  .evolucao-chart {
+    --serie-receitas: #3987e5;
+    --serie-despesas: #d95926;
+    --grade-cor: #2c2c2a;
+    --eixo-cor: #898781;
+  }
+}
+
+.evolucao-chart-cabecalho {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+
+.evolucao-legenda {
+  display: flex;
+  gap: 16px;
+  font-size: 13px;
+  color: var(--cor-texto-suave);
+}
+
+.evolucao-legenda-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.evolucao-legenda-linha {
+  display: inline-block;
+  width: 14px;
+  height: 2px;
+  border-radius: 1px;
+}
+
+/* usadas só nos swatches HTML (legenda/tooltip) — as marcas do SVG (path,
+ * circle) recebem fill/stroke direto via atributo, pra não competir com
+ * CSS (que tem prioridade sobre atributo de apresentação em SVG e faria
+ * um path de linha virar área preenchida) */
+.serie-receitas {
+  background: var(--serie-receitas);
+}
+
+.serie-despesas {
+  background: var(--serie-despesas);
+}
+
+.evolucao-chart-area {
+  position: relative;
+}
+
+.evolucao-chart-area svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.evolucao-grade {
+  stroke: var(--grade-cor);
+  stroke-width: 1;
+}
+
+.evolucao-eixo-texto {
+  fill: var(--eixo-cor);
+  font-size: 10px;
+}
+
+.evolucao-linha {
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.evolucao-marcador {
+  stroke: var(--cor-superficie);
+  stroke-width: 2;
+}
+
+.evolucao-crosshair {
+  stroke: var(--cor-texto-suave);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+  pointer-events: none;
+}
+
+.evolucao-tooltip {
+  position: absolute;
+  top: 4px;
+  transform: translateX(-50%);
+  background: var(--cor-superficie);
+  border: 1px solid var(--cor-borda);
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  box-shadow: var(--sombra);
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.evolucao-tooltip strong {
+  font-size: 12px;
+}
+
+.evolucao-tooltip span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--cor-texto-suave);
+}
+
+.evolucao-tabela {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.evolucao-tabela th,
+.evolucao-tabela td {
+  text-align: left;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--cor-borda);
+}
+
+.evolucao-tabela th {
+  color: var(--cor-texto-suave);
+  font-weight: 500;
+  font-size: 12px;
+}

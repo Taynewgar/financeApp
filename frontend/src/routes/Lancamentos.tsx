@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import '../components/crud.css'
 import '../components/forms.css'
 import '../components/lancamentos.css'
+import '../components/resumoCards.css'
 import { ApiError, apiFetch } from '../lib/api'
 import { formatarData, formatarMoeda } from '../lib/formatar'
 import {

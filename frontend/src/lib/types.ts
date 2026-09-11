@@ -67,6 +67,32 @@ export type ResumoLancamentos = {
   taxa_poupanca: number | null
 }
 
+export type ResumoMensal = {
+  vigencia_mes: string
+  receitas: number
+  despesas_brutas: number
+  despesas_liquidas: number
+  ajustes_vinculados: number
+  ajustes_nao_vinculados: number
+  aplicacoes: number
+  retiradas: number
+  reservas: number
+  resultado_fluxo_caixa: number
+  resultado_saude: number
+  taxa_poupanca: number | null
+}
+
+export type PontoEvolucaoMensal = ResumoMensal & {
+  resultado_saude_acumulado: number
+  taxa_poupanca_acumulada: number | null
+}
+
+export type EvolucaoMensal = {
+  inicio: string
+  fim: string
+  meses: PontoEvolucaoMensal[]
+}
+
 export type Transacao = {
   id: string
   data_compra: string

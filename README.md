@@ -111,12 +111,13 @@ PWA com backend hospedado (Render) e banco Supabase.
   subcategorias, caixinhas, transações, orçamento versionado por mês), com
   Row Level Security por usuário.
 - `frontend/` — PWA em React + Vite + TypeScript, consome a API do
-  `backend/`. Primeira entrega: login (Supabase Auth), rotas protegidas e
-  a casca de navegação (sidebar no desktop, barra inferior no mobile,
-  botão flutuante de Novo Lançamento) — as telas de cada seção ainda são
-  placeholders, exceto Dashboard (status de conexão) e Configurações
-  (lista real de contas, provando que auth + API já estão conectados
-  ponta a ponta). Detalhes em `frontend/README.md`.
+  `backend/`. Login (Supabase Auth), rotas protegidas, casca de navegação
+  (sidebar no desktop, barra inferior no mobile, botão flutuante de Novo
+  Lançamento). Telas com dados reais: Dashboard (KPIs do mês + gráfico de
+  evolução), Lançamentos (lista/busca/edição), Novo Lançamento, e
+  Configurações (CRUDs de Contas/Categorias/Caixinhas). Planejamento e
+  Estruturas de Custo ainda são placeholders. Detalhes em
+  `frontend/README.md`.
 - `render.yaml` — blueprint de deploy no Render (backend).
 - `vercel.json` — build do frontend no Vercel a partir da raiz do repo
   (entra em `frontend/` sozinho — evita depender do campo Root Directory

@@ -20,8 +20,13 @@ PWA em React + Vite + TypeScript, consumindo a API do `backend/`.
   `NovoLancamento`, `EditarLancamento` e `Lancamentos` (estrutura de custo,
   meio de pagamento, tipo de movimento).
 - `src/lib/formatar.ts` — `formatarMoeda`/`formatarData` (pt-BR).
-- `src/routes/` — uma tela por seção. `Dashboard` faz chamada real à API;
-  `Configuracoes` tem os CRUDs de Contas/Categorias/Caixinhas (ver abaixo);
+- `src/lib/escala.ts` — marcações "redondas" (1/2/5 × potência de 10) pro
+  eixo Y do gráfico de evolução.
+- `src/components/EvolucaoChart.tsx` — gráfico de linha (SVG puro) usado no
+  Dashboard, com hover/crosshair/tooltip e alternância pra tabela.
+- `src/routes/` — uma tela por seção. `Dashboard` mostra os KPIs do mês e a
+  evolução (ver abaixo); `Configuracoes` tem os CRUDs de Contas/Categorias/
+  Caixinhas (ver abaixo);
   `NovoLancamento` é o formulário completo de lançamento (ver abaixo);
   `Lancamentos` é a lista/busca (ver abaixo); `EditarLancamento` edita um
   lançamento à vista existente; Planejamento e Estruturas de Custo ainda
@@ -109,6 +114,22 @@ sem precisar rodar nada manualmente.
   estar "acordando" e mostra um contador de segundos, em vez de deixar a
   tela parecendo travada sem explicação; se falhar, o banner vira um aviso
   de erro com botão "Tentar novamente".
+- **Dashboard** (`/dashboard`):
+  - Seletor de mês (`<input type="month">`), busca `GET /dashboard/mensal/
+    {vigencia_mes}` e `GET /dashboard/evolucao` (janela dos últimos 6 meses
+    terminando no mês selecionado).
+  - Número principal ("Resultado do mês" — a leitura de saúde financeira)
+    em destaque, seguido de uma fileira de cartões (Receitas, Despesas
+    líquidas, Fluxo de caixa, Taxa de poupança, Reservas no mês), cada um
+    com tooltip explicando o cálculo.
+  - Gráfico de linha (Receitas x Despesas líquidas ao longo dos 6 meses),
+    em SVG puro (sem biblioteca de gráficos): crosshair + tooltip ao passar
+    o mouse (ou focar via teclado), legenda, alternância "Ver como tabela"
+    (a mesma leitura em `<table>`, sem depender do gráfico pra enxergar os
+    números). Cores da paleta categórica validada (azul/laranja — ver skill
+    `dataviz`), não o par verde/vermelho usado pra receita/despesa em
+    outras telas (esse par falha em daltonismo quando é a única forma de
+    diferenciar duas linhas no mesmo gráfico).
 - **Novo Lançamento** (`/lancamentos/novo`), formulário completo:
   - Tipo: Receita / Despesa / Investimento / Reserva / Estorno-Ressarcimento
     (segmentado, não é um select cru com os 6 valores do banco). Cada tipo
