@@ -32,3 +32,17 @@ class EvolucaoMensal(BaseModel):
     inicio: date
     fim: date
     meses: list[PontoEvolucaoMensal]
+
+
+class SaldoCaixinha(BaseModel):
+    id: str
+    nome: str
+    saldo: float
+
+
+class CompromissoFuturo(BaseModel):
+    descricao: str | None
+    valor: float
+    data_compra: date
+    parcela_atual: int
+    parcela_total: int

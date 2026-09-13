@@ -24,14 +24,14 @@ export function EvolucaoChart({ meses }: { meses: PontoEvolucaoMensal[] }) {
     return <p style={{ color: 'var(--cor-texto-suave)' }}>Sem dados no período.</p>
   }
 
-  const valores = meses.flatMap((m) => [m.receitas, m.despesas_liquidas])
+  const valores = meses.flatMap((m) => [m.receitas, m.despesas_liquidas, m.resultado_saude])
   const { min, max, marcacoes } = escalaY(valores)
 
   const larguraBanda = (LARGURA - MARGEM.esquerda - MARGEM.direita) / meses.length
   const x = (i: number) => MARGEM.esquerda + larguraBanda * (i + 0.5)
   const y = (valor: number) => MARGEM.topo + ALTURA_PLOT * (1 - (valor - min) / (max - min || 1))
 
-  const linha = (chave: 'receitas' | 'despesas_liquidas') =>
+  const linha = (chave: 'receitas' | 'despesas_liquidas' | 'resultado_saude') =>
     meses.map((m, i) => `${i === 0 ? 'M' : 'L'} ${x(i).toFixed(1)} ${y(m[chave]).toFixed(1)}`).join(' ')
 
   const hover = indiceHover !== null ? meses[indiceHover] : null
@@ -46,6 +46,9 @@ export function EvolucaoChart({ meses }: { meses: PontoEvolucaoMensal[] }) {
           <span className="evolucao-legenda-item">
             <span className="evolucao-legenda-linha serie-despesas" /> Despesas líquidas
           </span>
+          <span className="evolucao-legenda-item">
+            <span className="evolucao-legenda-linha serie-resultado" /> Resultado
+          </span>
         </div>
         <button type="button" className="botao-link" onClick={() => setMostrarTabela((v) => !v)}>
           {mostrarTabela ? 'Ver gráfico' : 'Ver como tabela'}
@@ -59,6 +62,7 @@ export function EvolucaoChart({ meses }: { meses: PontoEvolucaoMensal[] }) {
               <th>Mês</th>
               <th>Receitas</th>
               <th>Despesas líquidas</th>
+              <th>Resultado</th>
             </tr>
           </thead>
           <tbody>
@@ -67,13 +71,14 @@ export function EvolucaoChart({ meses }: { meses: PontoEvolucaoMensal[] }) {
                 <td>{rotuloMes(m.vigencia_mes)}</td>
                 <td>{formatarMoeda(m.receitas)}</td>
                 <td>{formatarMoeda(m.despesas_liquidas)}</td>
+                <td>{formatarMoeda(m.resultado_saude)}</td>
               </tr>
             ))}
           </tbody>
         </table>
       ) : (
         <div className="evolucao-chart-area">
-          <svg viewBox={`0 0 ${LARGURA} ${ALTURA}`} role="img" aria-label="Evolução de receitas e despesas líquidas por mês">
+          <svg viewBox={`0 0 ${LARGURA} ${ALTURA}`} role="img" aria-label="Evolução de receitas, despesas líquidas e resultado por mês">
             {marcacoes.map((v) => (
               <g key={v}>
                 <line x1={MARGEM.esquerda} x2={LARGURA - MARGEM.direita} y1={y(v)} y2={y(v)} className="evolucao-grade" />
@@ -85,11 +90,13 @@ export function EvolucaoChart({ meses }: { meses: PontoEvolucaoMensal[] }) {
 
             <path d={linha('receitas')} className="evolucao-linha" fill="none" stroke="var(--serie-receitas)" />
             <path d={linha('despesas_liquidas')} className="evolucao-linha" fill="none" stroke="var(--serie-despesas)" />
+            <path d={linha('resultado_saude')} className="evolucao-linha" fill="none" stroke="var(--serie-resultado)" />
 
             {meses.map((m, i) => (
               <g key={m.vigencia_mes}>
                 <circle cx={x(i)} cy={y(m.receitas)} r={4} className="evolucao-marcador" fill="var(--serie-receitas)" />
                 <circle cx={x(i)} cy={y(m.despesas_liquidas)} r={4} className="evolucao-marcador" fill="var(--serie-despesas)" />
+                <circle cx={x(i)} cy={y(m.resultado_saude)} r={4} className="evolucao-marcador" fill="var(--serie-resultado)" />
                 <text x={x(i)} y={ALTURA - 8} className="evolucao-eixo-texto" textAnchor="middle">
                   {rotuloMes(m.vigencia_mes)}
                 </text>
@@ -115,7 +122,7 @@ export function EvolucaoChart({ meses }: { meses: PontoEvolucaoMensal[] }) {
                 height={ALTURA_PLOT}
                 fill="transparent"
                 tabIndex={0}
-                aria-label={`${rotuloMes(meses[i].vigencia_mes)}: receitas ${formatarMoeda(meses[i].receitas)}, despesas líquidas ${formatarMoeda(meses[i].despesas_liquidas)}`}
+                aria-label={`${rotuloMes(meses[i].vigencia_mes)}: receitas ${formatarMoeda(meses[i].receitas)}, despesas líquidas ${formatarMoeda(meses[i].despesas_liquidas)}, resultado ${formatarMoeda(meses[i].resultado_saude)}`}
                 onMouseEnter={() => setIndiceHover(i)}
                 onFocus={() => setIndiceHover(i)}
                 onMouseLeave={() => setIndiceHover(null)}
@@ -135,6 +142,9 @@ export function EvolucaoChart({ meses }: { meses: PontoEvolucaoMensal[] }) {
               </span>
               <span>
                 <span className="evolucao-legenda-linha serie-despesas" /> {formatarMoeda(hover.despesas_liquidas)}
+              </span>
+              <span>
+                <span className="evolucao-legenda-linha serie-resultado" /> {formatarMoeda(hover.resultado_saude)}
               </span>
             </div>
           )}

@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from supabase import Client
 
 from ..auth import get_current_user_id, get_db
-from ..schemas.dashboard import EvolucaoMensal, ResumoMensal
+from ..schemas.dashboard import CompromissoFuturo, EvolucaoMensal, ResumoMensal, SaldoCaixinha
 from ..services.fatura import somar_meses
 from ..services.resumo_financeiro import calcular_resumo
 
@@ -72,3 +72,80 @@ def evolucao_mensal(
         mes_atual = somar_meses(mes_atual, 1)
 
     return {"inicio": mes_inicio.isoformat(), "fim": mes_fim.isoformat(), "meses": meses}
+
+
+@router.get("/patrimonio/{vigencia_mes}", response_model=list[SaldoCaixinha])
+def patrimonio_caixinhas(
+    vigencia_mes: date, db: Client = Depends(get_db), user_id: str = Depends(get_current_user_id)
+):
+    """Saldo de cada caixinha ativa, acumulado (aplicações menos retiradas
+    desde sempre) até o fim do mês selecionado — permite ver o patrimônio
+    histórico ao navegar por meses passados, não só o saldo atual. Contas
+    ainda não têm saldo próprio (só `saldo_inicial` estático), então esse
+    "patrimônio" cobre só caixinhas por enquanto."""
+    mes_fim = somar_meses(date(vigencia_mes.year, vigencia_mes.month, 1), 1)
+    caixinhas = (
+        db.table("caixinhas")
+        .select("id,nome")
+        .eq("user_id", user_id)
+        .eq("ativo", True)
+        .order("nome")
+        .execute()
+        .data
+    )
+    if not caixinhas:
+        return []
+
+    movimentos = (
+        db.table("transacoes")
+        .select("caixinha_id,valor,tipo_movimento")
+        .eq("user_id", user_id)
+        .lt("data_compra", mes_fim.isoformat())
+        .execute()
+        .data
+    )
+    saldos = {c["id"]: 0.0 for c in caixinhas}
+    for m in movimentos:
+        caixinha_id = m.get("caixinha_id")
+        if caixinha_id not in saldos:
+            continue
+        saldos[caixinha_id] += m["valor"] if m["tipo_movimento"] == "aplicacao" else -m["valor"]
+
+    return [{"id": c["id"], "nome": c["nome"], "saldo": round(saldos[c["id"]], 2)} for c in caixinhas]
+
+
+@router.get("/compromissos-futuros", response_model=list[CompromissoFuturo])
+def compromissos_futuros(
+    limite: int = Query(5, ge=1, le=20),
+    db: Client = Depends(get_db),
+    user_id: str = Depends(get_current_user_id),
+):
+    """Próxima parcela em aberto de cada compra parcelada ativa — as
+    parcelas futuras já estão materializadas na tabela (ver
+    POST /transacoes/parceladas), então isso é só filtrar o que ainda não
+    venceu e pegar a mais próxima de cada grupo. Não inclui despesas fixas
+    recorrentes (aluguel, assinaturas): esse conceito não existe no app —
+    não há cadastro de "lançamento recorrente" separado de uma transação já
+    lançada, só compra parcelada tem data futura conhecida de antemão."""
+    hoje = date.today()
+    parcelas = (
+        db.table("transacoes")
+        .select("descricao,valor,data_compra,parcela_atual,parcela_total,compra_parcelada_id")
+        .eq("user_id", user_id)
+        .eq("pagamento", "parcelado")
+        .gt("data_compra", hoje.isoformat())
+        .order("data_compra")
+        .execute()
+        .data
+    )
+    vistos: set[str] = set()
+    resultado = []
+    for parcela in parcelas:
+        grupo = parcela["compra_parcelada_id"]
+        if grupo in vistos:
+            continue
+        vistos.add(grupo)
+        resultado.append(parcela)
+        if len(resultado) >= limite:
+            break
+    return resultado

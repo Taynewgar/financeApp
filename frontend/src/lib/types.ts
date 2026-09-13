@@ -93,6 +93,20 @@ export type EvolucaoMensal = {
   meses: PontoEvolucaoMensal[]
 }
 
+export type SaldoCaixinha = {
+  id: string
+  nome: string
+  saldo: number
+}
+
+export type CompromissoFuturo = {
+  descricao: string | null
+  valor: number
+  data_compra: string
+  parcela_atual: number
+  parcela_total: number
+}
+
 export type Transacao = {
   id: string
   data_compra: string

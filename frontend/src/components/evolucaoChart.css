@@ -4,6 +4,7 @@
 .evolucao-chart {
   --serie-receitas: #2a78d6;
   --serie-despesas: #eb6834;
+  --serie-resultado: #1baf7a;
   --grade-cor: #e1e0d9;
   --eixo-cor: #898781;
 }
@@ -12,6 +13,7 @@
   .evolucao-chart {
     --serie-receitas: #3987e5;
     --serie-despesas: #d95926;
+    --serie-resultado: #199e70;
     --grade-cor: #2c2c2a;
     --eixo-cor: #898781;
   }
@@ -56,6 +58,10 @@
 
 .serie-despesas {
   background: var(--serie-despesas);
+}
+
+.serie-resultado {
+  background: var(--serie-resultado);
 }
 
 .evolucao-chart-area {

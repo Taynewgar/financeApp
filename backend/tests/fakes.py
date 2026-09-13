@@ -62,6 +62,10 @@ class FakeQuery:
         self._filters.append(("gte", key, value))
         return self
 
+    def gt(self, key: str, value: Any) -> "FakeQuery":
+        self._filters.append(("gt", key, value))
+        return self
+
     def lt(self, key: str, value: Any) -> "FakeQuery":
         self._filters.append(("lt", key, value))
         return self
@@ -86,6 +90,8 @@ class FakeQuery:
             if op == "eq" and atual != value:
                 return False
             if op == "gte" and not (atual is not None and atual >= value):
+                return False
+            if op == "gt" and not (atual is not None and atual > value):
                 return False
             if op == "lt" and not (atual is not None and atual < value):
                 return False

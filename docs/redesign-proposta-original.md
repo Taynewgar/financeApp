@@ -34,20 +34,21 @@ e despesas por categoria do mês.
 
 | Proposto no mockup | Status | Observação |
 |---|---|---|
-| Saldo histórico / patrimônio total (topo, "desde jan/2019") | ⬜ | Não existe endpoint de saldo atual ainda (só `saldo_inicial` estático em `Conta`) |
+| Saldo histórico / patrimônio total (topo, "desde jan/2019") | ⬜ | Ainda não existe — depende de contas terem saldo, e isso ficou de fora por decisão explícita (ver changelog 2026-09-13) |
 | Seletor de mês | ✅ | `<input type="month">` |
 | Intervalo (Todos os meses / mês específico) | ⬜ | Só dá pra ver 1 mês por vez |
 | Base da média (Até o mês / Todos os meses) | ⬜ | Não existe esse conceito na tela |
-| Alternância "Leitura de Caixa" / "Leitura de Saúde" | ⬜ | As duas leituras aparecem juntas nos cards, não como toggle |
-| KPI: Despesas Líquidas, Receita, Resultado de Saúde, Taxa de Poupança | ✅ | Implementado como cards + número principal (hero) |
-| Delta de cada KPI vs mês anterior (ex: "6,2% vs mês anterior") | ⬜ | Cards mostram só o valor absoluto do mês, sem comparação |
+| Alternância "Leitura de Caixa" / "Leitura de Saúde" | ✅ | Toggle segmentado troca o hero e os 3 cards de KPI exibidos |
+| KPI: Despesas Líquidas, Receita, Resultado de Saúde, Taxa de Poupança | ✅ | Cards + número principal (hero), divididos entre as duas leituras |
+| Delta de cada KPI vs mês anterior (ex: "6,2% vs mês anterior") | ✅ | Calculado no frontend a partir do próprio `/dashboard/evolucao` (penúltimo mês da janela), sem endpoint novo |
 | Taxa de poupança acumulada no ano | ⬜ | Backend calcula acumulado em `/dashboard/evolucao` (`taxa_poupanca_acumulada`), mas o Dashboard não expõe isso ainda |
-| Patrimônio por conta (saldo de cada conta/caixinha/fatura) | ⬜ | Mesma dependência do saldo atual acima |
-| Compromissos futuros (parcelas futuras, fixos recorrentes) | ⬜ | Feature nova, nada implementado (nem backend) |
-| Evolução mensal — 3 linhas (Receita/Despesa/Resultado) | 🟡 | Implementado com 2 linhas (Receita/Despesa); falta a linha de Resultado |
+| Patrimônio por conta (saldo de cada conta/caixinha/fatura) | 🟡 | Só caixinhas (`GET /dashboard/patrimonio/{mes}`) — contas seguem sem saldo próprio por decisão do usuário, a definir depois |
+| Compromissos futuros (parcelas futuras, fixos recorrentes) | 🟡 | Só parcelas futuras (`GET /dashboard/compromissos-futuros`) — "fixo recorrente" (ex: aluguel todo dia 5) não existe como conceito no app, não tem cadastro próprio, então ficou de fora |
+| Evolução mensal — 3 linhas (Receita/Despesa/Resultado) | ✅ | 3ª série (Resultado) adicionada ao `EvolucaoChart`, cor slot 3 (aqua) da paleta validada |
 | Despesas por categoria do mês (% por categoria) | ⬜ | Existe conceito parecido na Estrutura de Custo (por bucket, não por categoria), que também não tem frontend ainda |
 
-**Arquivo:** `frontend/src/routes/Dashboard.tsx`, `frontend/src/components/EvolucaoChart.tsx`.
+**Arquivo:** `frontend/src/routes/Dashboard.tsx`, `frontend/src/components/EvolucaoChart.tsx`,
+`backend/app/routers/dashboard.py`.
 
 ---
 
@@ -131,17 +132,13 @@ só a API (`GET /estrutura-custo/{vigencia_mes}`).
 
 ## Resumo de prioridades sugerido
 
-Ordenado por (a) o que já tem backend pronto — custo baixo de fechar — antes
-do que exige feature nova:
-
-1. Delta vs mês anterior nos KPIs do Dashboard (dado já existe, é reprocessar).
+~~1. Delta vs mês anterior nos KPIs do Dashboard (dado já existe, é reprocessar).~~ **feito 2026-09-13**
 2. Tela de Planejamento (motor de orçamento já pronto no backend).
 3. Tela de Estrutura de Custo (motor já pronto no backend).
-4. Endpoint + UI de saldo atual por conta/caixinha (destrava "Patrimônio por
-   Conta" no Dashboard e a coluna de saldo em Configurações de uma vez).
-5. Linha de Resultado na Evolução Mensal (ajuste pequeno no gráfico existente).
+~~4. Endpoint + UI de saldo atual por conta/caixinha...~~ **feito parcialmente 2026-09-13** — só caixinhas; conta segue sem saldo (decisão do usuário, em aberto)
+~~5. Linha de Resultado na Evolução Mensal...~~ **feito 2026-09-13**
 6. Categorias "mais usadas" + criação inline no Novo Lançamento.
-7. Compromissos futuros no Dashboard (feature nova, maior escopo).
+~~7. Compromissos futuros no Dashboard...~~ **feito parcialmente 2026-09-13** — só parcelas futuras; "fixo recorrente" não existe como conceito no app
 8. Aba Bancos em Configurações (baixa prioridade — hoje resolvido como campo
    de texto em Conta, sem perda funcional real).
 
@@ -149,3 +146,43 @@ Este documento não substitui o `README.md` (que descreve o que existe) nem o
 `/status-projeto` (relatório de andamento) — é o registro do que foi
 *proposto*, pra comparar contra o que foi *decidido mudar* ao longo do
 desenvolvimento real.
+
+---
+
+## Changelog deste documento
+
+Registro de rodadas de mudança pedidas diretamente sobre o que já tinha sido
+entregue — pra não perder o histórico de decisão ao reescrever as tabelas
+acima a cada entrega.
+
+### 2026-09-13 — Dashboard: caixa/saúde, delta, patrimônio, compromissos, 3ª linha
+
+Pedido do usuário: o Dashboard entregue antes (só evolução + KPIs simples)
+ficou bem diferente do mockup original, então foi pedido explicitamente para
+fechar mais gaps daquela tabela. Entregue nesta rodada:
+
+- Toggle "Leitura de Caixa" / "Leitura de Saúde" trocando hero + KPIs.
+- Delta vs mês anterior em todo KPI e no hero (reaproveitando `/dashboard/evolucao`,
+  sem endpoint novo).
+- Seção **Patrimônio em Caixinhas** — novo endpoint `GET /dashboard/patrimonio/{mes}`
+  (aplicações menos retiradas, acumulado até o fim do mês selecionado). Título
+  deixa explícito que é só caixinhas: **decisão do usuário nesta rodada foi
+  não dar saldo a contas por enquanto** ("contas decidirei futuramente se
+  terão saldo ou não") — então o "Patrimônio por Conta" do mockup original
+  não pode ser replicado por inteiro ainda.
+- Seção **Compromissos Futuros** — novo endpoint `GET /dashboard/compromissos-futuros`
+  (próxima parcela em aberto de cada compra parcelada, já que parcelas futuras
+  já são materializadas na tabela desde a Entrega 4). **Não inclui despesas
+  fixas recorrentes** (ex: "Aluguel · Fixo · todo dia 05" do mockup) — esse
+  conceito não existe no app: não há cadastro de "lançamento recorrente"
+  separado de uma transação já lançada, só compra parcelada tem data futura
+  conhecida de antemão. Implementar isso é feature nova (schema + tela), não
+  coberta nesta rodada.
+- 3ª linha "Resultado" (resultado_saude) no `EvolucaoChart`, cor slot 3 (aqua,
+  `#1baf7a`/`#199e70`) da paleta categórica validada pela skill de dataviz —
+  mantém a mesma paleta usada nas 2 séries já existentes.
+
+**O que ficou de fora, mesmo estando no mockup do Dashboard** (não foi pedido
+nesta rodada): saldo histórico/patrimônio total no topo, seletor de
+intervalo/"todos os meses", "base da média", taxa de poupança acumulada
+exposta na tela, e o donut de despesas por categoria.
