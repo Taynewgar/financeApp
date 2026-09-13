@@ -2,6 +2,7 @@ import { useState } from 'react'
 import './evolucaoChart.css'
 import { escalaY } from '../lib/escala'
 import { formatarMoeda } from '../lib/formatar'
+import { usePrivacidade } from '../lib/PrivacyContext'
 import type { PontoEvolucaoMensal } from '../lib/types'
 
 const LARGURA = 600
@@ -17,6 +18,7 @@ function rotuloMes(vigenciaMes: string): string {
 }
 
 export function EvolucaoChart({ meses }: { meses: PontoEvolucaoMensal[] }) {
+  const { oculto } = usePrivacidade()
   const [indiceHover, setIndiceHover] = useState<number | null>(null)
   const [mostrarTabela, setMostrarTabela] = useState(false)
 
@@ -83,9 +85,9 @@ export function EvolucaoChart({ meses }: { meses: PontoEvolucaoMensal[] }) {
             {meses.map((m) => (
               <tr key={m.vigencia_mes}>
                 <td>{rotuloMes(m.vigencia_mes)}</td>
-                <td>{formatarMoeda(m.receitas)}</td>
-                <td>{formatarMoeda(m.despesas_brutas)}</td>
-                <td>{formatarMoeda(m.resultado_saude)}</td>
+                <td>{formatarMoeda(m.receitas, oculto)}</td>
+                <td>{formatarMoeda(m.despesas_brutas, oculto)}</td>
+                <td>{formatarMoeda(m.resultado_saude, oculto)}</td>
               </tr>
             ))}
           </tbody>
@@ -101,7 +103,7 @@ export function EvolucaoChart({ meses }: { meses: PontoEvolucaoMensal[] }) {
               <g key={v}>
                 <line x1={MARGEM.esquerda} x2={LARGURA - MARGEM.direita} y1={y(v)} y2={y(v)} className="evolucao-grade" />
                 <text x={MARGEM.esquerda - 6} y={y(v)} className="evolucao-eixo-texto" textAnchor="end" dominantBaseline="middle">
-                  {formatarMoeda(v).replace('R$', '').trim()}
+                  {oculto ? '•••' : formatarMoeda(v).replace('R$', '').trim()}
                 </text>
               </g>
             ))}
@@ -165,7 +167,11 @@ export function EvolucaoChart({ meses }: { meses: PontoEvolucaoMensal[] }) {
                 height={ALTURA_PLOT}
                 fill="transparent"
                 tabIndex={0}
-                aria-label={`${rotuloMes(meses[i].vigencia_mes)}: receitas ${formatarMoeda(meses[i].receitas)}, despesas ${formatarMoeda(meses[i].despesas_brutas)}, resultado ${formatarMoeda(meses[i].resultado_saude)}`}
+                aria-label={
+                  oculto
+                    ? `${rotuloMes(meses[i].vigencia_mes)}: valores ocultos`
+                    : `${rotuloMes(meses[i].vigencia_mes)}: receitas ${formatarMoeda(meses[i].receitas)}, despesas ${formatarMoeda(meses[i].despesas_brutas)}, resultado ${formatarMoeda(meses[i].resultado_saude)}`
+                }
                 onMouseEnter={() => setIndiceHover(i)}
                 onFocus={() => setIndiceHover(i)}
                 onMouseLeave={() => setIndiceHover(null)}
@@ -178,13 +184,13 @@ export function EvolucaoChart({ meses }: { meses: PontoEvolucaoMensal[] }) {
             <div className="evolucao-tooltip" style={{ left: `${(x(indiceHover!) / LARGURA) * 100}%` }}>
               <strong>{rotuloMes(hover.vigencia_mes)}</strong>
               <span>
-                <span className="evolucao-legenda-bloco serie-receitas" /> {formatarMoeda(hover.receitas)}
+                <span className="evolucao-legenda-bloco serie-receitas" /> {formatarMoeda(hover.receitas, oculto)}
               </span>
               <span>
-                <span className="evolucao-legenda-bloco serie-despesas" /> {formatarMoeda(hover.despesas_brutas)}
+                <span className="evolucao-legenda-bloco serie-despesas" /> {formatarMoeda(hover.despesas_brutas, oculto)}
               </span>
               <span>
-                <span className="evolucao-legenda-linha serie-resultado" /> {formatarMoeda(hover.resultado_saude)}
+                <span className="evolucao-legenda-linha serie-resultado" /> {formatarMoeda(hover.resultado_saude, oculto)}
               </span>
             </div>
           )}

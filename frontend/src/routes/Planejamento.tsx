@@ -5,6 +5,7 @@ import '../components/planejamento.css'
 import { ApiError, apiFetch } from '../lib/api'
 import { formatarMoeda } from '../lib/formatar'
 import { ordenarPorNome } from '../lib/ordenar'
+import { usePrivacidade } from '../lib/PrivacyContext'
 import type { Bucket, Categoria, Conta, Orcamento, OrcamentoItem, Subcategoria } from '../lib/types'
 
 const BUCKETS: {
@@ -94,6 +95,7 @@ function rotuloItem(item: OrcamentoItem, categorias: Categoria[], subcategorias:
 }
 
 export function Planejamento() {
+  const { oculto } = usePrivacidade()
   const [vigenciaMes, setVigenciaMes] = useState(hojeAnoMes())
   const [orcamentos, setOrcamentos] = useState<Orcamento[] | null>(null)
   const [itens, setItens] = useState<OrcamentoItem[] | null>(null)
@@ -422,27 +424,31 @@ export function Planejamento() {
 
       {orcamentoAtual && !mostrarFormConfig && (
         <>
-          <p className="planejamento-resumo">
-            Renda base {formatarMoeda(orcamentoAtual.receita_base)} · {orcamentoAtual.percentual_geral}% destinado ao
-            orçamento · disponível mensal {formatarMoeda(disponivelMensal)}{' '}
-            <button type="button" className="botao-link" onClick={iniciarEdicaoConfig} style={{ padding: 0 }}>
-              Editar
+          <div className="planejamento-config-resumo">
+            <p className="planejamento-resumo" style={{ margin: 0 }}>
+              Renda base {formatarMoeda(orcamentoAtual.receita_base, oculto)} · {orcamentoAtual.percentual_geral}%
+              destinado ao orçamento · disponível mensal {formatarMoeda(disponivelMensal, oculto)}
+            </p>
+            <button type="button" className="botao-secundario" onClick={iniciarEdicaoConfig}>
+              Editar configuração
             </button>
-          </p>
+          </div>
 
           <div className="planejamento-alocacao">
             <div className="planejamento-alocacao-cabecalho">
               <strong>Alocação total dos buckets</strong>
-              <span>{somaLimites.toFixed(0)}% de 100%</span>
+              <span className={somaLimites > 100 ? 'planejamento-estouro' : undefined}>
+                {somaLimites.toFixed(0)}% de 100%{somaLimites > 100 && ' — acima de 100%'}
+              </span>
             </div>
-            <div className="planejamento-alocacao-barra">
+            <div className={`planejamento-alocacao-barra${somaLimites > 100 ? ' planejamento-alocacao-barra-estourada' : ''}`}>
               {BUCKETS.map(
                 (b) =>
                   orcamentoAtual[b.limiteCampo] > 0 && (
                     <div
                       key={b.valor}
                       className="planejamento-alocacao-segmento"
-                      style={{ width: `${orcamentoAtual[b.limiteCampo]}%`, background: b.cor }}
+                      style={{ width: `${(orcamentoAtual[b.limiteCampo] / Math.max(somaLimites, 100)) * 100}%`, background: b.cor }}
                       title={`${b.rotulo}: ${orcamentoAtual[b.limiteCampo]}%`}
                     />
                   ),
@@ -456,6 +462,11 @@ export function Planejamento() {
                 </span>
               ))}
               {somaLimites < 100 && <span>{(100 - somaLimites).toFixed(0)}% ainda não alocado</span>}
+              {somaLimites > 100 && (
+                <span className="planejamento-estouro">
+                  {(somaLimites - 100).toFixed(0)}% acima de 100% — reduza o limite de algum bucket
+                </span>
+              )}
             </div>
           </div>
 
@@ -485,7 +496,7 @@ export function Planejamento() {
                     />
                   </div>
                   <p className="planejamento-progresso-texto">
-                    {formatarMoeda(somaAlocada)} alocado de {formatarMoeda(teto)} do teto
+                    {formatarMoeda(somaAlocada, oculto)} alocado de {formatarMoeda(teto, oculto)} do teto
                     {estourou && ' — acima do teto'}
                   </p>
 
@@ -500,9 +511,9 @@ export function Planejamento() {
                             <div className="item-info">
                               <span className="item-titulo">{rotuloItem(item, categorias, subcategorias, contas)}</span>
                               <span className="item-detalhe">
-                                {formatarMoeda(item.orcamento_mensal)}
+                                {formatarMoeda(item.orcamento_mensal, oculto)}
                                 {item.saldo_anterior !== 0 &&
-                                  ` · sobra do envelope: ${formatarMoeda(item.saldo_anterior)} · disponível: ${formatarMoeda(item.disponivel)}`}
+                                  ` · sobra do envelope: ${formatarMoeda(item.saldo_anterior, oculto)} · disponível: ${formatarMoeda(item.disponivel, oculto)}`}
                                 {!item.ativo && ' — inativo'}
                               </span>
                             </div>

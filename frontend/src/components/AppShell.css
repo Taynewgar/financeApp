@@ -88,6 +88,24 @@
   color: var(--cor-texto);
 }
 
+.shell-privacidade {
+  align-self: flex-start;
+  background: none;
+  border: 1px solid var(--cor-borda);
+  border-radius: 8px;
+  padding: 6px 10px;
+  cursor: pointer;
+  color: var(--cor-texto);
+  font-size: 13px;
+}
+
+.shell-bottom-nav-botao {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+}
+
 .shell-conteudo {
   flex: 1;
   min-width: 0;

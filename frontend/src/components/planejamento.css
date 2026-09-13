@@ -22,8 +22,27 @@
   margin: 4px 0 16px;
 }
 
+.planejamento-config-resumo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
 .planejamento-alocacao {
   margin-bottom: 20px;
+}
+
+.planejamento-estouro {
+  color: var(--cor-perigo);
+  font-weight: 600;
+}
+
+.planejamento-alocacao-barra-estourada {
+  outline: 2px solid var(--cor-perigo);
+  outline-offset: 2px;
 }
 
 .planejamento-alocacao-cabecalho {

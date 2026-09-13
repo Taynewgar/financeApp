@@ -6,6 +6,7 @@ import '../components/lancamentos.css'
 import '../components/resumoCards.css'
 import { ApiError, apiFetch } from '../lib/api'
 import { formatarData, formatarMoeda } from '../lib/formatar'
+import { usePrivacidade } from '../lib/PrivacyContext'
 import {
   ESTRUTURAS,
   MEIOS_PAGAMENTO,
@@ -88,6 +89,7 @@ function classeValor(transacao: Transacao): string {
 }
 
 export function Lancamentos() {
+  const { oculto } = usePrivacidade()
   const [contas, setContas] = useState<Conta[]>([])
   const [categorias, setCategorias] = useState<Categoria[]>([])
   const [subcategorias, setSubcategorias] = useState<Subcategoria[]>([])
@@ -243,16 +245,16 @@ export function Lancamentos() {
           </div>
           <div className="resumo-card" title={EXPLICACAO_RESUMO.receitas}>
             <span className="resumo-card-rotulo">Receitas</span>
-            <span className="resumo-card-valor valor-receita">{formatarMoeda(resumo.receitas)}</span>
+            <span className="resumo-card-valor valor-receita">{formatarMoeda(resumo.receitas, oculto)}</span>
           </div>
           <div className="resumo-card" title={EXPLICACAO_RESUMO.despesas_liquidas}>
             <span className="resumo-card-rotulo">Despesas líquidas</span>
-            <span className="resumo-card-valor valor-despesa">{formatarMoeda(resumo.despesas_liquidas)}</span>
+            <span className="resumo-card-valor valor-despesa">{formatarMoeda(resumo.despesas_liquidas, oculto)}</span>
           </div>
           <div className="resumo-card" title={EXPLICACAO_RESUMO.fluxo_caixa}>
             <span className="resumo-card-rotulo">Fluxo de caixa</span>
             <span className={`resumo-card-valor ${resumo.resultado_fluxo_caixa >= 0 ? 'valor-receita' : 'valor-despesa'}`}>
-              {formatarMoeda(resumo.resultado_fluxo_caixa)}
+              {formatarMoeda(resumo.resultado_fluxo_caixa, oculto)}
             </span>
           </div>
           <div className="resumo-card" title={EXPLICACAO_RESUMO.taxa_poupanca}>
@@ -456,7 +458,7 @@ export function Lancamentos() {
                   </div>
                   <div className="item-acoes">
                     <span className={classeValor(t)} style={{ fontWeight: 600 }}>
-                      {formatarMoeda(t.valor)}
+                      {formatarMoeda(t.valor, oculto)}
                     </span>
                     {t.pagamento === 'avista' && (
                       <Link to={`/lancamentos/${t.id}/editar`} className="botao-link">

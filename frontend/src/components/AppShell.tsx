@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { Link, NavLink, Outlet } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { checkHealth } from '../lib/api'
+import { usePrivacidade } from '../lib/PrivacyContext'
 import './AppShell.css'
 
 type StatusBackend = 'ocioso' | 'aguardando' | 'falhou'
@@ -20,6 +21,7 @@ function linkClasse(base: string) {
 
 export function AppShell({ children }: { children?: ReactNode }) {
   const { session, signOut } = useAuth()
+  const { oculto, alternar } = usePrivacidade()
 
   const [statusBackend, setStatusBackend] = useState<StatusBackend>('ocioso')
   const [segundosEspera, setSegundosEspera] = useState(0)
@@ -94,6 +96,15 @@ export function AppShell({ children }: { children?: ReactNode }) {
             </NavLink>
           ))}
           <div className="shell-nav-footer">
+            <button
+              type="button"
+              className="shell-privacidade"
+              onClick={alternar}
+              aria-pressed={oculto}
+              title={oculto ? 'Mostrar valores' : 'Ocultar valores'}
+            >
+              <span aria-hidden="true">{oculto ? '◌' : '◉'}</span> {oculto ? 'Mostrar valores' : 'Ocultar valores'}
+            </button>
             <span>{session?.user.email}</span>
             <button type="button" className="shell-sair" onClick={() => signOut()}>
               Sair
@@ -114,6 +125,16 @@ export function AppShell({ children }: { children?: ReactNode }) {
               {secao.label}
             </NavLink>
           ))}
+          <button
+            type="button"
+            className="shell-bottom-nav-link shell-bottom-nav-botao"
+            onClick={alternar}
+            aria-pressed={oculto}
+            title={oculto ? 'Mostrar valores' : 'Ocultar valores'}
+          >
+            <span aria-hidden="true">{oculto ? '◌' : '◉'}</span>
+            {oculto ? 'Mostrar' : 'Ocultar'}
+          </button>
         </nav>
       </div>
     </div>

@@ -8,6 +8,7 @@ import '../components/dashboard.css'
 import { useAuth } from '../auth/AuthContext'
 import { ApiError, apiFetch } from '../lib/api'
 import { formatarData, formatarMoeda } from '../lib/formatar'
+import { usePrivacidade } from '../lib/PrivacyContext'
 import type {
   CamposFinanceiros,
   CompromissoFuturo,
@@ -70,9 +71,11 @@ function receitaAjustada(r: CamposFinanceiros): number {
 /** Variação percentual vs mês anterior, em texto neutro (a cor já está no
  * valor absoluto do card — a seta some ambiguidade de "melhorou ou piorou"
  * sem precisar saber, métrica a métrica, se subir é bom ou ruim). */
-function textoDelta(atual: number, anterior: number): string {
+function textoDelta(atual: number, anterior: number, oculto: boolean): string {
   if (anterior === 0) {
-    return atual === 0 ? 'Estável vs mês anterior' : `${atual > 0 ? '+' : ''}${formatarMoeda(atual)} vs mês anterior`
+    return atual === 0
+      ? 'Estável vs mês anterior'
+      : `${atual > 0 ? '+' : ''}${formatarMoeda(atual, oculto)} vs mês anterior`
   }
   const variacao = ((atual - anterior) / Math.abs(anterior)) * 100
   if (Math.abs(variacao) < 0.05) return 'Estável vs mês anterior'
@@ -82,6 +85,7 @@ function textoDelta(atual: number, anterior: number): string {
 
 export function Dashboard() {
   const { session } = useAuth()
+  const { oculto } = usePrivacidade()
 
   const [modoData, setModoData] = useState<ModoData>('mes')
   const [vigenciaMes, setVigenciaMes] = useState(hojeAnoMes())
@@ -262,10 +266,12 @@ export function Dashboard() {
               {leitura === 'caixa' ? 'Resultado de caixa' : 'Resultado de saúde'}
             </span>
             <div className={classeResultado(hero ?? 0)} style={{ fontSize: 48, fontWeight: 600, lineHeight: 1.1 }}>
-              {formatarMoeda(hero ?? 0)}
+              {formatarMoeda(hero ?? 0, oculto)}
             </div>
             {heroAnterior !== null && heroAnterior !== undefined && (
-              <span style={{ fontSize: 13, color: 'var(--cor-texto-suave)' }}>{textoDelta(hero ?? 0, heroAnterior)}</span>
+              <span style={{ fontSize: 13, color: 'var(--cor-texto-suave)' }}>
+                {textoDelta(hero ?? 0, heroAnterior, oculto)}
+              </span>
             )}
           </div>
 
@@ -274,14 +280,18 @@ export function Dashboard() {
               <>
                 <div className="resumo-card" title={EXPLICACAO.receitas}>
                   <span className="resumo-card-rotulo">Receitas</span>
-                  <span className="resumo-card-valor valor-receita">{formatarMoeda(resumo.receitas)}</span>
-                  {mesAnterior && <span className="resumo-card-delta">{textoDelta(resumo.receitas, mesAnterior.receitas)}</span>}
+                  <span className="resumo-card-valor valor-receita">{formatarMoeda(resumo.receitas, oculto)}</span>
+                  {mesAnterior && (
+                    <span className="resumo-card-delta">{textoDelta(resumo.receitas, mesAnterior.receitas, oculto)}</span>
+                  )}
                 </div>
                 <div className="resumo-card" title={EXPLICACAO.despesas_brutas}>
                   <span className="resumo-card-rotulo">Despesas</span>
-                  <span className="resumo-card-valor valor-despesa">{formatarMoeda(resumo.despesas_brutas)}</span>
+                  <span className="resumo-card-valor valor-despesa">{formatarMoeda(resumo.despesas_brutas, oculto)}</span>
                   {mesAnterior && (
-                    <span className="resumo-card-delta">{textoDelta(resumo.despesas_brutas, mesAnterior.despesas_brutas)}</span>
+                    <span className="resumo-card-delta">
+                      {textoDelta(resumo.despesas_brutas, mesAnterior.despesas_brutas, oculto)}
+                    </span>
                   )}
                 </div>
               </>
@@ -289,19 +299,19 @@ export function Dashboard() {
               <>
                 <div className="resumo-card" title={EXPLICACAO.receita_ajustada}>
                   <span className="resumo-card-rotulo">Receita ajustada</span>
-                  <span className="resumo-card-valor valor-receita">{formatarMoeda(receitaAjustada(resumo))}</span>
+                  <span className="resumo-card-valor valor-receita">{formatarMoeda(receitaAjustada(resumo), oculto)}</span>
                   {mesAnterior && (
                     <span className="resumo-card-delta">
-                      {textoDelta(receitaAjustada(resumo), receitaAjustada(mesAnterior))}
+                      {textoDelta(receitaAjustada(resumo), receitaAjustada(mesAnterior), oculto)}
                     </span>
                   )}
                 </div>
                 <div className="resumo-card" title={EXPLICACAO.despesas_liquidas}>
                   <span className="resumo-card-rotulo">Despesas líquidas</span>
-                  <span className="resumo-card-valor valor-despesa">{formatarMoeda(resumo.despesas_liquidas)}</span>
+                  <span className="resumo-card-valor valor-despesa">{formatarMoeda(resumo.despesas_liquidas, oculto)}</span>
                   {mesAnterior && (
                     <span className="resumo-card-delta">
-                      {textoDelta(resumo.despesas_liquidas, mesAnterior.despesas_liquidas)}
+                      {textoDelta(resumo.despesas_liquidas, mesAnterior.despesas_liquidas, oculto)}
                     </span>
                   )}
                 </div>
@@ -310,14 +320,18 @@ export function Dashboard() {
 
             <div className="resumo-card" title={EXPLICACAO.reservas}>
               <span className="resumo-card-rotulo">Reservas</span>
-              <span className="resumo-card-valor valor-investimento">{formatarMoeda(resumo.reservas)}</span>
-              {mesAnterior && <span className="resumo-card-delta">{textoDelta(resumo.reservas, mesAnterior.reservas)}</span>}
+              <span className="resumo-card-valor valor-investimento">{formatarMoeda(resumo.reservas, oculto)}</span>
+              {mesAnterior && (
+                <span className="resumo-card-delta">{textoDelta(resumo.reservas, mesAnterior.reservas, oculto)}</span>
+              )}
             </div>
             <div className="resumo-card" title={EXPLICACAO.investimentos}>
               <span className="resumo-card-rotulo">Investimentos</span>
-              <span className="resumo-card-valor valor-investimento">{formatarMoeda(resumo.investimentos)}</span>
+              <span className="resumo-card-valor valor-investimento">{formatarMoeda(resumo.investimentos, oculto)}</span>
               {mesAnterior && (
-                <span className="resumo-card-delta">{textoDelta(resumo.investimentos, mesAnterior.investimentos)}</span>
+                <span className="resumo-card-delta">
+                  {textoDelta(resumo.investimentos, mesAnterior.investimentos, oculto)}
+                </span>
               )}
             </div>
             <div className="resumo-card" title={EXPLICACAO.taxa_poupanca}>
@@ -326,7 +340,9 @@ export function Dashboard() {
                 {resumo.taxa_poupanca === null ? '—' : `${resumo.taxa_poupanca.toFixed(1)}%`}
               </span>
               {mesAnterior && resumo.taxa_poupanca !== null && mesAnterior.taxa_poupanca !== null && (
-                <span className="resumo-card-delta">{textoDelta(resumo.taxa_poupanca, mesAnterior.taxa_poupanca)}</span>
+                <span className="resumo-card-delta">
+                  {textoDelta(resumo.taxa_poupanca, mesAnterior.taxa_poupanca, oculto)}
+                </span>
               )}
               {taxaAcumuladaAno !== null && (
                 <span className="resumo-card-delta">Acumulado no ano: {taxaAcumuladaAno.toFixed(1)}%</span>
@@ -358,7 +374,7 @@ export function Dashboard() {
                         <span className="item-titulo">{c.nome}</span>
                         <span className="item-detalhe">Caixinha</span>
                       </div>
-                      <span className="resumo-card-valor valor-investimento">{formatarMoeda(c.saldo)}</span>
+                      <span className="resumo-card-valor valor-investimento">{formatarMoeda(c.saldo, oculto)}</span>
                     </div>
                   </li>
                 ))}
@@ -383,7 +399,7 @@ export function Dashboard() {
                           Parcela {c.parcela_atual} de {c.parcela_total} · {formatarData(c.data_compra)}
                         </span>
                       </div>
-                      <span className="resumo-card-valor valor-despesa">{formatarMoeda(c.valor)}</span>
+                      <span className="resumo-card-valor valor-despesa">{formatarMoeda(c.valor, oculto)}</span>
                     </div>
                   </li>
                 ))}

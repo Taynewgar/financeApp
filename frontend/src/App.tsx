@@ -2,6 +2,7 @@ import { Navigate, Route, BrowserRouter as Router, Routes } from 'react-router-d
 import { AuthProvider } from './auth/AuthContext'
 import { ProtectedRoute } from './auth/ProtectedRoute'
 import { AppShell } from './components/AppShell'
+import { PrivacyProvider } from './lib/PrivacyContext'
 import { Configuracoes } from './routes/Configuracoes'
 import { Dashboard } from './routes/Dashboard'
 import { EditarLancamento } from './routes/EditarLancamento'
@@ -15,27 +16,29 @@ function App() {
   return (
     <Router>
       <AuthProvider>
-        <Routes>
-          <Route path="/login" element={<Login />} />
-          <Route
-            path="/"
-            element={
-              <ProtectedRoute>
-                <AppShell />
-              </ProtectedRoute>
-            }
-          >
-            <Route index element={<Navigate to="/dashboard" replace />} />
-            <Route path="dashboard" element={<Dashboard />} />
-            <Route path="lancamentos" element={<Lancamentos />} />
-            <Route path="lancamentos/novo" element={<NovoLancamento />} />
-            <Route path="lancamentos/:id/editar" element={<EditarLancamento />} />
-            <Route path="planejamento" element={<Planejamento />} />
-            <Route path="estruturas-de-custo" element={<Placeholder titulo="Estruturas de Custo" />} />
-            <Route path="configuracoes" element={<Configuracoes />} />
-          </Route>
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
+        <PrivacyProvider>
+          <Routes>
+            <Route path="/login" element={<Login />} />
+            <Route
+              path="/"
+              element={
+                <ProtectedRoute>
+                  <AppShell />
+                </ProtectedRoute>
+              }
+            >
+              <Route index element={<Navigate to="/dashboard" replace />} />
+              <Route path="dashboard" element={<Dashboard />} />
+              <Route path="lancamentos" element={<Lancamentos />} />
+              <Route path="lancamentos/novo" element={<NovoLancamento />} />
+              <Route path="lancamentos/:id/editar" element={<EditarLancamento />} />
+              <Route path="planejamento" element={<Planejamento />} />
+              <Route path="estruturas-de-custo" element={<Placeholder titulo="Estruturas de Custo" />} />
+              <Route path="configuracoes" element={<Configuracoes />} />
+            </Route>
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </PrivacyProvider>
       </AuthProvider>
     </Router>
   )

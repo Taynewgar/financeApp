@@ -1,4 +1,5 @@
-export function formatarMoeda(valor: number): string {
+export function formatarMoeda(valor: number, oculto = false): string {
+  if (oculto) return '••••••'
   return valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 }
 

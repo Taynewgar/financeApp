@@ -1,5 +1,6 @@
 import './despesasPorCategoria.css'
 import { formatarMoeda } from '../lib/formatar'
+import { usePrivacidade } from '../lib/PrivacyContext'
 import type { DespesaPorCategoria } from '../lib/types'
 
 const PALETA = ['var(--cat-1)', 'var(--cat-2)', 'var(--cat-3)', 'var(--cat-4)', 'var(--cat-5)', 'var(--cat-6)', 'var(--cat-7)', 'var(--cat-8)']
@@ -22,6 +23,8 @@ function corPorCategoria(dados: DespesaPorCategoria[]): Map<string, string> {
 }
 
 export function DespesasPorCategoria({ dados }: { dados: DespesaPorCategoria[] }) {
+  const { oculto } = usePrivacidade()
+
   if (dados.length === 0) {
     return <p style={{ color: 'var(--cor-texto-suave)' }}>Nenhuma despesa no período.</p>
   }
@@ -55,7 +58,7 @@ export function DespesasPorCategoria({ dados }: { dados: DespesaPorCategoria[] }
             key={l.categoria_id}
             className="despesas-categoria-segmento"
             style={{ width: `${l.percentual}%`, background: corDe(l.categoria_id) }}
-            title={`${l.categoria_nome}: ${formatarMoeda(l.valor)} (${l.percentual.toFixed(1)}%)`}
+            title={`${l.categoria_nome}: ${formatarMoeda(l.valor, oculto)} (${l.percentual.toFixed(1)}%)`}
           />
         ))}
       </div>
@@ -64,7 +67,7 @@ export function DespesasPorCategoria({ dados }: { dados: DespesaPorCategoria[] }
           <li key={l.categoria_id}>
             <span className="despesas-categoria-swatch" style={{ background: corDe(l.categoria_id) }} />
             <span className="despesas-categoria-nome">{l.categoria_nome}</span>
-            <span className="despesas-categoria-valor">{formatarMoeda(l.valor)}</span>
+            <span className="despesas-categoria-valor">{formatarMoeda(l.valor, oculto)}</span>
             <span className="despesas-categoria-percentual">{l.percentual.toFixed(1)}%</span>
           </li>
         ))}
