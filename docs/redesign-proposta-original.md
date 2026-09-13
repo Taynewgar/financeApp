@@ -7,8 +7,10 @@ continuar o trabalho sem precisar redescobrir o que já foi decidido.
 
 **Fonte:** artifact de design "Finance App Redesign", publicado a partir da
 análise do ZIP original —
-[ver mockups](https://claude.ai/code/artifact/aca7d916-7ef2-4b93-b482-bce337d343ed).
-O ZIP em si não está neste repositório (foi um anexo de conversa, não um
+[ver mockups interativos](https://claude.ai/code/artifact/aca7d916-7ef2-4b93-b482-bce337d343ed).
+As 4 telas também estão exportadas como PNG em `docs/mockups/` (abaixo, uma
+por seção) — versionado, sem depender de login nem do artifact continuar no
+ar. O ZIP em si não está neste repositório (foi um anexo de conversa, não um
 arquivo versionado) — se quiser preservá-lo de forma durável, vale anexar de
 novo e commitar num lugar como `docs/app-original/`.
 
@@ -19,6 +21,8 @@ falta. Legenda: ✅ implementado · 🟡 parcial · ⬜ não implementado.
 ---
 
 ## Dashboard
+
+![Mockup do Dashboard](mockups/dashboard.png)
 
 Mockup: número de patrimônio no topo, seletor de mês com opções de intervalo,
 alternância entre as duas leituras financeiras, KPIs com variação percentual
@@ -46,6 +50,8 @@ e despesas por categoria do mês.
 
 ## Novo Lançamento
 
+![Mockup do Novo Lançamento](mockups/novo-lancamento.png)
+
 Mockup: tipo em 4 segmentos (Receita/Despesa/Aplicação/Retirada) + checkbox de
 estorno/ressarcimento, categorias "mais usadas" com atalho de criação inline,
 estrutura de custo sugerida pela subcategoria.
@@ -69,6 +75,8 @@ que não existia no mockup — feature adicionada depois por pedido direto).
 
 ## Configurações (Contas/Categorias/Bancos/Caixinhas)
 
+![Mockup de Configurações](mockups/contas-categorias.png)
+
 Mockup: 4 abas incluindo uma aba "Bancos" separada, tabela de contas com
 saldo calculado e status ativo.
 
@@ -86,6 +94,8 @@ saldo calculado e status ativo.
 ---
 
 ## Planejamento (Orçamento)
+
+![Mockup do Planejamento](mockups/planejamento.png)
 
 Mockup: alocação percentual visual por bucket, comparação orçado x realizado
 x mês anterior por bucket, ações explícitas "Acumular/Transferir" sobre a
