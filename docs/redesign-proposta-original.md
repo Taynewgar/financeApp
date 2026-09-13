@@ -126,7 +126,7 @@ conversa que fechou essa divisão.
 |---|---|---|
 | Tela de configuração (renda, % geral, limites por bucket) | ✅ | `frontend/src/routes/Planejamento.tsx` — cria/edita o orçamento do mês |
 | Alocação por bucket (% limite) | ✅ | Barra de alocação total + card por bucket, com % do teto já usado pelos itens |
-| Itens do orçamento por bucket (nome/categoria/subcategoria/conta, valor mensal) | ✅ | CRUD completo (criar/editar/desativar), teto do bucket validado pelo backend |
+| Itens do orçamento por bucket (nome/categoria/subcategoria/conta, valor mensal) | ✅ | Aparecem sozinhos a partir do que é lançado (paridade com o app original — "categorias de custo derivadas automaticamente do CSV carregado") — você só ajusta o valor. CRUD manual (nome livre, conta vinculada) continua disponível pra casos sem transação ainda. Teto do bucket validado pelo backend |
 | Orçado x Realizado por bucket | 🚫 | **Fora do escopo desta tela por decisão** — fica em Estrutura de Custo (`GET /estrutura-custo/{mes}` já calcula os dois no backend) |
 | Comparação com mês anterior por bucket | 🚫 | Mesma decisão acima — é leitura de execução, não de configuração |
 | Sobra do envelope acumulada | ✅ | Botão "Gerar orçamento do próximo mês" (`POST /orcamentos/{id}/proximo-mes`); cada item mostra sobra/disponível quando há saldo trazido |
@@ -404,15 +404,42 @@ restaurando algo que o app original já tinha. Entregue:
 - **Botão "Editar configuração" do Planejamento** trocado de link discreto
   pra botão de verdade — ficava escondido demais.
 
-**Em aberto, aguardando decisão do usuário** (não implementado nesta
-rodada):
-- Itens do orçamento aparecerem automaticamente a partir das categorias
-  usadas em lançamentos reais, em vez de criação manual — confirmado como
-  gap real (o app original tinha "categorias de custo derivadas
-  automaticamente do CSV carregado"), mas falta decidir se a
-  materialização é só no momento de criar/gerar o orçamento do mês, ou
-  reativa (aparece assim que um lançamento com categoria nova é criado,
-  mesmo no meio do mês).
-- Confirmação antes de substituir um orçamento existente ao gerar a partir
-  do mês anterior (hoje só dá 409 e trava) — custo explicado, aguardando
-  sinal pra implementar.
+**Em aberto na época, decidido e implementado na rodada seguinte** (ver
+changelog 2026-09-14 rodada 3 abaixo): itens reativos a partir de
+lançamentos (decisão: reativo, não só na criação do orçamento) e
+confirmação antes de substituir orçamento existente.
+
+### 2026-09-14 (rodada 3) — itens de orçamento reativos, substituir orçamento existente, botão de privacidade reposicionado
+
+Resolve os 2 pontos que ficaram em aberto na rodada anterior, mais 1 ajuste
+de posição pedido depois de usar o botão de privacidade pela primeira vez.
+
+- **Itens do orçamento reativos** — decisão: reativo (não só na criação do
+  orçamento). Novo `services/orcamento_sync.py`: toda vez que uma despesa
+  ou um investimento (aplicação/retirada sem caixinha) é lançado ou editado,
+  se já existe orçamento pro mês daquela transação e a categoria/subcategoria
+  usada ainda não tem item nele, um item novo é criado sozinho com
+  `orcamento_mensal=0` — você só ajusta o valor, nunca precisa criar o item
+  do zero. Bucket vem direto do `estrutura_custo` da transação (mesmo mapa
+  usado em Estrutura de Custo). Reserva (aplicação/retirada com caixinha),
+  receita e estorno/ressarcimento não alimentam orçamento, não criam item.
+  Item já existente nunca é tocado (nem o valor, nem removido). 8 testes
+  novos cobrindo os casos (categoria nova, subcategoria em vez de categoria,
+  não duplica, sem orçamento não cria nada, investimento, reserva não cria,
+  estorno não cria, edição sincroniza a categoria nova).
+- **Substituir orçamento existente ao gerar o próximo mês** —
+  `POST /orcamentos/{id}/proximo-mes?substituir=true` agora apaga o
+  orçamento (e itens) que já existe pro mês seguinte antes de recriar, em
+  vez de só recusar com 409. Sem o parâmetro, comportamento antigo mantido
+  (409). Frontend: ao tentar gerar e receber 409, mostra
+  `window.confirm()` perguntando se quer substituir; se sim, repete a
+  chamada com `substituir=true`.
+- **Botão de privacidade reposicionado** — tirado do rodapé da barra
+  lateral (ficava embaixo de tudo, fora da vista sem rolar) e virou uma
+  barrinha fixa no topo da página, acima de tudo, sempre visível em
+  qualquer tela — desktop e mobile, com ou sem o aviso de "acordando o
+  servidor" no topo (motivo da mudança: a primeira versão usava um botão
+  flutuante fixo que ficava embaixo desse aviso quando ele aparecia).
+- tsc + build limpos; suíte de backend (199 testes) verde; QA visual via
+  Playwright (claro/escuro/mobile, com e sem o banner do backend) antes de
+  fechar.

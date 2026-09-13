@@ -88,22 +88,25 @@
   color: var(--cor-texto);
 }
 
+.shell-topbar {
+  display: flex;
+  justify-content: flex-end;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--cor-borda);
+  background: var(--cor-superficie);
+}
+
 .shell-privacidade {
-  align-self: flex-start;
+  display: flex;
+  align-items: center;
+  gap: 6px;
   background: none;
   border: 1px solid var(--cor-borda);
-  border-radius: 8px;
-  padding: 6px 10px;
+  border-radius: 999px;
+  padding: 6px 12px;
   cursor: pointer;
   color: var(--cor-texto);
   font-size: 13px;
-}
-
-.shell-bottom-nav-botao {
-  background: none;
-  border: none;
-  cursor: pointer;
-  font-family: inherit;
 }
 
 .shell-conteudo {
@@ -180,5 +183,13 @@
   .shell-fab {
     right: 16px;
     bottom: 72px;
+  }
+
+  .shell-topbar {
+    padding: 6px 12px;
+  }
+
+  .shell-privacidade-texto {
+    display: none;
   }
 }

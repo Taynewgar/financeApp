@@ -978,3 +978,227 @@ def test_retirada_em_caixinha_sem_conta_vinculada_aceita_qualquer_conta(client):
         },
     )
     assert resposta.status_code == 201
+
+
+# ── sincronização reativa com o orçamento (itens aparecem a partir do lançamento) ──
+
+
+def _criar_orcamento_do_mes(client, vigencia_mes="2026-09-01"):
+    return client.post(
+        "/orcamentos", json={"vigencia_mes": vigencia_mes, "receita_base": 100000, "percentual_geral": 100}
+    ).json()
+
+
+def test_despesa_cria_item_de_orcamento_automaticamente_para_categoria_nova(client):
+    orcamento = _criar_orcamento_do_mes(client)
+    conta = _criar_conta_corrente(client)
+    categoria = client.post("/categorias", json={"nome": "Mercado"}).json()
+
+    client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-09-05",
+            "valor": 300,
+            "tipo_movimento": "despesa",
+            "conta_id": conta["id"],
+            "categoria_id": categoria["id"],
+            "estrutura_custo": "variavel",
+            "meio_pagamento": "pix",
+        },
+    )
+
+    itens = client.get(f"/orcamentos/{orcamento['id']}/itens").json()
+    assert len(itens) == 1
+    assert itens[0]["categoria_id"] == categoria["id"]
+    assert itens[0]["bucket"] == "custos_variaveis"
+    assert itens[0]["orcamento_mensal"] == 0  # só o valor-alvo é manual; o item em si aparece sozinho
+
+
+def test_despesa_com_subcategoria_cria_item_vinculado_a_subcategoria_nao_a_categoria(client):
+    orcamento = _criar_orcamento_do_mes(client)
+    conta = _criar_conta_corrente(client)
+    categoria = client.post("/categorias", json={"nome": "Casa"}).json()
+    subcategoria = client.post(
+        "/subcategorias", json={"categoria_id": categoria["id"], "nome": "Aluguel"}
+    ).json()
+
+    client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-09-05",
+            "valor": 1500,
+            "tipo_movimento": "despesa",
+            "conta_id": conta["id"],
+            "categoria_id": categoria["id"],
+            "subcategoria_id": subcategoria["id"],
+            "estrutura_custo": "fixo",
+            "meio_pagamento": "pix",
+        },
+    )
+
+    itens = client.get(f"/orcamentos/{orcamento['id']}/itens").json()
+    assert len(itens) == 1
+    assert itens[0]["subcategoria_id"] == subcategoria["id"]
+    assert itens[0]["categoria_id"] is None
+    assert itens[0]["bucket"] == "custos_fixos"
+
+
+def test_despesa_nao_duplica_item_quando_categoria_ja_tem_item_no_orcamento(client):
+    orcamento = _criar_orcamento_do_mes(client)
+    conta = _criar_conta_corrente(client)
+    categoria = client.post("/categorias", json={"nome": "Mercado"}).json()
+    client.post(
+        f"/orcamentos/{orcamento['id']}/itens",
+        json={"bucket": "custos_variaveis", "categoria_id": categoria["id"], "orcamento_mensal": 500},
+    )
+
+    client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-09-05",
+            "valor": 300,
+            "tipo_movimento": "despesa",
+            "conta_id": conta["id"],
+            "categoria_id": categoria["id"],
+            "estrutura_custo": "variavel",
+            "meio_pagamento": "pix",
+        },
+    )
+
+    itens = client.get(f"/orcamentos/{orcamento['id']}/itens").json()
+    assert len(itens) == 1
+    assert itens[0]["orcamento_mensal"] == 500  # valor já configurado não é mexido
+
+
+def test_despesa_sem_orcamento_no_mes_nao_cria_item_nem_da_erro(client):
+    conta = _criar_conta_corrente(client)
+    categoria = client.post("/categorias", json={"nome": "Mercado"}).json()
+
+    resposta = client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-09-05",
+            "valor": 300,
+            "tipo_movimento": "despesa",
+            "conta_id": conta["id"],
+            "categoria_id": categoria["id"],
+            "estrutura_custo": "variavel",
+            "meio_pagamento": "pix",
+        },
+    )
+    assert resposta.status_code == 201  # não trava, só não sincroniza nada
+
+
+def test_aplicacao_sem_caixinha_cria_item_bucket_investimentos(client):
+    orcamento = _criar_orcamento_do_mes(client)
+    conta = client.post("/contas", json={"nome": "Investimento", "tipo_conta": "investimento"}).json()
+    categoria = client.post("/categorias", json={"nome": "Aportes", "tipo": "investimento"}).json()
+
+    client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-09-05",
+            "valor": 500,
+            "tipo_movimento": "aplicacao",
+            "conta_id": conta["id"],
+            "categoria_id": categoria["id"],
+            "estrutura_custo": "investimentos",
+        },
+    )
+
+    itens = client.get(f"/orcamentos/{orcamento['id']}/itens").json()
+    assert len(itens) == 1
+    assert itens[0]["bucket"] == "investimentos"
+    assert itens[0]["categoria_id"] == categoria["id"]
+
+
+def test_aplicacao_com_caixinha_nao_cria_item_de_orcamento(client):
+    orcamento = _criar_orcamento_do_mes(client)
+    conta = _criar_conta_corrente(client)
+    caixinha = client.post("/caixinhas", json={"nome": "Emergência"}).json()
+
+    client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-09-05",
+            "valor": 500,
+            "tipo_movimento": "aplicacao",
+            "conta_id": conta["id"],
+            "caixinha_id": caixinha["id"],
+        },
+    )
+
+    itens = client.get(f"/orcamentos/{orcamento['id']}/itens").json()
+    assert itens == []  # reserva não é item de orçamento
+
+
+def test_estorno_nao_cria_item_de_orcamento(client):
+    orcamento = _criar_orcamento_do_mes(client)
+    conta = _criar_conta_corrente(client)
+    categoria = client.post("/categorias", json={"nome": "Mercado"}).json()
+    despesa = client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-09-05",
+            "valor": 300,
+            "tipo_movimento": "despesa",
+            "conta_id": conta["id"],
+            "categoria_id": categoria["id"],
+            "estrutura_custo": "variavel",
+            "meio_pagamento": "pix",
+        },
+    ).json()
+    # a despesa acima já cria 1 item — desativa ele pra testar só o estorno isoladamente
+    item_da_despesa = client.get(f"/orcamentos/{orcamento['id']}/itens").json()[0]
+    client.patch(f"/orcamentos/{orcamento['id']}/itens/{item_da_despesa['id']}/ativo", params={"ativo": False})
+
+    client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-09-10",
+            "valor": 100,
+            "tipo_movimento": "estorno",
+            "conta_id": conta["id"],
+            "ajuste_de_transacao_id": despesa["id"],
+        },
+    )
+
+    itens = client.get(f"/orcamentos/{orcamento['id']}/itens").json()
+    assert len(itens) == 1  # continua só o item da despesa (agora inativo) — estorno não criou outro
+
+
+def test_editar_transacao_trocando_categoria_sincroniza_item_da_categoria_nova(client):
+    orcamento = _criar_orcamento_do_mes(client)
+    conta = _criar_conta_corrente(client)
+    categoria_a = client.post("/categorias", json={"nome": "Mercado"}).json()
+    categoria_b = client.post("/categorias", json={"nome": "Lazer"}).json()
+    despesa = client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-09-05",
+            "valor": 300,
+            "tipo_movimento": "despesa",
+            "conta_id": conta["id"],
+            "categoria_id": categoria_a["id"],
+            "estrutura_custo": "variavel",
+            "meio_pagamento": "pix",
+        },
+    ).json()
+
+    client.patch(
+        f"/transacoes/{despesa['id']}",
+        json={
+            "data_compra": "2026-09-05",
+            "valor": 300,
+            "tipo_movimento": "despesa",
+            "conta_id": conta["id"],
+            "categoria_id": categoria_b["id"],
+            "estrutura_custo": "variavel",
+            "meio_pagamento": "pix",
+        },
+    )
+
+    itens = client.get(f"/orcamentos/{orcamento['id']}/itens").json()
+    categorias_com_item = {i["categoria_id"] for i in itens}
+    assert categoria_a["id"] in categorias_com_item  # item antigo continua (nunca é removido)
+    assert categoria_b["id"] in categorias_com_item  # item novo sincronizado na edição

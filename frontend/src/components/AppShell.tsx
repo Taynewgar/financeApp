@@ -87,6 +87,19 @@ export function AppShell({ children }: { children?: ReactNode }) {
         </div>
       )}
 
+      <div className="shell-topbar">
+        <button
+          type="button"
+          className="shell-privacidade"
+          onClick={alternar}
+          aria-pressed={oculto}
+          title={oculto ? 'Mostrar valores' : 'Ocultar valores'}
+        >
+          <span aria-hidden="true">{oculto ? '◌' : '◉'}</span>
+          <span className="shell-privacidade-texto">{oculto ? 'Mostrar valores' : 'Ocultar valores'}</span>
+        </button>
+      </div>
+
       <div className="shell">
         <nav className="shell-nav" aria-label="Navegação principal">
           <div className="shell-nav-header">Finance App</div>
@@ -96,15 +109,6 @@ export function AppShell({ children }: { children?: ReactNode }) {
             </NavLink>
           ))}
           <div className="shell-nav-footer">
-            <button
-              type="button"
-              className="shell-privacidade"
-              onClick={alternar}
-              aria-pressed={oculto}
-              title={oculto ? 'Mostrar valores' : 'Ocultar valores'}
-            >
-              <span aria-hidden="true">{oculto ? '◌' : '◉'}</span> {oculto ? 'Mostrar valores' : 'Ocultar valores'}
-            </button>
             <span>{session?.user.email}</span>
             <button type="button" className="shell-sair" onClick={() => signOut()}>
               Sair
@@ -125,16 +129,6 @@ export function AppShell({ children }: { children?: ReactNode }) {
               {secao.label}
             </NavLink>
           ))}
-          <button
-            type="button"
-            className="shell-bottom-nav-link shell-bottom-nav-botao"
-            onClick={alternar}
-            aria-pressed={oculto}
-            title={oculto ? 'Mostrar valores' : 'Ocultar valores'}
-          >
-            <span aria-hidden="true">{oculto ? '◌' : '◉'}</span>
-            {oculto ? 'Mostrar' : 'Ocultar'}
-          </button>
         </nav>
       </div>
     </div>

@@ -1,6 +1,6 @@
 from datetime import date
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from supabase import Client
 
 from ..auth import get_current_user_id, get_db
@@ -256,6 +256,7 @@ def _calcular_realizado(db: Client, user_id: str, item: dict, mes_inicio: date, 
 @router.post("/{orcamento_id}/proximo-mes", response_model=Orcamento, status_code=201)
 def gerar_proximo_mes(
     orcamento_id: str,
+    substituir: bool = Query(False),
     db: Client = Depends(get_db),
     user_id: str = Depends(get_current_user_id),
 ):
@@ -264,10 +265,35 @@ def gerar_proximo_mes(
     transações do período, e cria o orçamento do mês seguinte com a sobra
     (ou o estouro, se o item passou do previsto) já somada em
     `saldo_anterior` de cada item — nunca alterando `orcamento_mensal`, que
-    continua sendo o valor-base recorrente."""
+    continua sendo o valor-base recorrente.
+
+    Se já existe um orçamento pro mês seguinte, recusa com 409 a menos que
+    `substituir=true` seja passado — nesse caso apaga o orçamento (e seus
+    itens) existente antes de gerar o novo no lugar dele."""
     atual = _get_orcamento_ou_404(db, user_id, orcamento_id)
     mes_atual = date.fromisoformat(atual["vigencia_mes"])
     mes_seguinte = somar_meses(mes_atual, 1)
+
+    existente = (
+        db.table(TABLE)
+        .select("id")
+        .eq("user_id", user_id)
+        .eq("vigencia_mes", mes_seguinte.isoformat())
+        .execute()
+        .data
+    )
+    if existente and not substituir:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"Já existe um orçamento para {mes_seguinte.isoformat()[:7]} — "
+                "repita a chamada com substituir=true para sobrescrever."
+            ),
+        )
+    if existente:
+        existente_id = existente[0]["id"]
+        db.table(ITENS_TABLE).delete().eq("orcamento_id", existente_id).execute()
+        db.table(TABLE).delete().eq("id", existente_id).execute()
 
     novo_orcamento = _insert_orcamento(
         db,

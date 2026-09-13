@@ -199,33 +199,38 @@ export function Planejamento() {
     }
   }
 
-  async function gerarAPartirDoAnterior() {
-    if (!orcamentoMesAnterior) return
+  async function gerarComRollover(orcamentoOrigemId: string, avancarVigencia: boolean, substituir = false) {
     setGerandoProximoMes(true)
     setErro(null)
     try {
-      const novo = await apiFetch<Orcamento>(`/orcamentos/${orcamentoMesAnterior.id}/proximo-mes`, { method: 'POST' })
-      setOrcamentos((atual) => [...(atual ?? []), novo])
+      const novo = await apiFetch<Orcamento>(
+        `/orcamentos/${orcamentoOrigemId}/proximo-mes${substituir ? '?substituir=true' : ''}`,
+        { method: 'POST' },
+      )
+      setOrcamentos((atual) => [...(atual ?? []).filter((o) => o.vigencia_mes !== novo.vigencia_mes), novo])
+      if (avancarVigencia) setVigenciaMes(novo.vigencia_mes.slice(0, 7))
     } catch (e) {
+      if (e instanceof ApiError && e.status === 409 && !substituir) {
+        setGerandoProximoMes(false)
+        if (window.confirm('Já existe um orçamento para esse mês. Substituir pelo novo (traz a sobra do envelope)?')) {
+          await gerarComRollover(orcamentoOrigemId, avancarVigencia, true)
+        }
+        return
+      }
       setErro(e instanceof ApiError ? (typeof e.detail === 'string' ? e.detail : e.message) : 'Falha ao gerar orçamento')
     } finally {
       setGerandoProximoMes(false)
     }
   }
 
+  async function gerarAPartirDoAnterior() {
+    if (!orcamentoMesAnterior) return
+    await gerarComRollover(orcamentoMesAnterior.id, false)
+  }
+
   async function gerarProximoMes() {
     if (!orcamentoAtual) return
-    setGerandoProximoMes(true)
-    setErro(null)
-    try {
-      const novo = await apiFetch<Orcamento>(`/orcamentos/${orcamentoAtual.id}/proximo-mes`, { method: 'POST' })
-      setOrcamentos((atual) => [...(atual ?? []), novo])
-      setVigenciaMes(novo.vigencia_mes.slice(0, 7))
-    } catch (e) {
-      setErro(e instanceof ApiError ? (typeof e.detail === 'string' ? e.detail : e.message) : 'Falha ao gerar orçamento')
-    } finally {
-      setGerandoProximoMes(false)
-    }
+    await gerarComRollover(orcamentoAtual.id, true)
   }
 
   function iniciarCriacaoItem(bucket: Bucket) {

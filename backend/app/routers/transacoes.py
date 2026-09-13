@@ -17,6 +17,7 @@ from ..schemas.transacoes import (
 from ..services import crud
 from ..services.dedup import compute_hash
 from ..services.fatura import calcular_fatura_referencia, somar_meses
+from ..services.orcamento_sync import sincronizar_item_orcamento
 from ..services.resumo_financeiro import calcular_resumo
 
 router = APIRouter(prefix="/transacoes", tags=["transacoes"])
@@ -313,7 +314,9 @@ def criar(payload: TransacaoCreate, db: Client = Depends(get_db), user_id: str =
         parcela_total=None,
         compra_parcelada_id=None,
     )
-    return _insert(db, row)
+    criada = _insert(db, row)
+    sincronizar_item_orcamento(db, user_id, criada)
+    return criada
 
 
 @router.post("/parceladas", response_model=list[Transacao], status_code=201)
@@ -380,7 +383,9 @@ def criar_parcelada(
             parcela_total=row["parcela_total"],
             compra_parcelada_id=row["compra_parcelada_id"],
         )
-        criadas.append(_insert(db, row))
+        criada = _insert(db, row)
+        sincronizar_item_orcamento(db, user_id, criada)
+        criadas.append(criada)
     return criadas
 
 
@@ -437,7 +442,7 @@ def atualizar(
         compra_parcelada_id=None,
     )
     try:
-        return crud.update(db, TABLE, user_id, transacao_id, row)
+        atualizada = crud.update(db, TABLE, user_id, transacao_id, row)
     except crud.NotFound:
         raise HTTPException(status_code=404, detail="Transação não encontrada")
     except Exception as exc:  # noqa: BLE001 — mesma tradução de unicidade usada em _insert
@@ -448,6 +453,8 @@ def atualizar(
             ) from exc
         print(f"[transacoes] falha ao atualizar: {exc!r} — id={transacao_id}")
         raise HTTPException(status_code=500, detail="Falha ao salvar a transação") from exc
+    sincronizar_item_orcamento(db, user_id, atualizada)
+    return atualizada
 
 
 @router.patch("/{transacao_id}/fatura", response_model=Transacao)

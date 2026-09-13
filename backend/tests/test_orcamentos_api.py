@@ -328,6 +328,26 @@ def test_proximo_mes_de_orcamento_de_outro_usuario_retorna_404(client, current_u
     assert resposta.status_code == 404
 
 
+def test_proximo_mes_com_substituir_recria_o_orcamento_existente(client):
+    setembro = _criar_orcamento(client, vigencia_mes="2026-09-01")
+    outubro_antigo = client.post(f"/orcamentos/{setembro['id']}/proximo-mes").json()
+    item_antigo = client.post(
+        f"/orcamentos/{outubro_antigo['id']}/itens",
+        json={"bucket": "custos_fixos", "nome": "Vai sumir", "orcamento_mensal": 100},
+    ).json()
+
+    resposta = client.post(f"/orcamentos/{setembro['id']}/proximo-mes", params={"substituir": "true"})
+    assert resposta.status_code == 201
+    outubro_novo = resposta.json()
+    assert outubro_novo["vigencia_mes"] == "2026-10-01"
+    assert outubro_novo["id"] != outubro_antigo["id"]  # é um orçamento novo, não o mesmo editado
+
+    # o orçamento antigo (e o item criado nele) não existem mais
+    assert client.get(f"/orcamentos/{outubro_antigo['id']}").status_code == 404
+    assert client.get(f"/orcamentos/{outubro_antigo['id']}/itens").status_code == 404
+    assert not any(i["id"] == item_antigo["id"] for i in client.get(f"/orcamentos/{outubro_novo['id']}/itens").json())
+
+
 # ── teto por bucket (regra 1: renda × percentual_geral × limite_bucket) ────
 # mesmo exemplo usado na conversa: renda 15000, percentual_geral 90%,
 # limite_custos_fixos 40% (default) → teto de custos_fixos = 5400
