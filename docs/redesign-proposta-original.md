@@ -383,3 +383,36 @@ Entregue:
 - tsc + build limpos, suíte de backend (190 testes, sem mudança nesta
   rodada) verde, QA visual via Playwright (claro/escuro/mobile) antes de
   fechar.
+
+### 2026-09-14 (rodada 2) — modo privacidade, correções no Planejamento
+
+Pedido do usuário logo após usar a tela de Planejamento: 1 correção de
+paridade que ficou faltando, 1 melhoria de usabilidade, e 1 feature nova
+restaurando algo que o app original já tinha. Entregue:
+
+- **Modo privacidade** (`👁 Ocultar valores` no AppShell, sidebar desktop +
+  nav inferior mobile) — o app original tinha isso no relatório HTML
+  ("Modo privacidade (ocultar/mostrar valores)", ver
+  `plano-de-evolucao-original.md`). Estado persistido em localStorage,
+  aplicado em todo display de R$ do app (Dashboard, gráficos, Lançamentos,
+  Planejamento).
+- **Destaque de estouro na soma dos limites dos buckets do Planejamento**
+  (vermelho quando passa de 100%) — confirmado como paridade: o app
+  original já tinha "indicadores visuais de alocação/estouro" pra essa
+  soma. Só faltava replicar (o destaque por item individual acima do teto
+  do bucket já existia desde a entrega da tela).
+- **Botão "Editar configuração" do Planejamento** trocado de link discreto
+  pra botão de verdade — ficava escondido demais.
+
+**Em aberto, aguardando decisão do usuário** (não implementado nesta
+rodada):
+- Itens do orçamento aparecerem automaticamente a partir das categorias
+  usadas em lançamentos reais, em vez de criação manual — confirmado como
+  gap real (o app original tinha "categorias de custo derivadas
+  automaticamente do CSV carregado"), mas falta decidir se a
+  materialização é só no momento de criar/gerar o orçamento do mês, ou
+  reativa (aparece assim que um lançamento com categoria nova é criado,
+  mesmo no meio do mês).
+- Confirmação antes de substituir um orçamento existente ao gerar a partir
+  do mês anterior (hoje só dá 409 e trava) — custo explicado, aguardando
+  sinal pra implementar.
