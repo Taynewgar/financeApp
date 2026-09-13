@@ -121,6 +121,38 @@ export type DespesaPorCategoria = {
   percentual: number
 }
 
+export type Bucket = 'custos_fixos' | 'custos_variaveis' | 'sazonalidades' | 'investimentos'
+
+export type Orcamento = {
+  id: string
+  vigencia_mes: string
+  receita_base: number
+  percentual_geral: number
+  limite_custos_fixos: number
+  limite_custos_variaveis: number
+  limite_sazonalidades: number
+  limite_investimentos: number
+}
+
+export type OrcamentoItem = {
+  id: string
+  orcamento_id: string
+  bucket: Bucket
+  categoria_id: string | null
+  subcategoria_id: string | null
+  nome: string | null
+  conta_vinculada_id: string | null
+  orcamento_mensal: number
+  ativo: boolean
+  // sobra (ou estouro, se negativo) trazida do mês anterior via "gerar
+  // próximo mês" — 0 em item criado do zero
+  saldo_anterior: number
+  // calculados no backend, nunca gravados
+  disponivel: number
+  percentual_da_renda: number
+  percentual_do_teto: number
+}
+
 export type Transacao = {
   id: string
   data_compra: string

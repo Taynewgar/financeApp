@@ -9,6 +9,7 @@ import { Lancamentos } from './routes/Lancamentos'
 import { Login } from './routes/Login'
 import { NovoLancamento } from './routes/NovoLancamento'
 import { Placeholder } from './routes/Placeholder'
+import { Planejamento } from './routes/Planejamento'
 
 function App() {
   return (
@@ -29,7 +30,7 @@ function App() {
             <Route path="lancamentos" element={<Lancamentos />} />
             <Route path="lancamentos/novo" element={<NovoLancamento />} />
             <Route path="lancamentos/:id/editar" element={<EditarLancamento />} />
-            <Route path="planejamento" element={<Placeholder titulo="Planejamento (Orçamento)" />} />
+            <Route path="planejamento" element={<Planejamento />} />
             <Route path="estruturas-de-custo" element={<Placeholder titulo="Estruturas de Custo" />} />
             <Route path="configuracoes" element={<Configuracoes />} />
           </Route>

@@ -113,19 +113,27 @@ Mockup: alocação percentual visual por bucket, comparação orçado x realizad
 x mês anterior por bucket, ações explícitas "Acumular/Transferir" sobre a
 sobra do envelope, alternância R$/%.
 
+**Divisão de responsabilidade decidida depois do mockup** (ver
+`sugestoes-e-decisoes-do-redesign.md`, seção 8): Planejamento é *só*
+configuração dos valores-alvo (R$ por item/bucket) — nenhuma leitura de
+realizado nem comparação com mês anterior aparece aqui. Essa leitura fica
+inteira pra tela de Estrutura de Custo. Por isso as colunas "Realizado" e
+"Mês anterior" do mockup **não foram implementadas por decisão**, não por
+lacuna — o mockup ficou desatualizado nesse ponto específico depois da
+conversa que fechou essa divisão.
+
 | Proposto no mockup | Status | Observação |
 |---|---|---|
-| **Tela inteira** | ⬜ | `/planejamento` ainda é um placeholder — nenhuma UI existe, só a API |
-| Renda base + % destinado ao orçamento | ✅ (backend) | `receita_base` + `percentual_geral` em `POST /orcamentos` |
-| Alocação por bucket (% limite) | ✅ (backend) | `limite_fixos/variaveis/sazonalidades/investimentos` |
-| Orçado x Realizado por bucket | ✅ (backend) | `GET /estrutura-custo/{mes}` já calcula os dois |
-| Comparação com mês anterior por bucket | ⬜ | Não existe no backend nem no frontend |
-| Sobra do envelope acumulada | ✅ (backend) | `saldo_anterior_acumulado`, carregado via `POST /orcamentos/{id}/proximo-mes` |
-| Ações manuais "Acumular"/"Transferir" sobre a sobra | ⬜ | Hoje é automático (todo o saldo rola pro mês seguinte via `próximo-mes`) — não existe escolha manual de acumular vs transferir pra outro bucket |
-| Alternância de entrada R$/% | ⬜ | Itens são cadastrados só em R$ hoje |
+| Tela de configuração (renda, % geral, limites por bucket) | ✅ | `frontend/src/routes/Planejamento.tsx` — cria/edita o orçamento do mês |
+| Alocação por bucket (% limite) | ✅ | Barra de alocação total + card por bucket, com % do teto já usado pelos itens |
+| Itens do orçamento por bucket (nome/categoria/subcategoria/conta, valor mensal) | ✅ | CRUD completo (criar/editar/desativar), teto do bucket validado pelo backend |
+| Orçado x Realizado por bucket | 🚫 | **Fora do escopo desta tela por decisão** — fica em Estrutura de Custo (`GET /estrutura-custo/{mes}` já calcula os dois no backend) |
+| Comparação com mês anterior por bucket | 🚫 | Mesma decisão acima — é leitura de execução, não de configuração |
+| Sobra do envelope acumulada | ✅ | Botão "Gerar orçamento do próximo mês" (`POST /orcamentos/{id}/proximo-mes`); cada item mostra sobra/disponível quando há saldo trazido |
+| Ações manuais "Acumular"/"Transferir" sobre a sobra | ⬜ | Continua automático (todo o saldo rola pro item equivalente do mês seguinte) — sem escolha manual de acumular vs transferir pra outro bucket |
+| Alternância de entrada R$/% | ⬜ | Itens são cadastrados só em R$; os limites por bucket já são em % |
 
-**Conclusão da seção:** o motor de cálculo do orçamento (backend) está
-praticamente alinhado com o que foi desenhado — o que falta inteiro é a tela.
+**Arquivo:** `frontend/src/routes/Planejamento.tsx`, `frontend/src/components/planejamento.css`.
 
 ---
 
@@ -141,7 +149,7 @@ só a API (`GET /estrutura-custo/{vigencia_mes}`).
 ## Resumo de prioridades sugerido
 
 ~~1. Delta vs mês anterior nos KPIs do Dashboard (dado já existe, é reprocessar).~~ **feito 2026-09-13**
-2. Tela de Planejamento (motor de orçamento já pronto no backend).
+~~2. Tela de Planejamento (motor de orçamento já pronto no backend).~~ **feito 2026-09-13** — só configuração (ver divisão de responsabilidade na seção acima)
 3. Tela de Estrutura de Custo (motor já pronto no backend).
 ~~4. Endpoint + UI de saldo atual por conta/caixinha...~~ **feito parcialmente 2026-09-13** — só caixinhas; conta segue sem saldo (decisão do usuário, em aberto)
 ~~5. Linha de Resultado na Evolução Mensal...~~ **feito 2026-09-13**
@@ -338,3 +346,40 @@ Entregue nesta rodada:
   de compra parcelada — ambos com o motivo técnico e as opções de
   implementação detalhadas na seção "Backlog registrado" acima, sem decisão
   de prioridade ainda.
+
+### 2026-09-14 — Tela de Planejamento
+
+Pedido do usuário: seguir o plano de desenvolvimento — próximo item da lista
+de prioridades era a tela de Planejamento, cujo motor de orçamento já
+estava pronto no backend. Antes de implementar, o usuário pediu pra
+confirmar a divisão de responsabilidade entre Planejamento e Estrutura de
+Custo (ele lembrava que Planejamento seria só configuração, sem
+orçado×realizado) — recuperei a seção 8 de
+`sugestoes-e-decisoes-do-redesign.md`, que confirmou exatamente isso sem
+nenhuma mudança necessária no que já estava registrado.
+
+Entregue:
+
+- Tela `frontend/src/routes/Planejamento.tsx` (substituiu o placeholder).
+- Seletor de mês; criação de orçamento do zero ou a partir do mês anterior
+  (`POST /orcamentos/{id}/proximo-mes`, traz a sobra do envelope); edição da
+  configuração geral (renda base, % destinado, limite de cada bucket).
+- Barra de alocação total dos 4 buckets (cor fixa por bucket, mesma paleta
+  categórica validada) + aviso de % ainda não alocado.
+- Card por bucket com barra de "% do teto já alocado em itens" (fica
+  vermelha se os itens somarem mais que o teto) — isso é sobre o *plano*
+  (quanto dos R$ disponíveis já foi distribuído entre itens), não sobre
+  execução real, então não conflita com a divisão de responsabilidade.
+- CRUD completo de itens do orçamento por bucket (categoria, subcategoria,
+  nome livre, ou conta vinculada pra investimentos) — reaproveita as
+  validações já existentes no backend (teto do bucket, referências).
+- Item mostra sobra do envelope trazida do mês anterior e o disponível
+  total, quando existir.
+- **Não incluído, por decisão de escopo confirmada nesta rodada:** orçado ×
+  realizado e comparação com mês anterior por bucket — ficam pra Estrutura
+  de Custo. Também não incluído (não fazia parte do pedido): ações manuais
+  de acumular/transferir a sobra (continua automático) e alternância de
+  entrada R$/%.
+- tsc + build limpos, suíte de backend (190 testes, sem mudança nesta
+  rodada) verde, QA visual via Playwright (claro/escuro/mobile) antes de
+  fechar.

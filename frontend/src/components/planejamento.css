@@ -1,0 +1,125 @@
+/* Mesma paleta categórica validada usada no Dashboard — ordem fixa por
+ * bucket (não por valor), então a cor de cada bucket nunca muda. */
+.planejamento {
+  --bucket-fixos: #2a78d6;
+  --bucket-variaveis: #eb6834;
+  --bucket-sazonalidades: #4a3aa7;
+  --bucket-investimentos: #1baf7a;
+}
+
+@media (prefers-color-scheme: dark) {
+  .planejamento {
+    --bucket-fixos: #3987e5;
+    --bucket-variaveis: #d95926;
+    --bucket-sazonalidades: #9085e9;
+    --bucket-investimentos: #199e70;
+  }
+}
+
+.planejamento-resumo {
+  color: var(--cor-texto-suave);
+  font-size: 13px;
+  margin: 4px 0 16px;
+}
+
+.planejamento-alocacao {
+  margin-bottom: 20px;
+}
+
+.planejamento-alocacao-cabecalho {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 6px;
+  font-size: 13px;
+}
+
+.planejamento-alocacao-barra {
+  display: flex;
+  height: 10px;
+  border-radius: 5px;
+  overflow: hidden;
+  background: var(--cor-borda);
+  gap: 1px;
+}
+
+.planejamento-alocacao-segmento {
+  height: 100%;
+}
+
+.planejamento-alocacao-legenda {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--cor-texto-suave);
+}
+
+.planejamento-alocacao-legenda-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.planejamento-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.planejamento-buckets {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.planejamento-bucket {
+  padding: 14px;
+  background: var(--cor-superficie);
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio);
+}
+
+.planejamento-bucket-cabecalho {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 8px;
+}
+
+.planejamento-bucket-cabecalho h3 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.planejamento-bucket-limite {
+  font-size: 12px;
+  color: var(--cor-texto-suave);
+}
+
+.planejamento-progresso {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--cor-borda);
+  overflow: hidden;
+  margin-bottom: 4px;
+}
+
+.planejamento-progresso-fill {
+  height: 100%;
+  border-radius: 3px;
+}
+
+.planejamento-progresso-texto {
+  font-size: 12px;
+  color: var(--cor-texto-suave);
+  margin-bottom: 10px;
+}
+
+.planejamento-item-detalhe-extra {
+  font-size: 12px;
+  color: var(--cor-texto-suave);
+}
