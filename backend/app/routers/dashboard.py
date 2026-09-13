@@ -4,7 +4,15 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from supabase import Client
 
 from ..auth import get_current_user_id, get_db
-from ..schemas.dashboard import CompromissoFuturo, EvolucaoMensal, ResumoMensal, SaldoCaixinha
+from ..schemas.dashboard import (
+    CompromissoFuturo,
+    DespesaPorCategoria,
+    EvolucaoMensal,
+    PrimeiroMes,
+    ResumoMensal,
+    ResumoPeriodo,
+    SaldoCaixinha,
+)
 from ..services.fatura import somar_meses
 from ..services.resumo_financeiro import calcular_resumo
 
@@ -13,18 +21,21 @@ router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 _MESES_MAXIMO_NA_EVOLUCAO = 60  # 5 anos — limite defensivo contra range gigante por engano
 
 
-def _resumo_do_mes(db: Client, user_id: str, mes_inicio: date) -> dict:
-    mes_fim = somar_meses(mes_inicio, 1)
+def _resumo_entre(db: Client, user_id: str, data_inicio: date, data_fim_exclusiva: date) -> dict:
     transacoes = (
         db.table("transacoes")
-        .select("valor,tipo_movimento,ajuste_de_transacao_id")
+        .select("valor,tipo_movimento,ajuste_de_transacao_id,caixinha_id")
         .eq("user_id", user_id)
-        .gte("data_compra", mes_inicio.isoformat())
-        .lt("data_compra", mes_fim.isoformat())
+        .gte("data_compra", data_inicio.isoformat())
+        .lt("data_compra", data_fim_exclusiva.isoformat())
         .execute()
         .data
     )
-    resumo = calcular_resumo(transacoes)
+    return calcular_resumo(transacoes)
+
+
+def _resumo_do_mes(db: Client, user_id: str, mes_inicio: date) -> dict:
+    resumo = _resumo_entre(db, user_id, mes_inicio, somar_meses(mes_inicio, 1))
     resumo["vigencia_mes"] = mes_inicio.isoformat()
     return resumo
 
@@ -72,6 +83,94 @@ def evolucao_mensal(
         mes_atual = somar_meses(mes_atual, 1)
 
     return {"inicio": mes_inicio.isoformat(), "fim": mes_fim.isoformat(), "meses": meses}
+
+
+@router.get("/resumo-periodo", response_model=ResumoPeriodo)
+def resumo_periodo(
+    inicio: date = Query(...),
+    fim: date = Query(...),
+    db: Client = Depends(get_db),
+    user_id: str = Depends(get_current_user_id),
+):
+    """Mesmo resumo de /mensal, mas somado sobre um período livre — usado
+    pelo seletor do Dashboard nos modos Intervalo/Todos os meses. Soma as
+    transações do período inteiro de uma vez (não é a soma dos resumos
+    mensais): taxa_poupanca precisa ser recalculada sobre o total do
+    período, senão vira uma média de taxas que não bate com o total real."""
+    mes_inicio = date(inicio.year, inicio.month, 1)
+    mes_fim_exclusiva = somar_meses(date(fim.year, fim.month, 1), 1)
+    if mes_fim_exclusiva <= mes_inicio:
+        raise HTTPException(status_code=422, detail="'fim' não pode ser anterior a 'inicio'")
+
+    resumo = _resumo_entre(db, user_id, mes_inicio, mes_fim_exclusiva)
+    resumo.pop("_receita_ajustada")
+    resumo["inicio"] = mes_inicio.isoformat()
+    resumo["fim"] = date(fim.year, fim.month, 1).isoformat()
+    return resumo
+
+
+@router.get("/primeiro-mes", response_model=PrimeiroMes)
+def primeiro_mes(db: Client = Depends(get_db), user_id: str = Depends(get_current_user_id)):
+    """Mês do lançamento mais antigo do usuário — base do modo "Todos os
+    meses" do seletor do Dashboard (sem isso não tem como saber onde o
+    intervalo "todos" deveria começar)."""
+    transacoes = (
+        db.table("transacoes")
+        .select("data_compra")
+        .eq("user_id", user_id)
+        .order("data_compra")
+        .execute()
+        .data
+    )
+    if not transacoes:
+        return {"vigencia_mes": None}
+    primeira_data = transacoes[0]["data_compra"]
+    return {"vigencia_mes": f"{primeira_data[:7]}-01"}
+
+
+@router.get("/despesas-por-categoria/{vigencia_mes}", response_model=list[DespesaPorCategoria])
+def despesas_por_categoria(
+    vigencia_mes: date, db: Client = Depends(get_db), user_id: str = Depends(get_current_user_id)
+):
+    """Despesas do mês agrupadas por categoria PAI (não subcategoria — essa
+    quebra mais fina fica pra Estrutura de Custo). Usa despesa bruta (sem
+    descontar estorno/ressarcimento vinculado), igual `despesas_brutas` do
+    resumo — mostra onde o dinheiro foi gasto, não o líquido."""
+    mes_inicio = date(vigencia_mes.year, vigencia_mes.month, 1)
+    mes_fim = somar_meses(mes_inicio, 1)
+    despesas = (
+        db.table("transacoes")
+        .select("categoria_id,valor")
+        .eq("user_id", user_id)
+        .eq("tipo_movimento", "despesa")
+        .gte("data_compra", mes_inicio.isoformat())
+        .lt("data_compra", mes_fim.isoformat())
+        .execute()
+        .data
+    )
+    if not despesas:
+        return []
+
+    totais: dict[str, float] = {}
+    for d in despesas:
+        categoria_id = d["categoria_id"]
+        totais[categoria_id] = totais.get(categoria_id, 0.0) + d["valor"]
+    total_geral = sum(totais.values())
+
+    categorias = db.table("categorias").select("id,nome").eq("user_id", user_id).execute().data
+    nomes = {c["id"]: c["nome"] for c in categorias}
+
+    resultado = [
+        {
+            "categoria_id": categoria_id,
+            "categoria_nome": nomes.get(categoria_id, "Sem categoria"),
+            "valor": round(valor, 2),
+            "percentual": round(valor / total_geral * 100, 2) if total_geral else 0.0,
+        }
+        for categoria_id, valor in totais.items()
+    ]
+    resultado.sort(key=lambda r: r["valor"], reverse=True)
+    return resultado
 
 
 @router.get("/patrimonio/{vigencia_mes}", response_model=list[SaldoCaixinha])

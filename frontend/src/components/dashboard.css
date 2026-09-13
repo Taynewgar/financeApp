@@ -1,3 +1,15 @@
+.dashboard-seletor {
+  display: flex;
+  align-items: flex-end;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+  padding: 12px 14px;
+  background: var(--cor-superficie);
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio);
+}
+
 .dashboard-secoes {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));

@@ -119,7 +119,7 @@ def test_estorno_nao_vinculado_conta_como_receita_extra_na_saude(client):
     assert resposta["resultado_fluxo_caixa"] == -300  # ajuste solto não entra no fluxo de caixa
 
 
-def test_aplicacao_e_retirada_compoe_reservas(client):
+def test_aplicacao_e_retirada_sem_caixinha_compoe_investimentos_nao_reservas(client):
     conta = client.post("/contas", json={"nome": "Investimento", "tipo_conta": "investimento"}).json()
     client.post(
         "/transacoes",
@@ -145,7 +145,68 @@ def test_aplicacao_e_retirada_compoe_reservas(client):
     resposta = client.get("/dashboard/mensal/2026-09-01").json()
     assert resposta["aplicacoes"] == 500
     assert resposta["retiradas"] == 200
-    assert resposta["reservas"] == 300
+    # sem caixinha_id — é investimento, não reserva (mesma distinção de estrutura_custo.py)
+    assert resposta["investimentos"] == 300
+    assert resposta["reservas"] == 0
+
+
+def test_aplicacao_e_retirada_com_caixinha_compoe_reservas_nao_investimentos(client):
+    conta = _conta(client)
+    caixinha = client.post("/caixinhas", json={"nome": "Emergência"}).json()
+    client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-09-05",
+            "valor": 800,
+            "tipo_movimento": "aplicacao",
+            "conta_id": conta["id"],
+            "caixinha_id": caixinha["id"],
+        },
+    )
+    client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-09-10",
+            "valor": 300,
+            "tipo_movimento": "retirada",
+            "conta_id": conta["id"],
+            "caixinha_id": caixinha["id"],
+        },
+    )
+
+    resposta = client.get("/dashboard/mensal/2026-09-01").json()
+    assert resposta["reservas"] == 500
+    assert resposta["investimentos"] == 0
+
+
+def test_reservas_e_investimentos_no_mesmo_mes_nao_se_misturam(client):
+    conta_investimento = client.post("/contas", json={"nome": "Investimento", "tipo_conta": "investimento"}).json()
+    conta_corrente = _conta(client)
+    caixinha = client.post("/caixinhas", json={"nome": "Viagem"}).json()
+    client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-09-05",
+            "valor": 1000,
+            "tipo_movimento": "aplicacao",
+            "conta_id": conta_investimento["id"],
+            "estrutura_custo": "investimentos",
+        },
+    )
+    client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-09-06",
+            "valor": 100,
+            "tipo_movimento": "aplicacao",
+            "conta_id": conta_corrente["id"],
+            "caixinha_id": caixinha["id"],
+        },
+    )
+
+    resposta = client.get("/dashboard/mensal/2026-09-01").json()
+    assert resposta["investimentos"] == 1000
+    assert resposta["reservas"] == 100
 
 
 def test_transacao_fora_do_mes_nao_entra_no_resumo(client):
@@ -394,3 +455,150 @@ def test_compromissos_futuros_respeita_limite(client):
 
     resposta = client.get("/dashboard/compromissos-futuros", params={"limite": 2}).json()
     assert len(resposta) == 2
+
+
+def test_resumo_periodo_soma_todas_as_transacoes_do_intervalo(client):
+    conta = _conta(client)
+    categoria_id = _categoria(client)
+    client.post(
+        "/transacoes",
+        json={"data_compra": "2026-07-05", "valor": 1000, "tipo_movimento": "receita", "conta_id": conta["id"]},
+    )
+    client.post(
+        "/transacoes",
+        json={"data_compra": "2026-08-05", "valor": 1000, "tipo_movimento": "receita", "conta_id": conta["id"]},
+    )
+    client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-08-10",
+            "valor": 600,
+            "tipo_movimento": "despesa",
+            "conta_id": conta["id"],
+            "categoria_id": categoria_id,
+            "estrutura_custo": "variavel",
+            "meio_pagamento": "pix",
+        },
+    )
+    # fora do intervalo pedido — não pode entrar na soma
+    client.post(
+        "/transacoes",
+        json={"data_compra": "2026-09-05", "valor": 999, "tipo_movimento": "receita", "conta_id": conta["id"]},
+    )
+
+    resposta = client.get("/dashboard/resumo-periodo", params={"inicio": "2026-07-01", "fim": "2026-08-31"})
+    assert resposta.status_code == 200
+    corpo = resposta.json()
+    assert corpo["inicio"] == "2026-07-01"
+    assert corpo["fim"] == "2026-08-01"
+    assert corpo["receitas"] == 2000
+    assert corpo["despesas_brutas"] == 600
+    # taxa recalculada sobre o total do período, não a média dos meses
+    assert corpo["taxa_poupanca"] == 70.0  # (2000-600)/2000*100
+
+
+def test_resumo_periodo_com_fim_antes_de_inicio_retorna_422(client):
+    resposta = client.get("/dashboard/resumo-periodo", params={"inicio": "2026-09-01", "fim": "2026-08-01"})
+    assert resposta.status_code == 422
+
+
+def test_primeiro_mes_sem_transacoes_retorna_none(client):
+    resposta = client.get("/dashboard/primeiro-mes")
+    assert resposta.status_code == 200
+    assert resposta.json()["vigencia_mes"] is None
+
+
+def test_primeiro_mes_retorna_mes_do_lancamento_mais_antigo(client):
+    conta = _conta(client)
+    client.post(
+        "/transacoes",
+        json={"data_compra": "2024-03-17", "valor": 100, "tipo_movimento": "receita", "conta_id": conta["id"]},
+    )
+    client.post(
+        "/transacoes",
+        json={"data_compra": "2025-01-05", "valor": 100, "tipo_movimento": "receita", "conta_id": conta["id"]},
+    )
+
+    resposta = client.get("/dashboard/primeiro-mes").json()
+    assert resposta["vigencia_mes"] == "2024-03-01"
+
+
+def test_primeiro_mes_de_outro_usuario_nao_conta(client, current_user):
+    conta = _conta(client)
+    client.post(
+        "/transacoes",
+        json={"data_compra": "2024-03-17", "valor": 100, "tipo_movimento": "receita", "conta_id": conta["id"]},
+    )
+
+    current_user["id"] = OUTRO_USUARIO
+    resposta = client.get("/dashboard/primeiro-mes").json()
+    assert resposta["vigencia_mes"] is None
+
+
+def test_despesas_por_categoria_agrupa_por_categoria_pai_com_percentual(client):
+    conta = _conta(client)
+    moradia = client.post("/categorias", json={"nome": "Moradia"}).json()["id"]
+    lazer = client.post("/categorias", json={"nome": "Lazer"}).json()["id"]
+    client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-09-05",
+            "valor": 800,
+            "tipo_movimento": "despesa",
+            "conta_id": conta["id"],
+            "categoria_id": moradia,
+            "estrutura_custo": "fixo",
+            "meio_pagamento": "pix",
+        },
+    )
+    client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-09-06",
+            "valor": 200,
+            "tipo_movimento": "despesa",
+            "conta_id": conta["id"],
+            "categoria_id": lazer,
+            "estrutura_custo": "variavel",
+            "meio_pagamento": "pix",
+        },
+    )
+
+    resposta = client.get("/dashboard/despesas-por-categoria/2026-09-01")
+    assert resposta.status_code == 200
+    corpo = resposta.json()
+    assert len(corpo) == 2
+    # ordenado desc por valor
+    assert corpo[0]["categoria_nome"] == "Moradia"
+    assert corpo[0]["valor"] == 800
+    assert corpo[0]["percentual"] == 80.0
+    assert corpo[1]["categoria_nome"] == "Lazer"
+    assert corpo[1]["percentual"] == 20.0
+
+
+def test_despesas_por_categoria_soma_2_lancamentos_da_mesma_categoria(client):
+    conta = _conta(client)
+    categoria_id = _categoria(client)
+    for valor in (100, 50):
+        client.post(
+            "/transacoes",
+            json={
+                "data_compra": "2026-09-05",
+                "valor": valor,
+                "tipo_movimento": "despesa",
+                "conta_id": conta["id"],
+                "categoria_id": categoria_id,
+                "estrutura_custo": "variavel",
+                "meio_pagamento": "pix",
+            },
+        )
+
+    resposta = client.get("/dashboard/despesas-por-categoria/2026-09-01").json()
+    assert len(resposta) == 1
+    assert resposta[0]["valor"] == 150
+    assert resposta[0]["percentual"] == 100.0
+
+
+def test_despesas_por_categoria_sem_despesas_retorna_lista_vazia(client):
+    resposta = client.get("/dashboard/despesas-por-categoria/2026-09-01").json()
+    assert resposta == []

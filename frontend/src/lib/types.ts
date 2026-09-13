@@ -52,8 +52,10 @@ export type MeioPagamento =
   | 'transferencia'
   | 'outro'
 
-export type ResumoLancamentos = {
-  total_lancamentos: number
+// Campos financeiros compartilhados entre um resumo de 1 mês (ResumoMensal)
+// e de um período livre (ResumoPeriodo) — espelha _CamposFinanceiros do
+// backend (schemas/dashboard.py).
+export type CamposFinanceiros = {
   receitas: number
   despesas_brutas: number
   despesas_liquidas: number
@@ -61,25 +63,26 @@ export type ResumoLancamentos = {
   ajustes_nao_vinculados: number
   aplicacoes: number
   retiradas: number
+  // reserva: aplicação/retirada COM caixinha (guardar dinheiro)
   reservas: number
+  // investimento: aplicação/retirada SEM caixinha — conceito diferente de reserva
+  investimentos: number
   resultado_fluxo_caixa: number
   resultado_saude: number
   taxa_poupanca: number | null
 }
 
-export type ResumoMensal = {
+export type ResumoLancamentos = CamposFinanceiros & {
+  total_lancamentos: number
+}
+
+export type ResumoMensal = CamposFinanceiros & {
   vigencia_mes: string
-  receitas: number
-  despesas_brutas: number
-  despesas_liquidas: number
-  ajustes_vinculados: number
-  ajustes_nao_vinculados: number
-  aplicacoes: number
-  retiradas: number
-  reservas: number
-  resultado_fluxo_caixa: number
-  resultado_saude: number
-  taxa_poupanca: number | null
+}
+
+export type ResumoPeriodo = CamposFinanceiros & {
+  inicio: string
+  fim: string
 }
 
 export type PontoEvolucaoMensal = ResumoMensal & {
@@ -105,6 +108,17 @@ export type CompromissoFuturo = {
   data_compra: string
   parcela_atual: number
   parcela_total: number
+}
+
+export type PrimeiroMes = {
+  vigencia_mes: string | null
+}
+
+export type DespesaPorCategoria = {
+  categoria_id: string
+  categoria_nome: string
+  valor: number
+  percentual: number
 }
 
 export type Transacao = {

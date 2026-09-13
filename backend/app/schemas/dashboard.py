@@ -3,8 +3,11 @@ from datetime import date
 from pydantic import BaseModel
 
 
-class ResumoMensal(BaseModel):
-    vigencia_mes: date
+class _CamposFinanceiros(BaseModel):
+    """Os mesmos campos que calcular_resumo() devolve, compartilhados entre
+    o resumo de um mês (ResumoMensal) e o de um período livre (ResumoPeriodo)
+    — só muda o que identifica QUAL recorte de tempo é esse."""
+
     receitas: float
     despesas_brutas: float
     despesas_liquidas: float
@@ -12,7 +15,11 @@ class ResumoMensal(BaseModel):
     ajustes_nao_vinculados: float
     aplicacoes: float
     retiradas: float
+    # reserva: aplicação/retirada COM caixinha vinculada (guardar dinheiro)
     reservas: float
+    # investimento: aplicação/retirada SEM caixinha (mesma distinção de
+    # estrutura_custo.py) — conceito diferente de reserva
+    investimentos: float
     # fluxo de caixa: o que de fato entrou/saiu, sem nenhum ajuste
     resultado_fluxo_caixa: float
     # saúde financeira: receita + ajustes soltos (não vinculados a uma
@@ -21,6 +28,21 @@ class ResumoMensal(BaseModel):
     # resultado_saude / (receitas + ajustes_nao_vinculados) — None se essa
     # base for zero (não dá pra calcular taxa sobre receita ajustada nula)
     taxa_poupanca: float | None = None
+
+
+class ResumoMensal(_CamposFinanceiros):
+    vigencia_mes: date
+
+
+class ResumoPeriodo(_CamposFinanceiros):
+    """Mesmo cálculo de ResumoMensal, mas somado sobre um período livre
+    (modo Intervalo/Todos os meses do seletor do Dashboard) em vez de um
+    único mês — por isso não é aditivo mês a mês (taxa_poupanca em
+    particular precisa ser recalculada sobre o total do período, não a
+    média dos meses)."""
+
+    inicio: date
+    fim: date
 
 
 class PontoEvolucaoMensal(ResumoMensal):
@@ -46,3 +68,14 @@ class CompromissoFuturo(BaseModel):
     data_compra: date
     parcela_atual: int
     parcela_total: int
+
+
+class PrimeiroMes(BaseModel):
+    vigencia_mes: date | None
+
+
+class DespesaPorCategoria(BaseModel):
+    categoria_id: str
+    categoria_nome: str
+    valor: float
+    percentual: float

@@ -56,6 +56,7 @@ class ResumoLancamentos(BaseModel):
     aplicacoes: float
     retiradas: float
     reservas: float
+    investimentos: float
     resultado_fluxo_caixa: float
     resultado_saude: float
     taxa_poupanca: float | None = None

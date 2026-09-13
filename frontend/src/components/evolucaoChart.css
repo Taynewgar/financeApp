@@ -48,6 +48,13 @@
   border-radius: 1px;
 }
 
+.evolucao-legenda-bloco {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+}
+
 /* usadas só nos swatches HTML (legenda/tooltip) — as marcas do SVG (path,
  * circle) recebem fill/stroke direto via atributo, pra não competir com
  * CSS (que tem prioridade sobre atributo de apresentação em SVG e faria

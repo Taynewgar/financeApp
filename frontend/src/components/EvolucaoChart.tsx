@@ -24,15 +24,29 @@ export function EvolucaoChart({ meses }: { meses: PontoEvolucaoMensal[] }) {
     return <p style={{ color: 'var(--cor-texto-suave)' }}>Sem dados no período.</p>
   }
 
-  const valores = meses.flatMap((m) => [m.receitas, m.despesas_liquidas, m.resultado_saude])
+  const valores = meses.flatMap((m) => [m.receitas, m.despesas_brutas, m.resultado_saude, 0])
   const { min, max, marcacoes } = escalaY(valores)
 
   const larguraBanda = (LARGURA - MARGEM.esquerda - MARGEM.direita) / meses.length
   const x = (i: number) => MARGEM.esquerda + larguraBanda * (i + 0.5)
   const y = (valor: number) => MARGEM.topo + ALTURA_PLOT * (1 - (valor - min) / (max - min || 1))
+  const yBase = y(0)
 
-  const linha = (chave: 'receitas' | 'despesas_liquidas' | 'resultado_saude') =>
-    meses.map((m, i) => `${i === 0 ? 'M' : 'L'} ${x(i).toFixed(1)} ${y(m[chave]).toFixed(1)}`).join(' ')
+  // barras agrupadas (Receita/Despesa) lado a lado dentro da banda do mês,
+  // com um respiro de 2px entre elas (marks-and-anatomy: surface gap entre
+  // marcas adjacentes)
+  const grupoLargura = larguraBanda * 0.6
+  const barraLargura = (grupoLargura - 2) / 2
+  const xReceita = (i: number) => x(i) - grupoLargura / 2
+  const xDespesa = (i: number) => xReceita(i) + barraLargura + 2
+  const retanguloBarra = (valor: number) => ({
+    y: Math.min(yBase, y(valor)),
+    altura: Math.abs(yBase - y(valor)),
+  })
+
+  const linhaResultado = meses
+    .map((m, i) => `${i === 0 ? 'M' : 'L'} ${x(i).toFixed(1)} ${y(m.resultado_saude).toFixed(1)}`)
+    .join(' ')
 
   const hover = indiceHover !== null ? meses[indiceHover] : null
 
@@ -41,10 +55,10 @@ export function EvolucaoChart({ meses }: { meses: PontoEvolucaoMensal[] }) {
       <div className="evolucao-chart-cabecalho">
         <div className="evolucao-legenda">
           <span className="evolucao-legenda-item">
-            <span className="evolucao-legenda-linha serie-receitas" /> Receitas
+            <span className="evolucao-legenda-bloco serie-receitas" /> Receitas
           </span>
           <span className="evolucao-legenda-item">
-            <span className="evolucao-legenda-linha serie-despesas" /> Despesas líquidas
+            <span className="evolucao-legenda-bloco serie-despesas" /> Despesas
           </span>
           <span className="evolucao-legenda-item">
             <span className="evolucao-legenda-linha serie-resultado" /> Resultado
@@ -61,7 +75,7 @@ export function EvolucaoChart({ meses }: { meses: PontoEvolucaoMensal[] }) {
             <tr>
               <th>Mês</th>
               <th>Receitas</th>
-              <th>Despesas líquidas</th>
+              <th>Despesas</th>
               <th>Resultado</th>
             </tr>
           </thead>
@@ -70,7 +84,7 @@ export function EvolucaoChart({ meses }: { meses: PontoEvolucaoMensal[] }) {
               <tr key={m.vigencia_mes}>
                 <td>{rotuloMes(m.vigencia_mes)}</td>
                 <td>{formatarMoeda(m.receitas)}</td>
-                <td>{formatarMoeda(m.despesas_liquidas)}</td>
+                <td>{formatarMoeda(m.despesas_brutas)}</td>
                 <td>{formatarMoeda(m.resultado_saude)}</td>
               </tr>
             ))}
@@ -78,7 +92,11 @@ export function EvolucaoChart({ meses }: { meses: PontoEvolucaoMensal[] }) {
         </table>
       ) : (
         <div className="evolucao-chart-area">
-          <svg viewBox={`0 0 ${LARGURA} ${ALTURA}`} role="img" aria-label="Evolução de receitas, despesas líquidas e resultado por mês">
+          <svg
+            viewBox={`0 0 ${LARGURA} ${ALTURA}`}
+            role="img"
+            aria-label="Evolução de receitas, despesas e resultado por mês"
+          >
             {marcacoes.map((v) => (
               <g key={v}>
                 <line x1={MARGEM.esquerda} x2={LARGURA - MARGEM.direita} y1={y(v)} y2={y(v)} className="evolucao-grade" />
@@ -88,19 +106,44 @@ export function EvolucaoChart({ meses }: { meses: PontoEvolucaoMensal[] }) {
               </g>
             ))}
 
-            <path d={linha('receitas')} className="evolucao-linha" fill="none" stroke="var(--serie-receitas)" />
-            <path d={linha('despesas_liquidas')} className="evolucao-linha" fill="none" stroke="var(--serie-despesas)" />
-            <path d={linha('resultado_saude')} className="evolucao-linha" fill="none" stroke="var(--serie-resultado)" />
+            {meses.map((m, i) => {
+              const receita = retanguloBarra(m.receitas)
+              const despesa = retanguloBarra(m.despesas_brutas)
+              return (
+                <g key={m.vigencia_mes}>
+                  <rect
+                    x={xReceita(i)}
+                    y={receita.y}
+                    width={barraLargura}
+                    height={receita.altura}
+                    rx={3}
+                    fill="var(--serie-receitas)"
+                  />
+                  <rect
+                    x={xDespesa(i)}
+                    y={despesa.y}
+                    width={barraLargura}
+                    height={despesa.altura}
+                    rx={3}
+                    fill="var(--serie-despesas)"
+                  />
+                  <text x={x(i)} y={ALTURA - 8} className="evolucao-eixo-texto" textAnchor="middle">
+                    {rotuloMes(m.vigencia_mes)}
+                  </text>
+                </g>
+              )
+            })}
 
+            <path d={linhaResultado} className="evolucao-linha" fill="none" stroke="var(--serie-resultado)" />
             {meses.map((m, i) => (
-              <g key={m.vigencia_mes}>
-                <circle cx={x(i)} cy={y(m.receitas)} r={4} className="evolucao-marcador" fill="var(--serie-receitas)" />
-                <circle cx={x(i)} cy={y(m.despesas_liquidas)} r={4} className="evolucao-marcador" fill="var(--serie-despesas)" />
-                <circle cx={x(i)} cy={y(m.resultado_saude)} r={4} className="evolucao-marcador" fill="var(--serie-resultado)" />
-                <text x={x(i)} y={ALTURA - 8} className="evolucao-eixo-texto" textAnchor="middle">
-                  {rotuloMes(m.vigencia_mes)}
-                </text>
-              </g>
+              <circle
+                key={m.vigencia_mes}
+                cx={x(i)}
+                cy={y(m.resultado_saude)}
+                r={4}
+                className="evolucao-marcador"
+                fill="var(--serie-resultado)"
+              />
             ))}
 
             {indiceHover !== null && (
@@ -122,7 +165,7 @@ export function EvolucaoChart({ meses }: { meses: PontoEvolucaoMensal[] }) {
                 height={ALTURA_PLOT}
                 fill="transparent"
                 tabIndex={0}
-                aria-label={`${rotuloMes(meses[i].vigencia_mes)}: receitas ${formatarMoeda(meses[i].receitas)}, despesas líquidas ${formatarMoeda(meses[i].despesas_liquidas)}, resultado ${formatarMoeda(meses[i].resultado_saude)}`}
+                aria-label={`${rotuloMes(meses[i].vigencia_mes)}: receitas ${formatarMoeda(meses[i].receitas)}, despesas ${formatarMoeda(meses[i].despesas_brutas)}, resultado ${formatarMoeda(meses[i].resultado_saude)}`}
                 onMouseEnter={() => setIndiceHover(i)}
                 onFocus={() => setIndiceHover(i)}
                 onMouseLeave={() => setIndiceHover(null)}
@@ -132,16 +175,13 @@ export function EvolucaoChart({ meses }: { meses: PontoEvolucaoMensal[] }) {
           </svg>
 
           {hover && (
-            <div
-              className="evolucao-tooltip"
-              style={{ left: `${(x(indiceHover!) / LARGURA) * 100}%` }}
-            >
+            <div className="evolucao-tooltip" style={{ left: `${(x(indiceHover!) / LARGURA) * 100}%` }}>
               <strong>{rotuloMes(hover.vigencia_mes)}</strong>
               <span>
-                <span className="evolucao-legenda-linha serie-receitas" /> {formatarMoeda(hover.receitas)}
+                <span className="evolucao-legenda-bloco serie-receitas" /> {formatarMoeda(hover.receitas)}
               </span>
               <span>
-                <span className="evolucao-legenda-linha serie-despesas" /> {formatarMoeda(hover.despesas_liquidas)}
+                <span className="evolucao-legenda-bloco serie-despesas" /> {formatarMoeda(hover.despesas_brutas)}
               </span>
               <span>
                 <span className="evolucao-legenda-linha serie-resultado" /> {formatarMoeda(hover.resultado_saude)}
