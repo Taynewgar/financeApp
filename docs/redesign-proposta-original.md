@@ -12,7 +12,10 @@ As 4 telas também estão exportadas como PNG em `docs/mockups/` (abaixo, uma
 por seção) — versionado, sem depender de login nem do artifact continuar no
 ar. O ZIP em si não está neste repositório (foi um anexo de conversa, não um
 arquivo versionado) — se quiser preservá-lo de forma durável, vale anexar de
-novo e commitar num lugar como `docs/app-original/`.
+novo e commitar num lugar como `docs/app-original/`. Ver também
+`plano-de-evolucao-original.md` (a auditoria do ZIP e o plano de fases que
+vieram antes destes mockups) e `sugestoes-e-decisoes-do-redesign.md` (a
+rodada de perguntas e respostas que veio logo depois deles).
 
 Cada seção abaixo lista o que o mockup propôs, o que existe hoje (código real,
 não memória — conferido nos routers/telas na data deste documento) e o que

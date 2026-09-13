@@ -6,7 +6,9 @@ qualquer linha de código da versão web ser escrita. Recuperados do histórico
 da sessão e salvos aqui porque só existiam em texto de conversa — não
 tinham lugar nenhum versionado. Ver também `redesign-proposta-original.md`
 (os mockups visuais que vieram logo depois destes textos, e a comparação
-proposto x implementado).
+proposto x implementado) e `sugestoes-e-decisoes-do-redesign.md` (a rodada
+de perguntas e respostas que refinou este plano até a divisão final em 7
+entregas).
 
 ---
 
