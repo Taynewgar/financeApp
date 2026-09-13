@@ -115,7 +115,12 @@ export function Dashboard() {
   const { periodoInicio, periodoFim, mesReferencia } = useMemo(() => {
     if (modoData === 'mes') return { periodoInicio: vigenciaMes, periodoFim: vigenciaMes, mesReferencia: vigenciaMes }
     if (modoData === 'intervalo') return { periodoInicio: intervaloInicio, periodoFim: intervaloFim, mesReferencia: intervaloFim }
-    return { periodoInicio: primeiroMes ?? vigenciaMes, periodoFim: vigenciaMes, mesReferencia: vigenciaMes }
+    // "Todos os meses" é sempre até hoje, independente do que ficou
+    // selecionado no modo Mês antes de trocar de aba — vigenciaMes pode ser
+    // qualquer mês navegado (até sem dado nenhum), inclusive anterior ao
+    // primeiro lançamento real, o que quebrava a conta (fim antes do início)
+    const hoje = hojeAnoMes()
+    return { periodoInicio: primeiroMes ?? hoje, periodoFim: hoje, mesReferencia: hoje }
   }, [modoData, vigenciaMes, intervaloInicio, intervaloFim, primeiroMes])
 
   useEffect(() => {
@@ -215,7 +220,7 @@ export function Dashboard() {
         {modoData === 'todos' && (
           <p style={{ fontSize: 13, color: 'var(--cor-texto-suave)', margin: 0 }}>
             {primeiroMes
-              ? `Desde ${rotuloMesLongo(primeiroMes)} até ${rotuloMesLongo(vigenciaMes)}`
+              ? `Desde ${rotuloMesLongo(primeiroMes)} até ${rotuloMesLongo(hojeAnoMes())}`
               : 'Carregando período…'}
           </p>
         )}
