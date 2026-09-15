@@ -18,11 +18,10 @@ merecer não ficar misturado com a tabela proposto×implementado tela a tela.
 
 1. ~~Delta vs mês anterior nos KPIs do Dashboard~~ **feito 2026-09-13**
 2. ~~Tela de Planejamento~~ **feito 2026-09-14** — só configuração
-3. **Tela de Estrutura de Custo — próxima entrega.** Motor já pronto no
-   backend (`GET /estrutura-custo/{vigencia_mes}`); falta só a tela.
-   **Design decidido 2026-09-15**: tabela hierárquica com expand/collapse
-   (bucket > categoria > subcategoria), escolhida pelo usuário depois de
-   testar o mockup interativo. Drill-down pra Busca de Lançamentos incluso.
+3. ~~Tela de Estrutura de Custo~~ **feito 2026-09-15** — tabela hierárquica
+   com expand/collapse (bucket > categoria > subcategoria), fita de KPIs,
+   vereditos de pool de despesas/piso de investimentos e drill-down pra
+   Busca de Lançamentos. Backend não mudou (motor já existia).
 4. Categorias "mais usadas" + criação inline no Novo Lançamento.
 5. **Feature "Gráficos" nova** (tela própria na navegação) — Pareto de
    despesas + tendência de Orçado×Realizado em vários meses (detalhes

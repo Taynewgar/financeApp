@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import '../components/crud.css'
 import '../components/forms.css'
 import '../components/lancamentos.css'
@@ -120,6 +120,28 @@ export function Lancamentos() {
   const [filtros, setFiltros] = useState<Filtros>(FILTROS_VAZIOS)
   const [mesRapido, setMesRapido] = useState('')
   const [anoRapido, setAnoRapido] = useState(String(new Date().getFullYear()))
+
+  // drill-down vindo de outra tela (ex: Estrutura de Custo) — lê uma vez na
+  // montagem; categoria_id/subcategoria_id/mes (YYYY-MM) na URL
+  const [searchParams] = useSearchParams()
+  useEffect(() => {
+    const categoriaId = searchParams.get('categoria_id')
+    const subcategoriaId = searchParams.get('subcategoria_id')
+    const mes = searchParams.get('mes')
+    if (!categoriaId && !subcategoriaId && !mes) return
+    setFiltros((atual) => {
+      const proximo = { ...atual }
+      if (categoriaId) proximo.categoriaId = categoriaId
+      if (subcategoriaId) proximo.subcategoriaId = subcategoriaId
+      if (mes) {
+        const [ano, mesNum] = mes.split('-').map(Number)
+        proximo.dataInicio = `${ano}-${pad2(mesNum)}-01`
+        proximo.dataFim = `${ano}-${pad2(mesNum)}-${pad2(ultimoDiaDoMes(ano, mesNum - 1))}`
+      }
+      return proximo
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const categoriasFiltro = useMemo(() => {
     if (!filtros.tipoMovimento) return categorias

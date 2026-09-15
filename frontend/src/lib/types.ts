@@ -153,6 +153,40 @@ export type OrcamentoItem = {
   percentual_do_teto: number
 }
 
+// Estrutura de Custo lê 3 buckets a mais que o orçamento aceita como
+// destino de item (reservas e sem_estrutura só existem aqui, derivados
+// direto dos lançamentos — nunca de orcamento_itens).
+export type BucketEstruturaCusto = Bucket | 'reservas' | 'sem_estrutura'
+
+export type ItemEstruturaCusto = {
+  // exatamente um destes vem preenchido (ou nenhum, se o lançamento não
+  // tem categoria/subcategoria nem conta de investimento vinculada)
+  categoria_id: string | null
+  subcategoria_id: string | null
+  conta_id: string | null
+  orcado: number
+  realizado: number
+}
+
+export type BucketDaEstrutura = {
+  bucket: BucketEstruturaCusto
+  orcado: number
+  realizado: number
+  itens: ItemEstruturaCusto[]
+  saldo_anterior_acumulado: number
+}
+
+export type VereditoTeto = { teto: number; realizado: number; dentro_do_teto: boolean }
+export type VereditoPiso = { teto: number; realizado: number; meta_batida: boolean }
+
+export type EstruturaCustoMes = {
+  vigencia_mes: string
+  orcamento_id: string | null
+  buckets: BucketDaEstrutura[]
+  pool_despesas: VereditoTeto | null
+  piso_investimentos: VereditoPiso | null
+}
+
 export type Transacao = {
   id: string
   data_compra: string

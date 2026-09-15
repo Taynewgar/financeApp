@@ -1,0 +1,289 @@
+/* Mesma paleta categórica de Planejamento — ordem fixa por bucket, nunca
+ * muda com o valor. Reservas/sem-estrutura não têm teto/piso (só
+ * informativo), por isso usam tons neutros em vez de cor própria. */
+.estrutura-custo {
+  --bucket-fixos: #2a78d6;
+  --bucket-variaveis: #eb6834;
+  --bucket-sazonalidades: #4a3aa7;
+  --bucket-investimentos: #1baf7a;
+  --bucket-reservas: #8a8a86;
+  --bucket-sem-estrutura: #b3261e;
+}
+
+@media (prefers-color-scheme: dark) {
+  .estrutura-custo {
+    --bucket-fixos: #3987e5;
+    --bucket-variaveis: #d95926;
+    --bucket-sazonalidades: #9085e9;
+    --bucket-investimentos: #199e70;
+    --bucket-reservas: #9a9a96;
+    --bucket-sem-estrutura: #e05a52;
+  }
+}
+
+.estrutura-custo-resumo {
+  color: var(--cor-texto-suave);
+  font-size: 13px;
+  margin: 4px 0 16px;
+}
+
+.estrutura-custo-fita {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+}
+
+.estrutura-custo-fita-item {
+  flex: 1;
+  min-width: 140px;
+  background: var(--cor-superficie);
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio);
+  padding: 10px 12px;
+}
+
+.estrutura-custo-fita-item .rotulo {
+  font-size: 11px;
+  color: var(--cor-texto-suave);
+  display: block;
+  margin-bottom: 3px;
+}
+
+.estrutura-custo-fita-item .valor {
+  font-size: 18px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.estrutura-custo-aviso-sem-orcamento {
+  background: var(--cor-superficie);
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio);
+  padding: 10px 12px;
+  font-size: 13px;
+  color: var(--cor-texto-suave);
+  margin-bottom: 16px;
+}
+
+.estrutura-custo-aviso-sem-orcamento a {
+  color: var(--cor-acento);
+}
+
+.estrutura-custo-veredito {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+}
+
+.estrutura-custo-veredito-item {
+  flex: 1;
+  min-width: 220px;
+  background: var(--cor-superficie);
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio);
+  padding: 10px 12px;
+  font-size: 13px;
+}
+
+.estrutura-custo-veredito-item strong {
+  display: block;
+  font-size: 14px;
+  margin-bottom: 2px;
+}
+
+.estrutura-custo-veredito-item.dentro strong { color: var(--cor-sucesso); }
+.estrutura-custo-veredito-item.fora strong { color: var(--cor-perigo); }
+
+.estrutura-custo-cabecalho-colunas {
+  display: grid;
+  grid-template-columns: 1fr 100px 100px 100px 90px 26px;
+  gap: 10px;
+  padding: 0 14px 6px 48px;
+  font-size: 11px;
+  color: var(--cor-texto-suave);
+  text-transform: uppercase;
+  letter-spacing: .03em;
+}
+
+.estrutura-custo-cabecalho-colunas span:not(:first-child) { text-align: right; }
+.estrutura-custo-cabecalho-colunas span:nth-child(5) { text-align: center; }
+.estrutura-custo-cabecalho-colunas span:last-child { text-align: center; }
+
+.estrutura-custo-bucket {
+  background: var(--cor-superficie);
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio);
+  margin-bottom: 10px;
+  overflow: hidden;
+}
+
+.estrutura-custo-bucket-cabecalho {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  cursor: pointer;
+  user-select: none;
+  border: none;
+  background: none;
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+}
+
+.estrutura-custo-cor {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.estrutura-custo-bucket-nome {
+  font-weight: 700;
+  font-size: 14px;
+  flex: 1;
+}
+
+.estrutura-custo-bucket-valores {
+  display: flex;
+  gap: 16px;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.estrutura-custo-bucket-valores .rotulo-inline {
+  color: var(--cor-texto-suave);
+  font-weight: 400;
+  margin-right: 4px;
+}
+
+.estrutura-custo-seta {
+  font-size: 11px;
+  color: var(--cor-texto-suave);
+  transition: transform 0.15s ease;
+  width: 14px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.estrutura-custo-bucket.aberto > .estrutura-custo-bucket-cabecalho .estrutura-custo-seta {
+  transform: rotate(90deg);
+}
+
+.estrutura-custo-categoria-lista {
+  border-top: 1px solid var(--cor-borda);
+}
+
+.estrutura-custo-categoria-linha {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px 10px 30px;
+  cursor: pointer;
+  user-select: none;
+  border: none;
+  border-top: 1px solid var(--cor-borda);
+  background: none;
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+}
+
+.estrutura-custo-categoria-linha:first-child { border-top: none; }
+
+.estrutura-custo-categoria-nome {
+  font-weight: 600;
+  font-size: 13.5px;
+  flex: 1;
+}
+
+.estrutura-custo-categoria-valores {
+  display: flex;
+  gap: 16px;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  color: var(--cor-texto-suave);
+}
+
+.estrutura-custo-sub-linha {
+  display: grid;
+  grid-template-columns: 1fr 100px 100px 100px 90px 26px;
+  gap: 10px;
+  align-items: center;
+  padding: 8px 14px 8px 50px;
+  border-top: 1px solid var(--cor-borda);
+  font-size: 13px;
+  background: color-mix(in srgb, var(--cor-fundo) 55%, transparent);
+}
+
+.estrutura-custo-sub-linha .col-num { text-align: right; font-variant-numeric: tabular-nums; }
+.estrutura-custo-sub-linha .col-status { text-align: center; }
+.estrutura-custo-sub-linha .col-ir { text-align: center; }
+
+.estrutura-custo-badge {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+
+.estrutura-custo-badge.dentro {
+  background: color-mix(in srgb, var(--cor-sucesso) 16%, transparent);
+  color: var(--cor-sucesso);
+}
+
+.estrutura-custo-badge.excedido {
+  background: color-mix(in srgb, var(--cor-perigo) 16%, transparent);
+  color: var(--cor-perigo);
+}
+
+.estrutura-custo-ir-busca {
+  color: var(--cor-acento);
+  text-decoration: none;
+  font-size: 14px;
+}
+
+.estrutura-custo-vazio {
+  padding: 14px;
+  font-size: 13px;
+  color: var(--cor-texto-suave);
+}
+
+@media (max-width: 480px) {
+  .estrutura-custo-sub-linha,
+  .estrutura-custo-cabecalho-colunas {
+    grid-template-columns: 1fr 80px 80px 60px;
+  }
+  .estrutura-custo-sub-linha .col-status,
+  .estrutura-custo-sub-linha .col-ir,
+  .estrutura-custo-cabecalho-colunas span:nth-child(5),
+  .estrutura-custo-cabecalho-colunas span:last-child {
+    display: none;
+  }
+
+  /* cabeçalho de bucket/categoria: nome numa linha, valores embaixo — sem
+   * isso "Orçado R$ x Realizado R$ y" estoura a largura em tela estreita */
+  .estrutura-custo-bucket-cabecalho,
+  .estrutura-custo-categoria-linha {
+    flex-wrap: wrap;
+  }
+
+  .estrutura-custo-bucket-valores {
+    width: 100%;
+    justify-content: space-between;
+    margin-left: 24px;
+    gap: 8px;
+  }
+
+  .estrutura-custo-categoria-valores {
+    width: 100%;
+    justify-content: space-between;
+    margin-left: 24px;
+    gap: 8px;
+  }
+}

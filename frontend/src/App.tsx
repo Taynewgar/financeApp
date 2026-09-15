@@ -6,10 +6,10 @@ import { PrivacyProvider } from './lib/PrivacyContext'
 import { Configuracoes } from './routes/Configuracoes'
 import { Dashboard } from './routes/Dashboard'
 import { EditarLancamento } from './routes/EditarLancamento'
+import { EstruturaCusto } from './routes/EstruturaCusto'
 import { Lancamentos } from './routes/Lancamentos'
 import { Login } from './routes/Login'
 import { NovoLancamento } from './routes/NovoLancamento'
-import { Placeholder } from './routes/Placeholder'
 import { Planejamento } from './routes/Planejamento'
 
 function App() {
@@ -33,7 +33,7 @@ function App() {
               <Route path="lancamentos/novo" element={<NovoLancamento />} />
               <Route path="lancamentos/:id/editar" element={<EditarLancamento />} />
               <Route path="planejamento" element={<Planejamento />} />
-              <Route path="estruturas-de-custo" element={<Placeholder titulo="Estruturas de Custo" />} />
+              <Route path="estruturas-de-custo" element={<EstruturaCusto />} />
               <Route path="configuracoes" element={<Configuracoes />} />
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />

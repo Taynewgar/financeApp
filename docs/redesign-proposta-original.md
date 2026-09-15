@@ -140,9 +140,24 @@ conversa que fechou essa divisão.
 ## Estrutura de Custo
 
 Não fazia parte dos 4 mockups originais (não foi desenhada como tela própria
-naquele momento), mas existe como conceito no backend e é mencionada aqui por
-ser outro placeholder de frontend: `/estruturas-de-custo` ainda não tem UI,
-só a API (`GET /estrutura-custo/{vigencia_mes}`).
+naquele momento) — surgiu como conceito só no backend, e virou tela em
+2026-09-15 depois da avaliação dos 6 mockups de referência (ver changelog
+"rodada 3"/"rodada 4" abaixo), com design hierárquico escolhido pelo usuário
+depois de testar um mockup interativo comparando as duas opções.
+
+| Entregue | Status | Observação |
+|---|---|---|
+| Leitura orçado × realizado por bucket do mês | ✅ | `GET /estrutura-custo/{mes}` (backend não mudou); 6 buckets — os 4 do orçamento mais `reservas` e `sem_estrutura`, que só existem aqui (nunca recebem item de orçamento) |
+| Hierarquia bucket > categoria pai > subcategoria, expand/collapse | ✅ | Agrupamento client-side (`agruparPorCategoria`) — o backend devolve itens "achatados" por categoria/subcategoria/conta |
+| Fita de KPIs (Orçado/Realizado/Diferença/Execução %) | ✅ | Soma só os 4 buckets que aceitam orçamento (reservas/sem_estrutura ficam de fora, já que orçado é sempre 0 neles) |
+| Vereditos de pool de despesas (teto) e piso de investimentos | ✅ | `pool_despesas` (fixos+variáveis+sazonalidades tratados como 1 teto agregado) e `piso_investimentos` (mínimo, não teto) |
+| Badge Dentro/Excedido por subcategoria | ✅ | "—" quando o item não tem orçado (nada a comparar) |
+| Drill-down pra Busca de Lançamentos | ✅ | Seta "→" no item leva a `/lancamentos?categoria_id=...&mes=...` (ou `subcategoria_id`), que já vem com os filtros pré-aplicados |
+| Aviso quando o mês não tem orçamento configurado | ✅ | Tela funciona sem orçamento (todo orçado fica 0), com aviso linkando pra Planejamento |
+| Modo privacidade | ✅ | Valores em R$ ocultáveis; percentuais (ex.: "Execução: 98,1%") ficam sempre visíveis, mesmo padrão do resto do app |
+| Responsivo mobile | ✅ | Colunas Status/drill-down somem <480px; cabeçalho de bucket/categoria quebra em 2 linhas pra não estourar largura |
+
+**Arquivo:** `frontend/src/routes/EstruturaCusto.tsx`, `frontend/src/components/estruturaCusto.css`.
 
 ---
 
@@ -533,3 +548,20 @@ divisão Dashboard×Gráficos, e fechou tudo que tinha ficado em aberto:
 - Com isso, nenhuma proposta da rodada anterior ficou pendente — próxima
   entrega de código é Estrutura de Custo (tabela hierárquica).
 - Nenhuma linha de código mudou nesta rodada — só documentação.
+
+### 2026-09-15 (rodada 5) — Estrutura de Custo entregue
+
+- Tela nova `frontend/src/routes/EstruturaCusto.tsx`, hierárquica
+  (bucket > categoria pai > subcategoria) com expand/collapse, fita de
+  KPIs, vereditos de pool de despesas/piso de investimentos, badges
+  Dentro/Excedido, drill-down pra Busca de Lançamentos via
+  `useSearchParams` (novo em `Lancamentos.tsx`) e aviso de "sem orçamento
+  configurado" quando o mês não tem `Orcamento`. Backend não mudou — o
+  endpoint `GET /estrutura-custo/{mes}` já existia pronto.
+- Verificação: `tsc --noEmit` e `npm run build` limpos; suíte de backend
+  offline (199 passed, 33 skipped — integração fica pra rodar local);
+  QA visual via Playwright (light/dark/mobile/privacidade/badges/
+  drill-down), que encontrou e corrigiu 1 bug real de CSS (estouro de
+  largura em 390px nos cabeçalhos de bucket/categoria).
+- Removida `frontend/src/routes/Placeholder.tsx` (última tela que a usava
+  virou tela própria).
