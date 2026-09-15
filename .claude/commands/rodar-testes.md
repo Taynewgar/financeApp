@@ -31,6 +31,18 @@ sinal nenhum a mais). Só a suíte offline roda de fato aqui.
    dessa rodada bater com `passed + skipped` da rodada offline (ou seja,
    nenhum teste sobrou sem rodar).
 
+   Se o usuário colar de volta uma saída com falhas do tipo `duplicate key
+   value violates unique constraint "categorias_user_id_nome_key"` ou um
+   `KeyError: 'id'` em cima de `orcamento["id"]`, é lixo de uma rodada
+   anterior que não terminou de limpar (Ctrl+C, timeout de rede no meio da
+   suíte) — não é regressão de código. Passe este comando pra ele rodar:
+
+   ```bash
+   cd backend
+   source venv/bin/activate
+   TEST_USER_EMAIL=teste@teste.com TEST_USER_PASSWORD=teste python tests/limpar_dados_integracao.py
+   ```
+
 Se o venv não existir ainda ou o pip não estiver instalado nele, recrie com:
 ```bash
 cd backend

@@ -263,6 +263,13 @@ TEST_USER_EMAIL=teste@teste.com TEST_USER_PASSWORD=teste pytest -q
 Rodar `pytest -q` sozinho, sem essas variáveis, executa só a suíte offline
 e pula a de integração — é seguro rodar sempre o mesmo comando.
 
+Se uma rodada anterior for interrompida no meio (Ctrl+C, timeout de rede)
+antes da fixture de limpeza terminar, sobra lixo no banco — sintoma típico:
+`duplicate key value violates unique constraint "categorias_user_id_nome_key"`
+ou um `orcamento["id"]` faltando porque já existe orçamento pro mesmo mês.
+Rode `tests/limpar_dados_integracao.py` (ver seção abaixo) pra zerar a
+conta de teste e destravar.
+
 O script `tests/manual_verification.py` (anterior a essa suíte) continua
 funcionando como um roteiro único de fumaça, mas os testes de integração
 acima são mais completos e específicos — prefira-os.
@@ -287,3 +294,18 @@ TEST_USER_EMAIL=teste@teste.com TEST_USER_PASSWORD=teste python tests/seed_dados
 
 Roda contra o Supabase de verdade (mesmo usuário dos testes de integração)
 — não é ambiente de CI.
+
+### Resetar a conta de teste (`tests/limpar_dados_integracao.py`)
+
+Apaga (DELETE de verdade, não desativa) tudo que a conta `TEST_USER_EMAIL`
+tem em transações/orçamentos/caixinhas/compras parceladas/categorias/
+contas — pra destravar os testes de integração quando uma rodada anterior
+deixou dados presos (ver nota acima). Pede confirmação antes, mostrando
+quantas linhas existem em cada tabela; só mexe no `user_id` dessa conta de
+teste, nunca no seu usuário pessoal:
+
+```bash
+cd backend
+source venv/bin/activate
+TEST_USER_EMAIL=teste@teste.com TEST_USER_PASSWORD=teste python tests/limpar_dados_integracao.py
+```
