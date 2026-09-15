@@ -320,9 +320,9 @@ export function Planejamento() {
 
   return (
     <div className="planejamento">
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 20 }}>
         <div>
-          <h1 style={{ fontSize: 22, marginTop: 0, marginBottom: 2 }}>Planejamento</h1>
+          <h1 style={{ fontSize: 22, marginTop: 0, marginBottom: 4 }}>Planejamento</h1>
           <p className="planejamento-resumo" style={{ margin: 0 }}>
             Defina os valores-alvo do orçamento — a leitura do que foi de fato gasto fica na Estrutura de Custo.
           </p>

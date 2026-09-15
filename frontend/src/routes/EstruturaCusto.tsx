@@ -361,9 +361,9 @@ export function EstruturaCusto() {
 
   return (
     <div className="estrutura-custo">
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 20 }}>
         <div>
-          <h1 style={{ fontSize: 22, marginTop: 0, marginBottom: 2 }}>Estrutura de Custo</h1>
+          <h1 style={{ fontSize: 22, marginTop: 0, marginBottom: 4 }}>Estrutura de Custo</h1>
           <p className="estrutura-custo-resumo" style={{ margin: 0 }}>
             Leitura do que foi de fato gasto no mês, comparado com o que foi planejado em Planejamento.
           </p>
