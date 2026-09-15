@@ -240,8 +240,14 @@ export function Planejamento() {
   }
 
   function iniciarEdicaoItem(item: OrcamentoItem) {
+    // item de subcategoria vem com categoria_id nulo (os dois são
+    // mutuamente exclusivos, ver orcamento_sync.py) — sem resolver a
+    // categoria pai aqui, o campo Categoria mostra "Nenhuma" e o campo
+    // Subcategoria (que só aparece com uma categoria selecionada) some,
+    // escondendo a subcategoria de verdade que o item já tem
+    const categoriaId = item.categoria_id ?? subcategorias.find((s) => s.id === item.subcategoria_id)?.categoria_id ?? ''
     setFormItem({
-      categoria_id: item.categoria_id ?? '',
+      categoria_id: categoriaId,
       subcategoria_id: item.subcategoria_id ?? '',
       nome: item.nome ?? '',
       conta_vinculada_id: item.conta_vinculada_id ?? '',

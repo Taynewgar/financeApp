@@ -685,3 +685,33 @@ do `.is_()` — o "pool agregado inclui toda atividade real do bucket/mês"
 é a regra desde sempre (documentada no próprio código), só nunca tinha
 aparecido num teste de integração porque, antes da rodada 6, um orçamento
 recém-criado nunca "enxergava" atividade alheia automaticamente.
+
+### 2026-09-15 (rodada 10) — fix: editar item de subcategoria em Planejamento mostrava "Categoria: Nenhuma"
+
+Usuário reportou (com prints) comportamento diferente ao clicar "Editar"
+em itens diferentes: "Lazer (seed)"/"Renda Fixa (seed)" abriam com a
+Categoria certa preenchida; "Aluguel (seed)" abria com "Categoria:
+Nenhuma" — e o campo Subcategoria simplesmente sumia do formulário.
+
+**Causa**: `iniciarEdicaoItem` (`frontend/src/routes/Planejamento.tsx`)
+copiava `item.categoria_id` direto pro formulário. Um item de
+subcategoria tem `categoria_id=null` por design (os dois campos são
+mutuamente exclusivos, ver `orcamento_sync.py`) — "Aluguel (seed)" é
+subcategoria de "Moradia (seed)", então seu item só tem
+`subcategoria_id` preenchido. O rótulo da lista (`rotuloItem`) já
+resolvia isso certo (checa subcategoria antes de categoria), mas o
+formulário de edição não — mostrava "Nenhuma" e, como o campo
+Subcategoria só renderiza quando uma Categoria está selecionada
+(`{formItem.categoria_id && (...)}`), ele desaparecia por completo,
+escondendo a subcategoria que o item já tinha (o valor em si não se
+perdia ao salvar sem tocar em nada — só ficava invisível/confuso; tocar
+na Categoria, porém, resetava a subcategoria de verdade).
+
+**Fix**: `iniciarEdicaoItem` agora resolve a categoria pai a partir da
+subcategoria quando `categoria_id` vem nulo — mesma lógica que
+`rotuloItem` já usava pra exibir o nome, agora também pro formulário.
+
+Verificado por leitura de código (mesmo padrão de `rotuloItem`, já
+correto) e `tsc`/`build` limpos — não deu pra fazer screenshot desta vez
+porque a tela exige sessão Supabase autenticada (não dá pra simular sem
+tocar a autenticação de verdade); peço confirmação visual do usuário.
