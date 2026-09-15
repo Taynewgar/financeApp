@@ -50,6 +50,17 @@
   font-size: 16px;
 }
 
+.shell-nav-header-linha {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-right: 4px;
+}
+
+.shell-topo-mobile {
+  display: none;
+}
+
 .shell-nav-link {
   display: block;
   padding: 10px 12px;
@@ -162,5 +173,16 @@
   .shell-fab {
     right: 16px;
     bottom: 72px;
+  }
+
+  .shell-topo-mobile {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--cor-borda);
+    background: var(--cor-superficie);
+    font-weight: 700;
+    font-size: 15px;
   }
 }

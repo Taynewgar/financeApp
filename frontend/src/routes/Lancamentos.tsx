@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { BotaoPrivacidade } from '../components/BotaoPrivacidade'
 import '../components/crud.css'
 import '../components/forms.css'
 import '../components/lancamentos.css'
@@ -236,10 +235,7 @@ export function Lancamentos() {
 
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-        <h1 style={{ fontSize: 22, marginTop: 0, marginBottom: 0 }}>Lançamentos</h1>
-        <BotaoPrivacidade />
-      </div>
+      <h1 style={{ fontSize: 22, marginTop: 0 }}>Lançamentos</h1>
 
       {resumo && (
         <div className="resumo-cards">

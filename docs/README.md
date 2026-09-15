@@ -50,9 +50,10 @@ Telas do frontend, na ordem do menu:
 
 Melhorias globais de UX já entregues: tema claro/escuro automático, nav
 mobile (barra inferior), botão flutuante de novo lançamento, modo
-privacidade (ícone de olho, um por tela, ao lado do seletor de mês/título).
-Ainda faltam: PWA offline com fila de sincronização, busca/comando rápido
-(Cmd+K), alertas/notificações.
+privacidade (ícone de olho, global na casca do app — sidebar no desktop,
+faixa fina no topo no mobile — acessível em toda tela, não mais por
+tela). Ainda faltam: PWA offline com fila de sincronização, busca/comando
+rápido (Cmd+K), alertas/notificações.
 
 Este resumo é um retrato rápido — pra qualquer detalhe, a tabela tela a
 tela de `redesign-proposta-original.md` é a fonte de verdade (é ela que é

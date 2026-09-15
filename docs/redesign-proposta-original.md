@@ -467,3 +467,38 @@ onde o olhar já passa.
 - tsc + build limpos; suíte de backend (199 testes, sem mudança) verde; QA
   visual via Playwright (claro/escuro) confirmando o botão ao lado do
   seletor de mês e o toggle funcionando.
+
+### 2026-09-15 — botão de privacidade: de posição por tela pra global na casca do app
+
+Correção sobre a rodada anterior: o usuário apontou que o botão *tem* que
+ser global — acessível em qualquer tela, não só nas 3 que tinham seletor
+de mês/título em destaque (ficava ausente em Configurações e nos
+formulários de lançamento). Pedi sugestão de posição, propus a casca do
+app (`AppShell`) em vez de por tela, mostrei um mockup com screenshot
+antes de mexer no código de verdade — a primeira tentativa no mockup
+(6º item na barra inferior mobile) quebrou visualmente (rótulos
+colidindo: "Lançamentos"/"Planejamento" sobrepostos, "Estruturas de
+Custo" invadindo "Configurações"), corrigida ainda no mockup antes de ir
+para aprovação.
+
+- **Desktop**: `<BotaoPrivacidade />` (mesmo componente da rodada
+  anterior, sem mudança nele) movido para dentro de `.shell-nav-header`,
+  ao lado do texto "Finance App", topo da barra lateral — sempre visível
+  sem rolar, em fluxo normal (não `position: fixed`), então sem risco de
+  colidir com o banner de "acordando o servidor" (o mesmo tipo de bug que
+  a versão flutuante da rodada 3 teve).
+- **Mobile**: nova faixa `.shell-topo-mobile` (só visível abaixo de
+  720px, escondida no desktop), com "Finance App" + o botão — a barra de
+  navegação inferior continua com os 5 itens originais, sem o 6º item que
+  quebrou no mockup.
+- Removido de **Dashboard**, **Planejamento** e **Lançamentos** (import e
+  uso de `<BotaoPrivacidade />` por tela, da rodada anterior) — agora é
+  um único ponto de verdade na casca do app, cobrindo todas as telas
+  (inclusive Configurações e os formulários de lançamento, que antes
+  ficavam sem o toggle).
+- `components/BotaoPrivacidade.tsx` e `botaoPrivacidade.css` continuam os
+  mesmos (SVG de olho, `aria-pressed`) — só o lugar onde são montados
+  mudou.
+- tsc + build limpos; suíte de backend (199 testes, sem mudança) verde; QA
+  visual via Playwright (claro/escuro, desktop/mobile) no mockup antes de
+  aprovar, e de novo na implementação final antes de commitar.

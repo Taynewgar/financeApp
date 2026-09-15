@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
-import { BotaoPrivacidade } from '../components/BotaoPrivacidade'
 import '../components/forms.css'
 import '../components/crud.css'
 import '../components/planejamento.css'
@@ -312,13 +311,10 @@ export function Planejamento() {
             Defina os valores-alvo do orçamento — a leitura do que foi de fato gasto fica na Estrutura de Custo.
           </p>
         </div>
-        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8 }}>
-          <label className="campo" style={{ maxWidth: 180 }}>
-            Mês
-            <input type="month" value={vigenciaMes} onChange={(e) => setVigenciaMes(e.target.value)} />
-          </label>
-          <BotaoPrivacidade />
-        </div>
+        <label className="campo" style={{ maxWidth: 180 }}>
+          Mês
+          <input type="month" value={vigenciaMes} onChange={(e) => setVigenciaMes(e.target.value)} />
+        </label>
       </div>
 
       {erro && <p className="mensagem-erro">{erro}</p>}

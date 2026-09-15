@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { Link, NavLink, Outlet } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { checkHealth } from '../lib/api'
+import { BotaoPrivacidade } from './BotaoPrivacidade'
 import './AppShell.css'
 
 type StatusBackend = 'ocioso' | 'aguardando' | 'falhou'
@@ -85,9 +86,17 @@ export function AppShell({ children }: { children?: ReactNode }) {
         </div>
       )}
 
+      <div className="shell-topo-mobile">
+        <span>Finance App</span>
+        <BotaoPrivacidade />
+      </div>
+
       <div className="shell">
         <nav className="shell-nav" aria-label="Navegação principal">
-          <div className="shell-nav-header">Finance App</div>
+          <div className="shell-nav-header shell-nav-header-linha">
+            <span>Finance App</span>
+            <BotaoPrivacidade />
+          </div>
           {SECOES.map((secao) => (
             <NavLink key={secao.to} to={secao.to} className={linkClasse('shell-nav-link')}>
               {secao.icone} &nbsp;{secao.label}
