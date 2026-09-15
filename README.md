@@ -115,8 +115,12 @@ PWA com backend hospedado (Render) e banco Supabase.
   (sidebar no desktop, barra inferior no mobile, botão flutuante de Novo
   Lançamento). Telas com dados reais: Dashboard (KPIs do mês + gráfico de
   evolução), Lançamentos (lista/busca/edição), Novo Lançamento, e
-  Configurações (CRUDs de Contas/Categorias/Caixinhas). Planejamento e
-  Estruturas de Custo ainda são placeholders. Detalhes em
+  Configurações (CRUDs de Contas/Categorias/Caixinhas), e Planejamento
+  (configuração do orçamento por mês — renda, % por bucket, itens reativos
+  a partir dos lançamentos, modo envelope). Estruturas de Custo ainda é
+  placeholder — próxima tela da fila (motor já pronto no backend).
+  Decisões de escopo e changelog tela a tela em
+  `docs/redesign-proposta-original.md`. Detalhes técnicos em
   `frontend/README.md`.
 - `render.yaml` — blueprint de deploy no Render (backend).
 - `vercel.json` — build do frontend no Vercel a partir da raiz do repo

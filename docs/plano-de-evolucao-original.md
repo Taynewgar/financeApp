@@ -231,7 +231,7 @@ Uma tela de "Configurações" com 4 abas simples (listar → adicionar → edita
 Sim, sugeri evoluir de "tabela editável dentro do relatório HTML" para uma tela dedicada de Planejamento, mantendo o que funciona (% por bucket, limite ≤100%) e adicionando:
 - Entrada tanto em **R$ quanto em %** (hoje só %, mas muita gente pensa em reais). ⬜
 - Comparação **orçado × realizado × mês anterior** com seta de tendência. 🟡 *orçado×realizado existe no backend; "mês anterior" não*
-- Orçamento "de envelope" (estilo YNAB): sobra do mês fica visível e pode ser realocada, em vez de simplesmente resetar. ✅ *implementado no backend (`saldo_anterior`, `próximo-mes`) — falta o frontend*
+- Orçamento "de envelope" (estilo YNAB): sobra do mês fica visível e pode ser realocada, em vez de simplesmente resetar. ✅ *implementado ponta a ponta (backend `saldo_anterior`/`próximo-mes` + tela de Planejamento mostrando a sobra por item) — só a realocação **manual** (acumular/transferir/resgatar) segue automática, sem escolha (ver `sugestoes-e-decisoes-do-redesign.md` seção 9)*
 - Múltiplos templates de orçamento (mês normal vs. mês de dezembro/IPVA, por exemplo). ⬜
 
 ### Dashboard — adicionar / remover?
@@ -255,8 +255,8 @@ Sim, sugeri evoluir de "tabela editável dentro do relatório HTML" para uma tel
 | 1. Backend base | FastAPI no Render, schema no Supabase, RLS, portar `core/` | 1–2 semanas | ✅ |
 | 2. Migração de dados | Script de normalização + dedup + relatório de validação | 3–5 dias | ⬜ |
 | 3. Formulário web | Novo lançamento, CRUD categorias/contas/caixinhas | 1–2 semanas | ✅ |
-| 4. Paridade analítica | Dashboard/Gráficos/Estruturas consumindo API em vez de JSON embutido | 1 semana | 🟡 backend pronto; frontend parcial (só Dashboard básico + Busca de Lançamentos; Estruturas de Custo sem tela) |
-| 5. Novidades | Orçamento redesenhado, parcelas, fatura por ciclo, metas | 1–2 semanas | 🟡 parcelas e fatura por ciclo prontos; orçamento redesenhado sem tela; metas não iniciado |
+| 4. Paridade analítica | Dashboard/Gráficos/Estruturas consumindo API em vez de JSON embutido | 1 semana | 🟡 backend pronto; Dashboard já rico (caixa/saúde, deltas, patrimônio em caixinhas, compromissos futuros, evolução 3 séries, despesas por categoria) + Busca de Lançamentos prontos; Estruturas de Custo ainda sem tela (motor pronto no backend) |
+| 5. Novidades | Orçamento redesenhado, parcelas, fatura por ciclo, metas | 1–2 semanas | 🟡 parcelas, fatura por ciclo e tela de orçamento redesenhado (Planejamento, com itens reativos e modo envelope) prontos; metas de economia não iniciado |
 | 6. Corte | Rodar os dois em paralelo, depois desligar o app desktop | — | ⬜ |
 
 Esta tabela é a origem das "7 fases" citadas em `/status-projeto` (que usa nomes

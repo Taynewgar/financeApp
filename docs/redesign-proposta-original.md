@@ -149,8 +149,8 @@ só a API (`GET /estrutura-custo/{vigencia_mes}`).
 ## Resumo de prioridades sugerido
 
 ~~1. Delta vs mês anterior nos KPIs do Dashboard (dado já existe, é reprocessar).~~ **feito 2026-09-13**
-~~2. Tela de Planejamento (motor de orçamento já pronto no backend).~~ **feito 2026-09-13** — só configuração (ver divisão de responsabilidade na seção acima)
-3. Tela de Estrutura de Custo (motor já pronto no backend).
+~~2. Tela de Planejamento (motor de orçamento já pronto no backend).~~ **feito 2026-09-14** — só configuração (ver divisão de responsabilidade na seção acima)
+3. **Tela de Estrutura de Custo (motor já pronto no backend) — próxima prioridade.**
 ~~4. Endpoint + UI de saldo atual por conta/caixinha...~~ **feito parcialmente 2026-09-13** — só caixinhas; conta segue sem saldo (decisão do usuário, em aberto)
 ~~5. Linha de Resultado na Evolução Mensal...~~ **feito 2026-09-13**
 6. Categorias "mais usadas" + criação inline no Novo Lançamento.
