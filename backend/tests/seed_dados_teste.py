@@ -1,6 +1,15 @@
 """Popula o Supabase real de um usuário com lançamentos variados, pra testar
-telas (Lançamentos, Dashboard, Estrutura de Custo) com dados mais coerentes
-do que uns poucos lançamentos manuais soltos.
+telas (Lançamentos, Dashboard, Estrutura de Custo, Planejamento) com dados
+mais coerentes do que uns poucos lançamentos manuais soltos.
+
+Também cria um orçamento encadeado (um por mês, sobra rolando via
+/proximo-mes) pros últimos 3 meses + o atual — Aluguel com orçado R$1.000 x
+realizado R$1.500 fixo (sobra negativa acumulando), Mercado variando em
+torno do orçado, investimento batendo a meta (R$500 aportado x R$400 de
+piso). Reaproveita se já existir orçamento pro mês (idempotente, roda de
+novo sem duplicar) — mas não é apagado por --limpar (que só mexe em
+lançamentos); pra recriar do zero, rode antes
+tests/limpar_dados_integracao.py.
 
 Não faz parte da suíte automatizada (não roda em CI) — roda contra sua conta
 de verdade. Tudo que cria tem descrição prefixada com "[seed]", pra dar pra
@@ -68,6 +77,48 @@ def mes_offset(hoje: date, meses_atras: int) -> tuple[int, int]:
     return hoje.year + total // 12, total % 12 + 1
 
 
+def _buscar_orcamento_do_mes(headers: dict, ano: int, mes: int) -> dict | None:
+    alvo = f"{ano:04d}-{mes:02d}"
+    todos = client.get("/orcamentos", headers=headers).json()
+    return next((o for o in todos if o["vigencia_mes"][:7] == alvo), None)
+
+
+def garantir_orcamento_mes(headers: dict, ano: int, mes: int, sub_aluguel: dict, sub_supermercado: dict, cat_invest: dict) -> dict:
+    """Idempotente: se já existe orçamento pra esse mês (desta rodada ou de
+    uma anterior), reaproveita. Senão, encadeia via /proximo-mes a partir do
+    mês anterior (se existir) — preserva a sobra rolando; senão cria do
+    zero com os itens iniciais (só acontece pro mês mais antigo da janela).
+    Mesmo cenário usado a sessão inteira pra testar o envelope: Aluguel
+    orçado R$1.000 x realizado R$1.500 fixo (sobra -500 acumulando mês a
+    mês), Mercado com gasto variável em torno do orçado, investimento
+    batendo a meta (R$500 aportado x R$400 de piso)."""
+    existente = _buscar_orcamento_do_mes(headers, ano, mes)
+    if existente:
+        return existente
+
+    total = ano * 12 + (mes - 1) - 1
+    ano_anterior, mes_anterior = total // 12, total % 12 + 1
+    base = _buscar_orcamento_do_mes(headers, ano_anterior, mes_anterior)
+    if base:
+        resp = client.post(f"/orcamentos/{base['id']}/proximo-mes", headers=headers)
+        resp.raise_for_status()
+        return resp.json()
+
+    orcamento = client.post(
+        "/orcamentos",
+        json={"vigencia_mes": date(ano, mes, 1).isoformat(), "receita_base": 8000, "percentual_geral": 100},
+        headers=headers,
+    ).json()
+    itens = [
+        {"bucket": "custos_fixos", "subcategoria_id": sub_aluguel["id"], "orcamento_mensal": 1000},
+        {"bucket": "custos_variaveis", "subcategoria_id": sub_supermercado["id"], "orcamento_mensal": 1000},
+        {"bucket": "investimentos", "categoria_id": cat_invest["id"], "orcamento_mensal": 400},
+    ]
+    for item in itens:
+        client.post(f"/orcamentos/{orcamento['id']}/itens", json=item, headers=headers)
+    return orcamento
+
+
 def montar_massa(headers: dict) -> None:
     corrente = get_ou_criar(headers, "/contas", "Conta Corrente (seed)", {"tipo_conta": "corrente"})
     cartao = get_ou_criar(
@@ -97,6 +148,11 @@ def montar_massa(headers: dict) -> None:
 
     for meses_atras in range(3, -1, -1):  # últimos 3 meses + o atual
         ano, mes = mes_offset(hoje, meses_atras)
+        # orçamento sempre antes dos lançamentos do mês: assim os itens de
+        # Aluguel/Mercado/Investimento já existem quando a transação chega,
+        # e a sincronização reativa (sincronizar_item_orcamento) não cria
+        # item duplicado a R$0 no lugar do item com valor de verdade.
+        garantir_orcamento_mes(headers, ano, mes, sub_aluguel, sub_supermercado, cat_invest)
 
         def d(dia: int, ano=ano, mes=mes) -> str:
             return date(ano, mes, min(dia, 28)).isoformat()

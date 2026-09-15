@@ -280,7 +280,10 @@ Pra testar telas manualmente (Lançamentos, Dashboard, Estrutura de Custo)
 com uma massa de dados mais coerente do que uns poucos lançamentos soltos,
 sem digitar cada um na mão: cria contas/categorias/caixinhas (reaproveita se
 já existirem, pelo nome) e alguns meses de lançamentos variados — salário,
-aluguel, mercado, lazer, aporte, reserva, uma compra parcelada. Tudo com
+aluguel, mercado, lazer, aporte, reserva, uma compra parcelada. Também cria
+um orçamento encadeado (um por mês, sobra rolando) pros últimos 3 meses + o
+atual, pra testar Planejamento/Estrutura de Custo já com sobra acumulada —
+reaproveita se já existir orçamento pro mês (idempotente). Lançamentos com
 descrição prefixada `[seed]`, pra dar pra identificar e remover depois:
 
 ```bash
