@@ -106,12 +106,21 @@ Inconsistências encontradas e corrigidas nesta rodada:
 - `README.md` (raiz do repo): ainda listava Planejamento como placeholder,
   o que deixaria qualquer sessão nova com uma leitura errada do estado do
   projeto. Corrigido.
-- Nenhuma decisão registrada em `sugestoes-e-decisoes-do-redesign.md` (os
-  16 pontos) foi revertida ou contradita em rodada nenhuma — as decisões
-  descritas lá (divisão Planejamento/Estrutura de Custo, versionamento por
-  mês em vez de templates, `estrutura_custo_padrao` na subcategoria, etc.)
-  seguem exatamente como implementadas. Conferido item a item contra o
-  código e contra `redesign-proposta-original.md`.
+- `sugestoes-e-decisoes-do-redesign.md`: passou batido na primeira rodada
+  desta auditoria e só foi pego numa segunda comparação, pedida pelo
+  usuário, direto contra a conversa — a tabela da seção 16 ("Divisão final
+  em 7 entregas") ainda dizia, na linha da Entrega 6, "tela de Planejamento
+  [...] não". Corrigido; a mesma seção também teve o status do orçamento de
+  envelope (seção 9) precisado — dizia "implementado no backend", sem
+  registrar que a tela de Planejamento já mostra a sobra por item.
+- Nenhuma **decisão** registrada em `sugestoes-e-decisoes-do-redesign.md`
+  (os 16 pontos) foi revertida ou contradita em rodada nenhuma — as
+  decisões em si (divisão Planejamento/Estrutura de Custo, versionamento
+  por mês em vez de templates, `estrutura_custo_padrao` na subcategoria,
+  etc.) seguem exatamente como implementadas. O que ficou pra trás foram
+  só os campos `> Status:` de acompanhamento (texto descritivo, não a
+  decisão em si) desatualizados depois da entrega de 2026-09-14 — ponto
+  já coberto acima.
 - Este documento (`docs/README.md`) não existia antes desta rodada — criado
   porque os 3 documentos, embora cada um internamente consistente, exigiam
   ler os três inteiros para montar o quadro geral. Não substitui nenhum

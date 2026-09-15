@@ -167,7 +167,7 @@ Concordo com a divisão. Ajusta bem o que eu tinha desenhado: Planejamento defin
 
 Você respondeu "entendi e gostei, gostaria de testar" — anotei um exemplo visual no card "Custos Fixos" do mockup de Planejamento (sobra de R$130,00 com as ações Acumular/Transferir/Reserva).
 
-> **Status:** 🟡 implementado no backend como acumulação automática (`saldo_anterior`, `POST /orcamentos/{id}/proximo-mes`) — mas sem as três ações manuais (acumular/transferir/resgatar) do mockup; hoje é só "acumula sempre", sem escolha.
+> **Status:** 🟡 implementado ponta a ponta como acumulação automática — backend (`saldo_anterior`, `POST /orcamentos/{id}/proximo-mes`) e a tela de Planejamento já mostra a sobra por item — mas sem as três ações manuais (acumular/transferir/resgatar) do mockup; hoje é só "acumula sempre", sem escolha.
 
 ---
 
@@ -287,7 +287,7 @@ que é a que efetivamente guiou o desenvolvimento real (ver git log e
 | **3. Migração dos dados** | Script de normalização/dedup + dry-run + reconciliação do histórico atual | ⬜ |
 | **4. Lançamento + Cartão de Crédito** | Formulário PWA, CRUD contas/categorias, fatura por ciclo, reconciliação de fatura | 🟡 (lançamento e fatura por ciclo prontos; reconciliação e upload de OFX não) |
 | **5. Paridade analítica** | Dashboard/Gráficos/Estruturas de Custo consumindo a API nova | 🟡 (backend pronto; Dashboard parcial, Estruturas de Custo sem tela) |
-| **6. Orçamento redesenhado** | Toggle R$/%, envelope, parcelas no orçamento | 🟡 (envelope automático pronto; toggle e tela de Planejamento não) |
+| **6. Orçamento redesenhado** | Toggle R$/%, envelope, parcelas no orçamento | 🟡 (tela de Planejamento e envelope prontos, incluindo itens reativos a partir dos lançamentos; toggle R$/% não) |
 | **7. Corte** | Rodar em paralelo com o app desktop, depois desligar | ⬜ |
 
 Sobre credenciais, a orientação dada foi: nunca colar chaves no chat — criar
