@@ -243,9 +243,9 @@ export function BucketBloco({
                       <span className="col-num">
                         {formatarMoeda(f.orcado, oculto)}
                         {f.saldoAnterior !== 0 && (
-                          <span className="estrutura-custo-detalhe-sobra">
+                          <span className="estrutura-custo-detalhe-sobra" title="Planejado + sobra/furo do mês anterior">
                             {formatarMoeda(f.orcamentoMensal, oculto)} {f.saldoAnterior >= 0 ? '+' : '−'}{' '}
-                            {formatarMoeda(Math.abs(f.saldoAnterior), oculto)} sobra
+                            {formatarMoeda(Math.abs(f.saldoAnterior), oculto)}
                           </span>
                         )}
                       </span>

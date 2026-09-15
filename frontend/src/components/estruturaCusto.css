@@ -98,7 +98,7 @@
 
 .estrutura-custo-cabecalho-colunas {
   display: grid;
-  grid-template-columns: 1fr 100px 100px 100px 90px 26px;
+  grid-template-columns: 1fr 140px 100px 100px 90px 26px;
   gap: 10px;
   padding: 0 14px 6px 48px;
   font-size: 11px;
@@ -215,7 +215,7 @@
 
 .estrutura-custo-sub-linha {
   display: grid;
-  grid-template-columns: 1fr 100px 100px 100px 90px 26px;
+  grid-template-columns: 1fr 140px 100px 100px 90px 26px;
   gap: 10px;
   align-items: center;
   padding: 8px 14px 8px 50px;
@@ -233,7 +233,8 @@
   font-size: 11px;
   font-weight: 400;
   color: var(--cor-texto-suave);
-  white-space: nowrap;
+  white-space: normal;
+  overflow-wrap: break-word;
 }
 .estrutura-custo-sub-linha .col-status { text-align: center; }
 .estrutura-custo-sub-linha .col-ir { text-align: center; }
@@ -271,7 +272,7 @@
 @media (max-width: 480px) {
   .estrutura-custo-sub-linha,
   .estrutura-custo-cabecalho-colunas {
-    grid-template-columns: 1fr 80px 80px 60px;
+    grid-template-columns: 1fr 100px 80px 60px;
   }
   .estrutura-custo-sub-linha .col-status,
   .estrutura-custo-sub-linha .col-ir,
