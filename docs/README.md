@@ -32,6 +32,7 @@ código real, não contra memória de conversa.
 | "Essa decisão de design mudou depois do mockup? Por quê?" | `sugestoes-e-decisoes-do-redesign.md` (16 pontos numerados) |
 | "O que foi entregue em cada rodada, em ordem cronológica?" | `redesign-proposta-original.md`, seção "Changelog deste documento" |
 | "O que está registrado pra decidir depois, mas ainda não foi?" | `redesign-proposta-original.md`, seção "Backlog registrado" |
+| "A aba 'Gráficos' do app antigo tinha o quê, e o que disso ainda falta?" | `redesign-proposta-original.md`, seção "Gráficos / Análise" |
 | "O que existe no código *agora*, tecnicamente?" | `README.md` (raiz do repo) — não duplica decisão/histórico, só descreve o que está implementado |
 | "Qual o andamento geral / relatório de status?" | skill `/status-projeto` |
 
@@ -126,3 +127,20 @@ Inconsistências encontradas e corrigidas nesta rodada:
   porque os 3 documentos, embora cada um internamente consistente, exigiam
   ler os três inteiros para montar o quadro geral. Não substitui nenhum
   deles, só aponta pra eles.
+
+## Gap registrado — aba "Gráficos" do app original (2026-09-15)
+
+O usuário apontou que a aba **Gráficos** do app antigo (ZIP original, ainda
+disponível na conversa) nunca foi mencionada em nenhum documento do
+redesign — não virou mockup, não virou backlog. Reli o código-fonte
+(`features/graficos/graficos_html.py` + `assets/report_scripts.js`, não só
+a memória já documentada) e registrei a comparação completa, feature a
+feature, em `redesign-proposta-original.md` (seção "Gráficos / Análise").
+
+Não recomendei adoção 1:1 de tudo — o achado real é o **Pareto de despesas
+por categoria/subcategoria** (capacidade genuinamente ausente hoje, sem
+equivalente parcial), agora no backlog. Um item ("Escopo da evolução"
+local) foi avaliado e não recomendado, por sobrepor o que o seletor de
+período global do Dashboard já resolve. Um outro ("Gasto mensal no cartão
+de crédito") era código morto no próprio app original, não uma
+funcionalidade perdida — correção feita em `plano-de-evolucao-original.md`.

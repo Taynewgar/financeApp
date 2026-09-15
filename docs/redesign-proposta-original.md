@@ -146,6 +146,45 @@ só a API (`GET /estrutura-custo/{vigencia_mes}`).
 
 ---
 
+## Gráficos / Análise
+
+Não fazia parte dos 4 mockups originais, e diferente de Estrutura de Custo
+(que pelo menos virou um conceito citado explicitamente nas fases do plano),
+a aba **Gráficos** do app antigo ficou sem menção nenhuma no redesign depois
+do `plano-de-evolucao-original.md` — não virou mockup, não virou tela
+planejada, não entrou no backlog. Registrado aqui em 2026-09-15 depois do
+usuário apontar a lacuna e pedir reavaliação direto do código-fonte do ZIP
+(`features/graficos/graficos_html.py` + `assets/report_scripts.js`).
+
+A aba original tinha 4 blocos. Comparado feature a feature com o que existe
+hoje:
+
+| Bloco / item do original | Status | Observação |
+|---|---|---|
+| Reading strip de saúde (receita de caixa, despesa bruta, ajustes, despesa líquida, resultado de caixa) | ✅ | Coberto pelo Dashboard atual (resumo cards + hero) |
+| KPI: Taxa de poupança do período | ✅ | Dashboard |
+| KPI: Taxa de poupança acumulada | ✅ | Dashboard ("Acumulado no ano") |
+| KPI: Meses com resultado negativo | ⬜ | Não existe em nenhuma tela |
+| KPI: Maior categoria de despesa | 🟡 | Coberto indiretamente pelo gráfico "Despesas por Categoria" do Dashboard — dá pra ver visualmente, mas não como um KPI numérico dedicado ("Mercado — R$ 850") |
+| KPI: Desvio do orçamento | ⬜ | Depende de Estrutura de Custo ter orçado×realizado calculado numa tela, o que ainda não existe |
+| KPI: Completude dos dados | ⬜ | Ver "Qualidade dos dados" abaixo |
+| Seletor local "Escopo da evolução" (Ano até o mês / Só o mês / Período global) — independente do filtro de período da página inteira | ⬜ | O Dashboard novo tem um seletor de período **global** (Mês/Intervalo/Todos os meses) que cobre parte do mesmo objetivo; um segundo escopo *local* só para este gráfico pode ser redundante agora — ver recomendação abaixo |
+| Gráfico de evolução mensal da saúde financeira | ✅ | `EvolucaoChart` do Dashboard |
+| **Pareto de despesas por categoria e subcategoria** (ordenado por valor, % acumulado, filtro de categoria pai para o Pareto de subcategoria) | ⬜ | **Não existe em lugar nenhum do app novo.** Não é a mesma coisa que "Despesas por Categoria" do Dashboard — aquele é uma barra empilhada por categoria/%, sem ordenação nem % acumulado; Pareto responde uma pergunta diferente ("quais poucas categorias concentram a maior parte do gasto"). É o gap mais real desta lista |
+| Orçado × Realizado — **tendência de vários meses** (barra Orçado/Realizado + linha % executado, resumo sem detalhe por categoria) | ⬜ | Diferente do que está planejado para Estrutura de Custo, que hoje é uma leitura de **1 mês só** (orçado×realizado por bucket do mês selecionado), não uma série temporal. Os dois são complementares, não substitutos |
+| Qualidade dos dados (diagnóstico de campos ausentes/pendências, painel sempre disponível, com gráfico e cards) | 🟡 | Já registrado em `sugestoes-e-decisoes-do-redesign.md` seção 5, mas reenquadrado especificamente para o fluxo de **importação de CSV** ("tela de revisão de importação"), não como painel geral sempre visível como no original. O formulário guiado do app novo já **exige** categoria/estrutura de custo/meio de pagamento na entrada de despesas — o cenário de "lançamento incompleto" que esse painel diagnosticava no app antigo é bem mais raro agora, exceto justamente na importação, onde a decisão de manter esse painel já foi tomada |
+| Gasto mensal no cartão de crédito | 🚫 | Conferido no código-fonte: era um dado **calculado mas nunca renderizado** em nenhum gráfico do app original (`data_json["cartao"]` sem consumidor em `report_scripts.js`) — código morto, não uma funcionalidade perdida. Corrigida a menção equivocada em `plano-de-evolucao-original.md` |
+
+**Minha avaliação, não uma decisão já tomada:**
+
+- **Recomendo registrar como prioridade real**: o Pareto por categoria/subcategoria é a única peça desta lista que é uma capacidade analítica genuinamente ausente hoje, sem equivalente parcial em nenhuma tela. Adicionar como backlog concreto (ver seção "Backlog registrado" abaixo).
+- **Recomendo registrar como extensão futura de Estrutura de Custo**, não como feature nova separada: a visão de tendência de Orçado×Realizado ao longo de vários meses — faz mais sentido morar ali (mesma divisão de responsabilidade já decidida: Planejamento configura, Estrutura de Custo lê o realizado) do que reviver uma aba "Gráficos" à parte.
+- **Recomendo baixa prioridade, mas registro**: os 3 KPIs que faltam (meses negativos, maior categoria como número, desvio do orçamento) — baratos de adicionar ao Dashboard quando Estrutura de Custo existir (desvio do orçamento depende disso).
+- **Recomendo não adotar como estava**: o seletor local "Escopo da evolução" — o Dashboard já resolve boa parte do mesmo problema com o seletor de período global (Mês/Intervalo/Todos os meses), que não existia no app antigo. Replicar os dois pode ser complexidade duplicada sem ganho real; melhor avaliar de novo se, na prática, alguém sentir falta de comparar um escopo diferente do que está selecionado na página.
+- **Qualidade dos dados**: mantenho a decisão já registrada (ligado à importação) — o formulário guiado do app novo já cobre a maior parte do problema original na entrada manual.
+
+---
+
 ## Resumo de prioridades sugerido
 
 ~~1. Delta vs mês anterior nos KPIs do Dashboard (dado já existe, é reprocessar).~~ **feito 2026-09-13**
@@ -157,6 +196,9 @@ só a API (`GET /estrutura-custo/{vigencia_mes}`).
 ~~7. Compromissos futuros no Dashboard...~~ **feito parcialmente 2026-09-13** — só parcelas futuras; "fixo recorrente" não existe como conceito no app
 8. Aba Bancos em Configurações (baixa prioridade — hoje resolvido como campo
    de texto em Conta, sem perda funcional real).
+9. Pareto de despesas por categoria/subcategoria — gap real do app original,
+   sem cobertura em nenhuma tela hoje (ver seção "Gráficos / Análise" acima
+   e detalhe no "Backlog registrado" abaixo).
 
 Este documento não substitui o `README.md` (que descreve o que existe) nem o
 `/status-projeto` (relatório de andamento) — é o registro do que foi
@@ -257,6 +299,39 @@ nenhum risco de inconsistência — e exclusão em grupo (3) junto, por ser
 praticamente grátis e já cobrir metade do caso de uso do nível médio (2).
 
 **Status:** registrado, sem decisão de prioridade ainda.
+
+### Pareto de despesas por categoria/subcategoria
+
+**O que é:** ordenar as despesas líquidas do período (decrescente por valor)
+e mostrar o percentual acumulado sobre o total — responde "quantas
+categorias concentram 80% do meu gasto", uma leitura que "Despesas por
+Categoria" (Dashboard) não dá, porque essa é ordenada alfabeticamente/por
+cor fixa e não acumula percentual.
+
+**Por que ficou de fora até agora:** não fazia parte dos 4 mockups originais
+do redesign — só foi percebido ao reler o código-fonte do app antigo
+(`features/graficos/graficos_html.py`) depois de já estar quase tudo
+implementado. Não é um gap de execução, é um item que nunca chegou a ser
+registrado como pendência.
+
+**O que precisaria:**
+- Nenhum endpoint novo de dados brutos — `GET /transacoes` já retorna
+  despesas com categoria/subcategoria e valor; a agregação (ordenar +
+  acumular %) pode ser feita no frontend a partir do que `/dashboard/
+  despesas-por-categoria/{mes}` já calcula (ou um endpoint irmão dele, se
+  o agregado por subcategoria precisar vir pronto do backend).
+- Um componente de gráfico novo (barra + linha de % acumulado sobre eixo
+  secundário — igual ao padrão já usado no `EvolucaoChart`), reaproveitando
+  a paleta categórica validada pela skill de dataviz do projeto.
+- Filtro de categoria pai pro Pareto de subcategoria, igual ao original
+  (select simples, mesmo padrão dos filtros já usados em Lançamentos).
+
+**Onde morar:** avaliar se cabe como uma seção nova no Dashboard (ao lado de
+"Despesas por Categoria") ou como parte da futura tela de Estrutura de
+Custo — não é uma decisão óbvia, e não foi tomada ainda.
+
+**Status:** registrado nesta rodada (2026-09-15), sem decisão de prioridade
+nem de onde vai morar.
 
 ---
 
@@ -502,3 +577,34 @@ para aprovação.
 - tsc + build limpos; suíte de backend (199 testes, sem mudança) verde; QA
   visual via Playwright (claro/escuro, desktop/mobile) no mockup antes de
   aprovar, e de novo na implementação final antes de commitar.
+
+### 2026-09-15 (rodada 2) — registro da aba "Gráficos" do app original, ausente do redesign
+
+Pedido do usuário: o ZIP original ainda estava disponível na conversa, e ele
+notou que a aba **Gráficos** do app antigo nunca foi mencionada em nenhum
+documento do redesign — nem virou mockup, nem virou backlog. Pediu pra
+avaliar as funcionalidades e, se eu concordasse com todas, registrar como
+parte do redesign.
+
+Reli o código-fonte do ZIP (`features/graficos/graficos_html.py` +
+`assets/report_scripts.js`, não só a memória documentada) pra levantar
+exatamente o que a aba fazia. Resultado: **não concordei com adoção 1:1 de
+tudo** — ver a nova seção "Gráficos / Análise" acima pra comparação completa
+feature a feature. Resumo do que mudou nesta rodada:
+
+- Nova seção **"Gráficos / Análise"** neste documento, com a tabela completa
+  (11 itens do original × status atual) e minha avaliação item a item.
+- **Achado principal**: o **Pareto de despesas por categoria/subcategoria**
+  é uma capacidade real, hoje totalmente ausente, sem equivalente parcial —
+  registrado como novo item no backlog (seção própria, com o que precisaria
+  pra construir).
+- **Achado secundário (correção, não gap)**: "Gasto mensal no cartão de
+  crédito", listado em `plano-de-evolucao-original.md` como funcionalidade
+  do app antigo, na verdade era um dado calculado mas nunca renderizado em
+  nenhum gráfico — código morto no próprio original. Corrigido lá.
+- **Recomendação de não adotar como estava**: o seletor local "Escopo da
+  evolução" (Ano até o mês / Só o mês / Período global), por sobrepor boa
+  parte do que o seletor de período global do Dashboard novo já resolve —
+  registrado, mas não como pendência a construir.
+- Item 9 adicionado ao "Resumo de prioridades sugerido" (o Pareto).
+- Nenhuma linha de código mudou nesta rodada — só documentação.

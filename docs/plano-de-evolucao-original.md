@@ -80,7 +80,11 @@ Outros pontos de estrutura:
 - Análise de Pareto (por categoria e subcategoria)
 - Comparativo Orçado x Realizado
 - Diagnóstico de qualidade dos dados (campos ausentes/pendências por lançamento)
-- Gasto mensal no cartão de crédito
+- Gasto mensal no cartão de crédito *(nota: conferido no código-fonte do ZIP —
+  `graficos_html.py` calcula esse dado (`data_json["cartao"]`), mas nenhum
+  gráfico do `report_scripts.js` consome esse campo. Era um cálculo morto no
+  app original, nunca chegou a virar tela — corrigido aqui em 2026-09-15,
+  não é uma funcionalidade perdida no redesign)*
 
 **Busca de lançamentos**
 - Tabela filtrável por categoria, subcategoria, meio de pagamento, tipo, estrutura de custo, mês, caixinha, movimento de reserva e texto livre na descrição
