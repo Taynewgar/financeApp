@@ -443,3 +443,27 @@ de posição pedido depois de usar o botão de privacidade pela primeira vez.
 - tsc + build limpos; suíte de backend (199 testes) verde; QA visual via
   Playwright (claro/escuro/mobile, com e sem o banner do backend) antes de
   fechar.
+
+### 2026-09-14 (rodada 4) — botão de privacidade: de barrinha no topo pra ícone quadrado ao lado do seletor de mês
+
+A barrinha fixa no topo (rodada 3) ainda incomodava — posição genérica,
+desconectada do conteúdo da tela. Trocado por um botão quadrado com ícone
+de olho, pequeno, ao lado do controle de mês em cada tela — mais perto de
+onde o olhar já passa.
+
+- Novo `components/BotaoPrivacidade.tsx` — botão 38×38px reutilizável, com
+  SVG de olho (aberto) / olho riscado (fechado) inline, `aria-pressed` pra
+  indicar estado ativo. Some o `.shell-topbar` do `AppShell.tsx` (e o CSS
+  correspondente) — o toggle não é mais um elemento global da casca do
+  app, e sim posicionado por tela.
+- Colocado ao lado do seletor de mês/segmentado em **Dashboard** (dentro
+  de `.dashboard-seletor`) e **Planejamento** (ao lado do campo Mês);
+  colocado ao lado do título em **Lançamentos** (o filtro rápido de
+  mês/ano ali fica dentro da linha de filtros, menos em destaque que um
+  cabeçalho). Configurações, Novo/Editar Lançamento seguem sem o botão —
+  não mostram valores agregados relevantes.
+- Estado continua global (mesmo `PrivacyContext`/localStorage de antes) —
+  só a posição de cada botão é por tela.
+- tsc + build limpos; suíte de backend (199 testes, sem mudança) verde; QA
+  visual via Playwright (claro/escuro) confirmando o botão ao lado do
+  seletor de mês e o toggle funcionando.

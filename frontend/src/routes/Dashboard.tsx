@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { BotaoPrivacidade } from '../components/BotaoPrivacidade'
 import { DespesasPorCategoria } from '../components/DespesasPorCategoria'
 import { EvolucaoChart } from '../components/EvolucaoChart'
 import '../components/forms.css'
@@ -189,6 +190,8 @@ export function Dashboard() {
             Todos os meses
           </button>
         </div>
+
+        <BotaoPrivacidade />
 
         {modoData === 'mes' && (
           <label className="campo" style={{ maxWidth: 180 }}>
