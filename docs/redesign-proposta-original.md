@@ -467,3 +467,49 @@ feature a feature. Resumo do que mudou nesta rodada:
   registrado, mas não como pendência a construir.
 - Item 9 adicionado ao "Resumo de prioridades sugerido" (o Pareto).
 - Nenhuma linha de código mudou nesta rodada — só documentação.
+
+### 2026-09-15 (rodada 3) — avaliação de 6 mockups de referência, feature Gráficos aprovada, backlog vira arquivo próprio
+
+Usuário trouxe 6 mockups visuais de referência (conceitos, não screenshots
+do app antigo) mostrando ideias de tela pra Gráficos, Estrutura de Custo e
+Pareto, pediu avaliação honesta ("se discordar, me fale"), sugestões pra
+deixar o Dashboard mais robusto, e reorganização da documentação de
+backlog. Resultado, ponto a ponto:
+
+- **Feature "Gráficos" aprovada como tela própria** — o usuário confirmou
+  querer essa feature dedicada (revertendo minha recomendação anterior de
+  só distribuir peças pelo Dashboard/Estrutura de Custo). Escopo v1: Pareto
+  de despesas + tendência de Orçado×Realizado em vários meses. Detalhe
+  completo em `backlog.md`.
+- **Dashboard proposto para ficar 100% sintético** (números/KPIs/listas,
+  sem gráfico nenhum) — ideia do próprio usuário, que eu recomendei adotar:
+  `EvolucaoChart` e "Despesas por Categoria" migram pra Gráficos (mudam de
+  lugar, não duplicam). Aguardando confirmação final antes de virar
+  trabalho committed.
+- **3 KPIs novos aprovados pro Dashboard**: "Meses com resultado negativo",
+  "Resultado acumulado" (R$), "Maior categoria de despesa" (textual).
+- **Discordâncias registradas, não adotadas como estavam nos mockups**:
+  o seletor local "Escopo da evolução" (redundante com o seletor de
+  período que a tela nova vai reaproveitar do Dashboard); o botão "Ocultar
+  valores" embutido no toolbar de um dos mockups (já resolvido globalmente
+  no `AppShell` desde a rodada de 2026-09-15 anterior); o agrupamento por
+  "categoria pai" solta da tela de Estrutura de Custo no mockup (não bate
+  com o schema real — buckets fixo/variável/sazonal/investimentos vêm
+  primeiro).
+- **Estrutura de Custo — decisão de tabela em aberto**: publicado mockup
+  interativo (artifact) comparando tabela hierárquica com expand/collapse
+  (minha sugestão, mais fiel ao app original — drill-down direto pra Busca
+  de Lançamentos) × duas listas separadas (estilo do mockup trazido) —
+  aguardando o usuário escolher.
+- **Exportação de relatório mensal/anual** — novo item de backlog, pedido
+  explícito do usuário como próximo passo pós-MVP. Prioriza dado
+  estruturado (JSON) pensado pra ser usado numa análise depois, sobre um
+  relatório "bonito" pra imprimir. Recomendação de onde morar: começa como
+  link numa tela existente, não uma tela "Relatórios" própria — só cresce
+  pra isso se ganhar mais capacidade real.
+- **Backlog extraído pra `docs/backlog.md`** — pedido do usuário
+  ("qual arquivo é o backlog? organize") — ver commit próprio dessa
+  reorganização; esta entrada de changelog documenta as decisões de
+  conteúdo desta rodada, não a reorganização de arquivo em si.
+- Nenhuma linha de código de produto mudou nesta rodada — só documentação e
+  um artifact de mockup (fora do repositório).

@@ -19,22 +19,35 @@ merecer não ficar misturado com a tabela proposto×implementado tela a tela.
 1. ~~Delta vs mês anterior nos KPIs do Dashboard~~ **feito 2026-09-13**
 2. ~~Tela de Planejamento~~ **feito 2026-09-14** — só configuração
 3. **Tela de Estrutura de Custo — próxima entrega.** Motor já pronto no
-   backend (`GET /estrutura-custo/{vigencia_mes}`); só falta a tela.
+   backend (`GET /estrutura-custo/{vigencia_mes}`); falta a tela e a
+   decisão de design da tabela (hierárquica com expand/collapse × duas
+   listas separadas — mockup interativo publicado 2026-09-15, aguardando
+   escolha do usuário).
 4. Categorias "mais usadas" + criação inline no Novo Lançamento.
-5. Pareto de despesas por categoria/subcategoria (detalhe abaixo).
-6. Despesa fixa recorrente — aluguel, assinaturas (detalhe abaixo).
-7. Edição de compra parcelada (detalhe abaixo).
-8. Exportação de relatório mensal/anual (detalhe abaixo) — próximo passo
-   depois do MVP fechado (Estrutura de Custo + os itens acima).
-9. ~~Compromissos futuros no Dashboard~~ **feito parcialmente 2026-09-13**
-   — só parcelas futuras; "fixo recorrente" fica coberto pelo item 6.
+5. **Feature "Gráficos" nova** (tela própria na navegação) — Pareto de
+   despesas + tendência de Orçado×Realizado em vários meses (detalhes
+   abaixo). Proposta em avaliação: mover `EvolucaoChart` e "Despesas por
+   Categoria" do Dashboard pra cá também, deixando o Dashboard só com
+   informação sintética (números/KPIs/listas, sem gráfico nenhum) — ver
+   "Propostas em avaliação" abaixo, aguardando confirmação final.
+6. **Dashboard — 3 KPIs novos, aprovados 2026-09-15**: "Meses com resultado
+   negativo", "Resultado acumulado" (R$, complementa a taxa em % que já
+   existe) e "Maior categoria de despesa" (hoje só visível olhando o
+   gráfico). Todos textuais/numéricos, cabem no Dashboard mesmo se a
+   proposta do item 5 (Dashboard sem gráfico) for confirmada.
+7. Despesa fixa recorrente — aluguel, assinaturas (detalhe abaixo).
+8. Edição de compra parcelada (detalhe abaixo).
+9. Exportação de relatório mensal/anual (detalhe abaixo) — próximo passo
+   depois do MVP fechado (itens 3-6 acima).
+10. ~~Compromissos futuros no Dashboard~~ **feito parcialmente 2026-09-13**
+    — só parcelas futuras; "fixo recorrente" fica coberto pelo item 7.
 
 **Baixa prioridade confirmada pelo usuário (2026-09-15)** — ficam por
 último de propósito, sem previsão:
 
-10. Aba Bancos em Configurações — hoje resolvido como campo de texto em
+11. Aba Bancos em Configurações — hoje resolvido como campo de texto em
     Conta, sem perda funcional real.
-11. Saldo atual de contas — hoje só caixinhas têm saldo calculado
+12. Saldo atual de contas — hoje só caixinhas têm saldo calculado
     (`GET /dashboard/patrimonio/{mes}`); dar saldo a `contas` também seria
     a extensão natural, mas não é urgente.
 
@@ -159,10 +172,48 @@ implementado.
 - Filtro de categoria pai pro Pareto de subcategoria, igual ao original
   (select simples, mesmo padrão dos filtros já usados em Lançamentos).
 
-**Onde morar:** ver seção "Feature Gráficos" abaixo — proposta em avaliação
-inclui o Pareto como um dos 2 blocos da tela nova.
+**Onde morar:** dentro da nova Feature Gráficos (ver subseção abaixo).
 
 **Status:** registrado 2026-09-15, sem decisão de prioridade de execução.
+
+### Feature "Gráficos" — tela nova na navegação
+
+**Origem:** a aba Gráficos existia no app antigo (ver
+`redesign-proposta-original.md`, seção "Gráficos / Análise") mas nunca virou
+mockup nem backlog no redesign. Em 2026-09-15 o usuário trouxe mockups de
+referência e pediu explicitamente uma feature de gráficos própria — decisão
+tomada de destinar toda visualização gráfica do app pra cá, tirando gráfico
+nenhum do Dashboard (que fica só com informação sintética — números, KPIs,
+listas). Ver `redesign-proposta-original.md` pro racional completo por trás
+de cada peça avaliada.
+
+**O que entra nesta tela (v1):**
+1. **Pareto de despesas** por categoria e subcategoria, com filtro de
+   categoria pai — detalhe técnico na subseção própria acima.
+2. **Tendência de Orçado × Realizado em vários meses** (barra Orçado/
+   Realizado + linha % executado, por mês) — resumo que linka pra Estrutura
+   de Custo pro detalhe por bucket/categoria de 1 mês específico. Não
+   duplica o que Estrutura de Custo faz (que é uma leitura de 1 mês só),
+   complementa com a visão de tendência.
+3. **`EvolucaoChart`** (Receita/Despesa/Resultado, hoje no Dashboard) —
+   move pra cá, não duplica.
+4. **"Despesas por Categoria"** (barra empilhada, hoje no Dashboard) — move
+   pra cá, não duplica.
+5. Reforço no `EvolucaoChart` ao mover: adicionar taxa de poupança mensal
+   (não só acumulada) como linha extra — dado computável a partir do que
+   `/dashboard/evolucao` já retorna por mês.
+
+**O que fica de fora, por decisão já tomada antes desta rodada:** painel de
+qualidade dos dados (ligado ao fluxo de importação de CSV, não a esta tela)
+e o seletor local "Escopo da evolução" (redundante com o seletor de
+período — Mês/Intervalo/Todos os meses — que a tela reaproveita do
+Dashboard, mesmo componente, em vez de reinventar um 3º modelo de filtro).
+
+**Status:** a feature em si (Pareto + tendência) está decidida — o usuário
+pediu explicitamente. A parte de mover `EvolucaoChart`/"Despesas por
+Categoria" pra cá (Dashboard 100% textual) foi proposta pelo usuário e
+recomendada por mim nesta mesma rodada — aguardando só a confirmação final
+dele antes de entrar como trabalho committed.
 
 ### Exportação de relatório mensal/anual
 
@@ -196,14 +247,19 @@ outra ferramenta) — não é primariamente um relatório bonito pra imprimir,
   `/dashboard/despesas-por-categoria`, `/estrutura-custo/{mes}` — ou um
   endpoint agregador novo que já monta o JSON pronto pra download,
   evitando várias chamadas no frontend).
-- Onde disparar o download: em aberto — um botão em Dashboard/Estrutura de
-  Custo, ou uma tela própria "Relatórios" (ver seção "Feature Gráficos"
-  abaixo, um dos mockups analisados tinha exatamente essa aba na
-  navegação) — decisão de produto a tomar quando for priorizado.
+- Onde disparar o download: **recomendação — começa como link, não como
+  tela.** Um botão/link "Exportar relatório" dentro de Estrutura de Custo
+  (ou Dashboard) primeiro — menos código de navegação nova, e a ação é de
+  baixa frequência (mensal/anual, não diária, diferente de Lançamentos ou
+  Dashboard). Promover pra uma tela própria "Relatórios" na navegação (como
+  em 2 dos mockups analisados) só se/quando ganhar mais capacidade real que
+  justifique um destino próprio — histórico de exports gerados, formato
+  PDF/HTML além do JSON, agendamento. Evita nav cheia de item que ainda não
+  tem conteúdo suficiente pra ocupar uma tela inteira.
 
 **Status:** registrado 2026-09-15 a pedido explícito do usuário, como
-próximo passo pós-MVP. Sem decisão de onde mora na navegação nem do
-formato exato do JSON.
+próximo passo pós-MVP. Local de disparo recomendado acima; formato exato do
+JSON ainda não especificado.
 
 ---
 
@@ -211,24 +267,18 @@ formato exato do JSON.
 
 Itens sugeridos em 2026-09-15 a partir de mockups de referência trazidos
 pelo usuário (não são screenshots do app antigo — são conceitos visuais
-avaliados por mérito). **Nada aqui foi aprovado ainda** — a avaliação
-completa, com o que eu recomendo adotar/adaptar/descartar de cada peça,
-está na conversa; aqui só o resumo do que está em aberto:
+avaliados por mérito). A maior parte já foi decidida nesta mesma rodada
+(ver "Feature Gráficos" e os 3 KPIs do Dashboard acima); o que sobra
+genuinamente em aberto:
 
-- **Feature "Gráficos" dedicada** (nova tela na navegação): Pareto de
-  despesas (item já no backlog acima) + tendência de Orçado×Realizado em
-  vários meses (extensão de Estrutura de Custo, não duplicação). Em
-  aberto: se a "Visão de Saúde Financeira" (evolução com taxa de poupança)
-  merece uma segunda instância aqui ou só um reforço no Dashboard.
-- **Reforço no `EvolucaoChart` do Dashboard**: adicionar taxa de poupança
-  mensal (não só acumulada) como linha extra.
-- **3 KPIs novos no Dashboard**: "Meses com resultado negativo",
-  "Resultado acumulado" (R$, complementa a taxa em %), "Maior categoria de
-  despesa" (KPI textual, hoje só visível no gráfico).
-- **Estrutura de Custo**: adotar do mockup o resumo (Orçado/Realizado/
-  Diferença/Execução %) e badges de status (Excedido/Dentro) por
-  categoria — mas agrupando por **bucket** (fixo/variável/sazonal/
-  investimentos), não por "categoria pai" solta como no mockup, pra bater
+- **Dashboard 100% sem gráfico** — confirmação final pendente (ver status
+  na subseção "Feature Gráficos" acima).
+- **Estrutura de Custo — tabela hierárquica × duas listas separadas** —
+  mockup interativo publicado 2026-09-15 pra decisão do usuário
+  (comparação lado a lado, com dados de exemplo, expand/collapse
+  funcionando de verdade). Agrupamento por **bucket** (fixo/variável/
+  sazonal/investimentos) já decidido em qualquer um dos dois casos — não
+  por "categoria pai" solta como no mockup original trazido, que não bate
   com o schema real do app.
 
 Ver a conversa de 2026-09-15 (ou o changelog em
