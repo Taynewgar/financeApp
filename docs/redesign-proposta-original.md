@@ -588,3 +588,17 @@ divisão Dashboard×Gráficos, e fechou tudo que tinha ficado em aberto:
   `orcamento_mensal=0`.
 - 5 testes novos cobrindo os dois casos (offline, 204 passed no total).
   Nenhuma mudança de frontend — os dois bugs eram só backend.
+
+### 2026-09-15 (rodada 7) — botão "Expandir tudo" / "Recolher tudo"
+
+Sugestão minha, aprovada pelo usuário na hora: acha os buckets/categorias
+abertos individualmente lento pra auditar o mês inteiro. Estado de
+categoria aberta, que antes vivia local dentro de cada `BucketBloco`, subiu
+pra `EstruturaCusto` (chave composta `bucket|categoria` — evita qualquer
+ambiguidade entre buckets) pra um botão único conseguir expandir/recolher
+os dois níveis juntos. Botão mostra "Expandir tudo" ou "Recolher tudo"
+conforme o estado atual (calculado, não guardado à parte) e só aparece
+quando existe algum bucket com lançamento. De brinde, corrigida a seta da
+linha de categoria, que nunca rotacionava ao abrir (só a do bucket tinha
+essa regra de CSS) — mesmo bug de UI, mesmo lugar, custo zero corrigir
+junto. QA visual via Playwright (preview temporário, revertido depois).

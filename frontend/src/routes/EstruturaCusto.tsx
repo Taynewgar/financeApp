@@ -49,6 +49,10 @@ function hojeAnoMes(): string {
   return new Date().toISOString().slice(0, 7)
 }
 
+function chaveCategoria(bucket: BucketEstruturaCusto, chave: string): string {
+  return `${bucket}|${chave}`
+}
+
 /** Agrupa os itens flat do backend (1 por categoria OU subcategoria OU
  * conta) em bucket > categoria pai > subcategoria — a API não devolve essa
  * hierarquia pronta, só os totais por combinação categoria/subcategoria/conta. */
@@ -146,28 +150,23 @@ function BadgeStatus({ orcado, realizado }: { orcado: number; realizado: number 
 
 export function BucketBloco({
   bucket,
+  bucketId,
   vigenciaMes,
   oculto,
   aberto,
   onToggle,
+  categoriasAbertas,
+  onAlternarCategoria,
 }: {
   bucket: BucketDaEstrutura & { rotulo: string; cor: string; grupos: GrupoCategoria[] }
+  bucketId: BucketEstruturaCusto
   vigenciaMes: string
   oculto: boolean
   aberto: boolean
   onToggle: () => void
+  categoriasAbertas: Set<string>
+  onAlternarCategoria: (chave: string) => void
 }) {
-  const [categoriasAbertas, setCategoriasAbertas] = useState<Set<string>>(new Set())
-
-  function alternarCategoria(chave: string) {
-    setCategoriasAbertas((atual) => {
-      const proximo = new Set(atual)
-      if (proximo.has(chave)) proximo.delete(chave)
-      else proximo.add(chave)
-      return proximo
-    })
-  }
-
   const semLancamentos = bucket.grupos.length === 0
 
   return (
@@ -194,13 +193,13 @@ export function BucketBloco({
       {!semLancamentos && aberto && (
         <div className="estrutura-custo-categoria-lista">
           {bucket.grupos.map((g) => {
-            const categoriaAberta = categoriasAbertas.has(g.chave)
+            const categoriaAberta = categoriasAbertas.has(chaveCategoria(bucketId, g.chave))
             return (
               <div key={g.chave}>
                 <button
                   type="button"
                   className="estrutura-custo-categoria-linha"
-                  onClick={() => alternarCategoria(g.chave)}
+                  onClick={() => onAlternarCategoria(g.chave)}
                   aria-expanded={categoriaAberta}
                 >
                   <span className="estrutura-custo-seta" aria-hidden="true">▶</span>
@@ -251,6 +250,11 @@ export function EstruturaCusto() {
   const [contas, setContas] = useState<Conta[]>([])
   const [erro, setErro] = useState<string | null>(null)
   const [bucketsAbertos, setBucketsAbertos] = useState<Set<BucketEstruturaCusto>>(new Set())
+  // chave composta "bucket|categoria" — uma categoria pode ter o mesmo id
+  // de agrupamento em buckets diferentes só em teoria, mas isolar por
+  // bucket evita qualquer ambiguidade e deixa "expandir/recolher tudo"
+  // controlar os dois níveis a partir de um único Set aqui em cima
+  const [categoriasAbertas, setCategoriasAbertas] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     Promise.all([
@@ -274,6 +278,7 @@ export function EstruturaCusto() {
         // buckets com lançamento começam abertos — é uma tela de análise,
         // ver tudo de cara vale mais que ter que abrir um por um
         setBucketsAbertos(new Set(r.buckets.filter((b) => b.itens.length > 0).map((b) => b.bucket)))
+        setCategoriasAbertas(new Set())
       })
       .catch((e) => setErro(e instanceof ApiError ? e.message : 'Falha ao carregar a estrutura de custo'))
   }, [vigenciaMes])
@@ -311,6 +316,35 @@ export function EstruturaCusto() {
       else proximo.add(bucket)
       return proximo
     })
+  }
+
+  function alternarCategoria(bucket: BucketEstruturaCusto, chave: string) {
+    setCategoriasAbertas((atual) => {
+      const proximo = new Set(atual)
+      const chaveCompleta = chaveCategoria(bucket, chave)
+      if (proximo.has(chaveCompleta)) proximo.delete(chaveCompleta)
+      else proximo.add(chaveCompleta)
+      return proximo
+    })
+  }
+
+  const bucketsComItens = useMemo(() => bucketsComGrupo.filter((b) => b.grupos.length > 0), [bucketsComGrupo])
+
+  const tudoExpandido = useMemo(() => {
+    if (bucketsComItens.length === 0) return false
+    return bucketsComItens.every(
+      (b) => bucketsAbertos.has(b.bucket) && b.grupos.every((g) => categoriasAbertas.has(chaveCategoria(b.bucket, g.chave))),
+    )
+  }, [bucketsComItens, bucketsAbertos, categoriasAbertas])
+
+  function alternarTudo() {
+    if (tudoExpandido) {
+      setBucketsAbertos(new Set())
+      setCategoriasAbertas(new Set())
+      return
+    }
+    setBucketsAbertos(new Set(bucketsComItens.map((b) => b.bucket)))
+    setCategoriasAbertas(new Set(bucketsComItens.flatMap((b) => b.grupos.map((g) => chaveCategoria(b.bucket, g.chave)))))
   }
 
   const diferenca = resumoOrcamento ? resumoOrcamento.orcado - resumoOrcamento.realizado : 0
@@ -385,6 +419,13 @@ export function EstruturaCusto() {
 
       {dados && (
         <>
+          {bucketsComItens.length > 0 && (
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
+              <button type="button" className="botao-secundario" onClick={alternarTudo}>
+                {tudoExpandido ? 'Recolher tudo' : 'Expandir tudo'}
+              </button>
+            </div>
+          )}
           <div className="estrutura-custo-cabecalho-colunas">
             <span>Bucket / categoria / subcategoria</span>
             <span>Orçado</span>
@@ -401,6 +442,9 @@ export function EstruturaCusto() {
               oculto={oculto}
               aberto={bucketsAbertos.has(b.bucket)}
               onToggle={() => alternarBucket(b.bucket)}
+              categoriasAbertas={categoriasAbertas}
+              bucketId={b.bucket}
+              onAlternarCategoria={(chave) => alternarCategoria(b.bucket, chave)}
             />
           ))}
         </>

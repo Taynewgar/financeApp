@@ -173,6 +173,10 @@
   transform: rotate(90deg);
 }
 
+.estrutura-custo-categoria-linha[aria-expanded='true'] .estrutura-custo-seta {
+  transform: rotate(90deg);
+}
+
 .estrutura-custo-categoria-lista {
   border-top: 1px solid var(--cor-borda);
 }
