@@ -26,10 +26,12 @@ merecer não ficar misturado com a tabela proposto×implementado tela a tela.
 4. Categorias "mais usadas" + criação inline no Novo Lançamento.
 5. **Feature "Gráficos" nova** (tela própria na navegação) — Pareto de
    despesas + tendência de Orçado×Realizado em vários meses (detalhes
-   abaixo). Proposta em avaliação: mover `EvolucaoChart` e "Despesas por
-   Categoria" do Dashboard pra cá também, deixando o Dashboard só com
-   informação sintética (números/KPIs/listas, sem gráfico nenhum) — ver
-   "Propostas em avaliação" abaixo, aguardando confirmação final.
+   abaixo). **Decidido 2026-09-15**: `EvolucaoChart` e "Despesas por
+   Categoria" migram do Dashboard pra cá (não duplicam); Dashboard fica
+   só com informação sintética (números/KPIs/listas) **mais um sparkline**
+   compacto (sem eixos/legendas) ao lado do resultado principal, pra não
+   perder a leitura rápida de tendência — mitigação aprovada pelo usuário
+   depois de avaliar ganhos/perdas dessa divisão.
 6. **Dashboard — 3 KPIs novos, aprovados 2026-09-15**: "Meses com resultado
    negativo", "Resultado acumulado" (R$, complementa a taxa em % que já
    existe) e "Maior categoria de despesa" (hoje só visível olhando o
@@ -203,17 +205,23 @@ de cada peça avaliada.
    (não só acumulada) como linha extra — dado computável a partir do que
    `/dashboard/evolucao` já retorna por mês.
 
+**Dashboard ganha, em troca (aprovado 2026-09-15):** um **sparkline**
+compacto (sem eixos, sem legendas, sem tooltip — só a forma dos últimos 6
+meses) ao lado do resultado principal, pra manter a leitura rápida de
+tendência mesmo com os gráficos completos morando só em Gráficos. Mitigação
+proposta por mim depois de avaliar ganhos/perdas da divisão, aprovada pelo
+usuário.
+
 **O que fica de fora, por decisão já tomada antes desta rodada:** painel de
 qualidade dos dados (ligado ao fluxo de importação de CSV, não a esta tela)
 e o seletor local "Escopo da evolução" (redundante com o seletor de
 período — Mês/Intervalo/Todos os meses — que a tela reaproveita do
 Dashboard, mesmo componente, em vez de reinventar um 3º modelo de filtro).
 
-**Status:** a feature em si (Pareto + tendência) está decidida — o usuário
-pediu explicitamente. A parte de mover `EvolucaoChart`/"Despesas por
-Categoria" pra cá (Dashboard 100% textual) foi proposta pelo usuário e
-recomendada por mim nesta mesma rodada — aguardando só a confirmação final
-dele antes de entrar como trabalho committed.
+**Status:** decidido por completo 2026-09-15 — feature Gráficos (Pareto +
+tendência), migração dos 2 gráficos do Dashboard, e o sparkline de
+mitigação. Sem trabalho iniciado ainda (Estrutura de Custo é a prioridade
+imediata).
 
 ### Exportação de relatório mensal/anual
 
@@ -260,21 +268,7 @@ exato do JSON quando for priorizado.
 
 ---
 
-## Propostas em avaliação — aguardando aprovação
-
-Itens sugeridos em 2026-09-15 a partir de mockups de referência trazidos
-pelo usuário. Praticamente tudo já foi decidido ao longo desta rodada (ver
-"Feature Gráficos", os 3 KPIs do Dashboard, Estrutura de Custo e
-Exportação acima). O que sobra genuinamente em aberto:
-
-- **Dashboard 100% sem gráfico** — o usuário pediu avaliação de ganhos e
-  perdas antes de confirmar (respondida na conversa: ganho principal é
-  foco/velocidade de leitura + Dashboard mais leve; perda real é o "vibe
-  check" visual imediato da tendência, que um número sozinho não dá —
-  sugestão de mitigação, sparkline compacto ao lado do resultado principal,
-  colocada como opção, não decisão). Aguardando confirmação final do
-  usuário depois de ler essa resposta.
-
-Ver a conversa de 2026-09-15 (ou o changelog em
-`redesign-proposta-original.md`) para o raciocínio completo por trás de
-cada recomendação.
+Todas as propostas trazidas em 2026-09-15 (6 mockups de referência) foram
+decididas nesta mesma rodada — nenhuma pendência de aprovação restante. Ver
+o changelog em `redesign-proposta-original.md` pro raciocínio completo por
+trás de cada recomendação.

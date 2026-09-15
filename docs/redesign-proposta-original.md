@@ -513,3 +513,23 @@ backlog. Resultado, ponto a ponto:
   conteúdo desta rodada, não a reorganização de arquivo em si.
 - Nenhuma linha de código de produto mudou nesta rodada — só documentação e
   um artifact de mockup (fora do repositório).
+
+### 2026-09-15 (rodada 4) — fecha as 2 decisões pendentes da rodada anterior
+
+Usuário testou o mockup interativo, pediu avaliação de ganhos/perdas da
+divisão Dashboard×Gráficos, e fechou tudo que tinha ficado em aberto:
+
+- **Estrutura de Custo: tabela hierárquica escolhida** — depois de testar
+  o mockup interativo (expand/collapse de verdade), decidiu pela hierarquia
+  bucket > categoria > subcategoria em vez das duas listas separadas.
+- **Dashboard 100% sintético, confirmado, com 1 adição** — perguntei
+  explicitamente sobre ganhos/perdas antes do usuário confirmar: ganho é
+  foco e velocidade de leitura + tela mais leve; perda real é a leitura
+  imediata da *forma* da tendência, que um número sozinho não dá. Sugeri
+  mitigar com um **sparkline** compacto (sem eixos/legendas/tooltip) ao
+  lado do resultado principal — aprovado. Passa a fazer parte do escopo da
+  migração de gráficos pro Dashboard/Gráficos.
+- **Export de relatório: botão confirmado**, sem tela "Relatórios" própria.
+- Com isso, nenhuma proposta da rodada anterior ficou pendente — próxima
+  entrega de código é Estrutura de Custo (tabela hierárquica).
+- Nenhuma linha de código mudou nesta rodada — só documentação.
