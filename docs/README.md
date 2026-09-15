@@ -1,37 +1,35 @@
 # Documentação de planejamento — índice
 
-Ponto de entrada único para entender **o que foi decidido, por que, e o que
-disso já existe de verdade no código**. Escrito para ser confiável em
-qualquer conversa nova (aqui ou em outra sessão) sem precisar reconstruir
-contexto perdido — cada afirmação de status abaixo foi conferida contra o
-código real, não contra memória de conversa.
+Ponto de entrada único para entender **o que foi decidido, por que, o que
+disso já existe de verdade no código, e o que vem a seguir**. Escrito para
+ser confiável em qualquer conversa nova (aqui ou em outra sessão) sem
+precisar reconstruir contexto perdido — cada afirmação de status abaixo foi
+conferida contra o código real, não contra memória de conversa.
 
-## Ordem de leitura recomendada
+**Os 4 arquivos deste diretório, o que cada um É:**
 
-1. **`plano-de-evolucao-original.md`** — o ponto de partida. Auditoria do
-   ZIP do app antigo (arquitetura, segurança, funcionalidades) + o plano de
-   migração original (schema, fases, stack). Escrito *antes* de qualquer
-   mockup ou linha de código da versão web.
-2. **`redesign-proposta-original.md`** — os 4 mockups visuais que vieram
-   logo depois (imagens em `docs/mockups/`), com uma tabela **tela por
-   tela** comparando o que o mockup propôs × o que existe hoje no código,
-   mais o **changelog cronológico** de cada rodada de mudança entregue.
-   É o documento mais vivo dos três — atualizado a cada entrega.
-3. **`sugestoes-e-decisoes-do-redesign.md`** — a rodada de perguntas e
-   respostas que aconteceu logo depois dos mockups, onde várias decisões
-   do plano original foram corrigidas ou refinadas (16 pontos, cada um com
-   pergunta original, resposta, e status atual).
+| Arquivo | O que é | Quando muda |
+|---|---|---|
+| `backlog.md` | **A lista de trabalho.** O que vem a seguir, em ordem de prioridade, e os itens registrados pra decidir depois (com detalhe técnico de cada um). | Toda vez que uma prioridade muda, um item novo é registrado, ou um item do backlog é entregue (some daqui, vira changelog no arquivo abaixo). |
+| `redesign-proposta-original.md` | **O histórico de decisão tela a tela.** Mockup × o que existe hoje, tela por tela, mais o changelog cronológico de cada rodada de entrega. | A cada entrega (changelog novo) ou quando uma tabela "proposto × status" precisa ser corrigida. |
+| `sugestoes-e-decisoes-do-redesign.md` | **O porquê das decisões de design.** 16 pontos de pergunta-resposta que refinaram o plano original logo depois dos mockups. | Raramente — só quando uma decisão registrada aqui é revisitada/corrigida. |
+| `plano-de-evolucao-original.md` | **O ponto de partida.** Auditoria do ZIP do app antigo + plano de migração original, escrito antes de qualquer mockup. | Quase nunca — é o documento mais "congelado", histórico puro. |
+
+Se você só tem uma pergunta — "o que fazer a seguir?" — a resposta está em
+`backlog.md`. Os outros 3 existem pra explicar *por que* o backlog e o
+código estão do jeito que estão.
 
 ## Onde encontrar o quê
 
 | Pergunta | Documento |
 |---|---|
+| "O que fazer a seguir? Qual a prioridade?" | `backlog.md`, "Ordem de prioridade atual" |
 | "Por que a arquitetura é FastAPI + Supabase?" | `plano-de-evolucao-original.md`, seção 1 |
 | "O que o app antigo já fazia, que não pode se perder (paridade)?" | `plano-de-evolucao-original.md`, "Funcionalidades já implementadas" |
 | "Como era o mockup dessa tela? O que já foi implementado dela?" | `redesign-proposta-original.md` (uma seção por tela) + `docs/mockups/*.png` |
 | "Essa decisão de design mudou depois do mockup? Por quê?" | `sugestoes-e-decisoes-do-redesign.md` (16 pontos numerados) |
 | "O que foi entregue em cada rodada, em ordem cronológica?" | `redesign-proposta-original.md`, seção "Changelog deste documento" |
-| "O que está registrado pra decidir depois, mas ainda não foi?" | `redesign-proposta-original.md`, seção "Backlog registrado" |
+| "O que está registrado pra decidir depois, mas ainda não foi?" | `backlog.md`, "Detalhamento dos itens maiores" |
 | "A aba 'Gráficos' do app antigo tinha o quê, e o que disso ainda falta?" | `redesign-proposta-original.md`, seção "Gráficos / Análise" |
 | "O que existe no código *agora*, tecnicamente?" | `README.md` (raiz do repo) — não duplica decisão/histórico, só descreve o que está implementado |
 | "Qual o andamento geral / relatório de status?" | skill `/status-projeto` |
@@ -89,6 +87,16 @@ em `sugestoes-e-decisoes-do-redesign.md`, atualiza-se o `> **Status:**` daquele
 ponto em vez de duplicar a pergunta. Este índice (`docs/README.md`) só
 precisa mudar quando uma tela muda de status geral (placeholder → entregue)
 ou quando um novo documento de planejamento é criado.
+
+**Regra do backlog** (`backlog.md`, desde 2026-09-15): item novo discutido e
+registrado "pra decidir depois" entra na "Ordem de prioridade atual" (linha
+numerada) e, se tiver detalhe técnico real (motivo, opções, recomendação),
+ganha uma subseção em "Detalhamento dos itens maiores". Quando um item é
+entregue, sai do backlog (fica só como linha riscada `~~...~~` **feito
+DATA** na ordem de prioridade, ou remove-se de vez se a lista ficar longa
+demais) e a entrega em si vira uma entrada de changelog em
+`redesign-proposta-original.md` — o backlog nunca guarda histórico do que
+já foi feito, só o que falta.
 
 ## Revisão de consistência — 2026-09-15
 
