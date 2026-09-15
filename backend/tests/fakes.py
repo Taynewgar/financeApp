@@ -79,6 +79,11 @@ class FakeQuery:
         self._filters.append(("ilike", key, pattern.strip("%").lower()))
         return self
 
+    def is_(self, key: str, value: Any) -> "FakeQuery":
+        # só cobre o uso real do código: checagem de IS NULL
+        self._filters.append(("is", key, value))
+        return self
+
     def order(self, key: str, desc: bool = False) -> "FakeQuery":
         self._order_key = key
         self._order_desc = desc
@@ -98,6 +103,8 @@ class FakeQuery:
             if op == "lte" and not (atual is not None and atual <= value):
                 return False
             if op == "ilike" and value not in (atual or "").lower():
+                return False
+            if op == "is" and atual is not None:
                 return False
         return True
 

@@ -147,7 +147,7 @@ depois de testar um mockup interativo comparando as duas opções.
 
 | Entregue | Status | Observação |
 |---|---|---|
-| Leitura orçado × realizado por bucket do mês | ✅ | `GET /estrutura-custo/{mes}` (backend não mudou); 6 buckets — os 4 do orçamento mais `reservas` e `sem_estrutura`, que só existem aqui (nunca recebem item de orçamento) |
+| Leitura orçado × realizado por bucket do mês | ✅ | `GET /estrutura-custo/{mes}`; 6 buckets — os 4 do orçamento mais `reservas` e `sem_estrutura`, que só existem aqui (nunca recebem item de orçamento) |
 | Hierarquia bucket > categoria pai > subcategoria, expand/collapse | ✅ | Agrupamento client-side (`agruparPorCategoria`) — o backend devolve itens "achatados" por categoria/subcategoria/conta |
 | Fita de KPIs (Orçado/Realizado/Diferença/Execução %) | ✅ | Soma só os 4 buckets que aceitam orçamento (reservas/sem_estrutura ficam de fora, já que orçado é sempre 0 neles) |
 | Vereditos de pool de despesas (teto) e piso de investimentos | ✅ | `pool_despesas` (fixos+variáveis+sazonalidades tratados como 1 teto agregado) e `piso_investimentos` (mínimo, não teto) |
@@ -565,3 +565,26 @@ divisão Dashboard×Gráficos, e fechou tudo que tinha ficado em aberto:
   largura em 390px nos cabeçalhos de bucket/categoria).
 - Removida `frontend/src/routes/Placeholder.tsx` (última tela que a usava
   virou tela própria).
+
+### 2026-09-15 (rodada 6) — 2 correções de backend reportadas pelo usuário testando a tela
+
+- **Subcategoria nunca aparecia como item próprio em Estrutura de Custo** —
+  `_chave()` (`backend/app/routers/estrutura_custo.py`) checava
+  `categoria_id` antes de `subcategoria_id`. Num lançamento real os dois
+  vêm preenchidos juntos (escolher subcategoria grava a categoria pai
+  também, `NovoLancamento.tsx`), então todo item com subcategoria caía
+  agrupado só na categoria como "Geral (sem subcategoria)" — o frontend já
+  sabia desenhar a subcategoria como folha própria, só nunca recebia o
+  dado. Ordem invertida pra subcategoria > categoria > conta. Mesmo bug
+  existia em `orcamentos._calcular_realizado` (usado no rollover de
+  "próximo mês") — corrigido junto, senão um item de subcategoria somava
+  o realizado de todas as subcategorias-irmãs da mesma categoria pai.
+- **Planejamento não nascia com as categorias já lançadas no mês** —
+  `sincronizar_item_orcamento` só reage a transação nova (criada/editada
+  depois de o orçamento existir); lançar antes de planejar — fluxo normal
+  — nunca alimentava a tela retroativamente. `POST /orcamentos` e
+  `POST /orcamentos/{id}/proximo-mes` agora rodam a mesma sincronização
+  contra as transações que já existem no mês, criando os itens com
+  `orcamento_mensal=0`.
+- 5 testes novos cobrindo os dois casos (offline, 204 passed no total).
+  Nenhuma mudança de frontend — os dois bugs eram só backend.

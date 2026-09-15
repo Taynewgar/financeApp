@@ -47,12 +47,16 @@ def _bucket_da_transacao(t: dict) -> str:
 
 def _chave(registro: dict, campo_conta: str) -> tuple[str, str | None]:
     """Identifica a que item um lançamento ou item de orçamento pertence,
-    na ordem categoria > subcategoria > conta vinculada (mesma prioridade
-    usada em orcamentos._calcular_realizado)."""
-    if registro.get("categoria_id"):
-        return ("categoria", registro["categoria_id"])
+    na ordem subcategoria > categoria > conta vinculada. Subcategoria vem
+    primeiro porque, num lançamento, categoria_id e subcategoria_id não são
+    mutuamente exclusivos — escolher uma subcategoria sempre grava a
+    categoria pai junto (NovoLancamento.tsx), então checar categoria
+    primeiro faria todo lançamento com subcategoria cair na categoria pai e
+    a subcategoria nunca aparecer como item próprio."""
     if registro.get("subcategoria_id"):
         return ("subcategoria", registro["subcategoria_id"])
+    if registro.get("categoria_id"):
+        return ("categoria", registro["categoria_id"])
     if registro.get(campo_conta):
         return ("conta", registro[campo_conta])
     return ("sem_vinculo", None)

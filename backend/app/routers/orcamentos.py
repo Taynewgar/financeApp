@@ -14,6 +14,7 @@ from ..schemas.orcamentos import (
 )
 from ..services import crud
 from ..services.fatura import somar_meses
+from ..services.orcamento_sync import sincronizar_item_orcamento
 from ..services.orcamento_teto import calcular_teto_bucket
 
 router = APIRouter(prefix="/orcamentos", tags=["orcamentos"])
@@ -75,6 +76,28 @@ def _validar_teto_bucket(db: Client, orcamento: dict, bucket: str, item_id_exclu
                 f"R$ {teto:.2f} para este bucket neste orçamento (já considerando a sobra acumulada)."
             ),
         )
+
+
+def _popular_itens_de_transacoes_existentes(db: Client, user_id: str, orcamento: dict) -> None:
+    """Ao criar (ou gerar via "próximo mês") um orçamento pro mês que já
+    tem lançamentos — comum lançar antes de planejar —, cria os itens com
+    orcamento_mensal=0 pra cada categoria/subcategoria já lançada nesse
+    mês. Mesma regra de paridade que sincronizar_item_orcamento já aplica
+    de forma reativa daqui pra frente (nova transação chegando); isto aqui
+    cobre o retroativo (transação que já existia antes do orçamento)."""
+    mes_inicio = date.fromisoformat(orcamento["vigencia_mes"])
+    mes_fim = somar_meses(mes_inicio, 1)
+    transacoes = (
+        db.table("transacoes")
+        .select("tipo_movimento,caixinha_id,estrutura_custo,categoria_id,subcategoria_id,data_compra")
+        .eq("user_id", user_id)
+        .gte("data_compra", mes_inicio.isoformat())
+        .lt("data_compra", mes_fim.isoformat())
+        .execute()
+        .data
+    )
+    for transacao in transacoes:
+        sincronizar_item_orcamento(db, user_id, transacao)
 
 
 def _get_orcamento_ou_404(db: Client, user_id: str, orcamento_id: str) -> dict:
@@ -140,7 +163,9 @@ def criar(payload: OrcamentoCreate, db: Client = Depends(get_db), user_id: str =
     # vigência é sempre o primeiro dia do mês, mesmo se vier outro dia
     row["vigencia_mes"] = date(payload.vigencia_mes.year, payload.vigencia_mes.month, 1).isoformat()
     row["user_id"] = user_id
-    return _insert_orcamento(db, row)
+    orcamento = _insert_orcamento(db, row)
+    _popular_itens_de_transacoes_existentes(db, user_id, orcamento)
+    return orcamento
 
 
 @router.patch("/{orcamento_id}", response_model=Orcamento)
@@ -228,22 +253,44 @@ def alternar_item_ativo(
 
 def _calcular_realizado(db: Client, user_id: str, item: dict, mes_inicio: date, mes_fim: date) -> float:
     """Soma as transações do período que contam para este item — por
-    categoria/subcategoria para os buckets de custo, ou pela conta vinculada
+    subcategoria/categoria para os buckets de custo, ou pela conta vinculada
     para itens de investimento. Sem nenhum dos três vínculos, não há como
-    calcular realizado (o item é só uma linha de planejamento livre)."""
-    query = (
-        db.table("transacoes")
-        .select("valor,tipo_movimento")
-        .eq("user_id", user_id)
-        .gte("data_compra", mes_inicio.isoformat())
-        .lt("data_compra", mes_fim.isoformat())
-    )
-    if item.get("categoria_id"):
-        query = query.eq("categoria_id", item["categoria_id"])
-    elif item.get("subcategoria_id"):
-        query = query.eq("subcategoria_id", item["subcategoria_id"])
+    calcular realizado (o item é só uma linha de planejamento livre).
+
+    Checa subcategoria antes de categoria: um item criado a partir da tela
+    de Planejamento pode ter os dois campos preenchidos ao mesmo tempo
+    (formulário sempre manda a categoria pai junto quando escolhe
+    subcategoria), e filtrar por categoria primeiro puxaria transações de
+    outras subcategorias da mesma categoria pai — mesma lógica de
+    estrutura_custo._chave."""
+    if item.get("subcategoria_id"):
+        query = (
+            db.table("transacoes")
+            .select("valor,tipo_movimento")
+            .eq("user_id", user_id)
+            .gte("data_compra", mes_inicio.isoformat())
+            .lt("data_compra", mes_fim.isoformat())
+            .eq("subcategoria_id", item["subcategoria_id"])
+        )
+    elif item.get("categoria_id"):
+        query = (
+            db.table("transacoes")
+            .select("valor,tipo_movimento")
+            .eq("user_id", user_id)
+            .gte("data_compra", mes_inicio.isoformat())
+            .lt("data_compra", mes_fim.isoformat())
+            .eq("categoria_id", item["categoria_id"])
+            .is_("subcategoria_id", "null")
+        )
     elif item.get("conta_vinculada_id"):
-        query = query.eq("conta_id", item["conta_vinculada_id"])
+        query = (
+            db.table("transacoes")
+            .select("valor,tipo_movimento")
+            .eq("user_id", user_id)
+            .gte("data_compra", mes_inicio.isoformat())
+            .lt("data_compra", mes_fim.isoformat())
+            .eq("conta_id", item["conta_vinculada_id"])
+        )
     else:
         return 0.0
 
@@ -328,4 +375,5 @@ def gerar_proximo_mes(
             }
         ).execute()
 
+    _popular_itens_de_transacoes_existentes(db, user_id, novo_orcamento)
     return novo_orcamento

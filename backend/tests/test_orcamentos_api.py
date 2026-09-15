@@ -29,6 +29,59 @@ def test_criar_orcamento_normaliza_vigencia_para_primeiro_dia_do_mes(client):
     assert orcamento["vigencia_mes"] == "2026-09-01"
 
 
+def test_criar_orcamento_alimenta_itens_das_categorias_ja_lancadas_no_mes(client):
+    """Lançar antes de planejar é o fluxo comum — ao criar o orçamento, as
+    categorias/subcategorias já usadas em transações daquele mês viram
+    item com orcamento_mensal=0 (você só ajusta o valor), mesma paridade
+    retroativa que a sincronização reativa já dá pra transação nova."""
+    conta = client.post("/contas", json={"nome": "Conta", "tipo_conta": "corrente"}).json()
+    categoria = client.post("/categorias", json={"nome": "Moradia"}).json()
+    subcategoria = client.post(
+        "/subcategorias", json={"categoria_id": categoria["id"], "nome": "Aluguel"}
+    ).json()
+    client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-09-05",
+            "valor": 1500,
+            "tipo_movimento": "despesa",
+            "conta_id": conta["id"],
+            "categoria_id": categoria["id"],
+            "subcategoria_id": subcategoria["id"],
+            "estrutura_custo": "fixo",
+            "meio_pagamento": "pix",
+        },
+    )
+
+    orcamento = _criar_orcamento(client)
+    itens = client.get(f"/orcamentos/{orcamento['id']}/itens").json()
+    assert len(itens) == 1
+    assert itens[0]["subcategoria_id"] == subcategoria["id"]
+    assert itens[0]["bucket"] == "custos_fixos"
+    assert itens[0]["orcamento_mensal"] == 0
+
+
+def test_criar_orcamento_nao_duplica_item_de_transacao_de_outro_mes(client):
+    conta = client.post("/contas", json={"nome": "Conta", "tipo_conta": "corrente"}).json()
+    categoria = client.post("/categorias", json={"nome": "Moradia"}).json()
+    client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-08-05",
+            "valor": 1500,
+            "tipo_movimento": "despesa",
+            "conta_id": conta["id"],
+            "categoria_id": categoria["id"],
+            "estrutura_custo": "fixo",
+            "meio_pagamento": "pix",
+        },
+    )
+
+    orcamento = _criar_orcamento(client)  # setembro — a transação é de agosto
+    itens = client.get(f"/orcamentos/{orcamento['id']}/itens").json()
+    assert itens == []
+
+
 def test_criar_orcamento_sem_campo_obrigatorio_retorna_422(client):
     resposta = client.post("/orcamentos", json={})
     assert resposta.status_code == 422
@@ -286,6 +339,57 @@ def test_proximo_mes_carrega_deficit_quando_gasta_mais_que_planejado(client):
     assert novo_item["disponivel"] == 300
 
 
+def test_proximo_mes_de_item_de_subcategoria_nao_soma_gasto_de_outra_subcategoria_da_mesma_categoria(client):
+    """Sobra/déficit de um item de subcategoria tem que olhar só a
+    subcategoria dele — não a categoria pai inteira. Cobre a mesma
+    prioridade de _chave usada em Estrutura de Custo: categoria_id e
+    subcategoria_id vêm preenchidos juntos num lançamento real."""
+    conta = client.post("/contas", json={"nome": "Conta", "tipo_conta": "corrente"}).json()
+    categoria = client.post("/categorias", json={"nome": "Lazer"}).json()
+    viagens = client.post("/subcategorias", json={"categoria_id": categoria["id"], "nome": "Viagens"}).json()
+    cinema = client.post("/subcategorias", json={"categoria_id": categoria["id"], "nome": "Cinema"}).json()
+    orcamento = _criar_orcamento(client, vigencia_mes="2026-09-01")
+    client.post(
+        f"/orcamentos/{orcamento['id']}/itens",
+        json={"bucket": "custos_variaveis", "subcategoria_id": viagens["id"], "orcamento_mensal": 400},
+    )
+    client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-09-10",
+            "valor": 300,
+            "tipo_movimento": "despesa",
+            "conta_id": conta["id"],
+            "categoria_id": categoria["id"],
+            "subcategoria_id": viagens["id"],
+            "estrutura_custo": "variavel",
+            "meio_pagamento": "pix",
+        },
+    )
+    client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-09-12",
+            "valor": 1000,
+            "tipo_movimento": "despesa",
+            "conta_id": conta["id"],
+            "categoria_id": categoria["id"],
+            "subcategoria_id": cinema["id"],
+            "estrutura_custo": "variavel",
+            "meio_pagamento": "pix",
+        },
+    )
+
+    proximo = client.post(f"/orcamentos/{orcamento['id']}/proximo-mes").json()
+    itens = client.get(f"/orcamentos/{proximo['id']}/itens").json()
+    item_viagens = next(i for i in itens if i["subcategoria_id"] == viagens["id"])
+    # sobrou 100 (400 - 300) considerando só Viagens; se Cinema entrasse na
+    # conta (bug antigo: filtrava por categoria_id, ignorando subcategoria),
+    # o item de Viagens fecharia com déficit de -900 (400 - 1300)
+    assert item_viagens["saldo_anterior"] == 100
+    assert item_viagens["disponivel"] == 500
+
+
 def test_proximo_mes_item_sem_vinculo_rola_o_valor_cheio(client):
     orcamento = _criar_orcamento(client, vigencia_mes="2026-09-01")
     client.post(
@@ -297,6 +401,33 @@ def test_proximo_mes_item_sem_vinculo_rola_o_valor_cheio(client):
     novo_item = client.get(f"/orcamentos/{proximo['id']}/itens").json()[0]
     assert novo_item["saldo_anterior"] == 200
     assert novo_item["disponivel"] == 400
+
+
+def test_proximo_mes_alimenta_itens_de_transacoes_ja_lancadas_no_mes_seguinte(client):
+    """Lançamento feito no mês seguinte antes de gerar o orçamento dele
+    (ex: assinatura já cobrada em outubro enquanto setembro ainda está
+    aberto) também vira item com valor 0, mesma regra da criação direta."""
+    conta = client.post("/contas", json={"nome": "Conta", "tipo_conta": "corrente"}).json()
+    categoria = client.post("/categorias", json={"nome": "Streaming"}).json()
+    orcamento = _criar_orcamento(client, vigencia_mes="2026-09-01")
+    client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-10-03",
+            "valor": 40,
+            "tipo_movimento": "despesa",
+            "conta_id": conta["id"],
+            "categoria_id": categoria["id"],
+            "estrutura_custo": "fixo",
+            "meio_pagamento": "pix",
+        },
+    )
+
+    proximo = client.post(f"/orcamentos/{orcamento['id']}/proximo-mes").json()
+    itens = client.get(f"/orcamentos/{proximo['id']}/itens").json()
+    assert len(itens) == 1
+    assert itens[0]["categoria_id"] == categoria["id"]
+    assert itens[0]["orcamento_mensal"] == 0
 
 
 def test_proximo_mes_ignora_item_desativado(client):

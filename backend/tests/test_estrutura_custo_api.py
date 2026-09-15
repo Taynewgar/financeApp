@@ -202,6 +202,38 @@ def test_categorias_diferentes_nao_se_misturam_no_mesmo_bucket(client):
     assert valores_por_categoria == {aluguel["id"]: 1200, internet["id"]: 100}
 
 
+def test_subcategoria_aparece_como_item_proprio_nao_agregado_na_categoria(client):
+    """Lançamento com subcategoria sempre grava a categoria pai junto
+    (NovoLancamento.tsx) — a chave do item tem que priorizar a
+    subcategoria, senão ela nunca aparece separada do "Geral"."""
+    conta = client.post("/contas", json={"nome": "Conta", "tipo_conta": "corrente"}).json()
+    categoria = client.post("/categorias", json={"nome": "Moradia"}).json()
+    subcategoria = client.post(
+        "/subcategorias", json={"categoria_id": categoria["id"], "nome": "Aluguel"}
+    ).json()
+    client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-09-05",
+            "valor": 1500,
+            "tipo_movimento": "despesa",
+            "conta_id": conta["id"],
+            "categoria_id": categoria["id"],
+            "subcategoria_id": subcategoria["id"],
+            "estrutura_custo": "fixo",
+            "meio_pagamento": "pix",
+        },
+    )
+
+    resposta = client.get("/estrutura-custo/2026-09-01")
+    fixos = _bucket(resposta, "custos_fixos")
+    assert len(fixos["itens"]) == 1
+    item = fixos["itens"][0]
+    assert item["subcategoria_id"] == subcategoria["id"]
+    assert item["categoria_id"] is None
+    assert item["realizado"] == 1500
+
+
 def test_transacao_fora_do_mes_nao_entra_no_calculo(client):
     conta = client.post("/contas", json={"nome": "Conta", "tipo_conta": "corrente"}).json()
     categoria = client.post("/categorias", json={"nome": "Categoria Teste"}).json()
