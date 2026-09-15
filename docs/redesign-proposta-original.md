@@ -715,3 +715,77 @@ Verificado por leitura de código (mesmo padrão de `rotuloItem`, já
 correto) e `tsc`/`build` limpos — não deu pra fazer screenshot desta vez
 porque a tela exige sessão Supabase autenticada (não dá pra simular sem
 tocar a autenticação de verdade); peço confirmação visual do usuário.
+
+### 2026-09-15 (rodada 11) — Planejamento: cards por linha, itens em colunas, navegação de mês
+
+Usuário reportou (com prints) o card de item quebrando linha feio logo
+depois do sinal de negativo em "sobra do envelope"/"disponível" — texto
+único com `·` como separador, sem largura própria pra cada valor.
+Sugeriu o fix: cada bucket vira uma linha própria (mais espaço
+horizontal) e os itens usam colunas fixas, mesma ideia da tabela de
+Estrutura de Custo, incluindo drill-down pra Busca de Lançamentos.
+Também pediu botões de mês anterior/seguinte — meu palpite foi recalcular
+ao carregar em vez de cascatear (registrado na rodada seguinte).
+
+- `.planejamento-buckets` vira `flex-direction: column` (era grid de até
+  4 colunas) — um bucket por linha.
+- Item vira uma grade `Item / Orçado / Sobra do envelope / Disponível /
+  Ações`, colunas com classe própria (`col-orcado`/`col-sobra`/
+  `col-disponivel` — não `nth-child`, porque Nome e os valores são todos
+  `<span>` e "enésimo span" não bate com a coluna certa). Mobile esconde
+  "Sobra do envelope" (Disponível já reflete o efeito combinado) e
+  quebra Ações pra uma segunda linha.
+- Seta "→" de drill-down igual Estrutura de Custo, reaproveitando o
+  padrão de `linkBusca` (categoria_id/subcategoria_id/mês na URL de
+  `/lancamentos`).
+- Botões ← / → flanqueando o seletor de mês (`mesesAntes(vigenciaMes,
+  ±1)`, helper que já existia no arquivo).
+
+tsc + build limpos; QA visual via Playwright (preview temporário,
+desktop 900px e mobile 390px — confirmou nome sem quebra de linha,
+colunas alinhadas, Ações quebrando limpo no mobile).
+
+### 2026-09-15 (rodada 12) — saldo_anterior deixa de ser congelado, recalcula ao vivo
+
+Depois da rodada 9 (fix da fórmula) e do usuário confirmar via print que
+regenerar o orçamento resolvia (era dado congelado da rodada anterior a
+alguma correção, não bug vivo), veio a pergunta certa: por que só
+recalcula gerando de novo — e isso não deveria apagar ajustes manuais do
+mês já gerado? Percorri o cenário concreto do usuário (agosto sem
+julho anterior, 1000 orçado, 1500 gasto → setembro nasce com -500) pra
+alinhar a semântica antes de implementar, e ele confirmou.
+
+**Decisão**: recalcular na leitura (não cascatear no mês anterior ao
+mudar). Cascatear exige capturar certo todo ponto de mutação do mês
+anterior (criar/editar/excluir transação, editar `orcamento_mensal`) e
+empurrar pra frente por quantos meses futuros existirem — fácil deixar
+um caminho sem cobertura. Recalcular na leitura é auto-corretivo por
+construção e é extensão natural do que o código já fazia: `disponivel`/
+percentuais já eram recalculados a cada `GET` (`_enriquecer_item`), só
+`saldo_anterior` continuava sendo uma coluna crua.
+
+- Novo `backend/app/services/orcamento_saldo.py` — `calcular_realizado_item`
+  (movido de `orcamentos.py`, sem mudança de lógica) e
+  `saldo_anterior_ao_vivo` (novo, recursivo): sobe pro item equivalente
+  (mesmo bucket/categoria/subcategoria/conta vinculada) do mês anterior e
+  recalcula o disponível dele também, até achar o primeiro mês da cadeia
+  ou um item "nome livre" (sem vínculo — aí não tem como achar o
+  equivalente, mantém a coluna gravada; é o único caso onde o valor
+  gravado em `gerar_proximo_mes` continua sendo a fonte da verdade,
+  porque não há transação pra recalcular contra).
+- `orcamentos.py`: `_enriquecer_item` e `_validar_teto_bucket` (teto
+  efetivo do pool = teto puro + soma do saldo_anterior ao vivo de cada
+  item ativo do bucket) passam a usar a função nova; `gerar_proximo_mes`
+  continua gravando `saldo_anterior` no INSERT (necessário pro caso "nome
+  livre"), mas pra item com vínculo esse valor gravado agora é ignorado
+  na leitura.
+- `estrutura_custo.py`: `saldo_anterior_acumulado` por bucket (e os
+  tetos de pool/piso, que dependem dele) usa a mesma função — antes lia
+  a coluna crua igual orçamentos.py lia.
+- 2 testes novos: um reproduz o bug relatado (lança em agosto, gera
+  setembro, lança MAIS uma despesa em agosto sem regenerar nada, confere
+  que a leitura seguinte de setembro já reflete o total novo — e o mesmo
+  pro `saldo_anterior_acumulado` de Estrutura de Custo) e outro cobre a
+  cadeia recursiva de verdade (3 meses, 2 rollovers, confere que o
+  terceiro mês reflete os dois hops anteriores corretamente). Suíte
+  offline: 206 passed.

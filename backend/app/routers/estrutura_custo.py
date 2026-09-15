@@ -6,6 +6,7 @@ from supabase import Client
 from ..auth import get_current_user_id, get_db
 from ..schemas.estrutura_custo import EstruturaCustoMes
 from ..services.fatura import somar_meses
+from ..services.orcamento_saldo import saldo_anterior_ao_vivo
 from ..services.orcamento_teto import calcular_teto_bucket
 
 router = APIRouter(prefix="/estrutura-custo", tags=["estrutura-custo"])
@@ -90,12 +91,18 @@ def obter(vigencia_mes: date, db: Client = Depends(get_db), user_id: str = Depen
             .execute()
             .data
         )
+        cache_saldo: dict = {}
         for item in itens_orcamento:
+            # saldo_anterior recalculado ao vivo, não a coluna gravada —
+            # mesmo motivo de orcamentos._enriquecer_item: fica congelado
+            # desde o último "gerar próximo mês", editar/lançar algo no mês
+            # anterior depois disso não devia exigir gerar de novo.
+            saldo_anterior_item = saldo_anterior_ao_vivo(db, user_id, item, mes_inicio, cache_saldo)
             chave_completa = (item["bucket"], _chave(item, "conta_vinculada_id"))
-            disponivel = round(item["orcamento_mensal"] + item.get("saldo_anterior", 0), 2)
+            disponivel = round(item["orcamento_mensal"] + saldo_anterior_item, 2)
             orcado_por_chave[chave_completa] = orcado_por_chave.get(chave_completa, 0) + disponivel
             saldo_anterior_por_bucket[item["bucket"]] = (
-                saldo_anterior_por_bucket.get(item["bucket"], 0) + item.get("saldo_anterior", 0)
+                saldo_anterior_por_bucket.get(item["bucket"], 0) + saldo_anterior_item
             )
 
     transacoes = (

@@ -339,6 +339,102 @@ def test_proximo_mes_carrega_deficit_quando_gasta_mais_que_planejado(client):
     assert novo_item["disponivel"] == 300
 
 
+def test_saldo_anterior_se_atualiza_sozinho_sem_precisar_gerar_de_novo(client):
+    """O bug reportado: saldo_anterior só era calculado no momento de
+    "gerar próximo mês" e ficava congelado depois — editar/lançar algo no
+    mês anterior DEPOIS de já ter gerado o seguinte não refletia em lugar
+    nenhum até alguém gerar de novo (destrutivo: apaga ajustes manuais do
+    orçamento já gerado). Agora a leitura recalcula sempre."""
+    conta = client.post("/contas", json={"nome": "Conta", "tipo_conta": "corrente"}).json()
+    categoria = client.post("/categorias", json={"nome": "Aluguel"}).json()
+    orcamento = _criar_orcamento(client, vigencia_mes="2026-08-01")
+    client.post(
+        f"/orcamentos/{orcamento['id']}/itens",
+        json={"bucket": "custos_fixos", "categoria_id": categoria["id"], "orcamento_mensal": 1000},
+    )
+    client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-08-10",
+            "valor": 1500,
+            "tipo_movimento": "despesa",
+            "conta_id": conta["id"],
+            "categoria_id": categoria["id"],
+            "estrutura_custo": "fixo",
+            "meio_pagamento": "pix",
+        },
+    )
+
+    proximo = client.post(f"/orcamentos/{orcamento['id']}/proximo-mes").json()
+    item_setembro = client.get(f"/orcamentos/{proximo['id']}/itens").json()[0]
+    assert item_setembro["saldo_anterior"] == -500  # 1000 planejado - 1500 gasto
+
+    # "correção tardia" — lança mais uma despesa em agosto DEPOIS de já ter
+    # gerado o orçamento de setembro, sem regenerar nada
+    client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-08-20",
+            "valor": 500,
+            "tipo_movimento": "despesa",
+            "conta_id": conta["id"],
+            "categoria_id": categoria["id"],
+            "estrutura_custo": "fixo",
+            "meio_pagamento": "pix",
+        },
+    )
+
+    item_setembro_de_novo = client.get(f"/orcamentos/{proximo['id']}/itens").json()[0]
+    assert item_setembro_de_novo["saldo_anterior"] == -1000  # 1000 - 2000 agora
+    assert item_setembro_de_novo["disponivel"] == 0
+
+
+def test_saldo_anterior_recalcula_em_cadeia_por_varios_meses(client):
+    """saldo_anterior_ao_vivo é recursivo — sobe até o primeiro mês da
+    cadeia a cada leitura, em vez de confiar numa sobra já acumulada e
+    congelada nos meses do meio. Julho (700 gasto de 1000) -> agosto
+    (1500 gasto de 1000, com a sobra de julho de +300 no envelope) ->
+    setembro: saldo_anterior tem que refletir os dois hops."""
+    conta = client.post("/contas", json={"nome": "Conta", "tipo_conta": "corrente"}).json()
+    categoria = client.post("/categorias", json={"nome": "Aluguel"}).json()
+    julho = _criar_orcamento(client, vigencia_mes="2026-07-01")
+    client.post(
+        f"/orcamentos/{julho['id']}/itens",
+        json={"bucket": "custos_fixos", "categoria_id": categoria["id"], "orcamento_mensal": 1000},
+    )
+    client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-07-10",
+            "valor": 700,
+            "tipo_movimento": "despesa",
+            "conta_id": conta["id"],
+            "categoria_id": categoria["id"],
+            "estrutura_custo": "fixo",
+            "meio_pagamento": "pix",
+        },
+    )
+    agosto = client.post(f"/orcamentos/{julho['id']}/proximo-mes").json()
+    client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-08-10",
+            "valor": 1500,
+            "tipo_movimento": "despesa",
+            "conta_id": conta["id"],
+            "categoria_id": categoria["id"],
+            "estrutura_custo": "fixo",
+            "meio_pagamento": "pix",
+        },
+    )
+    setembro = client.post(f"/orcamentos/{agosto['id']}/proximo-mes").json()
+
+    item_setembro = client.get(f"/orcamentos/{setembro['id']}/itens").json()[0]
+    # agosto: disponível = 1000 (orçado) + 300 (sobra de julho) = 1300;
+    # gastou 1500 -> setembro herda 1300 - 1500 = -200
+    assert item_setembro["saldo_anterior"] == -200
+
+
 def test_proximo_mes_de_item_de_subcategoria_nao_soma_gasto_de_outra_subcategoria_da_mesma_categoria(client):
     """Sobra/déficit de um item de subcategoria tem que olhar só a
     subcategoria dele — não a categoria pai inteira. Cobre a mesma
@@ -652,3 +748,21 @@ def test_estrutura_custo_expoe_saldo_anterior_acumulado_por_bucket(client):
     resposta = client.get("/estrutura-custo/2026-10-01").json()
     fixos = next(b for b in resposta["buckets"] if b["bucket"] == "custos_fixos")
     assert fixos["saldo_anterior_acumulado"] == 200
+
+    # correção tardia em setembro, depois de outubro já gerado — Estrutura
+    # de Custo também recalcula ao vivo, não só o endpoint de orçamentos
+    client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-09-20",
+            "valor": 300,
+            "tipo_movimento": "despesa",
+            "conta_id": conta["id"],
+            "categoria_id": categoria["id"],
+            "estrutura_custo": "fixo",
+            "meio_pagamento": "pix",
+        },
+    )
+    resposta_atualizada = client.get("/estrutura-custo/2026-10-01").json()
+    fixos_atualizado = next(b for b in resposta_atualizada["buckets"] if b["bucket"] == "custos_fixos")
+    assert fixos_atualizado["saldo_anterior_acumulado"] == -100

@@ -14,6 +14,7 @@ from ..schemas.orcamentos import (
 )
 from ..services import crud
 from ..services.fatura import somar_meses
+from ..services.orcamento_saldo import calcular_realizado_item, saldo_anterior_ao_vivo
 from ..services.orcamento_sync import sincronizar_item_orcamento
 from ..services.orcamento_teto import calcular_teto_bucket
 
@@ -21,44 +22,41 @@ router = APIRouter(prefix="/orcamentos", tags=["orcamentos"])
 TABLE = "orcamentos"
 ITENS_TABLE = "orcamento_itens"
 
-# sinal de cada tipo de movimento para o cálculo de realizado — despesa conta
-# a favor do gasto, estorno/ressarcimento reduz (é dinheiro devolvido);
-# aplicacao/retirada só entram para itens de investimento (via conta_vinculada_id)
-_SINAL_REALIZADO = {
-    "despesa": 1,
-    "estorno": -1,
-    "ressarcimento": -1,
-    "aplicacao": 1,
-    "retirada": -1,
-}
 
-
-def _enriquecer_item(item: dict, orcamento: dict) -> dict:
+def _enriquecer_item(db: Client, user_id: str, item: dict, orcamento: dict) -> dict:
     """Acrescenta os campos calculados (nunca gravados) que dependem do
-    orçamento-pai: disponivel (envelope acumulado) e as duas leituras de
-    percentual (sobre a renda total e sobre o teto do próprio bucket)."""
-    disponivel = round(item["orcamento_mensal"] + item.get("saldo_anterior", 0), 2)
+    orçamento-pai: saldo_anterior recalculado ao vivo (ver
+    services/orcamento_saldo.py — a coluna gravada fica congelada desde o
+    último "gerar próximo mês"), disponivel (envelope acumulado) e as duas
+    leituras de percentual (sobre a renda total e sobre o teto do bucket)."""
+    vigencia_mes = date.fromisoformat(orcamento["vigencia_mes"])
+    saldo_anterior = saldo_anterior_ao_vivo(db, user_id, item, vigencia_mes)
+    disponivel = round(item["orcamento_mensal"] + saldo_anterior, 2)
     receita_base = orcamento["receita_base"]
     teto_bucket = calcular_teto_bucket(orcamento, item["bucket"])
     return {
         **item,
+        "saldo_anterior": saldo_anterior,
         "disponivel": disponivel,
         "percentual_da_renda": round(item["orcamento_mensal"] / receita_base * 100, 2) if receita_base else 0.0,
         "percentual_do_teto": round(item["orcamento_mensal"] / teto_bucket * 100, 2) if teto_bucket else 0.0,
     }
 
 
-def _validar_teto_bucket(db: Client, orcamento: dict, bucket: str, item_id_excluir: str | None, novo_valor: float) -> None:
+def _validar_teto_bucket(
+    db: Client, user_id: str, orcamento: dict, bucket: str, item_id_excluir: str | None, novo_valor: float
+) -> None:
     """Bloqueia a gravação se a soma dos itens ativos do bucket (excluindo o
     item que está sendo editado, se houver, e somando o novo valor no lugar
     dele) ultrapassar o teto do bucket. O teto aqui já é o efetivo — o teto
-    puro (percentual) somado à sobra acumulada de meses anteriores nesse
-    bucket (soma do saldo_anterior de todos os itens ativos dele): se Fixo
-    sobrou R$200 no total, o teto disponível pra alocar itens novos/maiores
-    esse mês já nasce R$200 mais folgado."""
+    puro (percentual) somado à sobra acumulada ao vivo de meses anteriores
+    nesse bucket (soma do saldo_anterior recalculado de todos os itens
+    ativos dele, não a coluna gravada — mesmo motivo de _enriquecer_item):
+    se Fixo sobrou R$200 no total, o teto disponível pra alocar itens
+    novos/maiores esse mês já nasce R$200 mais folgado."""
     itens = (
         db.table(ITENS_TABLE)
-        .select("id,orcamento_mensal,saldo_anterior")
+        .select("*")
         .eq("orcamento_id", orcamento["id"])
         .eq("bucket", bucket)
         .eq("ativo", True)
@@ -66,7 +64,9 @@ def _validar_teto_bucket(db: Client, orcamento: dict, bucket: str, item_id_exclu
         .data
     )
     soma = sum(i["orcamento_mensal"] for i in itens if i["id"] != item_id_excluir) + novo_valor
-    saldo_anterior_bucket = sum(i.get("saldo_anterior", 0) for i in itens)
+    vigencia_mes = date.fromisoformat(orcamento["vigencia_mes"])
+    cache: dict = {}
+    saldo_anterior_bucket = sum(saldo_anterior_ao_vivo(db, user_id, i, vigencia_mes, cache) for i in itens)
     teto = round(calcular_teto_bucket(orcamento, bucket) + saldo_anterior_bucket, 2)
     if soma > teto + 0.005:
         raise HTTPException(
@@ -185,7 +185,7 @@ def atualizar(
 def listar_itens(orcamento_id: str, db: Client = Depends(get_db), user_id: str = Depends(get_current_user_id)):
     orcamento = _get_orcamento_ou_404(db, user_id, orcamento_id)
     result = db.table(ITENS_TABLE).select("*").eq("orcamento_id", orcamento_id).order("bucket").execute()
-    return [_enriquecer_item(item, orcamento) for item in result.data]
+    return [_enriquecer_item(db, user_id, item, orcamento) for item in result.data]
 
 
 @router.post("/{orcamento_id}/itens", response_model=OrcamentoItem, status_code=201)
@@ -197,11 +197,11 @@ def criar_item(
 ):
     orcamento = _get_orcamento_ou_404(db, user_id, orcamento_id)
     _check_refs_item(db, user_id, payload.categoria_id, payload.subcategoria_id, payload.conta_vinculada_id)
-    _validar_teto_bucket(db, orcamento, payload.bucket, item_id_excluir=None, novo_valor=payload.orcamento_mensal)
+    _validar_teto_bucket(db, user_id, orcamento, payload.bucket, item_id_excluir=None, novo_valor=payload.orcamento_mensal)
     row = payload.model_dump()
     row["orcamento_id"] = orcamento_id
     result = db.table(ITENS_TABLE).insert(row).execute()
-    return _enriquecer_item(result.data[0], orcamento)
+    return _enriquecer_item(db, user_id, result.data[0], orcamento)
 
 
 @router.patch("/{orcamento_id}/itens/{item_id}", response_model=OrcamentoItem)
@@ -221,13 +221,14 @@ def atualizar_item(
     if "orcamento_mensal" in dados or "bucket" in dados:
         _validar_teto_bucket(
             db,
+            user_id,
             orcamento,
             dados.get("bucket", item_atual["bucket"]),
             item_id_excluir=item_id,
             novo_valor=dados.get("orcamento_mensal", item_atual["orcamento_mensal"]),
         )
     result = db.table(ITENS_TABLE).update(dados).eq("id", item_id).eq("orcamento_id", orcamento_id).execute()
-    return _enriquecer_item(result.data[0], orcamento)
+    return _enriquecer_item(db, user_id, result.data[0], orcamento)
 
 
 @router.patch("/{orcamento_id}/itens/{item_id}/ativo", response_model=OrcamentoItem)
@@ -243,65 +244,17 @@ def alternar_item_ativo(
     if ativo:
         # reativar um item pode fazer a soma do bucket passar do teto de novo
         _validar_teto_bucket(
-            db, orcamento, item_atual["bucket"], item_id_excluir=item_id, novo_valor=item_atual["orcamento_mensal"]
+            db,
+            user_id,
+            orcamento,
+            item_atual["bucket"],
+            item_id_excluir=item_id,
+            novo_valor=item_atual["orcamento_mensal"],
         )
     result = (
         db.table(ITENS_TABLE).update({"ativo": ativo}).eq("id", item_id).eq("orcamento_id", orcamento_id).execute()
     )
-    return _enriquecer_item(result.data[0], orcamento)
-
-
-def _calcular_realizado(db: Client, user_id: str, item: dict, mes_inicio: date, mes_fim: date) -> float:
-    """Soma as transações do período que contam para este item — por
-    subcategoria/categoria para os buckets de custo, ou pela conta vinculada
-    para itens de investimento. Sem nenhum dos três vínculos, não há como
-    calcular realizado (o item é só uma linha de planejamento livre).
-
-    Checa subcategoria antes de categoria: um item criado a partir da tela
-    de Planejamento pode ter os dois campos preenchidos ao mesmo tempo
-    (formulário sempre manda a categoria pai junto quando escolhe
-    subcategoria), e filtrar por categoria primeiro puxaria transações de
-    outras subcategorias da mesma categoria pai — mesma lógica de
-    estrutura_custo._chave. A exclusão de subcategoria no caso "só
-    categoria" é feita em Python (não com .is_() do postgrest) — mesmo
-    filtro final, sem depender de mais um operador da query builder."""
-    if item.get("subcategoria_id"):
-        query = (
-            db.table("transacoes")
-            .select("valor,tipo_movimento")
-            .eq("user_id", user_id)
-            .gte("data_compra", mes_inicio.isoformat())
-            .lt("data_compra", mes_fim.isoformat())
-            .eq("subcategoria_id", item["subcategoria_id"])
-        )
-        linhas = query.execute().data
-    elif item.get("categoria_id"):
-        query = (
-            db.table("transacoes")
-            .select("valor,tipo_movimento,subcategoria_id")
-            .eq("user_id", user_id)
-            .gte("data_compra", mes_inicio.isoformat())
-            .lt("data_compra", mes_fim.isoformat())
-            .eq("categoria_id", item["categoria_id"])
-        )
-        linhas = [t for t in query.execute().data if not t.get("subcategoria_id")]
-    elif item.get("conta_vinculada_id"):
-        query = (
-            db.table("transacoes")
-            .select("valor,tipo_movimento")
-            .eq("user_id", user_id)
-            .gte("data_compra", mes_inicio.isoformat())
-            .lt("data_compra", mes_fim.isoformat())
-            .eq("conta_id", item["conta_vinculada_id"])
-        )
-        linhas = query.execute().data
-    else:
-        return 0.0
-
-    total = sum(
-        _SINAL_REALIZADO.get(t["tipo_movimento"], 0) * t["valor"] for t in linhas
-    )
-    return round(total, 2)
+    return _enriquecer_item(db, user_id, result.data[0], orcamento)
 
 
 @router.post("/{orcamento_id}/proximo-mes", response_model=Orcamento, status_code=201)
@@ -311,12 +264,18 @@ def gerar_proximo_mes(
     db: Client = Depends(get_db),
     user_id: str = Depends(get_current_user_id),
 ):
-    """Modelo de envelope acumulativo combinado no redesign: fecha o mês do
-    orçamento informado calculando o realizado de cada item contra as
-    transações do período, e cria o orçamento do mês seguinte com a sobra
-    (ou o estouro, se o item passou do previsto) já somada em
-    `saldo_anterior` de cada item — nunca alterando `orcamento_mensal`, que
-    continua sendo o valor-base recorrente.
+    """Modelo de envelope acumulativo combinado no redesign: cria o
+    orçamento do mês seguinte com os mesmos itens (mesmo bucket/categoria/
+    subcategoria/conta vinculada/`orcamento_mensal` — nunca o valor-base
+    recorrente em si) do orçamento informado. `saldo_anterior` é gravado
+    aqui, mas só é a fonte da verdade pra item "nome livre" (sem categoria/
+    subcategoria/conta — não há como recalcular ao vivo sem transação pra
+    rastrear). Pra item com vínculo, a leitura recalcula por cima
+    (`_enriquecer_item`/`saldo_anterior_ao_vivo`), subindo até o mês
+    anterior toda vez, em vez de confiar nesta coluna congelada no momento
+    da geração — editar ou lançar algo no mês anterior depois de já ter
+    gerado o seguinte atualiza a leitura sozinho, sem precisar gerar de
+    novo.
 
     Se já existe um orçamento pro mês seguinte, recusa com 409 a menos que
     `substituir=true` seja passado — nesse caso apaga o orçamento (e seus
@@ -364,7 +323,13 @@ def gerar_proximo_mes(
         db.table(ITENS_TABLE).select("*").eq("orcamento_id", orcamento_id).eq("ativo", True).execute().data
     )
     for item in itens_atuais:
-        realizado = _calcular_realizado(db, user_id, item, mes_atual, mes_seguinte)
+        # o valor gravado aqui só importa de verdade pra item "nome livre"
+        # (sem categoria/subcategoria/conta) — esse tipo nunca tem como
+        # recalcular ao vivo (não há transação pra rastrear), então precisa
+        # nascer certo. Pra item com vínculo, a leitura sempre recalcula por
+        # cima (_enriquecer_item/saldo_anterior_ao_vivo) e ignora isto —
+        # gravar aqui não atrapalha, só deixa de ser a fonte da verdade.
+        realizado = calcular_realizado_item(db, user_id, item, mes_atual, mes_seguinte)
         disponivel_neste_mes = round(item["orcamento_mensal"] + item.get("saldo_anterior", 0), 2)
         db.table(ITENS_TABLE).insert(
             {
