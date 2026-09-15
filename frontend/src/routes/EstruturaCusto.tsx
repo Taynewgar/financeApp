@@ -45,6 +45,15 @@ type GrupoCategoria = {
   folhas: Folha[]
 }
 
+/** 'YYYY-MM' menos N meses, sempre 'YYYY-MM' de volta. Mesma lógica de Planejamento.tsx. */
+function mesesAntes(anoMes: string, n: number): string {
+  const [ano, mes] = anoMes.split('-').map(Number)
+  const totalMeses = ano * 12 + (mes - 1) - n
+  const anoResultado = Math.floor(totalMeses / 12)
+  const mesResultado = (totalMeses % 12) + 1
+  return `${anoResultado}-${String(mesResultado).padStart(2, '0')}`
+}
+
 function hojeAnoMes(): string {
   return new Date().toISOString().slice(0, 7)
 }
@@ -359,10 +368,30 @@ export function EstruturaCusto() {
             Leitura do que foi de fato gasto no mês, comparado com o que foi planejado em Planejamento.
           </p>
         </div>
-        <label className="campo" style={{ maxWidth: 180 }}>
-          Mês
-          <input type="month" value={vigenciaMes} onChange={(e) => setVigenciaMes(e.target.value)} />
-        </label>
+        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6 }}>
+          <button
+            type="button"
+            className="botao-secundario"
+            onClick={() => setVigenciaMes(mesesAntes(vigenciaMes, 1))}
+            title="Mês anterior"
+            aria-label="Mês anterior"
+          >
+            ←
+          </button>
+          <label className="campo" style={{ maxWidth: 180 }}>
+            Mês
+            <input type="month" value={vigenciaMes} onChange={(e) => setVigenciaMes(e.target.value)} />
+          </label>
+          <button
+            type="button"
+            className="botao-secundario"
+            onClick={() => setVigenciaMes(mesesAntes(vigenciaMes, -1))}
+            title="Próximo mês"
+            aria-label="Próximo mês"
+          >
+            →
+          </button>
+        </div>
       </div>
 
       {erro && <p className="mensagem-erro">{erro}</p>}
