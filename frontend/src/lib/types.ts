@@ -166,6 +166,11 @@ export type ItemEstruturaCusto = {
   conta_id: string | null
   orcado: number
   realizado: number
+  // orcado = orcamento_mensal + saldo_anterior; os dois vêm separados pra
+  // UI poder distinguir "o que eu planejei" da sobra/furo rolado do mês
+  // anterior, em vez de só mostrar o total combinado.
+  orcamento_mensal: number
+  saldo_anterior: number
 }
 
 export type BucketDaEstrutura = {

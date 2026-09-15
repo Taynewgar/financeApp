@@ -24,15 +24,21 @@ export const BUCKETS: { valor: BucketEstruturaCusto; rotulo: string; cor: string
   { valor: 'sem_estrutura', rotulo: 'Sem Estrutura Definida', cor: 'var(--bucket-sem-estrutura)' },
 ]
 
-// buckets que participam do orçamento de verdade (reservas/sem_estrutura
-// nunca recebem item de orcamento_itens — só existem aqui via lançamento)
-const BUCKETS_ORCAMENTO: BucketEstruturaCusto[] = ['custos_fixos', 'custos_variaveis', 'sazonalidades', 'investimentos']
+// buckets que entram no KPI "Orçado no mês"/"Execução" do topo — mesmo
+// escopo do veredito "Dentro do teto" (pool de despesas). Investimentos
+// fica de fora: é piso, não teto, e sua sobra/furo pode ter sinal oposto
+// ao das despesas, o que produz somas sem sentido prático se misturado
+// (ver rodada de 2026-09-15 — coincidência que "cancelou" fixos com
+// investimentos e deixou o KPI igual ao valor isolado de variáveis).
+const BUCKETS_ORCAMENTO: BucketEstruturaCusto[] = ['custos_fixos', 'custos_variaveis', 'sazonalidades']
 
 type Folha = {
   chave: string
   nome: string
   orcado: number
   realizado: number
+  orcamentoMensal: number
+  saldoAnterior: number
   categoriaIdDrillDown: string | null
   subcategoriaIdDrillDown: string | null
 }
@@ -42,6 +48,8 @@ type GrupoCategoria = {
   nome: string
   orcado: number
   realizado: number
+  orcamentoMensal: number
+  saldoAnterior: number
   folhas: Folha[]
 }
 
@@ -79,7 +87,7 @@ export function agruparPorCategoria(
   function grupo(chave: string, nome: string): GrupoCategoria {
     let g = grupos.get(chave)
     if (!g) {
-      g = { chave, nome, orcado: 0, realizado: 0, folhas: [] }
+      g = { chave, nome, orcado: 0, realizado: 0, orcamentoMensal: 0, saldoAnterior: 0, folhas: [] }
       grupos.set(chave, g)
     }
     return g
@@ -99,6 +107,8 @@ export function agruparPorCategoria(
         nome: sub?.nome ?? 'Subcategoria removida',
         orcado: item.orcado,
         realizado: item.realizado,
+        orcamentoMensal: item.orcamento_mensal,
+        saldoAnterior: item.saldo_anterior,
         categoriaIdDrillDown: sub?.categoria_id ?? null,
         subcategoriaIdDrillDown: item.subcategoria_id,
       }
@@ -110,6 +120,8 @@ export function agruparPorCategoria(
         nome: 'Geral (sem subcategoria)',
         orcado: item.orcado,
         realizado: item.realizado,
+        orcamentoMensal: item.orcamento_mensal,
+        saldoAnterior: item.saldo_anterior,
         categoriaIdDrillDown: item.categoria_id,
         subcategoriaIdDrillDown: null,
       }
@@ -121,6 +133,8 @@ export function agruparPorCategoria(
         nome: contaNome,
         orcado: item.orcado,
         realizado: item.realizado,
+        orcamentoMensal: item.orcamento_mensal,
+        saldoAnterior: item.saldo_anterior,
         categoriaIdDrillDown: null,
         subcategoriaIdDrillDown: null,
       }
@@ -131,6 +145,8 @@ export function agruparPorCategoria(
         nome: 'Sem categoria',
         orcado: item.orcado,
         realizado: item.realizado,
+        orcamentoMensal: item.orcamento_mensal,
+        saldoAnterior: item.saldo_anterior,
         categoriaIdDrillDown: null,
         subcategoriaIdDrillDown: null,
       }
@@ -138,6 +154,8 @@ export function agruparPorCategoria(
 
     g.orcado = Math.round((g.orcado + folha.orcado) * 100) / 100
     g.realizado = Math.round((g.realizado + folha.realizado) * 100) / 100
+    g.orcamentoMensal = Math.round((g.orcamentoMensal + folha.orcamentoMensal) * 100) / 100
+    g.saldoAnterior = Math.round((g.saldoAnterior + folha.saldoAnterior) * 100) / 100
     g.folhas.push(folha)
   }
 
@@ -222,7 +240,15 @@ export function BucketBloco({
                   g.folhas.map((f) => (
                     <div className="estrutura-custo-sub-linha" key={f.chave}>
                       <span>{f.nome}</span>
-                      <span className="col-num">{formatarMoeda(f.orcado, oculto)}</span>
+                      <span className="col-num">
+                        {formatarMoeda(f.orcado, oculto)}
+                        {f.saldoAnterior !== 0 && (
+                          <span className="estrutura-custo-detalhe-sobra">
+                            {formatarMoeda(f.orcamentoMensal, oculto)} {f.saldoAnterior >= 0 ? '+' : '−'}{' '}
+                            {formatarMoeda(Math.abs(f.saldoAnterior), oculto)} sobra
+                          </span>
+                        )}
+                      </span>
                       <span className="col-num">{formatarMoeda(f.realizado, oculto)}</span>
                       <span className="col-num">{formatarMoeda(f.orcado - f.realizado, oculto)}</span>
                       <span className="col-status">

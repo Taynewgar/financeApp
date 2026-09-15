@@ -789,3 +789,53 @@ percentuais já eram recalculados a cada `GET` (`_enriquecer_item`), só
   cadeia recursiva de verdade (3 meses, 2 rollovers, confere que o
   terceiro mês reflete os dois hops anteriores corretamente). Suíte
   offline: 206 passed.
+
+## Rodada 13 (2026-09-15) — Estrutura de Custo: navegação, layout e clareza orçado×sobra
+
+**Setas de mês**: mesmo padrão ←/→ de Planejamento adicionado em Estrutura
+de Custo (`mesesAntes` + botões flanqueando o `<input type="month">`).
+
+**Espaçamento colado**: o `<p>` de subtítulo do cabeçalho tinha
+`style={{ margin: 0 }}` e a div do cabeçalho não tinha `marginBottom` — o
+próximo bloco (KPIs/resumo) colava direto embaixo do subtítulo sem
+respiro, em Planejamento e Estrutura de Custo. Corrigido com
+`marginBottom: 20` na div do cabeçalho nas duas telas.
+
+**Scrollbar com setas**: reportado como possível bug de layout — na
+verdade é a scrollbar nativa clássica (com botões ▲▼) do navegador/SO,
+não uma falha de CSS. Como a affordance visual incomodava, adicionado
+estilo global fino (`scrollbar-width: thin` + `::-webkit-scrollbar-*`)
+que esconde os botões de seta mantendo a rolagem normal (roda do
+mouse/trackpad, arrastar o thumb).
+
+**KPI "Orçado no mês" com soma sem sentido**: o card do topo de Estrutura
+de Custo somava os 4 buckets orçamentários (Fixos+Variáveis+
+Sazonalidades+**Investimentos**). Como Investimentos é piso (não teto), sua
+sobra/furo rola com sinal oposto ao das despesas — nessa rodada isso
+coincidiu de cancelar exatamente o valor de Fixos, deixando o KPI igual ao
+de Variáveis isolado (confuso, ainda que matematicamente correto).
+**Fix**: `BUCKETS_ORCAMENTO` no frontend não inclui mais `investimentos` —
+o KPI do topo (Orçado/Realizado/Execução) passa a ter o mesmo escopo do
+veredito "Dentro do teto" (só o pool de despesas). Investimentos mantém
+seu próprio card "Meta de investimento batida" já existente, inalterado.
+
+**Orçado × Sobra, separados**: discussão conceitual sobre o modelo de
+envelope — o rollover **continua simétrico** (sobra positiva soma, furo
+negativo subtrai; não dá pra tornar assimétrico sem quebrar a lógica de
+"pool agregado" já validada, onde a sobra de um item abre espaço pro
+estouro de outro no mesmo bucket). O que mudou foi a **exibição**: antes
+Estrutura de Custo só mostrava o total combinado (`orcado` =
+`orcamento_mensal + saldo_anterior`) rotulado só "Orçado", dando a
+impressão de que a meta do mês tinha mudado quando na verdade era sobra
+rolando. Agora cada item com sobra/furo mostra uma segunda linha pequena
+com o detalhamento ("R$1.000,00 + R$482,00 sobra"), sem adicionar coluna
+nova à tabela.
+
+- Backend: `ItemEstruturaCusto` ganha `orcamento_mensal` e `saldo_anterior`
+  (além do `orcado` combinado, inalterado); `estrutura_custo.py` passa a
+  acumular os 2 valores por chave junto com o que já fazia.
+- Frontend: `Folha`/`GrupoCategoria` ganham `orcamentoMensal`/
+  `saldoAnterior`; `agruparPorCategoria` agrega os 2 campos; sub-linha
+  mostra a segunda linha de detalhe quando `saldoAnterior !== 0`.
+- 1 teste novo (extensão de `test_pool_despesas_considera_saldo_anterior_do_envelope`)
+  cobrindo os 2 campos novos no item. Suíte offline: 206 passed.

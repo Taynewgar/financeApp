@@ -9,8 +9,15 @@ class ItemEstruturaCusto(BaseModel):
     categoria_id: str | None = None
     subcategoria_id: str | None = None
     conta_id: str | None = None
+    # orcado = orcamento_mensal + saldo_anterior (o que dá pra gastar no mês
+    # considerando a sobra/furo do mês anterior) — segue sendo o valor usado
+    # pra comparar com "realizado". orcamento_mensal e saldo_anterior vêm
+    # separados também pra a UI poder mostrar "o que eu planejei" x "a sobra
+    # que rolou" em vez de só o total combinado (ver rodada de 2026-09-15).
     orcado: float
     realizado: float
+    orcamento_mensal: float = 0
+    saldo_anterior: float = 0
 
 
 class BucketEstruturaCusto(BaseModel):

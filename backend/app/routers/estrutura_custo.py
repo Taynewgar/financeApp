@@ -81,6 +81,8 @@ def obter(vigencia_mes: date, db: Client = Depends(get_db), user_id: str = Depen
     orcamento = orcamento_result.data[0] if orcamento_result.data else None
 
     orcado_por_chave: dict[tuple, float] = {}
+    orcamento_mensal_por_chave: dict[tuple, float] = {}
+    saldo_anterior_por_chave: dict[tuple, float] = {}
     saldo_anterior_por_bucket: dict[str, float] = {}
     if orcamento:
         itens_orcamento = (
@@ -101,6 +103,12 @@ def obter(vigencia_mes: date, db: Client = Depends(get_db), user_id: str = Depen
             chave_completa = (item["bucket"], _chave(item, "conta_vinculada_id"))
             disponivel = round(item["orcamento_mensal"] + saldo_anterior_item, 2)
             orcado_por_chave[chave_completa] = orcado_por_chave.get(chave_completa, 0) + disponivel
+            orcamento_mensal_por_chave[chave_completa] = (
+                orcamento_mensal_por_chave.get(chave_completa, 0) + item["orcamento_mensal"]
+            )
+            saldo_anterior_por_chave[chave_completa] = (
+                saldo_anterior_por_chave.get(chave_completa, 0) + saldo_anterior_item
+            )
             saldo_anterior_por_bucket[item["bucket"]] = (
                 saldo_anterior_por_bucket.get(item["bucket"], 0) + saldo_anterior_item
             )
@@ -145,6 +153,8 @@ def obter(vigencia_mes: date, db: Client = Depends(get_db), user_id: str = Depen
                 "conta_id": valor_chave if tipo_chave == "conta" else None,
                 "orcado": orcado,
                 "realizado": realizado,
+                "orcamento_mensal": round(orcamento_mensal_por_chave.get(chave_completa, 0), 2),
+                "saldo_anterior": round(saldo_anterior_por_chave.get(chave_completa, 0), 2),
             }
         )
         buckets[bucket]["orcado"] = round(buckets[bucket]["orcado"] + orcado, 2)

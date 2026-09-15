@@ -378,6 +378,11 @@ def test_pool_despesas_considera_saldo_anterior_do_envelope(client):
     assert resposta["pool_despesas"]["realizado"] == 10200
     assert resposta["pool_despesas"]["dentro_do_teto"] is True  # sem o saldo_anterior, 10200 > 10125 estouraria
 
+    item_aluguel = next(i for i in _bucket(client.get("/estrutura-custo/2026-10-01"), "custos_fixos")["itens"] if i["categoria_id"] == categoria["id"])
+    assert item_aluguel["orcamento_mensal"] == 1000
+    assert item_aluguel["saldo_anterior"] == 300
+    assert item_aluguel["orcado"] == 1300  # orcamento_mensal + saldo_anterior, mesmo valor exposto antes
+
 
 def test_piso_investimentos_meta_batida(client):
     _criar_orcamento_do_exemplo(client)

@@ -38,6 +38,41 @@ body {
   color: var(--cor-texto);
 }
 
+/* scrollbar fina, sem os botões de seta pra cima/baixo do estilo clássico
+ * do Windows — a rolagem em si continua normal (roda do mouse/trackpad e
+ * arrastar o thumb), só a affordance visual muda. Firefox usa
+ * scrollbar-width (já não tem botões nesse modo); o resto é WebKit/Blink. */
+* {
+  scrollbar-width: thin;
+}
+
+::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--cor-borda);
+  border-radius: 999px;
+  border: 3px solid transparent;
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--cor-texto-suave);
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-button {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
 #root {
   min-height: 100vh;
 }
