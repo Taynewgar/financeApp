@@ -35,13 +35,24 @@ sinal nenhum a mais). Só a suíte offline roda de fato aqui.
    value violates unique constraint "categorias_user_id_nome_key"` ou um
    `KeyError: 'id'` em cima de `orcamento["id"]`, é lixo de uma rodada
    anterior que não terminou de limpar (Ctrl+C, timeout de rede no meio da
-   suíte) — não é regressão de código. Passe este comando pra ele rodar:
+   suíte) — não é regressão de código. Passe esta sequência completa pra
+   ele rodar — limpa a conta de teste, repopula (contas/categorias/
+   caixinha/lançamentos de exemplo + orçamento encadeado com sobra
+   rolando, pra Planejamento/Estrutura de Custo não ficarem vazios) e
+   confirma que a suíte volta a passar limpa:
 
    ```bash
    cd backend
    source venv/bin/activate
-   TEST_USER_EMAIL=teste@teste.com TEST_USER_PASSWORD=teste python tests/limpar_dados_integracao.py
+   TEST_USER_EMAIL=teste@teste.com TEST_USER_PASSWORD=teste venv/bin/python tests/limpar_dados_integracao.py --sim
+   TEST_USER_EMAIL=teste@teste.com TEST_USER_PASSWORD=teste venv/bin/python tests/seed_dados_teste.py
+   TEST_USER_EMAIL=teste@teste.com TEST_USER_PASSWORD=teste venv/bin/python -m pytest -q
    ```
+
+   Avise que o passo de seed não recria nada que o usuário tenha
+   configurado manualmente pela tela (ex: percentuais/limites do
+   orçamento além dos itens que o próprio seed cria) — só o que o script
+   povoa sozinho.
 
 Se o venv não existir ainda ou o pip não estiver instalado nele, recrie com:
 ```bash
