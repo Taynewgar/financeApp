@@ -42,25 +42,29 @@ merecer não ficar misturado com a tabela proposto×implementado tela a tela.
    depois do MVP fechado (itens 3-6 acima).
 10. ~~Compromissos futuros no Dashboard~~ **feito parcialmente 2026-09-13**
     — só parcelas futuras; "fixo recorrente" fica coberto pelo item 7.
+11. **Indicador visual de tooltip** — registrado 2026-09-15, sugestão do
+    usuário pra pós-MVP (não é baixa prioridade, só sequenciado depois do
+    MVP fechado, igual ao item 9). Hoje o Dashboard tem tooltip explicando
+    cada card de resumo (item 24 do histórico), mas nada na tela avisa que
+    o card é "hover-ável" — só se descobre passando o mouse por acaso.
+    Ideia: marcar com um ícone pequeno (círculo com "?", tipo os de
+    formulário) ao lado do que tem explicação extra — o padrão atual
+    (tooltip nativo via `title`) continua por trás, só falta o
+    *sinalizador visual*. Escopo: acha todo lugar que já usa tooltip
+    explicativo (Dashboard é o caso conhecido, mas vale auditar as outras
+    telas) e decide um componente/ícone padrão único pro app inteiro, não
+    um por tela.
 
-**Baixa prioridade confirmada pelo usuário (2026-09-15)** — ficam por
-último de propósito, sem previsão:
+**Baixa prioridade confirmada pelo usuário (2026-09-15)** — são os
+**únicos dois itens** de baixa prioridade do backlog; todo o resto acima
+(e o item 11) é alta ou média prioridade, mesmo o que está sequenciado
+pra depois do MVP:
 
-11. Aba Bancos em Configurações — hoje resolvido como campo de texto em
+12. Aba Bancos em Configurações — hoje resolvido como campo de texto em
     Conta, sem perda funcional real.
-12. Saldo atual de contas — hoje só caixinhas têm saldo calculado
+13. Saldo atual de contas — hoje só caixinhas têm saldo calculado
     (`GET /dashboard/patrimonio/{mes}`); dar saldo a `contas` também seria
     a extensão natural, mas não é urgente.
-13. **Indicador visual de tooltip** — registrado 2026-09-15, sugestão do
-    usuário pra pós-MVP. Hoje o Dashboard tem tooltip explicando cada card
-    de resumo (item 24 do histórico), mas nada na tela avisa que o card é
-    "hover-ável" — só se descobre passando o mouse por acaso. Ideia:
-    marcar com um ícone pequeno (círculo com "?", tipo os de formulário)
-    ao lado do que tem explicação extra — o padrão atual (tooltip nativo
-    via `title`) continua por trás, só falta o *sinalizador visual*.
-    Escopo: acha todo lugar que já usa tooltip explicativo (Dashboard é o
-    caso conhecido, mas vale auditar as outras telas) e decide um
-    componente/ícone padrão único pro app inteiro, não um por tela.
 
 Este arquivo não substitui o `README.md` da raiz (que descreve o que
 existe) nem o `/status-projeto` (relatório de andamento) — é o registro do
