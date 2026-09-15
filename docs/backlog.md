@@ -51,6 +51,16 @@ merecer não ficar misturado com a tabela proposto×implementado tela a tela.
 12. Saldo atual de contas — hoje só caixinhas têm saldo calculado
     (`GET /dashboard/patrimonio/{mes}`); dar saldo a `contas` também seria
     a extensão natural, mas não é urgente.
+13. **Indicador visual de tooltip** — registrado 2026-09-15, sugestão do
+    usuário pra pós-MVP. Hoje o Dashboard tem tooltip explicando cada card
+    de resumo (item 24 do histórico), mas nada na tela avisa que o card é
+    "hover-ável" — só se descobre passando o mouse por acaso. Ideia:
+    marcar com um ícone pequeno (círculo com "?", tipo os de formulário)
+    ao lado do que tem explicação extra — o padrão atual (tooltip nativo
+    via `title`) continua por trás, só falta o *sinalizador visual*.
+    Escopo: acha todo lugar que já usa tooltip explicativo (Dashboard é o
+    caso conhecido, mas vale auditar as outras telas) e decide um
+    componente/ícone padrão único pro app inteiro, não um por tela.
 
 Este arquivo não substitui o `README.md` da raiz (que descreve o que
 existe) nem o `/status-projeto` (relatório de andamento) — é o registro do
