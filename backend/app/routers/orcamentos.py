@@ -262,7 +262,9 @@ def _calcular_realizado(db: Client, user_id: str, item: dict, mes_inicio: date, 
     (formulário sempre manda a categoria pai junto quando escolhe
     subcategoria), e filtrar por categoria primeiro puxaria transações de
     outras subcategorias da mesma categoria pai — mesma lógica de
-    estrutura_custo._chave."""
+    estrutura_custo._chave. A exclusão de subcategoria no caso "só
+    categoria" é feita em Python (não com .is_() do postgrest) — mesmo
+    filtro final, sem depender de mais um operador da query builder."""
     if item.get("subcategoria_id"):
         query = (
             db.table("transacoes")
@@ -272,16 +274,17 @@ def _calcular_realizado(db: Client, user_id: str, item: dict, mes_inicio: date, 
             .lt("data_compra", mes_fim.isoformat())
             .eq("subcategoria_id", item["subcategoria_id"])
         )
+        linhas = query.execute().data
     elif item.get("categoria_id"):
         query = (
             db.table("transacoes")
-            .select("valor,tipo_movimento")
+            .select("valor,tipo_movimento,subcategoria_id")
             .eq("user_id", user_id)
             .gte("data_compra", mes_inicio.isoformat())
             .lt("data_compra", mes_fim.isoformat())
             .eq("categoria_id", item["categoria_id"])
-            .is_("subcategoria_id", "null")
         )
+        linhas = [t for t in query.execute().data if not t.get("subcategoria_id")]
     elif item.get("conta_vinculada_id"):
         query = (
             db.table("transacoes")
@@ -291,11 +294,12 @@ def _calcular_realizado(db: Client, user_id: str, item: dict, mes_inicio: date, 
             .lt("data_compra", mes_fim.isoformat())
             .eq("conta_id", item["conta_vinculada_id"])
         )
+        linhas = query.execute().data
     else:
         return 0.0
 
     total = sum(
-        _SINAL_REALIZADO.get(t["tipo_movimento"], 0) * t["valor"] for t in query.execute().data
+        _SINAL_REALIZADO.get(t["tipo_movimento"], 0) * t["valor"] for t in linhas
     )
     return round(total, 2)
 

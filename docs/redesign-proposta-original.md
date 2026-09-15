@@ -638,3 +638,50 @@ print) — rode `python tests/limpar_dados_integracao.py` uma vez pra
 zerar antes da próxima rodada de testes de integração (comando completo
 no README, seção "Resetar a conta de teste"). O fix evita que aconteça
 de novo, não desfaz o que já está preso.
+
+### 2026-09-15 (rodada 9) — depois da limpeza, 2 falhas novas de matemática (18 → 2)
+
+Usuário rodou de novo depois do fix da rodada 8: caiu de 18 falhas pra 2,
+ambas em `test_orcamentos_integration.py`, com números claramente errados
+(`saldo_anterior == -1500` esperando `90`; `422` esperando `201`) — não
+mais `KeyError`/`duplicate key`, então já não era lixo de teste.
+
+**Causa raiz**: a conta de teste tem atividade real no mesmo mês
+(2026-09) além do que cada teste cria pra si — outras categorias, outras
+transações. Antes da rodada 6, isso era inofensivo: um item de orçamento
+só nascia reativo quando uma transação NOVA era lançada depois do
+orçamento já existir, e cada teste só lança as suas próprias. A rodada 6
+mudou isso: criar um orçamento (ou rodar "próximo mês") agora varre TODAS
+as transações já lançadas no mês e cria item pra cada uma — então um
+orçamento criado por um teste passa a incluir itens de QUALQUER outra
+atividade real da conta naquele mês, não só a do teste. Dois testes
+assumiam implicitamente que só o item deles existia:
+- `test_proximo_mes_carrega_sobra_contra_banco_real` lia `itens_proximo[0]`
+  como se fosse garantidamente o item do teste — com outros itens no meio,
+  índice 0 virou aposta.
+- `test_sobra_acumulada_do_bucket_amplia_teto_contra_banco_real` assumia
+  que o teto efetivo do bucket (soma de TODOS os itens ativos — é assim
+  que o "pool" agregado funciona, de propósito) dependia só do item do
+  teste.
+
+De passagem, também troquei o filtro `.is_("subcategoria_id", "null")` de
+`_calcular_realizado` (rodada 6) por uma exclusão em Python depois de
+buscar — mesmo resultado, sem depender de mais um operador da query
+builder que eu não conseguia validar contra o Postgres real direto desta
+sessão (o dublê offline não distingue um `.is_()` bem-chamado de um
+mal-chamado, então essa parte nunca teria pego um erro aqui).
+
+**Fix**: os dois testes agora localizam o próprio item pela categoria
+criada (não por índice) e, no segundo, computam o headroom real do
+bucket dinamicamente a partir do que a API devolve (em vez de assumir um
+valor fixo), testando o limite exato — com `pytest.skip` explicando o
+motivo se a conta tiver déficit real maior que a sobra do teste (isso é
+comportamento correto do pool agregado, só não dá pra testar o limite
+exato numa conta com histórico real; a lógica isolada já está coberta em
+`test_orcamentos_api.py`, que usa um dublê sem esse problema).
+
+**Nenhuma mudança de comportamento em produção** além da troca defensiva
+do `.is_()` — o "pool agregado inclui toda atividade real do bucket/mês"
+é a regra desde sempre (documentada no próprio código), só nunca tinha
+aparecido num teste de integração porque, antes da rodada 6, um orçamento
+recém-criado nunca "enxergava" atividade alheia automaticamente.
