@@ -602,3 +602,39 @@ quando existe algum bucket com lançamento. De brinde, corrigida a seta da
 linha de categoria, que nunca rotacionava ao abrir (só a do bucket tinha
 essa regra de CSS) — mesmo bug de UI, mesmo lugar, custo zero corrigir
 junto. QA visual via Playwright (preview temporário, revertido depois).
+
+### 2026-09-15 (rodada 8) — fix: fixture `cleanup` dos testes de integração vazava categoria/orçamento
+
+Usuário reportou (com print da tela real de Categorias) várias categorias
+"... Integração" travadas, e colou o log de 18 falhas — a maioria
+`KeyError: 'id'` em `orcamento["id"]` (orçamento duplicado pro mesmo mês,
+porque um anterior nunca foi apagado) e `duplicate key ... categorias_user_id_nome_key`.
+
+**Causa raiz**: `tests/integration/conftest.py::cleanup` apagava na ordem
+inversa da criação (LIFO), assumindo que "reverso de criação = seguro".
+Isso é falso pro grafo de FK real — vários testes criam o **orçamento**
+antes da **categoria** e só depois um **item** que referencia os dois
+(`POST /orcamentos/{id}/itens`). LIFO então tentava apagar a categoria
+*antes* do orçamento (e do item, que ainda a referenciava), a FK sem
+cascade bloqueava, o erro caía num `except: pass` silencioso, e a
+categoria ficava presa pra sempre. Bug latente desde que a fixture foi
+escrita — a rodada 6 (retroalimentar Planejamento a partir de transações
+já lançadas) tornou o gatilho muito mais frequente, porque agora até
+criar um orçamento sozinho pode criar um item reativo na hora, sem o
+teste saber.
+
+**Fix**: `cleanup` agora apaga numa ordem fixa que respeita as FKs de
+verdade (mesma lista de `tests/limpar_dados_integracao.py`:
+`orcamento_itens → transacoes → orcamentos → caixinhas →
+compras_parceladas → subcategorias → categorias → contas`), não mais a
+ordem reversa de criação. De brinde: zera `ajuste_de_transacao_id`
+(auto-referência de estorno) antes de apagar transações, mesma defesa do
+script de limpeza; e troca o `except: pass` silencioso por um print —
+uma falha de limpeza não pode mais passar despercebida até virar
+"duplicate key" numa rodada futura.
+
+**Ação pro usuário**: a conta de teste já está suja (é o que aparece no
+print) — rode `python tests/limpar_dados_integracao.py` uma vez pra
+zerar antes da próxima rodada de testes de integração (comando completo
+no README, seção "Resetar a conta de teste"). O fix evita que aconteça
+de novo, não desfaz o que já está preso.

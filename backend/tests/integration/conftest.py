@@ -76,16 +76,58 @@ def headers_b():
     admin.auth.admin.delete_user(created.user.id)
 
 
+# ordem segura de FK pra apagar — mesma lógica de
+# tests/limpar_dados_integracao.py: transacoes/orcamento_itens referenciam
+# categorias/subcategorias/contas/caixinhas sem "on delete cascade", então
+# têm que sumir antes dos "pais". orcamento_itens cascade a partir de
+# orcamentos, mas apagar explícito aqui não atrapalha e cobre o caso de um
+# teste que cria o item sem apagar o orçamento-pai. Tabela fora desta lista
+# (não deveria acontecer) cai no fim, ordenada por nome, só pra não quebrar.
+_ORDEM_SEGURA = {
+    "orcamento_itens": 0,
+    "transacoes": 1,
+    "orcamentos": 2,
+    "caixinhas": 3,
+    "compras_parceladas": 4,
+    "subcategorias": 5,
+    "categorias": 6,
+    "contas": 7,
+}
+
+
 @pytest.fixture
 def cleanup():
     """Registre (tabela, id) durante o teste; tudo é apagado ao final,
-    mesmo se o teste falhar no meio. Ordem de apagar é a inversa da
-    ordem de criação (LIFO), então dependências saem antes dos pais."""
+    mesmo se o teste falhar no meio.
+
+    A ordem de apagar NÃO é a reversa da ordem de criação (LIFO) — testes
+    costumam criar o orçamento antes da categoria e só depois o item que
+    referencia os dois, então LIFO tentava apagar a categoria antes do
+    orçamento (e do item que ainda a referenciava), a FK bloqueava, o erro
+    era engolido e a categoria ficava presa pra sempre (é o que gerava o
+    "duplicate key" e o orçamento fantasma em rodadas seguintes). A ordem
+    aqui é fixa e respeita as FKs de verdade, igual
+    tests/limpar_dados_integracao.py, não importa em que ordem o teste
+    chamou cleanup.append."""
     created: list[tuple[str, str]] = []
     yield created
     admin = get_service_client()
-    for table, item_id in reversed(created):
+    # ajuste_de_transacao_id é auto-referente (estorno aponta pra despesa
+    # original) sem cascade — zera antes de apagar, mesma defesa de
+    # limpar_dados_integracao.py, pro caso de um teste futuro rastrear as
+    # duas transações e a ordem entre elas não ser a que a FK exige.
+    for table, item_id in created:
+        if table == "transacoes":
+            try:
+                admin.table("transacoes").update({"ajuste_de_transacao_id": None}).eq("id", item_id).execute()
+            except Exception:
+                pass
+    for table, item_id in sorted(created, key=lambda par: _ORDEM_SEGURA.get(par[0], 99)):
         try:
             admin.table(table).delete().eq("id", item_id).execute()
-        except Exception:
-            pass
+        except Exception as exc:
+            # não propaga (não pode quebrar o teste na limpeza), mas avisa
+            # no output — antes isso era engolido em silêncio e o dado
+            # ficava preso sem ninguém perceber até esbarrar num unique
+            # constraint numa rodada futura
+            print(f"[cleanup] falha ao apagar {table}/{item_id}: {exc!r}")
