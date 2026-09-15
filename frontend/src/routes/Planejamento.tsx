@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { Link } from 'react-router-dom'
 import '../components/forms.css'
 import '../components/crud.css'
 import '../components/planejamento.css'
@@ -92,6 +93,15 @@ function rotuloItem(item: OrcamentoItem, categorias: Categoria[], subcategorias:
   if (item.categoria_id) return categorias.find((c) => c.id === item.categoria_id)?.nome ?? 'Categoria removida'
   if (item.conta_vinculada_id) return contas.find((c) => c.id === item.conta_vinculada_id)?.nome ?? 'Conta removida'
   return item.nome ?? 'Item sem nome'
+}
+
+/** Mesmo drill-down de Estrutura de Custo: leva pra Busca de Lançamentos já
+ * filtrada por categoria/subcategoria + mês deste item. */
+function linkBusca(mes: string, categoriaId: string | null, subcategoriaId: string | null): string {
+  const params = new URLSearchParams({ mes })
+  if (categoriaId) params.set('categoria_id', categoriaId)
+  if (subcategoriaId) params.set('subcategoria_id', subcategoriaId)
+  return `/lancamentos?${params.toString()}`
 }
 
 export function Planejamento() {
@@ -317,10 +327,30 @@ export function Planejamento() {
             Defina os valores-alvo do orçamento — a leitura do que foi de fato gasto fica na Estrutura de Custo.
           </p>
         </div>
-        <label className="campo" style={{ maxWidth: 180 }}>
-          Mês
-          <input type="month" value={vigenciaMes} onChange={(e) => setVigenciaMes(e.target.value)} />
-        </label>
+        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6 }}>
+          <button
+            type="button"
+            className="botao-secundario"
+            onClick={() => setVigenciaMes(mesesAntes(vigenciaMes, 1))}
+            title="Mês anterior"
+            aria-label="Mês anterior"
+          >
+            ←
+          </button>
+          <label className="campo" style={{ maxWidth: 180 }}>
+            Mês
+            <input type="month" value={vigenciaMes} onChange={(e) => setVigenciaMes(e.target.value)} />
+          </label>
+          <button
+            type="button"
+            className="botao-secundario"
+            onClick={() => setVigenciaMes(mesesAntes(vigenciaMes, -1))}
+            title="Próximo mês"
+            aria-label="Próximo mês"
+          >
+            →
+          </button>
+        </div>
       </div>
 
       {erro && <p className="mensagem-erro">{erro}</p>}
@@ -515,31 +545,43 @@ export function Planejamento() {
                     <p style={{ color: 'var(--cor-texto-suave)', fontSize: 13 }}>Nenhum item ainda.</p>
                   )}
                   {itensDoBucket.length > 0 && (
-                    <ul className="lista-crud">
+                    <div className="planejamento-itens">
+                      <div className="planejamento-itens-cabecalho">
+                        <span>Item</span>
+                        <span>Orçado</span>
+                        <span className="col-cabecalho-sobra">Sobra do envelope</span>
+                        <span>Disponível</span>
+                        <span></span>
+                      </div>
                       {itensDoBucket.map((item) => (
-                        <li key={item.id} className={item.ativo ? '' : 'item-inativo'}>
-                          <div className="item-linha">
-                            <div className="item-info">
-                              <span className="item-titulo">{rotuloItem(item, categorias, subcategorias, contas)}</span>
-                              <span className="item-detalhe">
-                                {formatarMoeda(item.orcamento_mensal, oculto)}
-                                {item.saldo_anterior !== 0 &&
-                                  ` · sobra do envelope: ${formatarMoeda(item.saldo_anterior, oculto)} · disponível: ${formatarMoeda(item.disponivel, oculto)}`}
-                                {!item.ativo && ' — inativo'}
-                              </span>
-                            </div>
-                            <div className="item-acoes">
-                              <button type="button" className="botao-link" onClick={() => iniciarEdicaoItem(item)}>
-                                Editar
-                              </button>
-                              <button type="button" className="botao-link" onClick={() => toggleAtivoItem(item)}>
-                                {item.ativo ? 'Desativar' : 'Reativar'}
-                              </button>
-                            </div>
-                          </div>
-                        </li>
+                        <div key={item.id} className={`planejamento-item-linha${item.ativo ? '' : ' inativo'}`}>
+                          <span className="planejamento-item-nome">
+                            {rotuloItem(item, categorias, subcategorias, contas)}
+                            {!item.ativo && ' — inativo'}
+                          </span>
+                          <span className="col-orcado">{formatarMoeda(item.orcamento_mensal, oculto)}</span>
+                          <span className="col-sobra">{item.saldo_anterior !== 0 ? formatarMoeda(item.saldo_anterior, oculto) : '—'}</span>
+                          <span className="col-disponivel">{item.saldo_anterior !== 0 ? formatarMoeda(item.disponivel, oculto) : '—'}</span>
+                          <span className="planejamento-item-acoes">
+                            {(item.categoria_id || item.subcategoria_id) && (
+                              <Link
+                                className="planejamento-item-ir-busca"
+                                to={linkBusca(vigenciaMes, item.categoria_id, item.subcategoria_id)}
+                                title="Ver em Busca de Lançamentos"
+                              >
+                                →
+                              </Link>
+                            )}
+                            <button type="button" className="botao-link" onClick={() => iniciarEdicaoItem(item)}>
+                              Editar
+                            </button>
+                            <button type="button" className="botao-link" onClick={() => toggleAtivoItem(item)}>
+                              {item.ativo ? 'Desativar' : 'Reativar'}
+                            </button>
+                          </span>
+                        </div>
                       ))}
-                    </ul>
+                    </div>
                   )}
 
                   {itemFormAberto === b.valor ? (

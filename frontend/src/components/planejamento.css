@@ -89,8 +89,8 @@
 }
 
 .planejamento-buckets {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  display: flex;
+  flex-direction: column;
   gap: 16px;
   margin-bottom: 24px;
 }
@@ -138,7 +138,90 @@
   margin-bottom: 10px;
 }
 
-.planejamento-item-detalhe-extra {
-  font-size: 12px;
+/* Lista de itens em colunas fixas — mesma ideia da tabela de Estrutura de
+ * Custo, pra parar de espremer "orçado · sobra do envelope · disponível"
+ * num texto só que quebra linha logo depois do sinal de negativo. Cada
+ * coluna tem a própria classe (não nth-child/nth-of-type) porque Nome e os
+ * valores numéricos são todos <span>, então "enésimo span" não identifica
+ * a coluna certa pra esconder no mobile. */
+.planejamento-itens {
+  margin-bottom: 10px;
+}
+
+.planejamento-itens-cabecalho {
+  display: grid;
+  grid-template-columns: 1fr 85px 100px 85px 140px;
+  gap: 8px;
+  padding: 0 4px 6px;
+  font-size: 11px;
   color: var(--cor-texto-suave);
+  text-transform: uppercase;
+  letter-spacing: .03em;
+}
+
+.planejamento-itens-cabecalho > span:not(:first-child) {
+  text-align: right;
+}
+
+.planejamento-item-linha {
+  display: grid;
+  grid-template-columns: 1fr 85px 100px 85px 140px;
+  gap: 8px;
+  align-items: center;
+  padding: 9px 4px;
+  border-top: 1px solid var(--cor-borda);
+  font-size: 13px;
+}
+
+.planejamento-item-linha:first-child {
+  border-top: none;
+}
+
+.planejamento-item-linha.inativo {
+  opacity: 0.55;
+}
+
+.planejamento-item-nome {
+  font-weight: 600;
+  min-width: 0;
+  overflow-wrap: break-word;
+}
+
+.planejamento-item-linha .col-orcado,
+.planejamento-item-linha .col-sobra,
+.planejamento-item-linha .col-disponivel {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.planejamento-item-acoes {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 2px 6px;
+}
+
+.planejamento-item-ir-busca {
+  color: var(--cor-acento);
+  text-decoration: none;
+  font-size: 14px;
+  padding: 0 2px;
+}
+
+@media (max-width: 480px) {
+  .planejamento-itens-cabecalho,
+  .planejamento-item-linha {
+    grid-template-columns: 1fr 90px 90px;
+  }
+  .col-cabecalho-sobra,
+  .planejamento-item-linha .col-sobra {
+    display: none;
+  }
+  .planejamento-item-acoes {
+    grid-column: 1 / -1;
+    justify-content: flex-start;
+    padding-top: 4px;
+  }
 }
