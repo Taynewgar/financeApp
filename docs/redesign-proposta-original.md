@@ -1,4 +1,4 @@
-# Proposta original do redesign — o que foi combinado x o que existe hoje
+# Proposta original do redesign + Changelog — o que foi combinado x o que existe hoje
 
 Este documento existe pra não perder o que foi desenhado no início do projeto,
 quando o ZIP do app antigo (`v6_Estrutura_de_custos.zip`, Tkinter + relatório
