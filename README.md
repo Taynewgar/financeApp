@@ -120,7 +120,7 @@ PWA com backend hospedado (Render) e banco Supabase.
   a partir dos lançamentos, modo envelope). Estruturas de Custo ainda é
   placeholder — próxima tela da fila (motor já pronto no backend).
   Decisões de escopo e changelog tela a tela em
-  `docs/redesign-proposta-original.md`. Detalhes técnicos em
+  `docs/changelog-proposta-original-do-redesign.md`. Detalhes técnicos em
   `frontend/README.md`.
 - `render.yaml` — blueprint de deploy no Render (backend).
 - `vercel.json` — build do frontend no Vercel a partir da raiz do repo

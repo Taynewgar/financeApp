@@ -11,7 +11,7 @@ conferida contra o código real, não contra memória de conversa.
 | Arquivo | O que é | Quando muda |
 |---|---|---|
 | `backlog.md` | **A lista de trabalho.** O que vem a seguir, em ordem de prioridade, e os itens registrados pra decidir depois (com detalhe técnico de cada um). | Toda vez que uma prioridade muda, um item novo é registrado, ou um item do backlog é entregue (some daqui, vira changelog no arquivo abaixo). |
-| `redesign-proposta-original.md` | **O histórico de decisão tela a tela.** Mockup × o que existe hoje, tela por tela, mais o changelog cronológico de cada rodada de entrega. | A cada entrega (changelog novo) ou quando uma tabela "proposto × status" precisa ser corrigida. |
+| `changelog-proposta-original-do-redesign.md` | **O histórico de decisão tela a tela.** Mockup × o que existe hoje, tela por tela, mais o changelog cronológico de cada rodada de entrega. | A cada entrega (changelog novo) ou quando uma tabela "proposto × status" precisa ser corrigida. |
 | `sugestoes-e-decisoes-do-redesign.md` | **O porquê das decisões de design.** 16 pontos de pergunta-resposta que refinaram o plano original logo depois dos mockups. | Raramente — só quando uma decisão registrada aqui é revisitada/corrigida. |
 | `plano-de-evolucao-original.md` | **O ponto de partida.** Auditoria do ZIP do app antigo + plano de migração original, escrito antes de qualquer mockup. | Quase nunca — é o documento mais "congelado", histórico puro. |
 
@@ -26,11 +26,11 @@ código estão do jeito que estão.
 | "O que fazer a seguir? Qual a prioridade?" | `backlog.md`, "Ordem de prioridade atual" |
 | "Por que a arquitetura é FastAPI + Supabase?" | `plano-de-evolucao-original.md`, seção 1 |
 | "O que o app antigo já fazia, que não pode se perder (paridade)?" | `plano-de-evolucao-original.md`, "Funcionalidades já implementadas" |
-| "Como era o mockup dessa tela? O que já foi implementado dela?" | `redesign-proposta-original.md` (uma seção por tela) + `docs/mockups/*.png` |
+| "Como era o mockup dessa tela? O que já foi implementado dela?" | `changelog-proposta-original-do-redesign.md` (uma seção por tela) + `docs/mockups/*.png` |
 | "Essa decisão de design mudou depois do mockup? Por quê?" | `sugestoes-e-decisoes-do-redesign.md` (16 pontos numerados) |
-| "O que foi entregue em cada rodada, em ordem cronológica?" | `redesign-proposta-original.md`, seção "Changelog deste documento" |
+| "O que foi entregue em cada rodada, em ordem cronológica?" | `changelog-proposta-original-do-redesign.md`, seção "Changelog deste documento" |
 | "O que está registrado pra decidir depois, mas ainda não foi?" | `backlog.md`, "Detalhamento dos itens maiores" |
-| "A aba 'Gráficos' do app antigo tinha o quê, e o que disso ainda falta?" | `redesign-proposta-original.md`, seção "Gráficos / Análise" |
+| "A aba 'Gráficos' do app antigo tinha o quê, e o que disso ainda falta?" | `changelog-proposta-original-do-redesign.md`, seção "Gráficos / Análise" |
 | "O que existe no código *agora*, tecnicamente?" | `README.md` (raiz do repo) — não duplica decisão/histórico, só descreve o que está implementado |
 | "Qual o andamento geral / relatório de status?" | skill `/status-projeto` |
 
@@ -55,7 +55,7 @@ tela). Ainda faltam: PWA offline com fila de sincronização, busca/comando
 rápido (Cmd+K), alertas/notificações.
 
 Este resumo é um retrato rápido — pra qualquer detalhe, a tabela tela a
-tela de `redesign-proposta-original.md` é a fonte de verdade (é ela que é
+tela de `changelog-proposta-original-do-redesign.md` é a fonte de verdade (é ela que é
 atualizada a cada entrega; este índice é revisado com menos frequência).
 
 ## Mockups
@@ -70,7 +70,7 @@ de login nem do artifact original continuar acessível:
 - `docs/mockups/planejamento.png`
 
 Cada uma é referenciada inline na seção correspondente de
-`redesign-proposta-original.md`, junto da tabela comparando proposto ×
+`changelog-proposta-original-do-redesign.md`, junto da tabela comparando proposto ×
 implementado. Não existe mockup próprio para Estruturas de Custo (não foi
 desenhada nos 4 originais — ver nota na seção correspondente daquele
 documento).
@@ -78,7 +78,7 @@ documento).
 ## Como manter isso confiável
 
 Regra usada até aqui, e que deve continuar: **toda entrega nova ganha uma
-entrada de changelog em `redesign-proposta-original.md`** (data + o que foi
+entrada de changelog em `changelog-proposta-original-do-redesign.md`** (data + o que foi
 pedido + o que foi entregue + o que ficou de fora e por quê), e as tabelas
 "proposto × status" são reescritas por cima (o changelog é o histórico,
 as tabelas são sempre o estado atual, nunca acumulam entradas antigas).
@@ -95,7 +95,7 @@ ganha uma subseção em "Detalhamento dos itens maiores". Quando um item é
 entregue, sai do backlog (fica só como linha riscada `~~...~~` **feito
 DATA** na ordem de prioridade, ou remove-se de vez se a lista ficar longa
 demais) e a entrega em si vira uma entrada de changelog em
-`redesign-proposta-original.md` — o backlog nunca guarda histórico do que
+`changelog-proposta-original-do-redesign.md` — o backlog nunca guarda histórico do que
 já foi feito, só o que falta.
 
 ## Revisão de consistência — 2026-09-15
@@ -104,7 +104,7 @@ Auditoria pedida pelo usuário, percorrendo a conversa desde o início pra
 confirmar que os 3 documentos ainda batem entre si e com o código.
 Inconsistências encontradas e corrigidas nesta rodada:
 
-- `redesign-proposta-original.md`: item 2 do "Resumo de prioridades" datava
+- `changelog-proposta-original-do-redesign.md`: item 2 do "Resumo de prioridades" datava
   a entrega da tela de Planejamento em 2026-09-13; o changelog (fonte de
   verdade) registra 2026-09-14. Corrigido.
 - `plano-de-evolucao-original.md`: a linha sobre "orçamento de envelope"
@@ -143,7 +143,7 @@ disponível na conversa) nunca foi mencionada em nenhum documento do
 redesign — não virou mockup, não virou backlog. Reli o código-fonte
 (`features/graficos/graficos_html.py` + `assets/report_scripts.js`, não só
 a memória já documentada) e registrei a comparação completa, feature a
-feature, em `redesign-proposta-original.md` (seção "Gráficos / Análise").
+feature, em `changelog-proposta-original-do-redesign.md` (seção "Gráficos / Análise").
 
 Não recomendei adoção 1:1 de tudo — o achado real é o **Pareto de despesas
 por categoria/subcategoria** (capacidade genuinamente ausente hoje, sem

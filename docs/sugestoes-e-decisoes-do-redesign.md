@@ -1,7 +1,7 @@
 # Sugestões e decisões do redesign — conversa completa
 
 Esta é a conversa que aconteceu logo depois dos 4 mockups serem mostrados
-pela primeira vez (ver `redesign-proposta-original.md` e `docs/mockups/`):
+pela primeira vez (ver `changelog-proposta-original-do-redesign.md` e `docs/mockups/`):
 uma rodada de perguntas suas sobre cada decisão do `plano-de-evolucao-original.md`,
 com minhas respostas detalhadas, que terminou na divisão final em 7 entregas
 que efetivamente guiou o desenvolvimento. Recuperada do histórico da sessão
@@ -297,5 +297,5 @@ as contas Render/Supabase diretamente e preencher só nos painéis deles ou em
 ---
 
 Ver também: `plano-de-evolucao-original.md` (auditoria do ZIP + plano de
-fases original) e `redesign-proposta-original.md` (mockups + comparação
+fases original) e `changelog-proposta-original-do-redesign.md` (mockups + comparação
 proposto x implementado, tela por tela).

@@ -7,7 +7,7 @@ documentos em `docs/` são histórico e racional de decisão de design, não
 pauta de trabalho — ver `docs/README.md` pra saber qual é qual.
 
 Até 2026-09-15 esse conteúdo vivia espalhado dentro de
-`redesign-proposta-original.md` ("Resumo de prioridades" + "Backlog
+`changelog-proposta-original-do-redesign.md` ("Resumo de prioridades" + "Backlog
 registrado"). Consolidado aqui num arquivo próprio porque o backlog cresceu
 o suficiente (Pareto, exportação de relatório, propostas de gráficos) pra
 merecer não ficar misturado com a tabela proposto×implementado tela a tela.
@@ -196,12 +196,12 @@ implementado.
 ### Feature "Gráficos" — tela nova na navegação
 
 **Origem:** a aba Gráficos existia no app antigo (ver
-`redesign-proposta-original.md`, seção "Gráficos / Análise") mas nunca virou
+`changelog-proposta-original-do-redesign.md`, seção "Gráficos / Análise") mas nunca virou
 mockup nem backlog no redesign. Em 2026-09-15 o usuário trouxe mockups de
 referência e pediu explicitamente uma feature de gráficos própria — decisão
 tomada de destinar toda visualização gráfica do app pra cá, tirando gráfico
 nenhum do Dashboard (que fica só com informação sintética — números, KPIs,
-listas). Ver `redesign-proposta-original.md` pro racional completo por trás
+listas). Ver `changelog-proposta-original-do-redesign.md` pro racional completo por trás
 de cada peça avaliada.
 
 **O que entra nesta tela (v1):**
@@ -285,5 +285,5 @@ exato do JSON quando for priorizado.
 
 Todas as propostas trazidas em 2026-09-15 (6 mockups de referência) foram
 decididas nesta mesma rodada — nenhuma pendência de aprovação restante. Ver
-o changelog em `redesign-proposta-original.md` pro raciocínio completo por
+o changelog em `changelog-proposta-original-do-redesign.md` pro raciocínio completo por
 trás de cada recomendação.

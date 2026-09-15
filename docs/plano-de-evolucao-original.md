@@ -4,7 +4,7 @@ Estes são os dois documentos que abriram o projeto, escritos a partir da
 análise do ZIP do app antigo (`v6_Estrutura_de_custos.zip`), antes de
 qualquer linha de código da versão web ser escrita. Recuperados do histórico
 da sessão e salvos aqui porque só existiam em texto de conversa — não
-tinham lugar nenhum versionado. Ver também `redesign-proposta-original.md`
+tinham lugar nenhum versionado. Ver também `changelog-proposta-original-do-redesign.md`
 (os mockups visuais que vieram logo depois destes textos, e a comparação
 proposto x implementado) e `sugestoes-e-decisoes-do-redesign.md` (a rodada
 de perguntas e respostas que refinou este plano até a divisão final em 7
