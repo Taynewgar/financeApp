@@ -22,7 +22,9 @@ merecer não ficar misturado com a tabela proposto×implementado tela a tela.
    com expand/collapse (bucket > categoria > subcategoria), fita de KPIs,
    vereditos de pool de despesas/piso de investimentos e drill-down pra
    Busca de Lançamentos. Backend não mudou (motor já existia).
-4. Categorias "mais usadas" + criação inline no Novo Lançamento.
+4. ~~Categorias "mais usadas" + criação inline no Novo Lançamento~~ **feito
+   2026-09-15** — chips de atalho (ranking por uso nos últimos 6 meses) +
+   formulário inline de criação, sem sair da tela.
 5. **Feature "Gráficos" nova** (tela própria na navegação) — Pareto de
    despesas + tendência de Orçado×Realizado em vários meses (detalhes
    abaixo). **Decidido 2026-09-15**: `EvolucaoChart` e "Despesas por

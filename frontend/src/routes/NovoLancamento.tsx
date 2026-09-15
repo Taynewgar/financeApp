@@ -90,11 +90,15 @@ export function NovoLancamento() {
   // categoria é escolhida entre as do tipo compatível (receita/despesa/
   // investimento) — igual pra qualquer tipo de lançamento, sem parentesco
   // fixo (ver regra em backend/app/schemas/categorias.py)
+  const tipoCategoriaEfetivo = useMemo(() => {
+    const t = tipo === 'ajuste' ? 'despesa' : tipo
+    return t === 'despesa' || t === 'receita' || t === 'investimento' ? t : null
+  }, [tipo])
+
   const categoriasElegiveis = useMemo(() => {
-    const tipoCategoria = tipo === 'ajuste' ? 'despesa' : tipo
-    if (tipoCategoria !== 'despesa' && tipoCategoria !== 'receita' && tipoCategoria !== 'investimento') return []
-    return categorias.filter((c) => c.tipo === tipoCategoria)
-  }, [categorias, tipo])
+    if (!tipoCategoriaEfetivo) return []
+    return categorias.filter((c) => c.tipo === tipoCategoriaEfetivo)
+  }, [categorias, tipoCategoriaEfetivo])
 
   const rotuloTipoCategoria =
     tipo === 'receita' ? 'Receita' : tipo === 'investimento' ? 'Investimento' : 'Despesa'
@@ -103,6 +107,89 @@ export function NovoLancamento() {
     () => subcategorias.filter((s) => s.categoria_id === categoriaId),
     [subcategorias, categoriaId],
   )
+
+  // atalhos de "mais usadas" — poupam navegar o select inteiro pras
+  // categorias/subcategorias do dia a dia; recalculados no backend por
+  // frequência de uso nos últimos ~6 meses (GET .../mais-usadas)
+  const [categoriasMaisUsadas, setCategoriasMaisUsadas] = useState<Categoria[]>([])
+  const [subcategoriasMaisUsadas, setSubcategoriasMaisUsadas] = useState<Subcategoria[]>([])
+
+  const [criandoCategoria, setCriandoCategoria] = useState(false)
+  const [novaCategoriaNome, setNovaCategoriaNome] = useState('')
+  const [salvandoCategoria, setSalvandoCategoria] = useState(false)
+  const [erroCategoria, setErroCategoria] = useState<string | null>(null)
+
+  const [criandoSubcategoria, setCriandoSubcategoria] = useState(false)
+  const [novaSubcategoriaNome, setNovaSubcategoriaNome] = useState('')
+  const [salvandoSubcategoria, setSalvandoSubcategoria] = useState(false)
+  const [erroSubcategoria, setErroSubcategoria] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!tipoCategoriaEfetivo) {
+      setCategoriasMaisUsadas([])
+      return
+    }
+    apiFetch<Categoria[]>(`/categorias/mais-usadas?tipo=${tipoCategoriaEfetivo}`)
+      .then(setCategoriasMaisUsadas)
+      .catch(() => setCategoriasMaisUsadas([]))
+  }, [tipoCategoriaEfetivo])
+
+  useEffect(() => {
+    if (!categoriaId) {
+      setSubcategoriasMaisUsadas([])
+      return
+    }
+    apiFetch<Subcategoria[]>(`/subcategorias/mais-usadas?categoria_id=${categoriaId}`)
+      .then(setSubcategoriasMaisUsadas)
+      .catch(() => setSubcategoriasMaisUsadas([]))
+  }, [categoriaId])
+
+  function escolherCategoria(id: string) {
+    setCategoriaId(id)
+    setSubcategoriaId('')
+    setCriandoCategoria(false)
+  }
+
+  async function criarCategoria() {
+    const nome = novaCategoriaNome.trim()
+    if (!nome || !tipoCategoriaEfetivo) return
+    setSalvandoCategoria(true)
+    setErroCategoria(null)
+    try {
+      const nova = await apiFetch<Categoria>('/categorias', {
+        method: 'POST',
+        body: JSON.stringify({ nome, tipo: tipoCategoriaEfetivo }),
+      })
+      setCategorias((prev) => [...prev, nova].sort((a, b) => a.nome.localeCompare(b.nome)))
+      escolherCategoria(nova.id)
+      setNovaCategoriaNome('')
+    } catch (e) {
+      setErroCategoria(e instanceof ApiError ? e.message : 'Falha ao criar categoria.')
+    } finally {
+      setSalvandoCategoria(false)
+    }
+  }
+
+  async function criarSubcategoria() {
+    const nome = novaSubcategoriaNome.trim()
+    if (!nome || !categoriaId) return
+    setSalvandoSubcategoria(true)
+    setErroSubcategoria(null)
+    try {
+      const nova = await apiFetch<Subcategoria>('/subcategorias', {
+        method: 'POST',
+        body: JSON.stringify({ nome, categoria_id: categoriaId }),
+      })
+      setSubcategorias((prev) => [...prev, nova].sort((a, b) => a.nome.localeCompare(b.nome)))
+      selecionarSubcategoria(nova.id)
+      setNovaSubcategoriaNome('')
+      setCriandoSubcategoria(false)
+    } catch (e) {
+      setErroSubcategoria(e instanceof ApiError ? e.message : 'Falha ao criar subcategoria.')
+    } finally {
+      setSalvandoSubcategoria(false)
+    }
+  }
 
   const contaSelecionada = useMemo(() => contas.find((c) => c.id === contaId), [contas, contaId])
   const caixinhaSelecionada = useMemo(() => caixinhas.find((c) => c.id === caixinhaId), [caixinhas, caixinhaId])
@@ -113,6 +200,8 @@ export function NovoLancamento() {
     setCategoriaId('')
     setSubcategoriaId('')
     setEstruturaCusto(tipo === 'investimento' ? 'investimentos' : '')
+    setCriandoCategoria(false)
+    setCriandoSubcategoria(false)
   }, [tipo])
 
   // despesa numa conta de cartão de crédito só pode ter sido paga no
@@ -186,6 +275,8 @@ export function NovoLancamento() {
     setCategoriaId('')
     setSubcategoriaId('')
     setEstruturaCusto('')
+    setCriandoCategoria(false)
+    setCriandoSubcategoria(false)
     setCaixinhaId('')
     setMeioPagamento('')
     setValorTotal('')
@@ -551,10 +642,7 @@ export function NovoLancamento() {
                 Categoria
                 <select
                   value={categoriaId}
-                  onChange={(e) => {
-                    setCategoriaId(e.target.value)
-                    setSubcategoriaId('')
-                  }}
+                  onChange={(e) => escolherCategoria(e.target.value)}
                   required={tipo === 'despesa'}
                 >
                   <option value="">{tipo === 'despesa' ? 'Selecione…' : 'Nenhuma'}</option>
@@ -564,6 +652,70 @@ export function NovoLancamento() {
                     </option>
                   ))}
                 </select>
+                {categoriasMaisUsadas.length > 0 && (
+                  <div className="chips-rapidos">
+                    {categoriasMaisUsadas
+                      .filter((c) => c.id !== categoriaId)
+                      .map((c) => (
+                        <button key={c.id} type="button" className="chip" onClick={() => escolherCategoria(c.id)}>
+                          {c.nome}
+                        </button>
+                      ))}
+                    <button
+                      type="button"
+                      className="chip chip-criar"
+                      onClick={() => setCriandoCategoria((v) => !v)}
+                    >
+                      + Nova
+                    </button>
+                  </div>
+                )}
+                {categoriasMaisUsadas.length === 0 && (
+                  <button
+                    type="button"
+                    className="chip chip-criar chip-solta"
+                    onClick={() => setCriandoCategoria((v) => !v)}
+                  >
+                    + Nova categoria
+                  </button>
+                )}
+                {criandoCategoria && (
+                  <div className="chip-form">
+                    <input
+                      type="text"
+                      placeholder={`Nome da categoria de ${rotuloTipoCategoria.toLowerCase()}`}
+                      value={novaCategoriaNome}
+                      onChange={(e) => setNovaCategoriaNome(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault()
+                          criarCategoria()
+                        }
+                      }}
+                      autoFocus
+                    />
+                    <button
+                      type="button"
+                      className="botao-secundario"
+                      disabled={salvandoCategoria || !novaCategoriaNome.trim()}
+                      onClick={criarCategoria}
+                    >
+                      {salvandoCategoria ? 'Criando…' : 'Criar'}
+                    </button>
+                    <button
+                      type="button"
+                      className="chip-cancelar"
+                      onClick={() => {
+                        setCriandoCategoria(false)
+                        setNovaCategoriaNome('')
+                        setErroCategoria(null)
+                      }}
+                    >
+                      Cancelar
+                    </button>
+                    {erroCategoria && <p className="mensagem-erro">{erroCategoria}</p>}
+                  </div>
+                )}
               </label>
               <label className="campo">
                 Subcategoria
@@ -579,6 +731,66 @@ export function NovoLancamento() {
                     </option>
                   ))}
                 </select>
+                {categoriaId && (
+                  <div className="chips-rapidos">
+                    {subcategoriasMaisUsadas
+                      .filter((s) => s.id !== subcategoriaId)
+                      .map((s) => (
+                        <button
+                          key={s.id}
+                          type="button"
+                          className="chip"
+                          onClick={() => selecionarSubcategoria(s.id)}
+                        >
+                          {s.nome}
+                        </button>
+                      ))}
+                    <button
+                      type="button"
+                      className="chip chip-criar"
+                      onClick={() => setCriandoSubcategoria((v) => !v)}
+                    >
+                      + Nova
+                    </button>
+                  </div>
+                )}
+                {criandoSubcategoria && (
+                  <div className="chip-form">
+                    <input
+                      type="text"
+                      placeholder="Nome da subcategoria"
+                      value={novaSubcategoriaNome}
+                      onChange={(e) => setNovaSubcategoriaNome(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault()
+                          criarSubcategoria()
+                        }
+                      }}
+                      autoFocus
+                    />
+                    <button
+                      type="button"
+                      className="botao-secundario"
+                      disabled={salvandoSubcategoria || !novaSubcategoriaNome.trim()}
+                      onClick={criarSubcategoria}
+                    >
+                      {salvandoSubcategoria ? 'Criando…' : 'Criar'}
+                    </button>
+                    <button
+                      type="button"
+                      className="chip-cancelar"
+                      onClick={() => {
+                        setCriandoSubcategoria(false)
+                        setNovaSubcategoriaNome('')
+                        setErroSubcategoria(null)
+                      }}
+                    >
+                      Cancelar
+                    </button>
+                    {erroSubcategoria && <p className="mensagem-erro">{erroSubcategoria}</p>}
+                  </div>
+                )}
               </label>
             </div>
           ))}

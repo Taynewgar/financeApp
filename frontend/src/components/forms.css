@@ -124,6 +124,81 @@
   background: var(--cor-fundo);
 }
 
+/* atalhos "mais usadas" + criação inline de categoria/subcategoria, no
+ * Novo Lançamento — poupa abrir o select inteiro pro dia a dia */
+.chips-rapidos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.chip {
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--cor-borda);
+  background: var(--cor-superficie);
+  color: var(--cor-texto);
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.chip:hover {
+  border-color: var(--cor-acento);
+}
+
+.chip-criar {
+  color: var(--cor-acento);
+  border-style: dashed;
+}
+
+.chip-solta {
+  margin-top: 6px;
+  align-self: flex-start;
+}
+
+.chip-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 8px;
+  border: 1px solid var(--cor-borda);
+  border-radius: 8px;
+  background: var(--cor-superficie);
+}
+
+.chip-form input {
+  flex: 1;
+  min-width: 140px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--cor-borda);
+  background: var(--cor-fundo);
+  color: var(--cor-texto);
+  font-size: 13px;
+}
+
+.chip-form .botao-secundario {
+  padding: 6px 14px;
+  font-size: 13px;
+}
+
+.chip-cancelar {
+  border: none;
+  background: none;
+  color: var(--cor-texto-suave);
+  cursor: pointer;
+  font-size: 13px;
+  text-decoration: underline;
+}
+
+.chip-form .mensagem-erro {
+  flex-basis: 100%;
+}
+
 .despesa-selecionada {
   display: flex;
   align-items: center;

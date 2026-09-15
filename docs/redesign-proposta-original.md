@@ -839,3 +839,35 @@ nova à tabela.
   mostra a segunda linha de detalhe quando `saldoAnterior !== 0`.
 - 1 teste novo (extensão de `test_pool_despesas_considera_saldo_anterior_do_envelope`)
   cobrindo os 2 campos novos no item. Suíte offline: 206 passed.
+
+## Rodada 14 (2026-09-15) — Categorias "mais usadas" + criação inline no Novo Lançamento
+
+Item 4 do backlog: categoria e subcategoria eram um `<select>` puro no
+Novo Lançamento — pra cadastrar uma categoria nova era preciso sair da
+tela, ir em Configurações, criar lá e voltar.
+
+**"Mais usadas"**: dois endpoints novos, `GET /categorias/mais-usadas`
+(filtro `tipo`) e `GET /subcategorias/mais-usadas` (filtro `categoria_id`),
+rankeiam por frequência de uso nos últimos ~6 meses (contagem de
+`transacoes` por `categoria_id`/`subcategoria_id` em memória, mesmo padrão
+de agregação já usado em `/dashboard/despesas-por-categoria`, já que o
+projeto usa Supabase client sem `GROUP BY` no banco). Só considera
+registros ativos; precisam vir declarados antes de `/{categoria_id}` e
+`/{subcategoria_id}` na ordem das rotas, senão "mais-usadas" seria
+capturado como id.
+
+**Criação inline**: reaproveita os endpoints `POST /categorias`/
+`POST /subcategorias` que já existiam (sem endpoint novo pra isso) — um
+formulário pequeno ("+ Nova") aparece abaixo do select, cria e já
+seleciona a categoria/subcategoria nova sem sair da tela.
+
+- Frontend: `NovoLancamento.tsx` ganha `categoriasMaisUsadas`/
+  `subcategoriasMaisUsadas` (buscadas via efeito ao trocar tipo/categoria),
+  chips clicáveis acima de cada select, e formulário inline de criação
+  (`criarCategoria`/`criarSubcategoria`) que atualiza a lista local e
+  seleciona o item recém-criado. CSS novo em `forms.css`
+  (`.chips-rapidos`, `.chip`, `.chip-form`).
+- 7 testes novos (`test_categorias_mais_usadas_api.py`): ordenação por
+  frequência, janela de 6 meses, limite, exclusão de inativas, isolamento
+  por usuário, filtro de subcategoria por categoria pai. Suíte offline:
+  213 passed.
