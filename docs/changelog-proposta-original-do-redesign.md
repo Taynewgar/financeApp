@@ -926,3 +926,57 @@ Os 3 vêm de dados que a tela já buscava, sem endpoint novo:
   (`EXPLICACAO.meses_negativos`/`maior_categoria_despesa`).
 - Sem mudança de backend, sem teste novo (nada de lógica de servidor).
   tsc + build limpos; suíte offline: 213 passed (inalterada).
+
+## Rodada 16 (2026-09-16) — Feature Gráficos, Rodada A: tela nova + migração + sparkline
+
+Item 5 do backlog, dividido em 3 rodadas a pedido do usuário. Esta é a
+Rodada A: tela nova na navegação, migração de `EvolucaoChart` e
+"Despesas por Categoria" do Dashboard pra lá (sem duplicar), e o
+sparkline compacto no Dashboard no lugar deles — exatamente como
+decidido em 2026-09-15 (rodadas 3/4). Rodadas B (Pareto) e C (tendência
+Orçado×Realizado) ficam pra depois.
+
+**Seletor de período extraído pra reaproveitar de verdade** — antes
+vivia inline em `Dashboard.tsx` (~90 linhas de estado + JSX); virou
+`frontend/src/lib/periodo.ts` (hook `usePeriodo` + helpers `hojeAnoMes`/
+`mesesAntes`/`rotuloMesLongo`) e `frontend/src/components/
+SeletorPeriodo.tsx` (a UI), os dois usados por Dashboard e Gráficos sem
+duplicar nada — não é só "o mesmo padrão visual", é literalmente o
+mesmo componente, como pedido no backlog.
+
+**Reforço "taxa de poupança mensal" virou gráfico próprio, não uma
+linha dentro do EvolucaoChart** — o backlog original previa "linha
+extra" no mesmo gráfico, mas a skill de dataviz do projeto proíbe
+dual-axis (uma métrica em R$ e outra em % não cabem no mesmo eixo Y sem
+distorcer a leitura de uma delas). Ajustado pra dois gráficos de eixo
+único, um do lado do outro na tela Gráficos, em vez de forçar os dois
+num só — mesmo resultado analítico (ver a taxa mês a mês, não só
+acumulada), sem violar a regra "one axis".
+
+- `frontend/src/routes/Graficos.tsx` — tela nova (`/graficos`, item de
+  nav "Gráficos" em `AppShell.tsx`): `SeletorPeriodo` + `EvolucaoChart` +
+  `TaxaPoupancaChart` (novo) + `DespesasPorCategoria`. Busca só
+  `/dashboard/evolucao` e `/dashboard/despesas-por-categoria` — endpoints
+  já existentes, nenhum novo.
+- `frontend/src/components/TaxaPoupancaChart.tsx` (+ `.css`) — gráfico de
+  linha só, 1 série (`taxa_poupanca` mensal, não a acumulada), cor slot 4
+  da paleta categórica (amarelo) pra não repetir o verde de "Resultado"
+  já usado acima na mesma tela; pula meses sem taxa (receita ajustada
+  zero) em vez de interpolar; "Ver como tabela" cobre a relief rule do
+  amarelo em modo claro (contraste abaixo de 3:1 na superfície clara).
+- `frontend/src/components/Sparkline.tsx` (+ `.css`) — forma pura (sem
+  eixo/legenda/tooltip) dos meses já buscados pelo Dashboard, ao lado do
+  resultado principal; segue o toggle Caixa/Saúde do hero.
+- `frontend/src/routes/Dashboard.tsx` — usa `usePeriodo`/`SeletorPeriodo`
+  em vez do estado/JSX próprios; perde os `<EvolucaoChart>`/
+  `<DespesasPorCategoria>` completos, ganha o sparkline e um link "Ver
+  gráficos completos →" pra `/graficos`. Continua buscando `evolucao`/
+  `despesasCategoria` (usados pelo sparkline, pelo "mês anterior" e pelos
+  3 KPIs da Rodada 15) — só a renderização dos gráficos completos saiu.
+- Sem mudança de backend. tsc + build limpos (109 módulos); suíte
+  offline: 213 passed (inalterada — nada de servidor mudou).
+
+**Limite desta sessão**: sem `backend/.env`/credenciais reais aqui, não
+deu pra fazer QA visual de login (ver nota já registrada nas rodadas
+anteriores) — validação é só estática (tsc/build/lint) até o usuário
+testar na tela de verdade.

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
-import { DespesasPorCategoria } from '../components/DespesasPorCategoria'
-import { EvolucaoChart } from '../components/EvolucaoChart'
+import { Link } from 'react-router-dom'
+import { SeletorPeriodo } from '../components/SeletorPeriodo'
+import { Sparkline } from '../components/Sparkline'
 import '../components/forms.css'
 import '../components/resumoCards.css'
 import '../components/crud.css'
@@ -8,21 +9,19 @@ import '../components/dashboard.css'
 import { useAuth } from '../auth/AuthContext'
 import { ApiError, apiFetch } from '../lib/api'
 import { formatarData, formatarMoeda } from '../lib/formatar'
+import { mesesAntes, usePeriodo } from '../lib/periodo'
 import { usePrivacidade } from '../lib/PrivacyContext'
 import type {
   CamposFinanceiros,
   CompromissoFuturo,
   DespesaPorCategoria as DespesaPorCategoriaT,
   EvolucaoMensal,
-  PrimeiroMes,
   ResumoMensal,
   ResumoPeriodo,
   SaldoCaixinha,
 } from '../lib/types'
 
 type Leitura = 'caixa' | 'saude'
-type ModoData = 'mes' | 'intervalo' | 'todos'
-type BaseMedia = 'ate_mes' | 'todos_meses'
 
 const EXPLICACAO: Record<string, string> = {
   fluxo_caixa: 'Receitas menos despesas brutas (sem descontar estornos) — o que de fato entrou e saiu das contas.',
@@ -37,29 +36,6 @@ const EXPLICACAO: Record<string, string> = {
   base_media: 'Ainda sem efeito nos cálculos — vai orientar médias de gráficos/KPIs quando essa funcionalidade existir.',
   meses_negativos: 'Quantos meses de janeiro até o mês de referência tiveram resultado (leitura de saúde) negativo.',
   maior_categoria_despesa: 'Categoria com maior soma de despesas no mês de referência — mesmo recorte do gráfico "Despesas por Categoria".',
-}
-
-const MESES_NOME = [
-  'janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho',
-  'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro',
-]
-
-function hojeAnoMes(): string {
-  return new Date().toISOString().slice(0, 7)
-}
-
-/** 'YYYY-MM' menos N meses, sempre 'YYYY-MM' de volta. */
-function mesesAntes(anoMes: string, n: number): string {
-  const [ano, mes] = anoMes.split('-').map(Number)
-  const totalMeses = ano * 12 + (mes - 1) - n
-  const anoResultado = Math.floor(totalMeses / 12)
-  const mesResultado = (totalMeses % 12) + 1
-  return `${anoResultado}-${String(mesResultado).padStart(2, '0')}`
-}
-
-function rotuloMesLongo(anoMes: string): string {
-  const [ano, mes] = anoMes.split('-').map(Number)
-  return `${MESES_NOME[mes - 1]} de ${ano}`
 }
 
 function classeResultado(valor: number): string {
@@ -89,12 +65,8 @@ export function Dashboard() {
   const { session } = useAuth()
   const { oculto } = usePrivacidade()
 
-  const [modoData, setModoData] = useState<ModoData>('mes')
-  const [vigenciaMes, setVigenciaMes] = useState(hojeAnoMes())
-  const [intervaloInicio, setIntervaloInicio] = useState(mesesAntes(hojeAnoMes(), 2))
-  const [intervaloFim, setIntervaloFim] = useState(hojeAnoMes())
-  const [baseMedia, setBaseMedia] = useState<BaseMedia>('ate_mes')
-  const [primeiroMes, setPrimeiroMes] = useState<string | null>(null)
+  const periodo = usePeriodo()
+  const { modoData, vigenciaMes, primeiroMes, periodoInicio, periodoFim, mesReferencia } = periodo
 
   const [leitura, setLeitura] = useState<Leitura>('saude')
   const [resumo, setResumo] = useState<CamposFinanceiros | null>(null)
@@ -108,28 +80,10 @@ export function Dashboard() {
   const [despesasCategoria, setDespesasCategoria] = useState<DespesaPorCategoriaT[] | null>(null)
   const [erro, setErro] = useState<string | null>(null)
 
-  // "Todos os meses" precisa saber onde o histórico começa
-  useEffect(() => {
-    apiFetch<PrimeiroMes>('/dashboard/primeiro-mes')
-      .then((p) => setPrimeiroMes(p.vigencia_mes ? p.vigencia_mes.slice(0, 7) : hojeAnoMes()))
-      .catch(() => setPrimeiroMes(hojeAnoMes()))
-  }, [])
-
   // compromissos futuros não dependem do período navegado (é sempre "a partir de hoje")
   useEffect(() => {
     apiFetch<CompromissoFuturo[]>('/dashboard/compromissos-futuros').then(setCompromissos).catch(() => setCompromissos([]))
   }, [])
-
-  const { periodoInicio, periodoFim, mesReferencia } = useMemo(() => {
-    if (modoData === 'mes') return { periodoInicio: vigenciaMes, periodoFim: vigenciaMes, mesReferencia: vigenciaMes }
-    if (modoData === 'intervalo') return { periodoInicio: intervaloInicio, periodoFim: intervaloFim, mesReferencia: intervaloFim }
-    // "Todos os meses" é sempre até hoje, independente do que ficou
-    // selecionado no modo Mês antes de trocar de aba — vigenciaMes pode ser
-    // qualquer mês navegado (até sem dado nenhum), inclusive anterior ao
-    // primeiro lançamento real, o que quebrava a conta (fim antes do início)
-    const hoje = hojeAnoMes()
-    return { periodoInicio: primeiroMes ?? hoje, periodoFim: hoje, mesReferencia: hoje }
-  }, [modoData, vigenciaMes, intervaloInicio, intervaloFim, primeiroMes])
 
   useEffect(() => {
     if (modoData === 'todos' && primeiroMes === null) return // aguarda carregar o início do histórico
@@ -199,76 +153,7 @@ export function Dashboard() {
         <h1 style={{ fontSize: 22, marginTop: 0, marginBottom: 0 }}>Olá, {session?.user.email}</h1>
       </div>
 
-      <div className="dashboard-seletor">
-        <div className="segmentado">
-          <button type="button" className={modoData === 'mes' ? 'ativo' : ''} onClick={() => setModoData('mes')}>
-            Mês
-          </button>
-          <button type="button" className={modoData === 'intervalo' ? 'ativo' : ''} onClick={() => setModoData('intervalo')}>
-            Intervalo
-          </button>
-          <button type="button" className={modoData === 'todos' ? 'ativo' : ''} onClick={() => setModoData('todos')}>
-            Todos os meses
-          </button>
-        </div>
-
-        {modoData === 'mes' && (
-          <label className="campo" style={{ maxWidth: 180 }}>
-            Mês
-            <input type="month" value={vigenciaMes} onChange={(e) => setVigenciaMes(e.target.value)} max={hojeAnoMes()} />
-          </label>
-        )}
-
-        {modoData === 'intervalo' && (
-          <div className="campo-linha">
-            <label className="campo" style={{ maxWidth: 180 }}>
-              Início
-              <input
-                type="month"
-                value={intervaloInicio}
-                onChange={(e) => setIntervaloInicio(e.target.value)}
-                max={intervaloFim}
-              />
-            </label>
-            <label className="campo" style={{ maxWidth: 180 }}>
-              Fim
-              <input
-                type="month"
-                value={intervaloFim}
-                onChange={(e) => setIntervaloFim(e.target.value)}
-                min={intervaloInicio}
-                max={hojeAnoMes()}
-              />
-            </label>
-          </div>
-        )}
-
-        {modoData === 'todos' && (
-          <p style={{ fontSize: 13, color: 'var(--cor-texto-suave)', margin: 0 }}>
-            {primeiroMes
-              ? `Desde ${rotuloMesLongo(primeiroMes)} até ${rotuloMesLongo(hojeAnoMes())}`
-              : 'Carregando período…'}
-          </p>
-        )}
-
-        {modoData !== 'mes' && (
-          <div className="campo" title={EXPLICACAO.base_media}>
-            <span style={{ fontSize: 12, color: 'var(--cor-texto-suave)' }}>Base da média</span>
-            <div className="segmentado">
-              <button type="button" className={baseMedia === 'ate_mes' ? 'ativo' : ''} onClick={() => setBaseMedia('ate_mes')}>
-                Até o mês
-              </button>
-              <button
-                type="button"
-                className={baseMedia === 'todos_meses' ? 'ativo' : ''}
-                onClick={() => setBaseMedia('todos_meses')}
-              >
-                Todos os meses
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
+      <SeletorPeriodo {...periodo} />
 
       {erro && <p className="mensagem-erro">{erro}</p>}
 
@@ -283,17 +168,27 @@ export function Dashboard() {
             </button>
           </div>
 
-          <div title={EXPLICACAO[leitura === 'caixa' ? 'fluxo_caixa' : 'resultado_saude']} style={{ margin: '12px 0 20px' }}>
-            <span style={{ fontSize: 12, color: 'var(--cor-texto-suave)' }}>
-              {leitura === 'caixa' ? 'Resultado de caixa' : 'Resultado de saúde'}
-            </span>
-            <div className={classeResultado(hero ?? 0)} style={{ fontSize: 48, fontWeight: 600, lineHeight: 1.1 }}>
-              {formatarMoeda(hero ?? 0, oculto)}
-            </div>
-            {heroAnterior !== null && heroAnterior !== undefined && (
-              <span style={{ fontSize: 13, color: 'var(--cor-texto-suave)' }}>
-                {textoDelta(hero ?? 0, heroAnterior, oculto)}
+          <div
+            title={EXPLICACAO[leitura === 'caixa' ? 'fluxo_caixa' : 'resultado_saude']}
+            style={{ margin: '12px 0 20px', display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}
+          >
+            <div>
+              <span style={{ fontSize: 12, color: 'var(--cor-texto-suave)' }}>
+                {leitura === 'caixa' ? 'Resultado de caixa' : 'Resultado de saúde'}
               </span>
+              <div className={classeResultado(hero ?? 0)} style={{ fontSize: 48, fontWeight: 600, lineHeight: 1.1 }}>
+                {formatarMoeda(hero ?? 0, oculto)}
+              </div>
+              {heroAnterior !== null && heroAnterior !== undefined && (
+                <span style={{ fontSize: 13, color: 'var(--cor-texto-suave)' }}>
+                  {textoDelta(hero ?? 0, heroAnterior, oculto)}
+                </span>
+              )}
+            </div>
+            {evolucao && evolucao.meses.length >= 2 && (
+              <Sparkline
+                valores={evolucao.meses.map((m) => (leitura === 'caixa' ? m.resultado_fluxo_caixa : m.resultado_saude))}
+              />
             )}
           </div>
 
@@ -454,18 +349,12 @@ export function Dashboard() {
         </div>
       )}
 
-      {evolucao && (
-        <div style={{ marginBottom: 24 }}>
-          <h2 style={{ fontSize: 16, marginBottom: 8 }}>Evolução Mensal</h2>
-          <EvolucaoChart meses={evolucao.meses} />
-        </div>
-      )}
-
-      {despesasCategoria && (
-        <div>
-          <h2 style={{ fontSize: 16, marginBottom: 8 }}>Despesas por Categoria — {rotuloMesLongo(mesReferencia)}</h2>
-          <DespesasPorCategoria dados={despesasCategoria} />
-        </div>
+      {resumo && (
+        <p style={{ marginTop: 4 }}>
+          <Link to="/graficos" className="botao-secundario">
+            Ver gráficos completos →
+          </Link>
+        </p>
       )}
     </div>
   )

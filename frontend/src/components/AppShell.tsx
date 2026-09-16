@@ -12,6 +12,7 @@ const SECOES = [
   { to: '/lancamentos', label: 'Lançamentos', icone: '⌕' },
   { to: '/planejamento', label: 'Planejamento', icone: '▤' },
   { to: '/estruturas-de-custo', label: 'Estruturas de Custo', icone: '≣' },
+  { to: '/graficos', label: 'Gráficos', icone: '◔' },
   { to: '/configuracoes', label: 'Configurações', icone: '⚙' },
 ]
 

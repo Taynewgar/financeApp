@@ -33,6 +33,11 @@ merecer não ficar misturado com a tabela proposto×implementado tela a tela.
    compacto (sem eixos/legendas) ao lado do resultado principal, pra não
    perder a leitura rápida de tendência — mitigação aprovada pelo usuário
    depois de avaliar ganhos/perdas dessa divisão.
+   **Em andamento, dividido em 3 rodadas (2026-09-16):**
+   - ~~Rodada A — tela nova + migração + sparkline~~ **feita 2026-09-16**
+     (ver changelog).
+   - Rodada B — Pareto de despesas por categoria/subcategoria. Pendente.
+   - Rodada C — tendência de Orçado×Realizado em vários meses. Pendente.
 6. ~~Dashboard — 3 KPIs novos~~ **feito 2026-09-16** (ordem invertida com o
    item 5 a pedido do usuário, entregue antes por não ter dependência real
    de Gráficos) — "Meses com resultado negativo", "Resultado acumulado"
