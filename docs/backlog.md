@@ -25,20 +25,11 @@ merecer não ficar misturado com a tabela proposto×implementado tela a tela.
 4. ~~Categorias "mais usadas" + criação inline no Novo Lançamento~~ **feito
    2026-09-15** — chips de atalho (ranking por uso nos últimos 6 meses) +
    formulário inline de criação, sem sair da tela.
-5. **Feature "Gráficos" nova** (tela própria na navegação) — Pareto de
-   despesas + tendência de Orçado×Realizado em vários meses (detalhes
-   abaixo). **Decidido 2026-09-15**: `EvolucaoChart` e "Despesas por
-   Categoria" migram do Dashboard pra cá (não duplicam); Dashboard fica
-   só com informação sintética (números/KPIs/listas) **mais um sparkline**
-   compacto (sem eixos/legendas) ao lado do resultado principal, pra não
-   perder a leitura rápida de tendência — mitigação aprovada pelo usuário
-   depois de avaliar ganhos/perdas dessa divisão.
-   **Em andamento, dividido em 3 rodadas (2026-09-16):**
-   - ~~Rodada A — tela nova + migração + sparkline~~ **feita 2026-09-16**,
-     com 2 rodadas extras de ajuste (16.1, 16.2) — ver changelog.
-   - ~~Rodada B — Pareto de despesas por categoria/subcategoria~~ **feita
-     2026-09-16** — ver changelog.
-   - Rodada C — tendência de Orçado×Realizado em vários meses. Pendente.
+5. ~~Feature "Gráficos" nova~~ **feita 2026-09-16**, em 3 rodadas (A: tela
+   + migração + sparkline, com 2 ajustes extras 16.1/16.2; B: Pareto de
+   despesas por categoria/subcategoria; C: tendência de Orçado×Realizado
+   em vários meses, linka pra Estrutura de Custo) — ver changelog pra
+   detalhe completo de cada rodada.
 6. ~~Dashboard — 3 KPIs novos~~ **feito 2026-09-16** (ordem invertida com o
    item 5 a pedido do usuário, entregue antes por não ter dependência real
    de Gráficos) — "Meses com resultado negativo", "Resultado acumulado"

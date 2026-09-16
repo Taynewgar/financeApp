@@ -1,15 +1,17 @@
 from datetime import date
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, Query
 from supabase import Client
 
 from ..auth import get_current_user_id, get_db
-from ..schemas.estrutura_custo import EstruturaCustoMes
+from ..schemas.estrutura_custo import EstruturaCustoMes, TendenciaOrcamento
 from ..services.fatura import somar_meses
 from ..services.orcamento_saldo import saldo_anterior_ao_vivo
 from ..services.orcamento_teto import calcular_teto_bucket
 
 router = APIRouter(prefix="/estrutura-custo", tags=["estrutura-custo"])
+
+_MESES_MAXIMO_NA_EVOLUCAO = 60  # 5 anos — mesmo limite defensivo de /dashboard/evolucao
 
 # os 3 buckets de gasto formam um teto agregado único (regra do pool):
 # estourar um deles não compromete o mês se sobrar nos outros dois.
@@ -63,12 +65,12 @@ def _chave(registro: dict, campo_conta: str) -> tuple[str, str | None]:
     return ("sem_vinculo", None)
 
 
-@router.get("/{vigencia_mes}", response_model=EstruturaCustoMes)
-def obter(vigencia_mes: date, db: Client = Depends(get_db), user_id: str = Depends(get_current_user_id)):
+def _estrutura_custo_do_mes(db: Client, user_id: str, mes_inicio: date) -> dict:
     """Compara orçado x realizado do mês, agrupado pelos mesmos buckets do
     orçamento. Funciona mesmo sem orçamento configurado para o mês (orcado
-    fica 0) — a leitura de realizado não depende de planejamento prévio."""
-    mes_inicio = date(vigencia_mes.year, vigencia_mes.month, 1)
+    fica 0) — a leitura de realizado não depende de planejamento prévio.
+    Extraído de obter() pra ser reaproveitado por /evolucao (1 chamada por
+    mês do período pedido)."""
     mes_fim = somar_meses(mes_inicio, 1)
 
     orcamento_result = (
@@ -190,3 +192,52 @@ def obter(vigencia_mes: date, db: Client = Depends(get_db), user_id: str = Depen
         "pool_despesas": pool_despesas,
         "piso_investimentos": piso_investimentos,
     }
+
+
+@router.get("/{vigencia_mes}", response_model=EstruturaCustoMes)
+def obter(vigencia_mes: date, db: Client = Depends(get_db), user_id: str = Depends(get_current_user_id)):
+    mes_inicio = date(vigencia_mes.year, vigencia_mes.month, 1)
+    return _estrutura_custo_do_mes(db, user_id, mes_inicio)
+
+
+@router.get("/evolucao/tendencia", response_model=TendenciaOrcamento)
+def evolucao_orcamento(
+    inicio: date = Query(...),
+    fim: date = Query(...),
+    db: Client = Depends(get_db),
+    user_id: str = Depends(get_current_user_id),
+):
+    """Orçado x realizado em vários meses — complementa a leitura de 1 mês
+    só que /estrutura-custo/{mes} já dá. Escopo igual ao KPI "Orçado no mês"
+    da tela (só o pool de despesas: custos_fixos + custos_variaveis +
+    sazonalidades — investimentos é piso, não teto, ver rodada 2026-09-15).
+    Rota de 2 segmentos (/evolucao/tendencia) de propósito — um só
+    segmento colidiria com /{vigencia_mes}, que tenta interpretar
+    qualquer path de 1 nível como data."""
+    mes_inicio = date(inicio.year, inicio.month, 1)
+    mes_fim = date(fim.year, fim.month, 1)
+    if mes_fim < mes_inicio:
+        raise HTTPException(status_code=422, detail="'fim' não pode ser anterior a 'inicio'")
+
+    total_meses = (mes_fim.year - mes_inicio.year) * 12 + (mes_fim.month - mes_inicio.month) + 1
+    if total_meses > _MESES_MAXIMO_NA_EVOLUCAO:
+        raise HTTPException(status_code=422, detail=f"Intervalo maior que {_MESES_MAXIMO_NA_EVOLUCAO} meses")
+
+    meses = []
+    mes_atual = mes_inicio
+    while mes_atual <= mes_fim:
+        estrutura = _estrutura_custo_do_mes(db, user_id, mes_atual)
+        buckets_por_nome = {b["bucket"]: b for b in estrutura["buckets"]}
+        orcado = round(sum(buckets_por_nome[b]["orcado"] for b in _BUCKETS_POOL), 2)
+        realizado = round(sum(buckets_por_nome[b]["realizado"] for b in _BUCKETS_POOL), 2)
+        meses.append(
+            {
+                "vigencia_mes": mes_atual.isoformat(),
+                "orcado": orcado,
+                "realizado": realizado,
+                "percentual_executado": round(realizado / orcado * 100, 2) if orcado else None,
+            }
+        )
+        mes_atual = somar_meses(mes_atual, 1)
+
+    return {"inicio": mes_inicio.isoformat(), "fim": mes_fim.isoformat(), "meses": meses}

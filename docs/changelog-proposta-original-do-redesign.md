@@ -1155,3 +1155,59 @@ opcional de categoria pai, igual ao app original).
   aparecem visualmente esmaecidas.
 - [ ] Trocar o período (Mês/Intervalo/Todos os meses) atualiza o Pareto
   nos dois níveis.
+
+### Rodada 18 (2026-09-16) — Orçado × Realizado em vários meses (Rodada C, fecha o item 5)
+
+Última peça da feature Gráficos: "resumo que linka pra Estrutura de
+Custo pro detalhe de 1 mês" (Estrutura de Custo é leitura de 1 mês só;
+isso aqui é a tendência).
+
+**Mesma regra "one axis" de novo — 2 gráficos, não 1.** R$ (Orçado x
+Realizado) e % (executado) não cabem na mesma escala; mesma solução já
+usada em Evolução Mensal/Taxa de Poupança (Rodada A) e no Pareto
+(Rodada B, ali resolvido com direct labels em vez de 2º gráfico). Linha
+de referência do gráfico de % é fixa em 100% ("gastou exatamente o
+orçado"), diferente da linha de "Base da média" dos outros gráficos
+(que reflete o comportamento real, não uma meta).
+
+**Escopo igual ao KPI "Orçado no mês" já existente** — só o pool de
+despesas (custos_fixos + custos_variaveis + sazonalidades), sem
+investimentos (é piso, não teto — mesma decisão da Rodada 13).
+
+**Link pro detalhe de 1 mês, de verdade** — Estrutura de Custo sempre
+abriu no mês atual, sem jeito de chegar direto num mês específico por
+link. Ganhou suporte a `?mes=YYYY-MM` (fallback pro mês atual se
+ausente); o link em Gráficos aponta pro mês de referência do período
+selecionado.
+
+- Backend: `_estrutura_custo_do_mes()` extraído de `estrutura_custo.
+  obter()` (mesmo corpo, sem mudança de comportamento) — reaproveitado
+  pelo endpoint novo `GET /estrutura-custo/evolucao/tendencia?inicio=
+  &fim=` (rota de 2 segmentos de propósito, pra não colidir com
+  `/{vigencia_mes}`). Schemas `PontoTendenciaOrcamento`/
+  `TendenciaOrcamento` novos.
+- Frontend: `components/OrcadoRealizadoChart.tsx` (barras, com médias
+  tracejadas + `baseMedia`, mesmo padrão do `EvolucaoChart`) e
+  `PercentualExecutadoChart.tsx` (colunas + meta de 100%, mesmo padrão
+  do `TaxaPoupancaChart`). `EstruturaCusto.tsx` lê `?mes=` via
+  `useSearchParams`.
+- 5 testes novos (`test_evolucao_orcamento_*`): soma do pool + %
+  executado, exclusão de investimentos, mês sem orçamento (% nulo),
+  1 ponto por mês no range, `fim < inicio` → 422. Suíte offline:
+  227 passed (222 + 5). tsc + build limpos.
+
+**Item 5 do backlog fechado** — Pareto, tendência Orçado×Realizado,
+migração de EvolucaoChart/Despesas por Categoria e sparkline no
+Dashboard, tudo entregue nas rodadas 16-18.
+
+**Checklist de teste manual** (visual, sem cobertura automatizada):
+- [ ] `/graficos` → seção "Orçado × Realizado" aparece entre o Pareto e
+  "Evolução Mensal", com as 2 sub-seções (barras + % executado).
+- [ ] Barras "Orçado"/"Realizado" batem com o que Estrutura de Custo
+  mostra pro mesmo mês (soma dos 3 buckets de despesa, sem
+  investimentos).
+- [ ] Linha de meta (100%) aparece no gráfico de % executado.
+- [ ] Mês sem orçamento configurado aparece sem coluna no gráfico de %
+  (não uma coluna de 0%).
+- [ ] O link "Ver detalhe de {mês} em Estrutura de Custo →" abre a tela
+  já no mês certo (não no mês atual).

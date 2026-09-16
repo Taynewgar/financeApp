@@ -420,3 +420,83 @@ def test_piso_investimentos_meta_nao_batida(client):
 
     resposta = client.get("/estrutura-custo/2026-09-01").json()
     assert resposta["piso_investimentos"]["meta_batida"] is False
+
+
+# ── tendência de orçado x realizado em vários meses (Rodada C, item 5) ──────
+
+
+def test_evolucao_orcamento_soma_pool_e_calcula_percentual(client):
+    conta = client.post("/contas", json={"nome": "Conta", "tipo_conta": "corrente"}).json()
+    categoria = client.post("/categorias", json={"nome": "Moradia"}).json()
+    orcamento = client.post(
+        "/orcamentos", json={"vigencia_mes": "2026-09-01", "receita_base": 10000, "percentual_geral": 100}
+    ).json()
+    client.post(
+        f"/orcamentos/{orcamento['id']}/itens",
+        json={"bucket": "custos_fixos", "categoria_id": categoria["id"], "orcamento_mensal": 1000},
+    )
+    _despesa(client, conta["id"], 800, "fixo", data="2026-09-05", categoria_id=categoria["id"])
+
+    resposta = client.get("/estrutura-custo/evolucao/tendencia", params={"inicio": "2026-09-01", "fim": "2026-09-01"})
+    assert resposta.status_code == 200
+    meses = resposta.json()["meses"]
+    assert len(meses) == 1
+    assert meses[0]["orcado"] == 1000
+    assert meses[0]["realizado"] == 800
+    assert meses[0]["percentual_executado"] == 80.0
+
+
+def test_evolucao_orcamento_nao_inclui_investimentos_no_pool(client):
+    conta = client.post("/contas", json={"nome": "Conta", "tipo_conta": "corrente"}).json()
+    categoria_invest = client.post("/categorias", json={"nome": "Renda Fixa", "tipo": "investimento"}).json()
+    orcamento = client.post(
+        "/orcamentos", json={"vigencia_mes": "2026-09-01", "receita_base": 10000, "percentual_geral": 100}
+    ).json()
+    client.post(
+        f"/orcamentos/{orcamento['id']}/itens",
+        json={"bucket": "investimentos", "categoria_id": categoria_invest["id"], "orcamento_mensal": 500},
+    )
+    client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-09-05",
+            "valor": 500,
+            "tipo_movimento": "aplicacao",
+            "conta_id": conta["id"],
+            "categoria_id": categoria_invest["id"],
+            "estrutura_custo": "investimentos",
+        },
+    )
+
+    resposta = client.get(
+        "/estrutura-custo/evolucao/tendencia", params={"inicio": "2026-09-01", "fim": "2026-09-01"}
+    ).json()
+    assert resposta["meses"][0]["orcado"] == 0
+    assert resposta["meses"][0]["realizado"] == 0
+
+
+def test_evolucao_orcamento_mes_sem_orcamento_tem_percentual_nulo(client):
+    conta = client.post("/contas", json={"nome": "Conta", "tipo_conta": "corrente"}).json()
+    _despesa(client, conta["id"], 300, "variavel", data="2026-09-05")
+
+    resposta = client.get(
+        "/estrutura-custo/evolucao/tendencia", params={"inicio": "2026-09-01", "fim": "2026-09-01"}
+    ).json()
+    mes = resposta["meses"][0]
+    assert mes["orcado"] == 0
+    assert mes["realizado"] == 300
+    assert mes["percentual_executado"] is None
+
+
+def test_evolucao_orcamento_varios_meses_retorna_um_ponto_por_mes(client):
+    resposta = client.get(
+        "/estrutura-custo/evolucao/tendencia", params={"inicio": "2026-07-01", "fim": "2026-09-01"}
+    ).json()
+    assert [m["vigencia_mes"] for m in resposta["meses"]] == ["2026-07-01", "2026-08-01", "2026-09-01"]
+
+
+def test_evolucao_orcamento_fim_antes_de_inicio_retorna_422(client):
+    resposta = client.get(
+        "/estrutura-custo/evolucao/tendencia", params={"inicio": "2026-09-01", "fim": "2026-07-01"}
+    )
+    assert resposta.status_code == 422

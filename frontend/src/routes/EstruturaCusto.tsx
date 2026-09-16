@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import '../components/crud.css'
 import '../components/estruturaCusto.css'
 import { ApiError, apiFetch } from '../lib/api'
@@ -278,7 +278,11 @@ export function BucketBloco({
 
 export function EstruturaCusto() {
   const { oculto } = usePrivacidade()
-  const [vigenciaMes, setVigenciaMes] = useState(hojeAnoMes())
+  // ?mes=YYYY-MM permite chegar direto num mês específico (link da tendência
+  // de Orçado×Realizado em Gráficos) — sem o param, cai no mês atual como
+  // sempre foi
+  const [searchParams] = useSearchParams()
+  const [vigenciaMes, setVigenciaMes] = useState(() => searchParams.get('mes') ?? hojeAnoMes())
   const [dados, setDados] = useState<EstruturaCustoMes | null>(null)
   const [categorias, setCategorias] = useState<Categoria[]>([])
   const [subcategorias, setSubcategorias] = useState<Subcategoria[]>([])

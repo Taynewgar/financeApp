@@ -1,7 +1,10 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { DespesasPorCategoria } from '../components/DespesasPorCategoria'
 import { EvolucaoChart } from '../components/EvolucaoChart'
+import { OrcadoRealizadoChart } from '../components/OrcadoRealizadoChart'
 import { Pareto } from '../components/Pareto'
+import { PercentualExecutadoChart } from '../components/PercentualExecutadoChart'
 import { SeletorPeriodo } from '../components/SeletorPeriodo'
 import { TaxaPoupancaChart } from '../components/TaxaPoupancaChart'
 import '../components/forms.css'
@@ -12,6 +15,7 @@ import type {
   DespesaPorCategoria as DespesaPorCategoriaT,
   DespesaPorSubcategoria,
   EvolucaoMensal,
+  TendenciaOrcamento,
 } from '../lib/types'
 
 type NivelPareto = 'categoria' | 'subcategoria'
@@ -26,6 +30,7 @@ export function Graficos() {
 
   const [evolucao, setEvolucao] = useState<EvolucaoMensal | null>(null)
   const [despesasCategoria, setDespesasCategoria] = useState<DespesaPorCategoriaT[] | null>(null)
+  const [tendenciaOrcamento, setTendenciaOrcamento] = useState<TendenciaOrcamento | null>(null)
   const [erro, setErro] = useState<string | null>(null)
 
   const [nivelPareto, setNivelPareto] = useState<NivelPareto>('categoria')
@@ -61,10 +66,12 @@ export function Graficos() {
     Promise.all([
       apiFetch<EvolucaoMensal>(`/dashboard/evolucao?inicio=${evolucaoInicio}-01&fim=${evolucaoFim}-01`),
       buscaDespesasCategoria,
+      apiFetch<TendenciaOrcamento>(`/estrutura-custo/evolucao/tendencia?inicio=${evolucaoInicio}-01&fim=${evolucaoFim}-01`),
     ])
-      .then(([e, d]) => {
+      .then(([e, d, t]) => {
         setEvolucao(e)
         setDespesasCategoria(d)
+        setTendenciaOrcamento(t)
       })
       .catch((e) => setErro(e instanceof ApiError ? e.message : 'Falha ao carregar os gráficos'))
   }, [modoData, vigenciaMes, periodoInicio, periodoFim, mesReferencia, primeiroMes])
@@ -152,6 +159,22 @@ export function Graficos() {
       </div>
 
       {evolucao === null && !erro && <p>Carregando…</p>}
+
+      {tendenciaOrcamento && (
+        <div style={{ marginTop: 20, marginBottom: 24 }}>
+          <h2 style={{ fontSize: 16, marginBottom: 8 }}>Orçado × Realizado</h2>
+          <OrcadoRealizadoChart meses={tendenciaOrcamento.meses} baseMedia={periodo.baseMedia} />
+          <h3 style={{ fontSize: 13, fontWeight: 600, color: 'var(--cor-texto-suave)', margin: '18px 0 8px' }}>
+            % do orçado executado
+          </h3>
+          <PercentualExecutadoChart meses={tendenciaOrcamento.meses} />
+          <p style={{ marginTop: 10 }}>
+            <Link to={`/estruturas-de-custo?mes=${mesReferencia}`} className="botao-link">
+              Ver detalhe de {rotuloMesLongo(mesReferencia)} em Estrutura de Custo →
+            </Link>
+          </p>
+        </div>
+      )}
 
       {evolucao && (
         <div style={{ marginTop: 20, marginBottom: 24 }}>

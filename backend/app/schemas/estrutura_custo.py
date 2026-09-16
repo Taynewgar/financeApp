@@ -61,3 +61,23 @@ class EstruturaCustoMes(BaseModel):
     # None junto com orcamento_id — sem orçamento não há teto pra comparar
     pool_despesas: VereditoTeto | None = None
     piso_investimentos: VereditoPiso | None = None
+
+
+class PontoTendenciaOrcamento(BaseModel):
+    """orcado/realizado somados só do pool de despesas (custos_fixos +
+    custos_variaveis + sazonalidades) — mesmo escopo do KPI "Orçado no mês"
+    de Estrutura de Custo (investimentos é piso, não teto; ver rodada
+    2026-09-15 que excluiu investimentos desse KPI)."""
+
+    vigencia_mes: date
+    orcado: float
+    realizado: float
+    # realizado / orcado * 100 — None se orcado for 0 (mês sem orçamento
+    # configurado, nada pra comparar percentual)
+    percentual_executado: float | None = None
+
+
+class TendenciaOrcamento(BaseModel):
+    inicio: date
+    fim: date
+    meses: list[PontoTendenciaOrcamento]

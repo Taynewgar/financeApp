@@ -128,6 +128,19 @@ export type DespesaPorSubcategoria = {
   percentual: number
 }
 
+export type PontoTendenciaOrcamento = {
+  vigencia_mes: string
+  orcado: number
+  realizado: number
+  percentual_executado: number | null
+}
+
+export type TendenciaOrcamento = {
+  inicio: string
+  fim: string
+  meses: PontoTendenciaOrcamento[]
+}
+
 export type Bucket = 'custos_fixos' | 'custos_variaveis' | 'sazonalidades' | 'investimentos'
 
 export type Orcamento = {
