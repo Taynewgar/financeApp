@@ -7,6 +7,7 @@ import { Configuracoes } from './routes/Configuracoes'
 import { Dashboard } from './routes/Dashboard'
 import { EditarLancamento } from './routes/EditarLancamento'
 import { EstruturaCusto } from './routes/EstruturaCusto'
+import { Graficos } from './routes/Graficos'
 import { Lancamentos } from './routes/Lancamentos'
 import { Login } from './routes/Login'
 import { NovoLancamento } from './routes/NovoLancamento'
@@ -34,6 +35,7 @@ function App() {
               <Route path="lancamentos/:id/editar" element={<EditarLancamento />} />
               <Route path="planejamento" element={<Planejamento />} />
               <Route path="estruturas-de-custo" element={<EstruturaCusto />} />
+              <Route path="graficos" element={<Graficos />} />
               <Route path="configuracoes" element={<Configuracoes />} />
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />

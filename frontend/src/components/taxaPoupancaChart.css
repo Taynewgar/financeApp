@@ -1,0 +1,17 @@
+/* Eixo/grade/tooltip reaproveitam as classes genéricas de evolucaoChart.css
+ * (mesma anatomia, sem redefinir) — só a cor da série é própria: slot 4 da
+ * paleta categórica (amarelo), pra não repetir a cor de "Resultado" que já
+ * aparece bem acima na mesma tela. */
+.taxa-poupanca-chart {
+  --serie-taxa: #eda100;
+}
+
+@media (prefers-color-scheme: dark) {
+  .taxa-poupanca-chart {
+    --serie-taxa: #c98500;
+  }
+}
+
+.serie-taxa {
+  background: var(--serie-taxa);
+}

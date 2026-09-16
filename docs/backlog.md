@@ -33,11 +33,17 @@ merecer não ficar misturado com a tabela proposto×implementado tela a tela.
    compacto (sem eixos/legendas) ao lado do resultado principal, pra não
    perder a leitura rápida de tendência — mitigação aprovada pelo usuário
    depois de avaliar ganhos/perdas dessa divisão.
-6. **Dashboard — 3 KPIs novos, aprovados 2026-09-15**: "Meses com resultado
-   negativo", "Resultado acumulado" (R$, complementa a taxa em % que já
-   existe) e "Maior categoria de despesa" (hoje só visível olhando o
-   gráfico). Todos textuais/numéricos, cabem no Dashboard mesmo se a
-   proposta do item 5 (Dashboard sem gráfico) for confirmada.
+   **Em andamento, dividido em 3 rodadas (2026-09-16):**
+   - ~~Rodada A — tela nova + migração + sparkline~~ **feita 2026-09-16**
+     (ver changelog).
+   - Rodada B — Pareto de despesas por categoria/subcategoria. Pendente.
+   - Rodada C — tendência de Orçado×Realizado em vários meses. Pendente.
+6. ~~Dashboard — 3 KPIs novos~~ **feito 2026-09-16** (ordem invertida com o
+   item 5 a pedido do usuário, entregue antes por não ter dependência real
+   de Gráficos) — "Meses com resultado negativo", "Resultado acumulado"
+   (R$, ao lado da taxa em % que já existia) e "Maior categoria de
+   despesa" (mesmo recorte do gráfico "Despesas por Categoria", sem
+   endpoint novo — os 3 vêm de dados já buscados na tela).
 7. Despesa fixa recorrente — aluguel, assinaturas (detalhe abaixo).
 8. Edição de compra parcelada (detalhe abaixo).
 9. Exportação de relatório mensal/anual (detalhe abaixo) — próximo passo

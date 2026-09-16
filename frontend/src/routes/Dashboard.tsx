@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
-import { DespesasPorCategoria } from '../components/DespesasPorCategoria'
-import { EvolucaoChart } from '../components/EvolucaoChart'
+import { Link } from 'react-router-dom'
+import { SeletorPeriodo } from '../components/SeletorPeriodo'
+import { Sparkline } from '../components/Sparkline'
 import '../components/forms.css'
 import '../components/resumoCards.css'
 import '../components/crud.css'
@@ -8,21 +9,19 @@ import '../components/dashboard.css'
 import { useAuth } from '../auth/AuthContext'
 import { ApiError, apiFetch } from '../lib/api'
 import { formatarData, formatarMoeda } from '../lib/formatar'
+import { mesesAntes, usePeriodo } from '../lib/periodo'
 import { usePrivacidade } from '../lib/PrivacyContext'
 import type {
   CamposFinanceiros,
   CompromissoFuturo,
   DespesaPorCategoria as DespesaPorCategoriaT,
   EvolucaoMensal,
-  PrimeiroMes,
   ResumoMensal,
   ResumoPeriodo,
   SaldoCaixinha,
 } from '../lib/types'
 
 type Leitura = 'caixa' | 'saude'
-type ModoData = 'mes' | 'intervalo' | 'todos'
-type BaseMedia = 'ate_mes' | 'todos_meses'
 
 const EXPLICACAO: Record<string, string> = {
   fluxo_caixa: 'Receitas menos despesas brutas (sem descontar estornos) — o que de fato entrou e saiu das contas.',
@@ -35,29 +34,8 @@ const EXPLICACAO: Record<string, string> = {
   despesas_liquidas: 'Despesas menos estornos/ressarcimentos vinculados a elas — o quanto de fato saiu do bolso.',
   taxa_poupanca: 'Percentual da receita (já somando ajustes soltos) que sobrou depois das despesas líquidas.',
   base_media: 'Ainda sem efeito nos cálculos — vai orientar médias de gráficos/KPIs quando essa funcionalidade existir.',
-}
-
-const MESES_NOME = [
-  'janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho',
-  'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro',
-]
-
-function hojeAnoMes(): string {
-  return new Date().toISOString().slice(0, 7)
-}
-
-/** 'YYYY-MM' menos N meses, sempre 'YYYY-MM' de volta. */
-function mesesAntes(anoMes: string, n: number): string {
-  const [ano, mes] = anoMes.split('-').map(Number)
-  const totalMeses = ano * 12 + (mes - 1) - n
-  const anoResultado = Math.floor(totalMeses / 12)
-  const mesResultado = (totalMeses % 12) + 1
-  return `${anoResultado}-${String(mesResultado).padStart(2, '0')}`
-}
-
-function rotuloMesLongo(anoMes: string): string {
-  const [ano, mes] = anoMes.split('-').map(Number)
-  return `${MESES_NOME[mes - 1]} de ${ano}`
+  meses_negativos: 'Quantos meses de janeiro até o mês de referência tiveram resultado (leitura de saúde) negativo.',
+  maior_categoria_despesa: 'Categoria com maior soma de despesas no mês de referência — mesmo recorte do gráfico "Despesas por Categoria".',
 }
 
 function classeResultado(valor: number): string {
@@ -87,45 +65,25 @@ export function Dashboard() {
   const { session } = useAuth()
   const { oculto } = usePrivacidade()
 
-  const [modoData, setModoData] = useState<ModoData>('mes')
-  const [vigenciaMes, setVigenciaMes] = useState(hojeAnoMes())
-  const [intervaloInicio, setIntervaloInicio] = useState(mesesAntes(hojeAnoMes(), 2))
-  const [intervaloFim, setIntervaloFim] = useState(hojeAnoMes())
-  const [baseMedia, setBaseMedia] = useState<BaseMedia>('ate_mes')
-  const [primeiroMes, setPrimeiroMes] = useState<string | null>(null)
+  const periodo = usePeriodo()
+  const { modoData, vigenciaMes, primeiroMes, periodoInicio, periodoFim, mesReferencia } = periodo
 
   const [leitura, setLeitura] = useState<Leitura>('saude')
   const [resumo, setResumo] = useState<CamposFinanceiros | null>(null)
   const [mesAnterior, setMesAnterior] = useState<ResumoMensal | null>(null)
   const [evolucao, setEvolucao] = useState<EvolucaoMensal | null>(null)
   const [taxaAcumuladaAno, setTaxaAcumuladaAno] = useState<number | null>(null)
+  const [resultadoAcumuladoAno, setResultadoAcumuladoAno] = useState<number | null>(null)
+  const [mesesNegativosAno, setMesesNegativosAno] = useState<{ negativos: number; total: number } | null>(null)
   const [caixinhas, setCaixinhas] = useState<SaldoCaixinha[] | null>(null)
   const [compromissos, setCompromissos] = useState<CompromissoFuturo[] | null>(null)
   const [despesasCategoria, setDespesasCategoria] = useState<DespesaPorCategoriaT[] | null>(null)
   const [erro, setErro] = useState<string | null>(null)
 
-  // "Todos os meses" precisa saber onde o histórico começa
-  useEffect(() => {
-    apiFetch<PrimeiroMes>('/dashboard/primeiro-mes')
-      .then((p) => setPrimeiroMes(p.vigencia_mes ? p.vigencia_mes.slice(0, 7) : hojeAnoMes()))
-      .catch(() => setPrimeiroMes(hojeAnoMes()))
-  }, [])
-
   // compromissos futuros não dependem do período navegado (é sempre "a partir de hoje")
   useEffect(() => {
     apiFetch<CompromissoFuturo[]>('/dashboard/compromissos-futuros').then(setCompromissos).catch(() => setCompromissos([]))
   }, [])
-
-  const { periodoInicio, periodoFim, mesReferencia } = useMemo(() => {
-    if (modoData === 'mes') return { periodoInicio: vigenciaMes, periodoFim: vigenciaMes, mesReferencia: vigenciaMes }
-    if (modoData === 'intervalo') return { periodoInicio: intervaloInicio, periodoFim: intervaloFim, mesReferencia: intervaloFim }
-    // "Todos os meses" é sempre até hoje, independente do que ficou
-    // selecionado no modo Mês antes de trocar de aba — vigenciaMes pode ser
-    // qualquer mês navegado (até sem dado nenhum), inclusive anterior ao
-    // primeiro lançamento real, o que quebrava a conta (fim antes do início)
-    const hoje = hojeAnoMes()
-    return { periodoInicio: primeiroMes ?? hoje, periodoFim: hoje, mesReferencia: hoje }
-  }, [modoData, vigenciaMes, intervaloInicio, intervaloFim, primeiroMes])
 
   useEffect(() => {
     if (modoData === 'todos' && primeiroMes === null) return // aguarda carregar o início do histórico
@@ -158,14 +116,32 @@ export function Dashboard() {
       .catch((e) => setErro(e instanceof ApiError ? e.message : 'Falha ao carregar o dashboard'))
   }, [modoData, vigenciaMes, periodoInicio, periodoFim, mesReferencia, primeiroMes])
 
-  // taxa de poupança acumulada NO ANO do mês de referência — busca à parte
-  // porque é uma janela diferente (jan até o mês de referência)
+  // taxa/resultado acumulado e contagem de meses negativos NO ANO do mês de
+  // referência — busca à parte porque é uma janela diferente (jan até o
+  // mês de referência), independente do período navegado na tela
   useEffect(() => {
     const [ano] = mesReferencia.split('-')
     apiFetch<EvolucaoMensal>(`/dashboard/evolucao?inicio=${ano}-01-01&fim=${mesReferencia}-01`)
-      .then((e) => setTaxaAcumuladaAno(e.meses.length ? e.meses[e.meses.length - 1].taxa_poupanca_acumulada : null))
-      .catch(() => setTaxaAcumuladaAno(null))
+      .then((e) => {
+        const ultimo = e.meses.length ? e.meses[e.meses.length - 1] : null
+        setTaxaAcumuladaAno(ultimo ? ultimo.taxa_poupanca_acumulada : null)
+        setResultadoAcumuladoAno(ultimo ? ultimo.resultado_saude_acumulado : null)
+        setMesesNegativosAno({
+          negativos: e.meses.filter((m) => m.resultado_saude < 0).length,
+          total: e.meses.length,
+        })
+      })
+      .catch(() => {
+        setTaxaAcumuladaAno(null)
+        setResultadoAcumuladoAno(null)
+        setMesesNegativosAno(null)
+      })
   }, [mesReferencia])
+
+  const maiorCategoriaDespesa = useMemo(() => {
+    if (!despesasCategoria || despesasCategoria.length === 0) return null
+    return despesasCategoria.reduce((maior, atual) => (atual.valor > maior.valor ? atual : maior))
+  }, [despesasCategoria])
 
   const hero = resumo && (leitura === 'caixa' ? resumo.resultado_fluxo_caixa : resumo.resultado_saude)
   const heroAnterior =
@@ -177,76 +153,7 @@ export function Dashboard() {
         <h1 style={{ fontSize: 22, marginTop: 0, marginBottom: 0 }}>Olá, {session?.user.email}</h1>
       </div>
 
-      <div className="dashboard-seletor">
-        <div className="segmentado">
-          <button type="button" className={modoData === 'mes' ? 'ativo' : ''} onClick={() => setModoData('mes')}>
-            Mês
-          </button>
-          <button type="button" className={modoData === 'intervalo' ? 'ativo' : ''} onClick={() => setModoData('intervalo')}>
-            Intervalo
-          </button>
-          <button type="button" className={modoData === 'todos' ? 'ativo' : ''} onClick={() => setModoData('todos')}>
-            Todos os meses
-          </button>
-        </div>
-
-        {modoData === 'mes' && (
-          <label className="campo" style={{ maxWidth: 180 }}>
-            Mês
-            <input type="month" value={vigenciaMes} onChange={(e) => setVigenciaMes(e.target.value)} max={hojeAnoMes()} />
-          </label>
-        )}
-
-        {modoData === 'intervalo' && (
-          <div className="campo-linha">
-            <label className="campo" style={{ maxWidth: 180 }}>
-              Início
-              <input
-                type="month"
-                value={intervaloInicio}
-                onChange={(e) => setIntervaloInicio(e.target.value)}
-                max={intervaloFim}
-              />
-            </label>
-            <label className="campo" style={{ maxWidth: 180 }}>
-              Fim
-              <input
-                type="month"
-                value={intervaloFim}
-                onChange={(e) => setIntervaloFim(e.target.value)}
-                min={intervaloInicio}
-                max={hojeAnoMes()}
-              />
-            </label>
-          </div>
-        )}
-
-        {modoData === 'todos' && (
-          <p style={{ fontSize: 13, color: 'var(--cor-texto-suave)', margin: 0 }}>
-            {primeiroMes
-              ? `Desde ${rotuloMesLongo(primeiroMes)} até ${rotuloMesLongo(hojeAnoMes())}`
-              : 'Carregando período…'}
-          </p>
-        )}
-
-        {modoData !== 'mes' && (
-          <div className="campo" title={EXPLICACAO.base_media}>
-            <span style={{ fontSize: 12, color: 'var(--cor-texto-suave)' }}>Base da média</span>
-            <div className="segmentado">
-              <button type="button" className={baseMedia === 'ate_mes' ? 'ativo' : ''} onClick={() => setBaseMedia('ate_mes')}>
-                Até o mês
-              </button>
-              <button
-                type="button"
-                className={baseMedia === 'todos_meses' ? 'ativo' : ''}
-                onClick={() => setBaseMedia('todos_meses')}
-              >
-                Todos os meses
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
+      <SeletorPeriodo {...periodo} />
 
       {erro && <p className="mensagem-erro">{erro}</p>}
 
@@ -261,17 +168,27 @@ export function Dashboard() {
             </button>
           </div>
 
-          <div title={EXPLICACAO[leitura === 'caixa' ? 'fluxo_caixa' : 'resultado_saude']} style={{ margin: '12px 0 20px' }}>
-            <span style={{ fontSize: 12, color: 'var(--cor-texto-suave)' }}>
-              {leitura === 'caixa' ? 'Resultado de caixa' : 'Resultado de saúde'}
-            </span>
-            <div className={classeResultado(hero ?? 0)} style={{ fontSize: 48, fontWeight: 600, lineHeight: 1.1 }}>
-              {formatarMoeda(hero ?? 0, oculto)}
-            </div>
-            {heroAnterior !== null && heroAnterior !== undefined && (
-              <span style={{ fontSize: 13, color: 'var(--cor-texto-suave)' }}>
-                {textoDelta(hero ?? 0, heroAnterior, oculto)}
+          <div
+            title={EXPLICACAO[leitura === 'caixa' ? 'fluxo_caixa' : 'resultado_saude']}
+            style={{ margin: '12px 0 20px', display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}
+          >
+            <div>
+              <span style={{ fontSize: 12, color: 'var(--cor-texto-suave)' }}>
+                {leitura === 'caixa' ? 'Resultado de caixa' : 'Resultado de saúde'}
               </span>
+              <div className={classeResultado(hero ?? 0)} style={{ fontSize: 48, fontWeight: 600, lineHeight: 1.1 }}>
+                {formatarMoeda(hero ?? 0, oculto)}
+              </div>
+              {heroAnterior !== null && heroAnterior !== undefined && (
+                <span style={{ fontSize: 13, color: 'var(--cor-texto-suave)' }}>
+                  {textoDelta(hero ?? 0, heroAnterior, oculto)}
+                </span>
+              )}
+            </div>
+            {evolucao && evolucao.meses.length >= 2 && (
+              <Sparkline
+                valores={evolucao.meses.map((m) => (leitura === 'caixa' ? m.resultado_fluxo_caixa : m.resultado_saude))}
+              />
             )}
           </div>
 
@@ -347,6 +264,29 @@ export function Dashboard() {
               {taxaAcumuladaAno !== null && (
                 <span className="resumo-card-delta">Acumulado no ano: {taxaAcumuladaAno.toFixed(1)}%</span>
               )}
+              {resultadoAcumuladoAno !== null && (
+                <span className="resumo-card-delta">
+                  Resultado acumulado no ano: {formatarMoeda(resultadoAcumuladoAno, oculto)}
+                </span>
+              )}
+            </div>
+            <div className="resumo-card" title={EXPLICACAO.meses_negativos}>
+              <span className="resumo-card-rotulo">Meses com resultado negativo</span>
+              <span className="resumo-card-valor">
+                {mesesNegativosAno === null ? '—' : mesesNegativosAno.negativos}
+              </span>
+              {mesesNegativosAno !== null && (
+                <span className="resumo-card-delta">de {mesesNegativosAno.total} meses no ano</span>
+              )}
+            </div>
+            <div className="resumo-card" title={EXPLICACAO.maior_categoria_despesa}>
+              <span className="resumo-card-rotulo">Maior categoria de despesa</span>
+              <span className="resumo-card-valor valor-despesa">
+                {maiorCategoriaDespesa ? maiorCategoriaDespesa.categoria_nome : '—'}
+              </span>
+              {maiorCategoriaDespesa && (
+                <span className="resumo-card-delta">{formatarMoeda(maiorCategoriaDespesa.valor, oculto)}</span>
+              )}
             </div>
           </div>
         </>
@@ -409,18 +349,12 @@ export function Dashboard() {
         </div>
       )}
 
-      {evolucao && (
-        <div style={{ marginBottom: 24 }}>
-          <h2 style={{ fontSize: 16, marginBottom: 8 }}>Evolução Mensal</h2>
-          <EvolucaoChart meses={evolucao.meses} />
-        </div>
-      )}
-
-      {despesasCategoria && (
-        <div>
-          <h2 style={{ fontSize: 16, marginBottom: 8 }}>Despesas por Categoria — {rotuloMesLongo(mesReferencia)}</h2>
-          <DespesasPorCategoria dados={despesasCategoria} />
-        </div>
+      {resumo && (
+        <p style={{ marginTop: 4 }}>
+          <Link to="/graficos" className="botao-secundario">
+            Ver gráficos completos →
+          </Link>
+        </p>
       )}
     </div>
   )
