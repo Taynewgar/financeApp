@@ -68,16 +68,31 @@ merecer não ficar misturado com a tabela proposto×implementado tela a tela.
     telas) e decide um componente/ícone padrão único pro app inteiro, não
     um por tela.
 
-**Baixa prioridade confirmada pelo usuário (2026-09-15)** — são os
-**únicos dois itens** de baixa prioridade do backlog; todo o resto acima
-(e o item 11) é alta ou média prioridade, mesmo o que está sequenciado
-pra depois do MVP:
+**Baixa prioridade confirmada pelo usuário** — todo o resto acima (e o
+item 11) é alta ou média prioridade, mesmo o que está sequenciado pra
+depois do MVP:
 
 12. Aba Bancos em Configurações — hoje resolvido como campo de texto em
-    Conta, sem perda funcional real.
+    Conta, sem perda funcional real. *(2026-09-15)*
 13. Saldo atual de contas — hoje só caixinhas têm saldo calculado
     (`GET /dashboard/patrimonio/{mes}`); dar saldo a `contas` também seria
-    a extensão natural, mas não é urgente.
+    a extensão natural, mas não é urgente. *(2026-09-15)*
+14. **Changelog estruturado** — trocar a prosa narrativa de
+    `changelog-proposta-original-do-redesign.md` pelo formato [Keep a
+    Changelog](https://keepachangelog.com) (seções `Added/Changed/Fixed/
+    Removed` por versão datada, amarrada a tag git). Ganho: escaneável e
+    diffável, pronto pra virar release notes se o app for a público. Custo:
+    perde o espaço pro "porquê" narrativo que o formato atual dá — por
+    isso fica de baixa prioridade enquanto o projeto for de um usuário só.
+    Sugestão minha (Claude), confirmada como baixa prioridade pelo usuário.
+    *(2026-09-16)*
+15. **ADRs (Architecture Decision Records)** — trocar o Q&A único de
+    `sugestoes-e-decisoes-do-redesign.md` por um arquivo curto e imutável
+    por decisão relevante (formato Nygard: contexto/decisão/consequências).
+    Decisão revista vira um ADR novo que supersede o antigo, em vez de
+    editar o `> Status:` por cima como hoje — histórico fica honesto, mas
+    com mais arquivos pra navegar. Mesma origem e confirmação do item 14.
+    *(2026-09-16)*
 
 Este arquivo não substitui o `README.md` da raiz (que descreve o que
 existe) nem o `/status-projeto` (relatório de andamento) — é o registro do
