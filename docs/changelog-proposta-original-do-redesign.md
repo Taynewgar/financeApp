@@ -898,3 +898,31 @@ extra necessária.
   de `.chip-form input`.
 - Sem mudança de backend (schema já aceitava o campo desde sempre).
   tsc + build limpos; suíte offline: 213 passed (inalterada).
+
+## Rodada 15 (2026-09-16) — Dashboard: 3 KPIs novos (item 6, entregue antes do item 5)
+
+Item 6 do backlog, entregue com a ordem invertida em relação ao item 5
+(feature Gráficos) a pedido do usuário — os 3 KPIs não têm dependência
+real de Gráficos existir primeiro.
+
+Os 3 vêm de dados que a tela já buscava, sem endpoint novo:
+
+- **"Resultado acumulado" (R$)** e **"Meses com resultado negativo"**:
+  reaproveitam a mesma chamada a `/dashboard/evolucao` que já existia só
+  pra calcular `taxaAcumuladaAno` (janela de janeiro até o mês de
+  referência) — o endpoint já retornava `resultado_saude_acumulado` por
+  mês (só não era guardado) e a contagem de negativos é um filtro em
+  memória sobre a mesma lista de meses já recebida. "Resultado acumulado"
+  aparece como uma linha extra dentro do card "Taxa de poupança" (mesma
+  janela, complementa o % que já existia ali); "Meses com resultado
+  negativo" ganhou card próprio.
+- **"Maior categoria de despesa"**: `useMemo` sobre `despesasCategoria`
+  (já buscado pro gráfico "Despesas por Categoria" do mês de referência) —
+  mesmo recorte, sem chamada nova.
+
+- Frontend apenas: `Dashboard.tsx` ganha `resultadoAcumuladoAno`,
+  `mesesNegativosAno` (estados) e `maiorCategoriaDespesa` (`useMemo`); 2
+  cards novos + 1 linha extra no card existente, com tooltips
+  (`EXPLICACAO.meses_negativos`/`maior_categoria_despesa`).
+- Sem mudança de backend, sem teste novo (nada de lógica de servidor).
+  tsc + build limpos; suíte offline: 213 passed (inalterada).

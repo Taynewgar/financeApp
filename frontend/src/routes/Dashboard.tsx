@@ -35,6 +35,8 @@ const EXPLICACAO: Record<string, string> = {
   despesas_liquidas: 'Despesas menos estornos/ressarcimentos vinculados a elas — o quanto de fato saiu do bolso.',
   taxa_poupanca: 'Percentual da receita (já somando ajustes soltos) que sobrou depois das despesas líquidas.',
   base_media: 'Ainda sem efeito nos cálculos — vai orientar médias de gráficos/KPIs quando essa funcionalidade existir.',
+  meses_negativos: 'Quantos meses de janeiro até o mês de referência tiveram resultado (leitura de saúde) negativo.',
+  maior_categoria_despesa: 'Categoria com maior soma de despesas no mês de referência — mesmo recorte do gráfico "Despesas por Categoria".',
 }
 
 const MESES_NOME = [
@@ -99,6 +101,8 @@ export function Dashboard() {
   const [mesAnterior, setMesAnterior] = useState<ResumoMensal | null>(null)
   const [evolucao, setEvolucao] = useState<EvolucaoMensal | null>(null)
   const [taxaAcumuladaAno, setTaxaAcumuladaAno] = useState<number | null>(null)
+  const [resultadoAcumuladoAno, setResultadoAcumuladoAno] = useState<number | null>(null)
+  const [mesesNegativosAno, setMesesNegativosAno] = useState<{ negativos: number; total: number } | null>(null)
   const [caixinhas, setCaixinhas] = useState<SaldoCaixinha[] | null>(null)
   const [compromissos, setCompromissos] = useState<CompromissoFuturo[] | null>(null)
   const [despesasCategoria, setDespesasCategoria] = useState<DespesaPorCategoriaT[] | null>(null)
@@ -158,14 +162,32 @@ export function Dashboard() {
       .catch((e) => setErro(e instanceof ApiError ? e.message : 'Falha ao carregar o dashboard'))
   }, [modoData, vigenciaMes, periodoInicio, periodoFim, mesReferencia, primeiroMes])
 
-  // taxa de poupança acumulada NO ANO do mês de referência — busca à parte
-  // porque é uma janela diferente (jan até o mês de referência)
+  // taxa/resultado acumulado e contagem de meses negativos NO ANO do mês de
+  // referência — busca à parte porque é uma janela diferente (jan até o
+  // mês de referência), independente do período navegado na tela
   useEffect(() => {
     const [ano] = mesReferencia.split('-')
     apiFetch<EvolucaoMensal>(`/dashboard/evolucao?inicio=${ano}-01-01&fim=${mesReferencia}-01`)
-      .then((e) => setTaxaAcumuladaAno(e.meses.length ? e.meses[e.meses.length - 1].taxa_poupanca_acumulada : null))
-      .catch(() => setTaxaAcumuladaAno(null))
+      .then((e) => {
+        const ultimo = e.meses.length ? e.meses[e.meses.length - 1] : null
+        setTaxaAcumuladaAno(ultimo ? ultimo.taxa_poupanca_acumulada : null)
+        setResultadoAcumuladoAno(ultimo ? ultimo.resultado_saude_acumulado : null)
+        setMesesNegativosAno({
+          negativos: e.meses.filter((m) => m.resultado_saude < 0).length,
+          total: e.meses.length,
+        })
+      })
+      .catch(() => {
+        setTaxaAcumuladaAno(null)
+        setResultadoAcumuladoAno(null)
+        setMesesNegativosAno(null)
+      })
   }, [mesReferencia])
+
+  const maiorCategoriaDespesa = useMemo(() => {
+    if (!despesasCategoria || despesasCategoria.length === 0) return null
+    return despesasCategoria.reduce((maior, atual) => (atual.valor > maior.valor ? atual : maior))
+  }, [despesasCategoria])
 
   const hero = resumo && (leitura === 'caixa' ? resumo.resultado_fluxo_caixa : resumo.resultado_saude)
   const heroAnterior =
@@ -346,6 +368,29 @@ export function Dashboard() {
               )}
               {taxaAcumuladaAno !== null && (
                 <span className="resumo-card-delta">Acumulado no ano: {taxaAcumuladaAno.toFixed(1)}%</span>
+              )}
+              {resultadoAcumuladoAno !== null && (
+                <span className="resumo-card-delta">
+                  Resultado acumulado no ano: {formatarMoeda(resultadoAcumuladoAno, oculto)}
+                </span>
+              )}
+            </div>
+            <div className="resumo-card" title={EXPLICACAO.meses_negativos}>
+              <span className="resumo-card-rotulo">Meses com resultado negativo</span>
+              <span className="resumo-card-valor">
+                {mesesNegativosAno === null ? '—' : mesesNegativosAno.negativos}
+              </span>
+              {mesesNegativosAno !== null && (
+                <span className="resumo-card-delta">de {mesesNegativosAno.total} meses no ano</span>
+              )}
+            </div>
+            <div className="resumo-card" title={EXPLICACAO.maior_categoria_despesa}>
+              <span className="resumo-card-rotulo">Maior categoria de despesa</span>
+              <span className="resumo-card-valor valor-despesa">
+                {maiorCategoriaDespesa ? maiorCategoriaDespesa.categoria_nome : '—'}
+              </span>
+              {maiorCategoriaDespesa && (
+                <span className="resumo-card-delta">{formatarMoeda(maiorCategoriaDespesa.valor, oculto)}</span>
               )}
             </div>
           </div>
