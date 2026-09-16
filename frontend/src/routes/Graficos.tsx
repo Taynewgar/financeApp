@@ -24,7 +24,9 @@ export function Graficos() {
     if (modoData === 'todos' && primeiroMes === null) return // aguarda carregar o início do histórico
     setErro(null)
 
-    const evolucaoInicio = modoData === 'mes' ? mesesAntes(vigenciaMes, 5) : periodoInicio
+    // tela dedicada de análise — janela maior que o sparkline do Dashboard
+    // (6 meses); 12 meses dá leitura de trailing-year no modo "Mês"
+    const evolucaoInicio = modoData === 'mes' ? mesesAntes(vigenciaMes, 11) : periodoInicio
     const evolucaoFim = periodoFim
 
     // "Mês" olha só o mês de referência; Intervalo/Todos somam o período
@@ -63,11 +65,11 @@ export function Graficos() {
       {evolucao && (
         <div style={{ marginTop: 20, marginBottom: 24 }}>
           <h2 style={{ fontSize: 16, marginBottom: 8 }}>Evolução Mensal</h2>
-          <EvolucaoChart meses={evolucao.meses} />
+          <EvolucaoChart meses={evolucao.meses} baseMedia={periodo.baseMedia} />
           <h3 style={{ fontSize: 13, fontWeight: 600, color: 'var(--cor-texto-suave)', margin: '18px 0 8px' }}>
             Taxa de poupança mensal
           </h3>
-          <TaxaPoupancaChart meses={evolucao.meses} />
+          <TaxaPoupancaChart meses={evolucao.meses} baseMedia={periodo.baseMedia} />
         </div>
       )}
 

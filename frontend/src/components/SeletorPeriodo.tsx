@@ -2,7 +2,7 @@ import './dashboard.css'
 import { hojeAnoMes, rotuloMesLongo, type Periodo } from '../lib/periodo'
 
 const EXPLICACAO_BASE_MEDIA =
-  'Ainda sem efeito nos cálculos — vai orientar médias de gráficos/KPIs quando essa funcionalidade existir.'
+  '"Até o mês": média só dos meses que já têm lançamento no período. "Ritmo anual": soma do período ÷ 12, contando também meses futuros ainda sem lançamento — mostra o ritmo em relação ao ano cheio, não "quanto é o mês típico".'
 
 /** Mês / Intervalo / Todos os meses + Base da média — mesmo seletor
  * reaproveitado pelo Dashboard e pela tela de Gráficos (ver usePeriodo). */
@@ -55,7 +55,6 @@ export function SeletorPeriodo(periodo: Periodo) {
               value={intervaloFim}
               onChange={(e) => setIntervaloFim(e.target.value)}
               min={intervaloInicio}
-              max={hojeAnoMes()}
             />
           </label>
         </div>
@@ -81,7 +80,7 @@ export function SeletorPeriodo(periodo: Periodo) {
               className={baseMedia === 'todos_meses' ? 'ativo' : ''}
               onClick={() => setBaseMedia('todos_meses')}
             >
-              Todos os meses
+              Ritmo anual
             </button>
           </div>
         </div>

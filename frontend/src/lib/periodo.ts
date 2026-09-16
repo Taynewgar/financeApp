@@ -69,3 +69,12 @@ export function usePeriodo() {
 }
 
 export type Periodo = ReturnType<typeof usePeriodo>
+
+/** "Até o mês": média só dos meses com valor lançado (exclui mês vazio, seja
+ * passado sem lançamento ou futuro ainda não navegado). "Ritmo anual": soma
+ * ÷ pelo total de meses do período, incluindo os vazios — mostra o ritmo em
+ * relação ao período cheio, não "quanto é o mês típico". */
+export function media(valores: number[], baseMedia: BaseMedia): number {
+  const relevantes = baseMedia === 'ate_mes' ? valores.filter((v) => v !== 0) : valores
+  return relevantes.length ? relevantes.reduce((soma, v) => soma + v, 0) / relevantes.length : 0
+}

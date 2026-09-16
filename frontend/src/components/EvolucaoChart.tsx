@@ -2,6 +2,7 @@ import { useState } from 'react'
 import './evolucaoChart.css'
 import { escalaY } from '../lib/escala'
 import { formatarMoeda } from '../lib/formatar'
+import { media, type BaseMedia } from '../lib/periodo'
 import { usePrivacidade } from '../lib/PrivacyContext'
 import type { PontoEvolucaoMensal } from '../lib/types'
 
@@ -17,7 +18,7 @@ function rotuloMes(vigenciaMes: string): string {
   return `${MESES_ABREV[Number(mes) - 1]}/${ano.slice(2)}`
 }
 
-export function EvolucaoChart({ meses }: { meses: PontoEvolucaoMensal[] }) {
+export function EvolucaoChart({ meses, baseMedia = 'ate_mes' }: { meses: PontoEvolucaoMensal[]; baseMedia?: BaseMedia }) {
   const { oculto } = usePrivacidade()
   const [indiceHover, setIndiceHover] = useState<number | null>(null)
   const [mostrarTabela, setMostrarTabela] = useState(false)
@@ -52,8 +53,8 @@ export function EvolucaoChart({ meses }: { meses: PontoEvolucaoMensal[] }) {
 
   // linhas de referência — média do período visível, pra contextualizar se
   // um mês ficou acima/abaixo do padrão sem precisar decorar os valores
-  const mediaReceitas = meses.reduce((soma, m) => soma + m.receitas, 0) / meses.length
-  const mediaDespesas = meses.reduce((soma, m) => soma + m.despesas_brutas, 0) / meses.length
+  const mediaReceitas = media(meses.map((m) => m.receitas), baseMedia)
+  const mediaDespesas = media(meses.map((m) => m.despesas_brutas), baseMedia)
 
   const hover = indiceHover !== null ? meses[indiceHover] : null
 

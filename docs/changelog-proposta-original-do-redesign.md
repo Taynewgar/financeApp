@@ -1043,3 +1043,62 @@ compartilhada com Lançamentos, que não pode crescer sem necessidade).
 - 4 testes novos (`test_despesas_por_categoria_periodo_*`) cobrindo soma
   multi-mês, exclusão de mês fora do intervalo, `fim < inicio` → 422 e
   lista vazia. Suíte offline: 217 passed (213 + 4). tsc + build limpos.
+
+### Rodada 16.2 (2026-09-16) — "Base da média" ganha efeito real, Intervalo aceita mês futuro, Taxa de Poupança vira coluna
+
+Usuário testou a Rodada 16.1 e trouxe 4 pontos. Discutidos antes de
+mexer em código (fase de decisão) — resumo do que foi combinado:
+
+**"Base da média" passa a ter efeito.** Até aqui era só plumbing (rodada
+2026-09-15, "sem nenhum cálculo pendurado ainda"). Definição acordada:
+"Até o mês" é a média só dos meses com lançamento no período (exclui
+mês vazio); "Ritmo anual" (renomeado de "Todos os meses" — o nome
+antigo confundia com o modo "Todos os meses" do seletor) é a soma do
+período ÷ 12, incluindo meses futuros ainda sem lançamento — não é "mês
+típico", é ritmo em relação ao ano cheio. Helper `media()` centralizado
+em `lib/periodo.ts` (evita duplicar entre os 2 gráficos que passam a
+consumir), consome as linhas de média tracejadas do `EvolucaoChart`
+(rodada 16.1) e a nova do `TaxaPoupancaChart`.
+
+**Intervalo aceita mês futuro.** O `max={hojeAnoMes()}` no campo "Fim"
+era herdado do Dashboard original, sem base técnica (os endpoints de
+período nunca rejeitaram data futura, só retornam zero pra mês sem
+lançamento). Removido — necessário pra "Ritmo anual" fazer sentido
+(dividir por meses que ainda vão acontecer).
+
+**Taxa de Poupança Mensal: linha → colunas + média tracejada.** Ficava
+inconsistente com "Evolução Mensal" (barra) logo acima, na mesma seção.
+Mesmo motivo pra continuar em gráfico separado (regra "one axis" — % e
+R$ não cabem na mesma escala), mas agora com a mesma linguagem visual.
+
+**Janela do modo "Mês" em `/graficos`: 6 → 12 meses.** Só nessa tela —
+o sparkline do Dashboard continua em 6 (é só um enfeite ao lado de um
+número, não pede mais que isso). Gráficos é tela de análise dedicada;
+12 meses dá leitura de ano corrido.
+
+- `frontend/src/lib/periodo.ts` ganha `media()`.
+- `frontend/src/components/EvolucaoChart.tsx` e `TaxaPoupancaChart.tsx`
+  ganham prop `baseMedia` (default `'ate_mes'`); `TaxaPoupancaChart`
+  reescrito pra colunas.
+- `frontend/src/components/SeletorPeriodo.tsx` — remove `max` do campo
+  "Fim", renomeia botão, atualiza tooltip.
+- `frontend/src/routes/Graficos.tsx` — janela de 12 meses, passa
+  `baseMedia` pros 2 gráficos.
+- Sem mudança de backend (os endpoints já suportavam data futura). tsc +
+  build limpos; suíte offline: 217 passed (inalterada).
+
+**Checklist de teste manual** (mudança só visual/de interação, sem
+teste automatizado — este projeto não tem suíte de frontend):
+- [ ] `/graficos`, modo Intervalo: "Fim" aceita selecionar um mês
+  futuro (ex: 3 meses à frente).
+- [ ] Com um mês futuro selecionado, alternar "Base da média" entre
+  "Até o mês" e "Ritmo anual" muda o valor das linhas tracejadas em
+  Receitas/Despesas/Taxa de poupança (e o texto da legenda/tooltip).
+- [ ] Sem mês futuro selecionado (período só com meses já lançados), os
+  2 modos de "Base da média" devem dar o mesmo resultado (não há mês
+  vazio pra excluir).
+- [ ] "Taxa de Poupança Mensal" renderiza como colunas (não mais linha),
+  com a linha de média tracejada atravessando o gráfico.
+- [ ] Modo "Mês" em `/graficos` mostra 12 meses no eixo X (não 6).
+- [ ] Dashboard: sparkline ao lado do resultado principal continua
+  igual (6 meses, sem mudança nessa tela).

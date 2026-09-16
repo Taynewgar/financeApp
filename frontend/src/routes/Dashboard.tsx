@@ -33,7 +33,6 @@ const EXPLICACAO: Record<string, string> = {
   receita_ajustada: 'Receitas mais estornos/ressarcimentos soltos (sem vínculo a uma despesa específica) — a base usada na leitura de saúde.',
   despesas_liquidas: 'Despesas menos estornos/ressarcimentos vinculados a elas — o quanto de fato saiu do bolso.',
   taxa_poupanca: 'Percentual da receita (já somando ajustes soltos) que sobrou depois das despesas líquidas.',
-  base_media: 'Ainda sem efeito nos cálculos — vai orientar médias de gráficos/KPIs quando essa funcionalidade existir.',
   meses_negativos: 'Quantos meses de janeiro até o mês de referência tiveram resultado (leitura de saúde) negativo.',
   maior_categoria_despesa: 'Categoria com maior soma de despesas no mês de referência — mesmo recorte do gráfico "Despesas por Categoria".',
 }

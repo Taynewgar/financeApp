@@ -2,6 +2,7 @@ import { useState } from 'react'
 import './evolucaoChart.css'
 import './taxaPoupancaChart.css'
 import { escalaY } from '../lib/escala'
+import { media, type BaseMedia } from '../lib/periodo'
 import { usePrivacidade } from '../lib/PrivacyContext'
 import type { PontoEvolucaoMensal } from '../lib/types'
 
@@ -19,8 +20,10 @@ function rotuloMes(vigenciaMes: string): string {
 
 /** Taxa de poupança MENSAL (não a acumulada, que já aparece no Dashboard) —
  * gráfico próprio, de 1 série só, porque % e R$ não cabem no mesmo eixo
- * (regra "one axis" da skill de dataviz — nunca dual-axis). */
-export function TaxaPoupancaChart({ meses }: { meses: PontoEvolucaoMensal[] }) {
+ * (regra "one axis" da skill de dataviz — nunca dual-axis). Colunas em vez
+ * de linha pra manter a mesma linguagem visual do EvolucaoChart logo acima
+ * na mesma seção; linha de média tracejada segue o mesmo padrão também. */
+export function TaxaPoupancaChart({ meses, baseMedia = 'ate_mes' }: { meses: PontoEvolucaoMensal[]; baseMedia?: BaseMedia }) {
   const { oculto } = usePrivacidade()
   const [indiceHover, setIndiceHover] = useState<number | null>(null)
   const [mostrarTabela, setMostrarTabela] = useState(false)
@@ -35,29 +38,28 @@ export function TaxaPoupancaChart({ meses }: { meses: PontoEvolucaoMensal[] }) {
   const larguraBanda = (LARGURA - MARGEM.esquerda - MARGEM.direita) / meses.length
   const x = (i: number) => MARGEM.esquerda + larguraBanda * (i + 0.5)
   const y = (valor: number) => MARGEM.topo + ALTURA_PLOT * (1 - (valor - min) / (max - min || 1))
+  const yBase = y(0)
 
-  // pula meses sem taxa (receita ajustada zero) em vez de interpolar —
-  // "M" reabre o traço depois de um buraco (índice não contíguo ao ponto
-  // válido anterior) em vez de ligar por cima dele
-  const pontosValidos = meses
-    .map((m, i) => (m.taxa_poupanca === null ? null : { i, valor: m.taxa_poupanca }))
-    .filter((p): p is { i: number; valor: number } => p !== null)
+  const barraLargura = larguraBanda * 0.5
+  const retanguloBarra = (valor: number) => ({
+    y: Math.min(yBase, y(valor)),
+    altura: Math.abs(yBase - y(valor)),
+  })
 
-  const linhaTaxa = pontosValidos
-    .map((p, idx) => {
-      const anterior = pontosValidos[idx - 1]
-      const comando = idx === 0 || anterior.i !== p.i - 1 ? 'M' : 'L'
-      return `${comando} ${x(p.i).toFixed(1)} ${y(p.valor).toFixed(1)}`
-    })
-    .join(' ')
+  const mediaTaxa = media(valores, baseMedia)
 
   const hover = indiceHover !== null ? meses[indiceHover] : null
 
   return (
     <div className="taxa-poupanca-chart">
       {/* série única — sem legenda própria, o título acima (h3 do Gráficos)
-       * já nomeia o que está plotado */}
-      <div className="evolucao-chart-cabecalho" style={{ justifyContent: 'flex-end' }}>
+       * já nomeia o que está plotado; só a média entra na legenda */}
+      <div className="evolucao-chart-cabecalho">
+        <div className="evolucao-legenda">
+          <span className="evolucao-legenda-item">
+            <span className="evolucao-legenda-linha-tracejada serie-taxa" /> Média ({oculto ? '•••' : `${mediaTaxa.toFixed(1)}%`})
+          </span>
+        </div>
         <button type="button" className="botao-link" onClick={() => setMostrarTabela((v) => !v)}>
           {mostrarTabela ? 'Ver gráfico' : 'Ver como tabela'}
         </button>
@@ -96,26 +98,35 @@ export function TaxaPoupancaChart({ meses }: { meses: PontoEvolucaoMensal[] }) {
               </g>
             ))}
 
+            <line
+              x1={MARGEM.esquerda}
+              x2={LARGURA - MARGEM.direita}
+              y1={y(mediaTaxa)}
+              y2={y(mediaTaxa)}
+              className="evolucao-linha-media"
+              stroke="var(--serie-taxa)"
+            />
+
+            {meses.map((m, i) => {
+              if (m.taxa_poupanca === null) return null
+              const barra = retanguloBarra(m.taxa_poupanca)
+              return (
+                <rect
+                  key={m.vigencia_mes}
+                  x={x(i) - barraLargura / 2}
+                  y={barra.y}
+                  width={barraLargura}
+                  height={barra.altura}
+                  rx={3}
+                  fill="var(--serie-taxa)"
+                />
+              )
+            })}
             {meses.map((m, i) => (
               <text key={m.vigencia_mes} x={x(i)} y={ALTURA - 8} className="evolucao-eixo-texto" textAnchor="middle">
                 {rotuloMes(m.vigencia_mes)}
               </text>
             ))}
-
-            <path d={linhaTaxa} className="evolucao-linha" fill="none" stroke="var(--serie-taxa)" />
-            {meses.map(
-              (m, i) =>
-                m.taxa_poupanca !== null && (
-                  <circle
-                    key={m.vigencia_mes}
-                    cx={x(i)}
-                    cy={y(m.taxa_poupanca)}
-                    r={4}
-                    className="evolucao-marcador"
-                    fill="var(--serie-taxa)"
-                  />
-                ),
-            )}
 
             {indiceHover !== null && (
               <line
@@ -153,7 +164,7 @@ export function TaxaPoupancaChart({ meses }: { meses: PontoEvolucaoMensal[] }) {
             <div className="evolucao-tooltip" style={{ left: `${(x(indiceHover!) / LARGURA) * 100}%` }}>
               <strong>{rotuloMes(hover.vigencia_mes)}</strong>
               <span>
-                <span className="evolucao-legenda-linha serie-taxa" />{' '}
+                <span className="evolucao-legenda-bloco serie-taxa" />{' '}
                 {hover.taxa_poupanca === null ? 'Sem dados' : `${oculto ? '•••' : hover.taxa_poupanca.toFixed(1) + '%'}`}
               </span>
             </div>
