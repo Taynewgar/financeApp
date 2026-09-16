@@ -128,23 +128,16 @@ def primeiro_mes(db: Client = Depends(get_db), user_id: str = Depends(get_curren
     return {"vigencia_mes": f"{primeira_data[:7]}-01"}
 
 
-@router.get("/despesas-por-categoria/{vigencia_mes}", response_model=list[DespesaPorCategoria])
-def despesas_por_categoria(
-    vigencia_mes: date, db: Client = Depends(get_db), user_id: str = Depends(get_current_user_id)
-):
-    """Despesas do mês agrupadas por categoria PAI (não subcategoria — essa
-    quebra mais fina fica pra Estrutura de Custo). Usa despesa bruta (sem
-    descontar estorno/ressarcimento vinculado), igual `despesas_brutas` do
-    resumo — mostra onde o dinheiro foi gasto, não o líquido."""
-    mes_inicio = date(vigencia_mes.year, vigencia_mes.month, 1)
-    mes_fim = somar_meses(mes_inicio, 1)
+def _despesas_por_categoria_entre(
+    db: Client, user_id: str, data_inicio: date, data_fim_exclusiva: date
+) -> list[dict]:
     despesas = (
         db.table("transacoes")
         .select("categoria_id,valor")
         .eq("user_id", user_id)
         .eq("tipo_movimento", "despesa")
-        .gte("data_compra", mes_inicio.isoformat())
-        .lt("data_compra", mes_fim.isoformat())
+        .gte("data_compra", data_inicio.isoformat())
+        .lt("data_compra", data_fim_exclusiva.isoformat())
         .execute()
         .data
     )
@@ -171,6 +164,36 @@ def despesas_por_categoria(
     ]
     resultado.sort(key=lambda r: r["valor"], reverse=True)
     return resultado
+
+
+@router.get("/despesas-por-categoria/{vigencia_mes}", response_model=list[DespesaPorCategoria])
+def despesas_por_categoria(
+    vigencia_mes: date, db: Client = Depends(get_db), user_id: str = Depends(get_current_user_id)
+):
+    """Despesas do mês agrupadas por categoria PAI (não subcategoria — essa
+    quebra mais fina fica pra Estrutura de Custo). Usa despesa bruta (sem
+    descontar estorno/ressarcimento vinculado), igual `despesas_brutas` do
+    resumo — mostra onde o dinheiro foi gasto, não o líquido."""
+    mes_inicio = date(vigencia_mes.year, vigencia_mes.month, 1)
+    mes_fim = somar_meses(mes_inicio, 1)
+    return _despesas_por_categoria_entre(db, user_id, mes_inicio, mes_fim)
+
+
+@router.get("/despesas-por-categoria-periodo", response_model=list[DespesaPorCategoria])
+def despesas_por_categoria_periodo(
+    inicio: date = Query(...),
+    fim: date = Query(...),
+    db: Client = Depends(get_db),
+    user_id: str = Depends(get_current_user_id),
+):
+    """Mesma agregação de /despesas-por-categoria/{vigencia_mes}, mas somada
+    sobre um período livre — usado pelos modos Intervalo/Todos os meses do
+    seletor (mesmo padrão de /resumo-periodo vs /mensal)."""
+    mes_inicio = date(inicio.year, inicio.month, 1)
+    mes_fim_exclusiva = somar_meses(date(fim.year, fim.month, 1), 1)
+    if mes_fim_exclusiva <= mes_inicio:
+        raise HTTPException(status_code=422, detail="'fim' não pode ser anterior a 'inicio'")
+    return _despesas_por_categoria_entre(db, user_id, mes_inicio, mes_fim_exclusiva)
 
 
 @router.get("/patrimonio/{vigencia_mes}", response_model=list[SaldoCaixinha])

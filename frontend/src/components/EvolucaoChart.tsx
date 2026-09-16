@@ -50,6 +50,11 @@ export function EvolucaoChart({ meses }: { meses: PontoEvolucaoMensal[] }) {
     .map((m, i) => `${i === 0 ? 'M' : 'L'} ${x(i).toFixed(1)} ${y(m.resultado_saude).toFixed(1)}`)
     .join(' ')
 
+  // linhas de referência — média do período visível, pra contextualizar se
+  // um mês ficou acima/abaixo do padrão sem precisar decorar os valores
+  const mediaReceitas = meses.reduce((soma, m) => soma + m.receitas, 0) / meses.length
+  const mediaDespesas = meses.reduce((soma, m) => soma + m.despesas_brutas, 0) / meses.length
+
   const hover = indiceHover !== null ? meses[indiceHover] : null
 
   return (
@@ -64,6 +69,14 @@ export function EvolucaoChart({ meses }: { meses: PontoEvolucaoMensal[] }) {
           </span>
           <span className="evolucao-legenda-item">
             <span className="evolucao-legenda-linha serie-resultado" /> Resultado
+          </span>
+          <span className="evolucao-legenda-item">
+            <span className="evolucao-legenda-linha-tracejada serie-receitas" /> Média receitas (
+            {formatarMoeda(mediaReceitas, oculto)})
+          </span>
+          <span className="evolucao-legenda-item">
+            <span className="evolucao-legenda-linha-tracejada serie-despesas" /> Média despesas (
+            {formatarMoeda(mediaDespesas, oculto)})
           </span>
         </div>
         <button type="button" className="botao-link" onClick={() => setMostrarTabela((v) => !v)}>
@@ -107,6 +120,23 @@ export function EvolucaoChart({ meses }: { meses: PontoEvolucaoMensal[] }) {
                 </text>
               </g>
             ))}
+
+            <line
+              x1={MARGEM.esquerda}
+              x2={LARGURA - MARGEM.direita}
+              y1={y(mediaReceitas)}
+              y2={y(mediaReceitas)}
+              className="evolucao-linha-media"
+              stroke="var(--serie-receitas)"
+            />
+            <line
+              x1={MARGEM.esquerda}
+              x2={LARGURA - MARGEM.direita}
+              y1={y(mediaDespesas)}
+              y2={y(mediaDespesas)}
+              className="evolucao-linha-media"
+              stroke="var(--serie-despesas)"
+            />
 
             {meses.map((m, i) => {
               const receita = retanguloBarra(m.receitas)

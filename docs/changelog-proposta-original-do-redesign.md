@@ -980,3 +980,66 @@ acumulada), sem violar a regra "one axis".
 deu pra fazer QA visual de login (ver nota já registrada nas rodadas
 anteriores) — validação é só estática (tsc/build/lint) até o usuário
 testar na tela de verdade.
+
+### Rodada 16.1 (2026-09-16) — feedback de teste da Rodada A: 2 bugs + 3 melhorias
+
+Usuário testou a Rodada A e reportou, com screenshot:
+
+**Bug 1 — `TaxaPoupancaChart` sem grade/eixo ("ficou escuro")**: as
+variáveis `--grade-cor`/`--eixo-cor` só estavam declaradas dentro de
+`.evolucao-chart` (em `evolucaoChart.css`); como `TaxaPoupancaChart` usa
+a classe raiz `.taxa-poupanca-chart`, essas variáveis ficavam
+`undefined` ali — grade e texto de eixo sumiam. Corrigido redeclarando
+os 2 tokens (mesmos valores) em `taxaPoupancaChart.css`.
+
+**Bug 2 — "Despesas por Categoria" não somava o período em Intervalo/
+Todos os meses**: o gráfico sempre buscava só `mesReferencia` (o último
+mês), mesmo com Intervalo/Todos selecionado — mostrava só 1 mês do
+período todo, sem avisar. Endpoint novo `GET /dashboard/despesas-por-
+categoria-periodo?inicio=&fim=` (mesmo padrão de `/resumo-periodo` vs
+`/mensal`: agregação de `/despesas-por-categoria/{vigencia_mes}`
+extraída pra `_despesas_por_categoria_entre()`, reaproveitada pelos 2
+endpoints). `Graficos.tsx` chama o endpoint certo por `modoData`, e o
+título da seção passa a mostrar o período completo ("julho de 2026 a
+setembro de 2026"), não só o último mês.
+
+**Melhoria 1 — Evolução Mensal + Taxa de Poupança Mensal agrupados**:
+usuário perguntou por que não ficaram no mesmo gráfico ("também é um
+tipo de evolução mensal, não?"). Resposta: continuam como 2 gráficos
+separados (regra "one axis" da skill de dataviz — R$ e % não cabem no
+mesmo eixo Y), mas agora moram na mesma seção "Evolução Mensal", com
+"Taxa de poupança mensal" como sub-título em vez de um `<h2>` próprio —
+lê como uma coisa só, mesmo sendo 2 desenhos.
+
+**Melhoria 2 — linhas de média em Receitas/Despesas**: usuário sugeriu
+("esses gráficos de barra já poderiam ter linhas de média, certo?").
+Concordei — adicionadas 2 linhas de referência tracejadas (média do
+período visível) no `EvolucaoChart`, com o valor na legenda ("Média
+receitas (R$X)"/"Média despesas (R$X)"), respeitando modo privacidade.
+
+**Melhoria 3 — sparkline redesenhado + espalhado pelos KPIs do
+Dashboard**: usuário achou o design do sparkline do hero fraco e sugeriu
+levar a ideia pros outros KPIs "interessantes". Redesenhado seguindo o
+contrato "stat tile" da própria skill de dataviz (`trend`: linha no tom
+neutro/de-emphasis + ponto atual em destaque na cor de acento, em vez
+de uma cor de série a mais competindo num card pequeno) e adicionado em
+Receitas/Despesas (ou Receita ajustada/Despesas líquidas, conforme o
+toggle Caixa/Saúde), Reservas, Investimentos e Taxa de poupança — todos
+reaproveitando `evolucao.meses`, já buscado, sem chamada nova. Cards com
+sparkline ganham uma classe extra (`.resumo-card-sparkline`, só
+`margin-top`) pra abrir espaço sem alterar `.resumo-card` (classe
+compartilhada com Lançamentos, que não pode crescer sem necessidade).
+
+**Perguntas respondidas, sem mudança de código**:
+- "Despesas por Categoria" (barra empilhada) é a forma certa pra
+  part-to-whole, confirmado pela própria tabela de formas da skill de
+  dataviz ("Part-to-whole → stacked bar").
+- Em modo "Mês", os gráficos da tela Gráficos mostram no máximo 6 meses
+  de contexto (herdado do comportamento original do sparkline do
+  Dashboard) — janela fixa, não configurável ainda; ponto em aberto,
+  registrado no backlog pra decidir se vale um padrão maior (ex: 12
+  meses) especificamente na tela Gráficos.
+
+- 4 testes novos (`test_despesas_por_categoria_periodo_*`) cobrindo soma
+  multi-mês, exclusão de mês fora do intervalo, `fim < inicio` → 422 e
+  lista vazia. Suíte offline: 217 passed (213 + 4). tsc + build limpos.

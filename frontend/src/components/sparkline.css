@@ -1,15 +1,4 @@
-/* Forma pura, sem eixo/legenda/tooltip — mesmo hue do "Resultado" no
- * EvolucaoChart (slot 3 da paleta categórica), pra manter a mesma
- * identidade visual entre a versão completa (Gráficos) e a compacta
- * (Dashboard). Ver skill "dataviz". */
 .sparkline {
-  --sparkline-cor: #1baf7a;
   display: block;
   flex-shrink: 0;
-}
-
-@media (prefers-color-scheme: dark) {
-  .sparkline {
-    --sparkline-cor: #199e70;
-  }
 }

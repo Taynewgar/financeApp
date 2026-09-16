@@ -34,10 +34,15 @@ merecer não ficar misturado com a tabela proposto×implementado tela a tela.
    perder a leitura rápida de tendência — mitigação aprovada pelo usuário
    depois de avaliar ganhos/perdas dessa divisão.
    **Em andamento, dividido em 3 rodadas (2026-09-16):**
-   - ~~Rodada A — tela nova + migração + sparkline~~ **feita 2026-09-16**
-     (ver changelog).
+   - ~~Rodada A — tela nova + migração + sparkline~~ **feita 2026-09-16**,
+     com 1 rodada extra de correções (16.1) — ver changelog.
    - Rodada B — Pareto de despesas por categoria/subcategoria. Pendente.
    - Rodada C — tendência de Orçado×Realizado em vários meses. Pendente.
+   - **Ponto em aberto (16.1)**: em modo "Mês", os gráficos de
+     `/graficos` mostram no máximo 6 meses de contexto (janela herdada
+     do sparkline original do Dashboard) — decidir se vale um padrão
+     maior (ex: 12 meses) só nessa tela, já que agora é uma tela
+     dedicada de análise, não mais um resumo compacto.
 6. ~~Dashboard — 3 KPIs novos~~ **feito 2026-09-16** (ordem invertida com o
    item 5 a pedido do usuário, entregue antes por não ter dependência real
    de Gráficos) — "Meses com resultado negativo", "Resultado acumulado"

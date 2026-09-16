@@ -147,6 +147,10 @@ export function Dashboard() {
   const heroAnterior =
     mesAnterior && (leitura === 'caixa' ? mesAnterior.resultado_fluxo_caixa : mesAnterior.resultado_saude)
 
+  // meses já buscados pra "mês anterior" — reaproveitados como sparkline
+  // nos KPIs (sem chamada nova); precisa de pelo menos 2 pontos pra formar linha
+  const tendencia = evolucao && evolucao.meses.length >= 2 ? evolucao.meses : null
+
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
@@ -185,9 +189,9 @@ export function Dashboard() {
                 </span>
               )}
             </div>
-            {evolucao && evolucao.meses.length >= 2 && (
+            {tendencia && (
               <Sparkline
-                valores={evolucao.meses.map((m) => (leitura === 'caixa' ? m.resultado_fluxo_caixa : m.resultado_saude))}
+                valores={tendencia.map((m) => (leitura === 'caixa' ? m.resultado_fluxo_caixa : m.resultado_saude))}
               />
             )}
           </div>
@@ -201,6 +205,11 @@ export function Dashboard() {
                   {mesAnterior && (
                     <span className="resumo-card-delta">{textoDelta(resumo.receitas, mesAnterior.receitas, oculto)}</span>
                   )}
+                  {tendencia && (
+                    <div className="resumo-card-sparkline">
+                      <Sparkline valores={tendencia.map((m) => m.receitas)} />
+                    </div>
+                  )}
                 </div>
                 <div className="resumo-card" title={EXPLICACAO.despesas_brutas}>
                   <span className="resumo-card-rotulo">Despesas</span>
@@ -209,6 +218,11 @@ export function Dashboard() {
                     <span className="resumo-card-delta">
                       {textoDelta(resumo.despesas_brutas, mesAnterior.despesas_brutas, oculto)}
                     </span>
+                  )}
+                  {tendencia && (
+                    <div className="resumo-card-sparkline">
+                      <Sparkline valores={tendencia.map((m) => m.despesas_brutas)} />
+                    </div>
                   )}
                 </div>
               </>
@@ -222,6 +236,11 @@ export function Dashboard() {
                       {textoDelta(receitaAjustada(resumo), receitaAjustada(mesAnterior), oculto)}
                     </span>
                   )}
+                  {tendencia && (
+                    <div className="resumo-card-sparkline">
+                      <Sparkline valores={tendencia.map((m) => receitaAjustada(m))} />
+                    </div>
+                  )}
                 </div>
                 <div className="resumo-card" title={EXPLICACAO.despesas_liquidas}>
                   <span className="resumo-card-rotulo">Despesas líquidas</span>
@@ -230,6 +249,11 @@ export function Dashboard() {
                     <span className="resumo-card-delta">
                       {textoDelta(resumo.despesas_liquidas, mesAnterior.despesas_liquidas, oculto)}
                     </span>
+                  )}
+                  {tendencia && (
+                    <div className="resumo-card-sparkline">
+                      <Sparkline valores={tendencia.map((m) => m.despesas_liquidas)} />
+                    </div>
                   )}
                 </div>
               </>
@@ -241,6 +265,11 @@ export function Dashboard() {
               {mesAnterior && (
                 <span className="resumo-card-delta">{textoDelta(resumo.reservas, mesAnterior.reservas, oculto)}</span>
               )}
+              {tendencia && (
+                <div className="resumo-card-sparkline">
+                  <Sparkline valores={tendencia.map((m) => m.reservas)} />
+                </div>
+              )}
             </div>
             <div className="resumo-card" title={EXPLICACAO.investimentos}>
               <span className="resumo-card-rotulo">Investimentos</span>
@@ -249,6 +278,11 @@ export function Dashboard() {
                 <span className="resumo-card-delta">
                   {textoDelta(resumo.investimentos, mesAnterior.investimentos, oculto)}
                 </span>
+              )}
+              {tendencia && (
+                <div className="resumo-card-sparkline">
+                  <Sparkline valores={tendencia.map((m) => m.investimentos)} />
+                </div>
               )}
             </div>
             <div className="resumo-card" title={EXPLICACAO.taxa_poupanca}>
@@ -268,6 +302,11 @@ export function Dashboard() {
                 <span className="resumo-card-delta">
                   Resultado acumulado no ano: {formatarMoeda(resultadoAcumuladoAno, oculto)}
                 </span>
+              )}
+              {tendencia && (
+                <div className="resumo-card-sparkline">
+                  <Sparkline valores={tendencia.filter((m) => m.taxa_poupanca !== null).map((m) => m.taxa_poupanca!)} />
+                </div>
               )}
             </div>
             <div className="resumo-card" title={EXPLICACAO.meses_negativos}>

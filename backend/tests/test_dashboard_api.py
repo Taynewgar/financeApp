@@ -602,3 +602,79 @@ def test_despesas_por_categoria_soma_2_lancamentos_da_mesma_categoria(client):
 def test_despesas_por_categoria_sem_despesas_retorna_lista_vazia(client):
     resposta = client.get("/dashboard/despesas-por-categoria/2026-09-01").json()
     assert resposta == []
+
+
+def test_despesas_por_categoria_periodo_soma_varios_meses(client):
+    conta = _conta(client)
+    categoria_id = _categoria(client)
+    for data, valor in [("2026-07-05", 100), ("2026-08-05", 200), ("2026-09-05", 300)]:
+        client.post(
+            "/transacoes",
+            json={
+                "data_compra": data,
+                "valor": valor,
+                "tipo_movimento": "despesa",
+                "conta_id": conta["id"],
+                "categoria_id": categoria_id,
+                "estrutura_custo": "variavel",
+                "meio_pagamento": "pix",
+            },
+        )
+
+    resposta = client.get(
+        "/dashboard/despesas-por-categoria-periodo", params={"inicio": "2026-07-01", "fim": "2026-09-01"}
+    )
+    assert resposta.status_code == 200
+    corpo = resposta.json()
+    assert len(corpo) == 1
+    assert corpo[0]["valor"] == 600
+    assert corpo[0]["percentual"] == 100.0
+
+
+def test_despesas_por_categoria_periodo_nao_inclui_mes_fora_do_intervalo(client):
+    conta = _conta(client)
+    categoria_id = _categoria(client)
+    client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-06-05",
+            "valor": 999,
+            "tipo_movimento": "despesa",
+            "conta_id": conta["id"],
+            "categoria_id": categoria_id,
+            "estrutura_custo": "variavel",
+            "meio_pagamento": "pix",
+        },
+    )
+    client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-08-05",
+            "valor": 100,
+            "tipo_movimento": "despesa",
+            "conta_id": conta["id"],
+            "categoria_id": categoria_id,
+            "estrutura_custo": "variavel",
+            "meio_pagamento": "pix",
+        },
+    )
+
+    resposta = client.get(
+        "/dashboard/despesas-por-categoria-periodo", params={"inicio": "2026-07-01", "fim": "2026-09-01"}
+    ).json()
+    assert len(resposta) == 1
+    assert resposta[0]["valor"] == 100
+
+
+def test_despesas_por_categoria_periodo_fim_antes_de_inicio_retorna_422(client):
+    resposta = client.get(
+        "/dashboard/despesas-por-categoria-periodo", params={"inicio": "2026-09-01", "fim": "2026-07-01"}
+    )
+    assert resposta.status_code == 422
+
+
+def test_despesas_por_categoria_periodo_sem_despesas_retorna_lista_vazia(client):
+    resposta = client.get(
+        "/dashboard/despesas-por-categoria-periodo", params={"inicio": "2026-07-01", "fim": "2026-09-01"}
+    ).json()
+    assert resposta == []

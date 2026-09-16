@@ -55,12 +55,9 @@ export function TaxaPoupancaChart({ meses }: { meses: PontoEvolucaoMensal[] }) {
 
   return (
     <div className="taxa-poupanca-chart">
-      <div className="evolucao-chart-cabecalho">
-        <div className="evolucao-legenda">
-          <span className="evolucao-legenda-item">
-            <span className="evolucao-legenda-linha serie-taxa" /> Taxa de poupança mensal
-          </span>
-        </div>
+      {/* série única — sem legenda própria, o título acima (h3 do Gráficos)
+       * já nomeia o que está plotado */}
+      <div className="evolucao-chart-cabecalho" style={{ justifyContent: 'flex-end' }}>
         <button type="button" className="botao-link" onClick={() => setMostrarTabela((v) => !v)}>
           {mostrarTabela ? 'Ver gráfico' : 'Ver como tabela'}
         </button>

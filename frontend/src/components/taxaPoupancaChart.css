@@ -1,13 +1,20 @@
 /* Eixo/grade/tooltip reaproveitam as classes genéricas de evolucaoChart.css
- * (mesma anatomia, sem redefinir) — só a cor da série é própria: slot 4 da
- * paleta categórica (amarelo), pra não repetir a cor de "Resultado" que já
- * aparece bem acima na mesma tela. */
+ * (mesma anatomia, sem redefinir) — mas as variáveis de cor (--grade-cor/
+ * --eixo-cor) só existem dentro de .evolucao-chart, então precisam ser
+ * redeclaradas aqui também (senão ficam undefined e o gráfico perde
+ * grade/eixo — bug relatado: "ficou ruim, escuro"). Só a cor da série é
+ * própria: slot 4 da paleta categórica (amarelo), pra não repetir a cor de
+ * "Resultado" que já aparece bem acima na mesma tela. */
 .taxa-poupanca-chart {
+  --grade-cor: #e1e0d9;
+  --eixo-cor: #898781;
   --serie-taxa: #eda100;
 }
 
 @media (prefers-color-scheme: dark) {
   .taxa-poupanca-chart {
+    --grade-cor: #2c2c2a;
+    --eixo-cor: #898781;
     --serie-taxa: #c98500;
   }
 }

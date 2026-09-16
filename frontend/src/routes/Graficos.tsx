@@ -27,9 +27,18 @@ export function Graficos() {
     const evolucaoInicio = modoData === 'mes' ? mesesAntes(vigenciaMes, 5) : periodoInicio
     const evolucaoFim = periodoFim
 
+    // "Mês" olha só o mês de referência; Intervalo/Todos somam o período
+    // inteiro, não só o último mês (mesmo padrão de /mensal vs /resumo-periodo)
+    const buscaDespesasCategoria =
+      modoData === 'mes'
+        ? apiFetch<DespesaPorCategoriaT[]>(`/dashboard/despesas-por-categoria/${mesReferencia}-01`)
+        : apiFetch<DespesaPorCategoriaT[]>(
+            `/dashboard/despesas-por-categoria-periodo?inicio=${periodoInicio}-01&fim=${periodoFim}-01`,
+          )
+
     Promise.all([
       apiFetch<EvolucaoMensal>(`/dashboard/evolucao?inicio=${evolucaoInicio}-01&fim=${evolucaoFim}-01`),
-      apiFetch<DespesaPorCategoriaT[]>(`/dashboard/despesas-por-categoria/${mesReferencia}-01`),
+      buscaDespesasCategoria,
     ])
       .then(([e, d]) => {
         setEvolucao(e)
@@ -37,6 +46,9 @@ export function Graficos() {
       })
       .catch((e) => setErro(e instanceof ApiError ? e.message : 'Falha ao carregar os gráficos'))
   }, [modoData, vigenciaMes, periodoInicio, periodoFim, mesReferencia, primeiroMes])
+
+  const rotuloPeriodoDespesas =
+    modoData === 'mes' ? rotuloMesLongo(mesReferencia) : `${rotuloMesLongo(periodoInicio)} a ${rotuloMesLongo(periodoFim)}`
 
   return (
     <div>
@@ -52,19 +64,16 @@ export function Graficos() {
         <div style={{ marginTop: 20, marginBottom: 24 }}>
           <h2 style={{ fontSize: 16, marginBottom: 8 }}>Evolução Mensal</h2>
           <EvolucaoChart meses={evolucao.meses} />
-        </div>
-      )}
-
-      {evolucao && (
-        <div style={{ marginBottom: 24 }}>
-          <h2 style={{ fontSize: 16, marginBottom: 8 }}>Taxa de Poupança Mensal</h2>
+          <h3 style={{ fontSize: 13, fontWeight: 600, color: 'var(--cor-texto-suave)', margin: '18px 0 8px' }}>
+            Taxa de poupança mensal
+          </h3>
           <TaxaPoupancaChart meses={evolucao.meses} />
         </div>
       )}
 
       {despesasCategoria && (
         <div>
-          <h2 style={{ fontSize: 16, marginBottom: 8 }}>Despesas por Categoria — {rotuloMesLongo(mesReferencia)}</h2>
+          <h2 style={{ fontSize: 16, marginBottom: 8 }}>Despesas por Categoria — {rotuloPeriodoDespesas}</h2>
           <DespesasPorCategoria dados={despesasCategoria} />
         </div>
       )}

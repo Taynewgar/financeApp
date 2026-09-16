@@ -48,6 +48,24 @@
   border-radius: 1px;
 }
 
+.evolucao-legenda-linha-tracejada {
+  display: inline-block;
+  width: 14px;
+  height: 0;
+  border-top: 2px dashed currentColor;
+  opacity: 0.6;
+}
+
+.evolucao-legenda-linha-tracejada.serie-receitas {
+  color: var(--serie-receitas);
+  background: none;
+}
+
+.evolucao-legenda-linha-tracejada.serie-despesas {
+  color: var(--serie-despesas);
+  background: none;
+}
+
 .evolucao-legenda-bloco {
   display: inline-block;
   width: 10px;
@@ -95,6 +113,12 @@
   stroke-width: 2;
   stroke-linejoin: round;
   stroke-linecap: round;
+}
+
+.evolucao-linha-media {
+  stroke-width: 1;
+  stroke-dasharray: 4 3;
+  opacity: 0.55;
 }
 
 .evolucao-marcador {

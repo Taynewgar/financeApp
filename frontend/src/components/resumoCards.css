@@ -32,6 +32,12 @@
   color: var(--cor-texto-suave);
 }
 
+/* só os cards do Dashboard que passam essa div ganham o respiro extra —
+ * cards de Lançamentos (mesmo .resumo-card, sem essa div) não crescem */
+.resumo-card-sparkline {
+  margin-top: 4px;
+}
+
 .valor-receita {
   color: var(--cor-sucesso);
 }
