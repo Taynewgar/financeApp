@@ -121,6 +121,7 @@ export function NovoLancamento() {
 
   const [criandoSubcategoria, setCriandoSubcategoria] = useState(false)
   const [novaSubcategoriaNome, setNovaSubcategoriaNome] = useState('')
+  const [novaSubcategoriaEstrutura, setNovaSubcategoriaEstrutura] = useState<EstruturaCusto | ''>('')
   const [salvandoSubcategoria, setSalvandoSubcategoria] = useState(false)
   const [erroSubcategoria, setErroSubcategoria] = useState<string | null>(null)
 
@@ -178,11 +179,16 @@ export function NovoLancamento() {
     try {
       const nova = await apiFetch<Subcategoria>('/subcategorias', {
         method: 'POST',
-        body: JSON.stringify({ nome, categoria_id: categoriaId }),
+        body: JSON.stringify({
+          nome,
+          categoria_id: categoriaId,
+          estrutura_custo_padrao: novaSubcategoriaEstrutura || null,
+        }),
       })
       setSubcategorias((prev) => [...prev, nova].sort((a, b) => a.nome.localeCompare(b.nome)))
       selecionarSubcategoria(nova.id)
       setNovaSubcategoriaNome('')
+      setNovaSubcategoriaEstrutura('')
       setCriandoSubcategoria(false)
     } catch (e) {
       setErroSubcategoria(e instanceof ApiError ? e.message : 'Falha ao criar subcategoria.')
@@ -202,6 +208,7 @@ export function NovoLancamento() {
     setEstruturaCusto(tipo === 'investimento' ? 'investimentos' : '')
     setCriandoCategoria(false)
     setCriandoSubcategoria(false)
+    setNovaSubcategoriaEstrutura('')
   }, [tipo])
 
   // despesa numa conta de cartão de crédito só pode ter sido paga no
@@ -277,6 +284,7 @@ export function NovoLancamento() {
     setEstruturaCusto('')
     setCriandoCategoria(false)
     setCriandoSubcategoria(false)
+    setNovaSubcategoriaEstrutura('')
     setCaixinhaId('')
     setMeioPagamento('')
     setValorTotal('')
@@ -769,6 +777,20 @@ export function NovoLancamento() {
                       }}
                       autoFocus
                     />
+                    {tipoCategoriaEfetivo === 'despesa' && (
+                      <select
+                        value={novaSubcategoriaEstrutura}
+                        onChange={(e) => setNovaSubcategoriaEstrutura(e.target.value as EstruturaCusto | '')}
+                        title="Estrutura de custo padrão — sugerida sozinha nos próximos lançamentos com essa subcategoria"
+                      >
+                        <option value="">Estrutura padrão (opcional)</option>
+                        {ESTRUTURAS.filter((e) => e.valor !== 'investimentos').map((e) => (
+                          <option key={e.valor} value={e.valor}>
+                            {e.rotulo}
+                          </option>
+                        ))}
+                      </select>
+                    )}
                     <button
                       type="button"
                       className="botao-secundario"
@@ -783,6 +805,7 @@ export function NovoLancamento() {
                       onClick={() => {
                         setCriandoSubcategoria(false)
                         setNovaSubcategoriaNome('')
+                        setNovaSubcategoriaEstrutura('')
                         setErroSubcategoria(null)
                       }}
                     >

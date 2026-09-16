@@ -170,7 +170,8 @@
   background: var(--cor-superficie);
 }
 
-.chip-form input {
+.chip-form input,
+.chip-form select {
   flex: 1;
   min-width: 140px;
   padding: 8px 10px;

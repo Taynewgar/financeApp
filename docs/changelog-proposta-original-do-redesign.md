@@ -871,3 +871,30 @@ seleciona a categoria/subcategoria nova sem sair da tela.
   frequência, janela de 6 meses, limite, exclusão de inativas, isolamento
   por usuário, filtro de subcategoria por categoria pai. Suíte offline:
   213 passed.
+
+### Rodada 14.1 (2026-09-16) — feedback de teste: estrutura de custo padrão no "+ Nova subcategoria"
+
+Usuário testou o item 4 e apontou uma lacuna: o "+ Nova subcategoria"
+inline não tinha campo de estrutura de custo padrão, então uma
+subcategoria criada por ali nascia sem sugestão — a auto-preenchida de
+`selecionarSubcategoria()` (que usa `estrutura_custo_padrao` pra
+pré-marcar a estrutura de custo do lançamento) nunca disparava pra ela.
+Não era só estética, era a própria funcionalidade de atalho se
+sabotando. Adicionado 1 select opcional ("Estrutura padrão (opcional)")
+no formulário inline, visível só quando a categoria é do tipo despesa
+(receita/investimento não usam esse campo — investimento já é fixo),
+reaproveitando a mesma lista de `ESTRUTURAS` (sem `investimentos`) já
+usada no select principal da tela.
+
+Confirmado também: estorno/ressarcimento (`tipo === 'ajuste'`) já
+usa `tipoCategoriaEfetivo` mapeado pra `'despesa'` desde a Rodada 14 —
+os chips de "mais usadas" e o formulário de criação inline (agora com
+o select de estrutura padrão) já valem igual pra ajuste, sem mudança
+extra necessária.
+
+- Frontend: `NovoLancamento.tsx` — `novaSubcategoriaEstrutura` (estado),
+  enviado como `estrutura_custo_padrao` no `POST /subcategorias`; select
+  condicional no `chip-form`. CSS: `.chip-form select` no mesmo estilo
+  de `.chip-form input`.
+- Sem mudança de backend (schema já aceitava o campo desde sempre).
+  tsc + build limpos; suíte offline: 213 passed (inalterada).
