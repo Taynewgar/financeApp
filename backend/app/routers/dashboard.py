@@ -7,6 +7,7 @@ from ..auth import get_current_user_id, get_db
 from ..schemas.dashboard import (
     CompromissoFuturo,
     DespesaPorCategoria,
+    DespesaPorSubcategoria,
     EvolucaoMensal,
     PrimeiroMes,
     ResumoMensal,
@@ -194,6 +195,80 @@ def despesas_por_categoria_periodo(
     if mes_fim_exclusiva <= mes_inicio:
         raise HTTPException(status_code=422, detail="'fim' não pode ser anterior a 'inicio'")
     return _despesas_por_categoria_entre(db, user_id, mes_inicio, mes_fim_exclusiva)
+
+
+def _despesas_por_subcategoria_entre(
+    db: Client, user_id: str, data_inicio: date, data_fim_exclusiva: date, categoria_id: str | None
+) -> list[dict]:
+    query = (
+        db.table("transacoes")
+        .select("subcategoria_id,categoria_id,valor")
+        .eq("user_id", user_id)
+        .eq("tipo_movimento", "despesa")
+        .gte("data_compra", data_inicio.isoformat())
+        .lt("data_compra", data_fim_exclusiva.isoformat())
+    )
+    if categoria_id:
+        query = query.eq("categoria_id", categoria_id)
+    despesas = query.execute().data
+    if not despesas:
+        return []
+
+    totais: dict[str, float] = {}
+    for d in despesas:
+        chave = d["subcategoria_id"] or "sem-subcategoria"
+        totais[chave] = totais.get(chave, 0.0) + d["valor"]
+    total_geral = sum(totais.values())
+
+    subcategorias = db.table("subcategorias").select("id,nome").eq("user_id", user_id).execute().data
+    nomes = {s["id"]: s["nome"] for s in subcategorias}
+
+    resultado = [
+        {
+            "subcategoria_id": None if chave == "sem-subcategoria" else chave,
+            "subcategoria_nome": "Sem subcategoria" if chave == "sem-subcategoria" else nomes.get(chave, "Sem subcategoria"),
+            "valor": round(valor, 2),
+            "percentual": round(valor / total_geral * 100, 2) if total_geral else 0.0,
+        }
+        for chave, valor in totais.items()
+    ]
+    resultado.sort(key=lambda r: r["valor"], reverse=True)
+    return resultado
+
+
+@router.get("/despesas-por-subcategoria/{vigencia_mes}", response_model=list[DespesaPorSubcategoria])
+def despesas_por_subcategoria(
+    vigencia_mes: date,
+    categoria_id: str | None = None,
+    db: Client = Depends(get_db),
+    user_id: str = Depends(get_current_user_id),
+):
+    """Mesma ideia de /despesas-por-categoria, mas por subcategoria — usado
+    pelo Pareto na quebra mais fina. `categoria_id` filtra pra só as
+    subcategorias daquela categoria pai (Pareto de subcategoria, igual ao
+    seletor de categoria pai do app original); sem filtro, mistura
+    subcategorias de todas as categorias."""
+    mes_inicio = date(vigencia_mes.year, vigencia_mes.month, 1)
+    mes_fim = somar_meses(mes_inicio, 1)
+    return _despesas_por_subcategoria_entre(db, user_id, mes_inicio, mes_fim, categoria_id)
+
+
+@router.get("/despesas-por-subcategoria-periodo", response_model=list[DespesaPorSubcategoria])
+def despesas_por_subcategoria_periodo(
+    inicio: date = Query(...),
+    fim: date = Query(...),
+    categoria_id: str | None = None,
+    db: Client = Depends(get_db),
+    user_id: str = Depends(get_current_user_id),
+):
+    """Mesma agregação de /despesas-por-subcategoria/{vigencia_mes}, mas
+    somada sobre um período livre — mesmo padrão de /despesas-por-categoria-
+    periodo."""
+    mes_inicio = date(inicio.year, inicio.month, 1)
+    mes_fim_exclusiva = somar_meses(date(fim.year, fim.month, 1), 1)
+    if mes_fim_exclusiva <= mes_inicio:
+        raise HTTPException(status_code=422, detail="'fim' não pode ser anterior a 'inicio'")
+    return _despesas_por_subcategoria_entre(db, user_id, mes_inicio, mes_fim_exclusiva, categoria_id)
 
 
 @router.get("/patrimonio/{vigencia_mes}", response_model=list[SaldoCaixinha])

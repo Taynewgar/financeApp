@@ -121,6 +121,13 @@ export type DespesaPorCategoria = {
   percentual: number
 }
 
+export type DespesaPorSubcategoria = {
+  subcategoria_id: string | null
+  subcategoria_nome: string
+  valor: number
+  percentual: number
+}
+
 export type Bucket = 'custos_fixos' | 'custos_variaveis' | 'sazonalidades' | 'investimentos'
 
 export type Orcamento = {

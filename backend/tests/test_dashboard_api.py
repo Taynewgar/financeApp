@@ -678,3 +678,94 @@ def test_despesas_por_categoria_periodo_sem_despesas_retorna_lista_vazia(client)
         "/dashboard/despesas-por-categoria-periodo", params={"inicio": "2026-07-01", "fim": "2026-09-01"}
     ).json()
     assert resposta == []
+
+
+def _lancar_despesa_com_subcategoria(client, conta, categoria_id, subcategoria_id, valor, data="2026-09-05"):
+    client.post(
+        "/transacoes",
+        json={
+            "data_compra": data,
+            "valor": valor,
+            "tipo_movimento": "despesa",
+            "conta_id": conta["id"],
+            "categoria_id": categoria_id,
+            "subcategoria_id": subcategoria_id,
+            "estrutura_custo": "variavel",
+            "meio_pagamento": "pix",
+        },
+    )
+
+
+def test_despesas_por_subcategoria_agrupa_e_ordena_por_valor(client):
+    conta = _conta(client)
+    mercado = client.post("/categorias", json={"nome": "Mercado"}).json()["id"]
+    hortifruti = client.post("/subcategorias", json={"categoria_id": mercado, "nome": "Hortifruti"}).json()["id"]
+    acougue = client.post("/subcategorias", json={"categoria_id": mercado, "nome": "Açougue"}).json()["id"]
+    _lancar_despesa_com_subcategoria(client, conta, mercado, hortifruti, 300)
+    _lancar_despesa_com_subcategoria(client, conta, mercado, acougue, 100)
+
+    resposta = client.get("/dashboard/despesas-por-subcategoria/2026-09-01").json()
+    assert len(resposta) == 2
+    assert resposta[0]["subcategoria_nome"] == "Hortifruti"
+    assert resposta[0]["percentual"] == 75.0
+    assert resposta[1]["subcategoria_nome"] == "Açougue"
+
+
+def test_despesas_por_subcategoria_sem_subcategoria_agrupa_em_bucket_proprio(client):
+    conta = _conta(client)
+    categoria_id = _categoria(client)
+    client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-09-05",
+            "valor": 50,
+            "tipo_movimento": "despesa",
+            "conta_id": conta["id"],
+            "categoria_id": categoria_id,
+            "estrutura_custo": "variavel",
+            "meio_pagamento": "pix",
+        },
+    )
+
+    resposta = client.get("/dashboard/despesas-por-subcategoria/2026-09-01").json()
+    assert len(resposta) == 1
+    assert resposta[0]["subcategoria_id"] is None
+    assert resposta[0]["subcategoria_nome"] == "Sem subcategoria"
+
+
+def test_despesas_por_subcategoria_filtra_por_categoria_pai(client):
+    conta = _conta(client)
+    mercado = client.post("/categorias", json={"nome": "Mercado"}).json()["id"]
+    lazer = client.post("/categorias", json={"nome": "Lazer"}).json()["id"]
+    hortifruti = client.post("/subcategorias", json={"categoria_id": mercado, "nome": "Hortifruti"}).json()["id"]
+    cinema = client.post("/subcategorias", json={"categoria_id": lazer, "nome": "Cinema"}).json()["id"]
+    _lancar_despesa_com_subcategoria(client, conta, mercado, hortifruti, 100)
+    _lancar_despesa_com_subcategoria(client, conta, lazer, cinema, 200)
+
+    resposta = client.get(
+        "/dashboard/despesas-por-subcategoria/2026-09-01", params={"categoria_id": mercado}
+    ).json()
+    assert len(resposta) == 1
+    assert resposta[0]["subcategoria_nome"] == "Hortifruti"
+    assert resposta[0]["percentual"] == 100.0
+
+
+def test_despesas_por_subcategoria_periodo_soma_varios_meses(client):
+    conta = _conta(client)
+    mercado = client.post("/categorias", json={"nome": "Mercado"}).json()["id"]
+    hortifruti = client.post("/subcategorias", json={"categoria_id": mercado, "nome": "Hortifruti"}).json()["id"]
+    _lancar_despesa_com_subcategoria(client, conta, mercado, hortifruti, 100, data="2026-07-05")
+    _lancar_despesa_com_subcategoria(client, conta, mercado, hortifruti, 200, data="2026-08-05")
+
+    resposta = client.get(
+        "/dashboard/despesas-por-subcategoria-periodo", params={"inicio": "2026-07-01", "fim": "2026-09-01"}
+    ).json()
+    assert len(resposta) == 1
+    assert resposta[0]["valor"] == 300
+
+
+def test_despesas_por_subcategoria_periodo_fim_antes_de_inicio_retorna_422(client):
+    resposta = client.get(
+        "/dashboard/despesas-por-subcategoria-periodo", params={"inicio": "2026-09-01", "fim": "2026-07-01"}
+    )
+    assert resposta.status_code == 422

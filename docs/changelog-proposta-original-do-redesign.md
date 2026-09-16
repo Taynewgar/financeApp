@@ -1102,3 +1102,56 @@ teste automatizado — este projeto não tem suíte de frontend):
 - [ ] Modo "Mês" em `/graficos` mostra 12 meses no eixo X (não 6).
 - [ ] Dashboard: sparkline ao lado do resultado principal continua
   igual (6 meses, sem mudança nessa tela).
+
+### Rodada 17 (2026-09-16) — Pareto de despesas (Rodada B da feature Gráficos)
+
+Item 5 do backlog, Rodada B: peça que faltava desde a auditoria da aba
+"Gráficos" do app antigo (2026-09-15) — nenhuma tela hoje respondia
+"quantas categorias concentram a maior parte do gasto".
+
+**Forma escolhida — lista horizontal, não barra+linha de % acumulado.**
+O desenho clássico de Pareto (colunas + linha de % acumulado num eixo
+secundário) é dual-axis, proibido pela skill de dataviz do projeto (%
+e R$ não cabem na mesma escala). Em vez de forçar dois eixos ou dividir
+em dois gráficos separados (como Evolução Mensal/Taxa de Poupança),
+optei por uma tabela com barra horizontal atrás do nome — resolve dois
+problemas de uma vez: não precisa de segundo eixo (a barra é só
+magnitude, o % acumulado é uma coluna de texto) e não tem colisão de
+rótulo longo de categoria (evitado indo horizontal, conforme a própria
+tabela de formas da skill: "Part-to-whole → stacked bar, vai horizontal
+pra muitas categorias/nomes longos" — mesmo racional aplicado aqui).
+Linhas depois do corte de 80% acumulado (critério clássico do Pareto)
+ficam com opacidade reduzida em vez de ganhar uma cor nova — "os poucos
+vitais" vs. "os muitos triviais" sem inflar a paleta.
+
+**Dois níveis, mesmo componente.** Toggle "Por categoria" (reaproveita
+`despesas-por-categoria`, já buscado pro gráfico existente — sem
+chamada nova) / "Por subcategoria" (endpoints novos, com filtro
+opcional de categoria pai, igual ao app original).
+
+- Backend: `DespesaPorSubcategoria` (schema) + `_despesas_por_subcategoria_entre()`
+  (mesmo padrão de agregação de `_despesas_por_categoria_entre`, mas com
+  filtro opcional `categoria_id` e bucket "Sem subcategoria" pra
+  despesa sem subcategoria) + 2 endpoints:
+  `GET /dashboard/despesas-por-subcategoria/{vigencia_mes}` e
+  `GET /dashboard/despesas-por-subcategoria-periodo`.
+- Frontend: `components/Pareto.tsx` (+ `.css`) — componente genérico
+  (`{id, nome, valor, percentual}[]`), reaproveitado pelos 2 níveis.
+  Seção nova em `Graficos.tsx` (topo da tela, antes de Evolução Mensal),
+  com o toggle de nível e o select de categoria pai.
+- 5 testes novos (`test_despesas_por_subcategoria*`): agrupamento e
+  ordenação, bucket "Sem subcategoria", filtro por categoria pai, soma
+  multi-mês, `fim < inicio` → 422. Suíte offline: 222 passed (217 + 5).
+  tsc + build limpos.
+
+**Checklist de teste manual** (visual, sem cobertura automatizada):
+- [ ] `/graficos` → seção "Pareto de Despesas" aparece logo abaixo do
+  seletor de período, antes de "Evolução Mensal".
+- [ ] "Por categoria" mostra a mesma lista/valores de "Despesas por
+  Categoria" mais abaixo na mesma tela (mesma fonte de dado).
+- [ ] "Por subcategoria" sem filtro mistura subcategorias de todas as
+  categorias; escolher uma "Categoria pai" restringe à lista dela.
+- [ ] Linhas depois da marcação "80% do gasto acumulado até aqui"
+  aparecem visualmente esmaecidas.
+- [ ] Trocar o período (Mês/Intervalo/Todos os meses) atualiza o Pareto
+  nos dois níveis.

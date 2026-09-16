@@ -79,3 +79,11 @@ class DespesaPorCategoria(BaseModel):
     categoria_nome: str
     valor: float
     percentual: float
+
+
+class DespesaPorSubcategoria(BaseModel):
+    # None = despesa sem subcategoria (agrupada em "Sem subcategoria")
+    subcategoria_id: str | None
+    subcategoria_nome: str
+    valor: float
+    percentual: float

@@ -36,7 +36,8 @@ merecer não ficar misturado com a tabela proposto×implementado tela a tela.
    **Em andamento, dividido em 3 rodadas (2026-09-16):**
    - ~~Rodada A — tela nova + migração + sparkline~~ **feita 2026-09-16**,
      com 2 rodadas extras de ajuste (16.1, 16.2) — ver changelog.
-   - Rodada B — Pareto de despesas por categoria/subcategoria. Pendente.
+   - ~~Rodada B — Pareto de despesas por categoria/subcategoria~~ **feita
+     2026-09-16** — ver changelog.
    - Rodada C — tendência de Orçado×Realizado em vários meses. Pendente.
 6. ~~Dashboard — 3 KPIs novos~~ **feito 2026-09-16** (ordem invertida com o
    item 5 a pedido do usuário, entregue antes por não ter dependência real
