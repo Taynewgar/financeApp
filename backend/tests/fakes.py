@@ -23,6 +23,7 @@ class FakeResult:
 # cobertas pelo caso genérico de hash_dedup (ex: orcamentos(user_id, vigencia_mes))
 _UNIQUE_CONSTRAINTS: dict[str, tuple[str, ...]] = {
     "orcamentos": ("user_id", "vigencia_mes"),
+    "lancamentos_recorrentes_pulados": ("lancamento_recorrente_id", "vigencia_mes"),
 }
 
 

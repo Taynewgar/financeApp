@@ -213,3 +213,97 @@ def test_excluir_recorrente_nao_apaga_transacao_ja_confirmada(client):
 
     ainda_existe = client.get(f"/transacoes/{confirmada['id']}")
     assert ainda_existe.status_code == 200
+
+
+# ── pular (mês "não aplicável" — ex: viajou) ────────────────────────────────
+
+
+def test_pular_nao_cria_transacao(client):
+    conta = _conta(client)
+    categoria = _categoria(client)
+    recorrente = client.post("/lancamentos-recorrentes", json=_payload(conta["id"], categoria["id"])).json()
+
+    resposta = client.post(f"/lancamentos-recorrentes/{recorrente['id']}/pular", json={"vigencia_mes": "2026-09-01"})
+    assert resposta.status_code == 201
+    corpo = resposta.json()
+    assert corpo["lancamento_recorrente_id"] == recorrente["id"]
+    assert corpo["vigencia_mes"] == "2026-09-01"
+    assert client.get("/transacoes").json() == []
+
+
+def test_pular_faz_compromissos_futuros_avancar_pro_proximo_mes(client):
+    conta = _conta(client)
+    categoria = _categoria(client)
+    recorrente = client.post("/lancamentos-recorrentes", json=_payload(conta["id"], categoria["id"])).json()
+
+    client.post(f"/lancamentos-recorrentes/{recorrente['id']}/pular", json={"vigencia_mes": "2026-09-01"})
+
+    resposta = client.get("/dashboard/compromissos-futuros").json()
+    assert len(resposta) == 1
+    assert resposta[0]["data_compra"] == "2026-10-05"
+
+
+def test_pular_o_mesmo_mes_duas_vezes_retorna_409(client):
+    conta = _conta(client)
+    categoria = _categoria(client)
+    recorrente = client.post("/lancamentos-recorrentes", json=_payload(conta["id"], categoria["id"])).json()
+    client.post(f"/lancamentos-recorrentes/{recorrente['id']}/pular", json={"vigencia_mes": "2026-09-01"})
+
+    resposta = client.post(f"/lancamentos-recorrentes/{recorrente['id']}/pular", json={"vigencia_mes": "2026-09-01"})
+    assert resposta.status_code == 409
+
+
+def test_pular_mes_ja_confirmado_retorna_409(client):
+    conta = _conta(client)
+    categoria = _categoria(client)
+    recorrente = client.post("/lancamentos-recorrentes", json=_payload(conta["id"], categoria["id"])).json()
+    client.post(f"/lancamentos-recorrentes/{recorrente['id']}/confirmar", json={"vigencia_mes": "2026-09-01"})
+
+    resposta = client.post(f"/lancamentos-recorrentes/{recorrente['id']}/pular", json={"vigencia_mes": "2026-09-01"})
+    assert resposta.status_code == 409
+
+
+def test_confirmar_mes_ja_pulado_retorna_409(client):
+    conta = _conta(client)
+    categoria = _categoria(client)
+    recorrente = client.post("/lancamentos-recorrentes", json=_payload(conta["id"], categoria["id"])).json()
+    client.post(f"/lancamentos-recorrentes/{recorrente['id']}/pular", json={"vigencia_mes": "2026-09-01"})
+
+    resposta = client.post(
+        f"/lancamentos-recorrentes/{recorrente['id']}/confirmar", json={"vigencia_mes": "2026-09-01"}
+    )
+    assert resposta.status_code == 409
+
+
+def test_pular_recorrente_inexistente_retorna_404(client):
+    resposta = client.post(
+        "/lancamentos-recorrentes/00000000-0000-0000-0000-000000000000/pular",
+        json={"vigencia_mes": "2026-09-01"},
+    )
+    assert resposta.status_code == 404
+
+
+def test_desfazer_pular_volta_a_mostrar_o_mes_como_pendente(client):
+    conta = _conta(client)
+    categoria = _categoria(client)
+    recorrente = client.post("/lancamentos-recorrentes", json=_payload(conta["id"], categoria["id"])).json()
+    client.post(f"/lancamentos-recorrentes/{recorrente['id']}/pular", json={"vigencia_mes": "2026-09-01"})
+
+    resposta = client.delete(
+        f"/lancamentos-recorrentes/{recorrente['id']}/pular", params={"vigencia_mes": "2026-09-01"}
+    )
+    assert resposta.status_code == 204
+
+    compromissos = client.get("/dashboard/compromissos-futuros").json()
+    assert compromissos[0]["data_compra"] == "2026-09-05"  # voltou a ser o mês pendente original
+
+
+def test_desfazer_pular_mes_que_nao_foi_pulado_retorna_404(client):
+    conta = _conta(client)
+    categoria = _categoria(client)
+    recorrente = client.post("/lancamentos-recorrentes", json=_payload(conta["id"], categoria["id"])).json()
+
+    resposta = client.delete(
+        f"/lancamentos-recorrentes/{recorrente['id']}/pular", params={"vigencia_mes": "2026-09-01"}
+    )
+    assert resposta.status_code == 404

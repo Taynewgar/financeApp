@@ -351,8 +351,9 @@ def compromissos_futuros(
        services/recorrentes.py e POST
        /lancamentos-recorrentes/{id}/confirmar). Pode ser um mês já
        vencido, se ficou sem confirmar — fica aparecendo até o usuário
-       confirmar ou desativar o recorrente, é assim que o "compromisso em
-       aberto" some da lista."""
+       confirmar, marcar como pulado (POST .../pular — ex: viajou, não
+       teve a despesa naquele mês) ou desativar o recorrente, é assim que
+       o "compromisso em aberto" some da lista."""
     hoje = date.today()
     parcelas = (
         db.table("transacoes")
@@ -400,8 +401,22 @@ def compromissos_futuros(
         for c in confirmados:
             confirmados_por_recorrente[c["lancamento_recorrente_id"]].add(f"{c['data_compra'][:7]}-01")
 
+    pulados_por_recorrente: dict[str, set[str]] = {rid: set() for rid in recorrente_ids}
+    if recorrente_ids:
+        pulados = (
+            db.table("lancamentos_recorrentes_pulados")
+            .select("lancamento_recorrente_id,vigencia_mes")
+            .in_("lancamento_recorrente_id", recorrente_ids)
+            .execute()
+            .data
+        )
+        for p in pulados:
+            pulados_por_recorrente[p["lancamento_recorrente_id"]].add(p["vigencia_mes"])
+
     for recorrente in recorrentes:
-        vigencia_pendente = proxima_ocorrencia_pendente(recorrente, confirmados_por_recorrente[recorrente["id"]])
+        vigencia_pendente = proxima_ocorrencia_pendente(
+            recorrente, confirmados_por_recorrente[recorrente["id"]], pulados_por_recorrente[recorrente["id"]]
+        )
         if vigencia_pendente is None:
             continue
         itens.append(

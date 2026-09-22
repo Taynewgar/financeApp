@@ -148,7 +148,12 @@ alternativa seria isolar num "só cadastro + confirmação", sem tocar em
 Compromissos Futuros nesta rodada). Ver changelog pro detalhe completo:
 schema (`lancamentos_recorrentes` + `transacoes.lancamento_recorrente_id`),
 endpoints (`/lancamentos-recorrentes` CRUD + `/confirmar`), tela de gestão
-em Configurações, botão "Confirmar" no Dashboard.
+em Configurações, botão "Confirmar" no Dashboard. Criação inline de
+categoria/subcategoria no formulário (mesmo padrão do Novo Lançamento,
+conta continua só por dropdown) e ação de **pular um mês** (`/pular` —
+ex: viajou, não teve a despesa naquele mês; não vira transação, só faz o
+mês parar de reaparecer como pendente) adicionadas no mesmo dia, a partir
+de feedback do usuário testando a entrega original.
 
 ### Edição de compra parcelada
 

@@ -43,3 +43,21 @@ def test_proxima_ocorrencia_pendente_none_depois_de_data_fim_toda_confirmada():
 
 def test_proxima_ocorrencia_pendente_ainda_aparece_se_dentro_de_data_fim():
     assert proxima_ocorrencia_pendente(_recorrente("2026-09-01", "2026-11-01"), set()) == date(2026, 9, 1)
+
+
+def test_proxima_ocorrencia_pendente_pula_meses_marcados_como_pulados():
+    # setembro pulado (ex: viajou, não teve a despesa) — avança pra outubro,
+    # sem nenhum confirmado
+    pulados = {"2026-09-01"}
+    assert proxima_ocorrencia_pendente(_recorrente("2026-09-01"), set(), pulados) == date(2026, 10, 1)
+
+
+def test_proxima_ocorrencia_pendente_combina_confirmados_e_pulados():
+    confirmados = {"2026-09-01"}
+    pulados = {"2026-10-01"}
+    assert proxima_ocorrencia_pendente(_recorrente("2026-09-01"), confirmados, pulados) == date(2026, 11, 1)
+
+
+def test_proxima_ocorrencia_pendente_none_quando_todo_o_periodo_foi_pulado():
+    pulados = {"2026-09-01", "2026-10-01"}
+    assert proxima_ocorrencia_pendente(_recorrente("2026-09-01", "2026-10-01"), set(), pulados) is None

@@ -5,10 +5,11 @@ from supabase import Client
 
 from ..auth import get_current_user_id, get_db
 from ..schemas.lancamentos_recorrentes import (
-    ConfirmarOcorrenciaPayload,
     LancamentoRecorrente,
     LancamentoRecorrenteCreate,
     LancamentoRecorrenteUpdate,
+    MesPulado,
+    VigenciaMesPayload,
 )
 from ..schemas.transacoes import Transacao
 from ..services import crud
@@ -116,10 +117,34 @@ def excluir(recorrente_id: str, db: Client = Depends(get_db), user_id: str = Dep
         raise HTTPException(status_code=404, detail="Lançamento recorrente não encontrado")
 
 
+def _ja_confirmado(db: Client, user_id: str, recorrente_id: str, vigencia_mes: date, mes_fim: date) -> bool:
+    return bool(
+        db.table("transacoes")
+        .select("id")
+        .eq("user_id", user_id)
+        .eq("lancamento_recorrente_id", recorrente_id)
+        .gte("data_compra", vigencia_mes.isoformat())
+        .lt("data_compra", mes_fim.isoformat())
+        .execute()
+        .data
+    )
+
+
+def _ja_pulado(db: Client, recorrente_id: str, vigencia_mes: date) -> bool:
+    return bool(
+        db.table("lancamentos_recorrentes_pulados")
+        .select("id")
+        .eq("lancamento_recorrente_id", recorrente_id)
+        .eq("vigencia_mes", vigencia_mes.isoformat())
+        .execute()
+        .data
+    )
+
+
 @router.post("/{recorrente_id}/confirmar", response_model=Transacao, status_code=201)
 def confirmar(
     recorrente_id: str,
-    payload: ConfirmarOcorrenciaPayload,
+    payload: VigenciaMesPayload,
     db: Client = Depends(get_db),
     user_id: str = Depends(get_current_user_id),
 ):
@@ -134,18 +159,13 @@ def confirmar(
     vigencia_mes = date(payload.vigencia_mes.year, payload.vigencia_mes.month, 1)
     mes_fim = somar_meses(vigencia_mes, 1)
 
-    ja_confirmado = (
-        db.table("transacoes")
-        .select("id")
-        .eq("user_id", user_id)
-        .eq("lancamento_recorrente_id", recorrente_id)
-        .gte("data_compra", vigencia_mes.isoformat())
-        .lt("data_compra", mes_fim.isoformat())
-        .execute()
-        .data
-    )
-    if ja_confirmado:
+    if _ja_confirmado(db, user_id, recorrente_id, vigencia_mes, mes_fim):
         raise HTTPException(status_code=409, detail="Este mês já foi confirmado para este lançamento recorrente")
+    if _ja_pulado(db, recorrente_id, vigencia_mes):
+        raise HTTPException(
+            status_code=409,
+            detail="Este mês foi marcado como pulado — desfaça o pular antes de confirmar",
+        )
 
     data_compra = data_ocorrencia(vigencia_mes, recorrente["dia_mes"])
 
@@ -188,3 +208,62 @@ def confirmar(
     criada = inserir_transacao(db, row)
     sincronizar_item_orcamento(db, user_id, criada)
     return criada
+
+
+@router.post("/{recorrente_id}/pular", response_model=MesPulado, status_code=201)
+def pular(
+    recorrente_id: str,
+    payload: VigenciaMesPayload,
+    db: Client = Depends(get_db),
+    user_id: str = Depends(get_current_user_id),
+):
+    """Marca um mês como "não aplicável" (ex: viajou, não teve a despesa
+    naquele mês) — não cria nada em `transacoes`, só faz esse mês parar de
+    aparecer como pendente em Compromissos Futuros e a busca avançar pro
+    mês seguinte (ver services/recorrentes.proxima_ocorrencia_pendente)."""
+    try:
+        crud.get_one(db, TABLE, user_id, recorrente_id)
+    except crud.NotFound:
+        raise HTTPException(status_code=404, detail="Lançamento recorrente não encontrado")
+
+    vigencia_mes = date(payload.vigencia_mes.year, payload.vigencia_mes.month, 1)
+    mes_fim = somar_meses(vigencia_mes, 1)
+
+    if _ja_confirmado(db, user_id, recorrente_id, vigencia_mes, mes_fim):
+        raise HTTPException(
+            status_code=409, detail="Este mês já foi confirmado — exclua a transação antes de marcar como pulado"
+        )
+    if _ja_pulado(db, recorrente_id, vigencia_mes):
+        raise HTTPException(status_code=409, detail="Este mês já foi marcado como pulado")
+
+    result = (
+        db.table("lancamentos_recorrentes_pulados")
+        .insert({"lancamento_recorrente_id": recorrente_id, "vigencia_mes": vigencia_mes.isoformat()})
+        .execute()
+    )
+    return result.data[0]
+
+
+@router.delete("/{recorrente_id}/pular", status_code=204)
+def desfazer_pular(
+    recorrente_id: str,
+    vigencia_mes: date,
+    db: Client = Depends(get_db),
+    user_id: str = Depends(get_current_user_id),
+):
+    """Desfaz um "pular" — o mês volta a aparecer como pendente."""
+    try:
+        crud.get_one(db, TABLE, user_id, recorrente_id)
+    except crud.NotFound:
+        raise HTTPException(status_code=404, detail="Lançamento recorrente não encontrado")
+
+    mes_normalizado = date(vigencia_mes.year, vigencia_mes.month, 1)
+    result = (
+        db.table("lancamentos_recorrentes_pulados")
+        .delete()
+        .eq("lancamento_recorrente_id", recorrente_id)
+        .eq("vigencia_mes", mes_normalizado.isoformat())
+        .execute()
+    )
+    if not result.data:
+        raise HTTPException(status_code=404, detail="Este mês não estava marcado como pulado")

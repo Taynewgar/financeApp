@@ -110,6 +110,22 @@ create table lancamentos_recorrentes (
 
 create index idx_lancamentos_recorrentes_user on lancamentos_recorrentes (user_id);
 
+-- meses marcados como "não aplicável" pro usuário (ex: viajou, não teve a
+-- despesa naquele mês) — não gera transação nenhuma, só faz o mês parar de
+-- aparecer como pendente em Compromissos Futuros e avança pro mês
+-- seguinte. Decisão 2026-09-22 (ver docs/backlog.md): tabela própria em
+-- vez de gravar uma transação de valor 0 ou algum tipo_movimento novo —
+-- "pulado" não é um evento financeiro, não deveria existir em transacoes.
+create table lancamentos_recorrentes_pulados (
+    id uuid primary key default gen_random_uuid(),
+    lancamento_recorrente_id uuid not null references lancamentos_recorrentes(id) on delete cascade,
+    vigencia_mes date not null,
+    created_at timestamptz not null default now(),
+    unique (lancamento_recorrente_id, vigencia_mes)
+);
+
+create index idx_lancamentos_recorrentes_pulados_recorrente on lancamentos_recorrentes_pulados (lancamento_recorrente_id);
+
 -- ── TRANSAÇÕES ───────────────────────────────────────────────────────────
 create table transacoes (
     id uuid primary key default gen_random_uuid(),
@@ -215,6 +231,7 @@ alter table subcategorias enable row level security;
 alter table caixinhas enable row level security;
 alter table compras_parceladas enable row level security;
 alter table lancamentos_recorrentes enable row level security;
+alter table lancamentos_recorrentes_pulados enable row level security;
 alter table transacoes enable row level security;
 alter table orcamentos enable row level security;
 alter table orcamento_itens enable row level security;
@@ -225,6 +242,9 @@ create policy "subcategorias: dono" on subcategorias for all using (auth.uid() =
 create policy "caixinhas: dono" on caixinhas for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 create policy "compras_parceladas: dono" on compras_parceladas for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 create policy "lancamentos_recorrentes: dono" on lancamentos_recorrentes for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+create policy "lancamentos_recorrentes_pulados: dono via recorrente" on lancamentos_recorrentes_pulados for all
+    using (exists (select 1 from lancamentos_recorrentes r where r.id = lancamento_recorrente_id and r.user_id = auth.uid()))
+    with check (exists (select 1 from lancamentos_recorrentes r where r.id = lancamento_recorrente_id and r.user_id = auth.uid()));
 create policy "transacoes: dono" on transacoes for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 create policy "orcamentos: dono" on orcamentos for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 create policy "orcamento_itens: dono via orcamento" on orcamento_itens for all

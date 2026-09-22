@@ -1605,3 +1605,71 @@ estrutura de custo padrão dela, mesmo comportamento do Novo Lançamento
   resto dos campos já preenchidos.
 - [ ] Conta continua só por dropdown (sem "+ Nova conta") — comportamento
   intencional, mesmo padrão do resto do app.
+
+### Rodada 20.2 (2026-09-22) — pular um mês do recorrente (viagem, mês sem a despesa)
+
+Usuário descreveu o cenário: despesa fixa recorrente que num mês
+específico não vai acontecer (ex: viajou). Hoje só existiam 2 estados por
+(recorrente, mês) — confirmado ou pendente — então excluir a transação
+confirmada fazia o mês voltar a aparecer como pendente pra sempre.
+Perguntei o custo, propus o design (tabela própria pra "pulado", endpoint
+de marcar + desfazer, "pular" nunca vira `transacoes`) e o usuário
+aprovou antes de eu implementar.
+
+**Terceiro estado, não gravado em `transacoes`.** `pulado` não é um
+evento financeiro — não devia existir na tabela pensada como "o que de
+fato aconteceu" (mesmo racional que já levou à projeção virtual na Rodada
+20). Tabela própria `lancamentos_recorrentes_pulados` (`lancamento_
+recorrente_id`, `vigencia_mes`, unique nos dois) registra só a decisão.
+**Usuários com Supabase existente precisam rodar mais uma migração** —
+ver README.md, seção "Migração pendente: `lancamentos_recorrentes_pulados`".
+
+**Backend:**
+- `services/recorrentes.py`: `proxima_ocorrencia_pendente()` ganhou o
+  parâmetro `meses_pulados` (opcional, retrocompatível) — um mês pulado
+  conta como "resolvido" na busca, igual um confirmado, só que sem virar
+  transação.
+- `schemas/lancamentos_recorrentes.py`: `ConfirmarOcorrenciaPayload`
+  renomeado pra `VigenciaMesPayload` (corpo idêntico, agora compartilhado
+  por `/confirmar` e `/pular`); `MesPulado` novo (resposta do `/pular`).
+- `routers/lancamentos_recorrentes.py`: `POST /{id}/pular` (grava o
+  pulado, 409 se o mês já foi confirmado ou já pulado antes) e `DELETE
+  /{id}/pular?vigencia_mes=` (desfaz, 404 se não existia). `confirmar()`
+  ganhou o mesmo tipo de checagem no sentido contrário — 409 se o mês já
+  foi pulado. Extraí `_ja_confirmado()`/`_ja_pulado()` como helpers
+  reaproveitados pelos dois endpoints.
+- `routers/dashboard.py`: `compromissos_futuros()` busca os pulados de
+  todos os recorrentes ativos em lote (mesmo padrão `.in_()` já usado
+  pros confirmados — sem custo extra de performance) e passa pra
+  `proxima_ocorrencia_pendente()`.
+- `tests/fakes.py`: `lancamentos_recorrentes_pulados` registrada em
+  `_UNIQUE_CONSTRAINTS`, espelhando a constraint real do schema.
+- 11 testes novos: unitários de `proxima_ocorrencia_pendente` com
+  pulados (isolado e combinado com confirmados), API completa de
+  `/pular`/desfazer (não cria transação, avança Compromissos Futuros,
+  409 em duplicata e em conflito com confirmar/confirmar-depois-de-pulado,
+  404 em recorrente/pulado inexistente). Suíte offline: 270 passed
+  (259 + 11).
+
+**Frontend:**
+- `routes/Dashboard.tsx`: botão "Pular este mês" ao lado de "Confirmar"
+  em Compromissos Futuros, com confirmação (`window.confirm`) antes de
+  chamar a API — ação com efeito visível (o compromisso muda de mês ou
+  some da lista) e vale conferir antes de disparar, mesmo padrão já usado
+  pra excluir outros recursos no app.
+- tsc + build + lint limpos (24 warnings, mesmo total de antes).
+
+**Fora de escopo nesta rodada** (não foi pedido, registrado caso vire
+prioridade depois): tela pra listar/desfazer meses pulados de um
+recorrente — hoje o desfazer só existe via API (`DELETE .../pular`), sem
+superfície na UI.
+
+**Checklist de teste manual** (visual, sem cobertura automatizada):
+- [ ] Dashboard → Compromissos Futuros → recorrente pendente → "Pular
+  este mês" (com confirmação) → some da lista ou avança pro mês seguinte
+  (se já houver outra pendência mais próxima).
+- [ ] O mês pulado não vira lançamento em Lançamentos.
+- [ ] Tentar confirmar um mês já pulado (via chamada repetida à API) —
+  bloqueado com erro claro.
+- [ ] Tentar pular um mês já confirmado (via chamada repetida à API) —
+  bloqueado com erro claro.

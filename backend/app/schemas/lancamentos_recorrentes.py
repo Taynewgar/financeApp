@@ -41,5 +41,14 @@ class LancamentoRecorrente(LancamentoRecorrenteCreate):
     ativo: bool
 
 
-class ConfirmarOcorrenciaPayload(BaseModel):
+class VigenciaMesPayload(BaseModel):
+    """Corpo compartilhado por /confirmar e /pular — os dois só precisam
+    saber qual mês (primeiro dia do mês de vigência)."""
+
+    vigencia_mes: date
+
+
+class MesPulado(BaseModel):
+    id: str
+    lancamento_recorrente_id: str
     vigencia_mes: date

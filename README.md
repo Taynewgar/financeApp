@@ -79,9 +79,16 @@ PWA com backend hospedado (Render) e banco Supabase.
     do que já aconteceu. `GET /dashboard/compromissos-futuros` mistura a
     próxima parcela de cada compra parcelada com a próxima ocorrência
     PENDENTE de cada recorrente ativo (pode ser um mês já vencido, se
-    ficou sem confirmar — some da lista só quando confirmado ou o
+    ficou sem confirmar — some da lista só quando confirmado, pulado, ou o
     recorrente é desativado). Confirmar o mesmo mês duas vezes retorna 409;
     apagar o molde não apaga meses já confirmados (`ON DELETE SET NULL`).
+    Um mês pode ser marcado como **pulado** (`POST
+    /lancamentos-recorrentes/{id}/pular`, ex: viajou e não teve a despesa
+    naquele mês) — grava só em `lancamentos_recorrentes_pulados`, nunca em
+    `transacoes` (pular não é um evento financeiro), e a busca da próxima
+    ocorrência pendente trata esse mês como resolvido, avançando pro
+    seguinte. `DELETE .../pular?vigencia_mes=` desfaz. Confirmar e pular
+    são mutuamente exclusivos pro mesmo mês (409 se o outro já aconteceu).
 
     `GET /estrutura-custo/{vigencia_mes}` compara orçado x realizado do mês
     (por categoria/subcategoria, agrupado nos mesmos buckets do orçamento),
@@ -276,6 +283,36 @@ alter table transacoes
 
 create index if not exists idx_transacoes_lancamento_recorrente on transacoes (lancamento_recorrente_id);
 ```
+
+### Migração pendente no seu Supabase: `lancamentos_recorrentes_pulados`
+
+Além de confirmar um mês, agora dá pra marcar um mês de um recorrente como
+"não aplicável" (ex: viajou, não teve a despesa naquele mês) — não gera
+transação nenhuma, só faz esse mês parar de aparecer em "Compromissos
+Futuros" e a busca avançar pro mês seguinte. Se o projeto já existia antes
+desta entrega, rode uma vez no *SQL Editor* (depois da migração de
+`lancamentos_recorrentes` acima, que precisa já ter rodado):
+
+```sql
+create table if not exists lancamentos_recorrentes_pulados (
+    id uuid primary key default gen_random_uuid(),
+    lancamento_recorrente_id uuid not null references lancamentos_recorrentes(id) on delete cascade,
+    vigencia_mes date not null,
+    created_at timestamptz not null default now(),
+    unique (lancamento_recorrente_id, vigencia_mes)
+);
+
+create index if not exists idx_lancamentos_recorrentes_pulados_recorrente
+  on lancamentos_recorrentes_pulados (lancamento_recorrente_id);
+
+alter table lancamentos_recorrentes_pulados enable row level security;
+create policy "lancamentos_recorrentes_pulados: dono via recorrente" on lancamentos_recorrentes_pulados for all
+  using (exists (select 1 from lancamentos_recorrentes r where r.id = lancamento_recorrente_id and r.user_id = auth.uid()))
+  with check (exists (select 1 from lancamentos_recorrentes r where r.id = lancamento_recorrente_id and r.user_id = auth.uid()));
+```
+
+Um projeto novo, criado rodando `db/schema.sql` já com esta versão, não
+precisa desse passo — tabela já nasce criada.
 
 Um projeto novo, criado rodando `db/schema.sql` já com esta versão, não
 precisa desse passo — tabela e coluna já nascem criadas.

@@ -77,6 +77,7 @@ export function Dashboard() {
   const [caixinhas, setCaixinhas] = useState<SaldoCaixinha[] | null>(null)
   const [compromissos, setCompromissos] = useState<CompromissoFuturo[] | null>(null)
   const [confirmandoId, setConfirmandoId] = useState<string | null>(null)
+  const [pulandoId, setPulandoId] = useState<string | null>(null)
   const [erroConfirmar, setErroConfirmar] = useState<string | null>(null)
   const [despesasCategoria, setDespesasCategoria] = useState<DespesaPorCategoriaT[] | null>(null)
   const [erro, setErro] = useState<string | null>(null)
@@ -104,6 +105,24 @@ export function Dashboard() {
       setErroConfirmar(e instanceof ApiError ? e.message : 'Falha ao confirmar')
     } finally {
       setConfirmandoId(null)
+    }
+  }
+
+  async function pularRecorrente(c: CompromissoFuturo) {
+    if (!c.lancamento_recorrente_id) return
+    if (!window.confirm(`Marcar "${c.descricao ?? 'este recorrente'}" como não aplicável neste mês?`)) return
+    setErroConfirmar(null)
+    setPulandoId(c.lancamento_recorrente_id)
+    try {
+      await apiFetch(`/lancamentos-recorrentes/${c.lancamento_recorrente_id}/pular`, {
+        method: 'POST',
+        body: JSON.stringify({ vigencia_mes: `${c.data_compra.slice(0, 7)}-01` }),
+      })
+      await buscarCompromissos()
+    } catch (e) {
+      setErroConfirmar(e instanceof ApiError ? e.message : 'Falha ao pular')
+    } finally {
+      setPulandoId(null)
     }
   }
 
@@ -406,14 +425,25 @@ export function Dashboard() {
                       </div>
                       <span className="resumo-card-valor valor-despesa">{formatarMoeda(c.valor, oculto)}</span>
                       {c.tipo === 'recorrente' && (
-                        <button
-                          type="button"
-                          className="botao-secundario"
-                          disabled={confirmandoId === c.lancamento_recorrente_id}
-                          onClick={() => confirmarRecorrente(c)}
-                        >
-                          {confirmandoId === c.lancamento_recorrente_id ? 'Confirmando…' : 'Confirmar'}
-                        </button>
+                        <div className="item-acoes">
+                          <button
+                            type="button"
+                            className="botao-secundario"
+                            disabled={confirmandoId === c.lancamento_recorrente_id || pulandoId === c.lancamento_recorrente_id}
+                            onClick={() => confirmarRecorrente(c)}
+                          >
+                            {confirmandoId === c.lancamento_recorrente_id ? 'Confirmando…' : 'Confirmar'}
+                          </button>
+                          <button
+                            type="button"
+                            className="botao-link"
+                            title="Marcar esse mês como não aplicável (ex: viajou, não teve a despesa)"
+                            disabled={confirmandoId === c.lancamento_recorrente_id || pulandoId === c.lancamento_recorrente_id}
+                            onClick={() => pularRecorrente(c)}
+                          >
+                            {pulandoId === c.lancamento_recorrente_id ? 'Pulando…' : 'Pular este mês'}
+                          </button>
+                        </div>
                       )}
                     </div>
                   </li>
