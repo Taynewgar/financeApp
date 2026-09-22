@@ -1455,3 +1455,111 @@ query.
   só a velocidade.
 - [ ] `/estruturas-de-custo/{mês}` (leitura de 1 mês só) continua
   funcionando normalmente — não foi tocada por este refactor.
+
+### Rodada 20 (2026-09-22) — Despesa fixa recorrente (item 7 do backlog): projeção virtual
+
+Item 7 do backlog, registrado desde 2026-09-15 sem decisão de estratégia.
+Discutido nesta rodada com 3 perguntas (estratégia de geração, mecanismo
+de confirmação, escopo da entrega) — respondidas e aprovadas antes de
+implementar, ver `docs/backlog.md` pro racional completo de cada decisão.
+
+**Decisão 1 — projeção virtual, não materialização antecipada.** Cadastrar
+um recorrente (aluguel, assinatura) não grava nada em `transacoes` — só
+quando um mês específico é confirmado é que a transação real nasce.
+Rejeitei materialização antecipada (gerar N meses de transações reais na
+criação, como compra parcelada) por 4 motivos: (1) exigiria um job
+periódico pra ir "abastecendo" mais meses — o projeto não tem nenhum
+cron/scheduler hoje (Render free tier, só um serviço web); (2)
+`transacoes` deixaria de ser só "o que já aconteceu de fato"; (3) reajuste
+de valor teria caso de borda extra (afeta só o não-gerado, ou também o já
+gerado e não vencido?); (4) cancelar antes do mês vencer deixaria linhas
+futuras órfãs pra apagar.
+
+**Decisão 2 — confirmação manual, não automática.** Ao abrir o app
+verificar recorrentes vencidos e confirmar sozinho foi cogitado, mas
+descartado pro MVP — usuário escolheu manual explicitamente ("pois se
+trata de mvp").
+
+**Decisão 3 — já integra Compromissos Futuros nesta entrega** (não ficou
+pra depois): `GET /dashboard/compromissos-futuros` passa a mesclar a
+próxima parcela de cada compra parcelada com a próxima ocorrência PENDENTE
+de cada recorrente ativo — pode ser um mês já vencido, se ficou sem
+confirmar, e some da lista só quando confirmado ou o recorrente é
+desativado.
+
+**Schema:** `lancamentos_recorrentes` (descrição, valor, dia do mês,
+conta, categoria, subcategoria opcional, estrutura de custo restrita a
+fixo/variável/sazonal — investimento é aporte, não despesa recorrente —,
+meio de pagamento, início, fim opcional, ativo) + `transacoes.
+lancamento_recorrente_id` (`on delete set null` — apagar o molde não some
+com o histórico já confirmado). **Usuários com Supabase existente
+precisam rodar a migração manual** — ver README.md, seção "Migração
+pendente: `lancamentos_recorrentes`".
+
+**Backend:**
+- `services/recorrentes.py`: `data_ocorrencia()` (dia do mês ajustado pro
+  último dia se o mês for mais curto — mesmo padrão de `somar_meses`/
+  `calcular_fatura_referencia`) e `proxima_ocorrencia_pendente()` (primeiro
+  mês, a partir de `data_inicio`, sem transação confirmada vinculada —
+  trava defensiva de 72 meses contra loop sem fim, mesmo espírito de
+  `_MESES_MAXIMO_NA_EVOLUCAO`).
+- `services/transacao_insercao.py` novo: `fatura_referencia_para()` e
+  `inserir_transacao()` extraídos de `routers/transacoes.py` (eram
+  privados, `_fatura_referencia_para`/`_insert`) — reaproveitados pela
+  confirmação de recorrente, que também cria uma transação real e precisa
+  da mesma regra de fatura de cartão e do mesmo tratamento de duplicata.
+  `transacoes.py` não mudou de comportamento, só passou a importar em vez
+  de definir localmente (mesmos testes, sem alteração, continuam cobrindo).
+- `routers/lancamentos_recorrentes.py` novo: CRUD (`GET`/`POST`/`PATCH`/
+  `PATCH .../ativo`/`DELETE`, mesmo padrão de `caixinhas.py`) + `POST
+  /{id}/confirmar` (recebe `vigencia_mes`, cria a transação com
+  `hash_dedup` incluindo `lancamento_recorrente_id` — sem isso, confirmar
+  colidiria com uma despesa manual idêntica lançada no mesmo dia — chama
+  `sincronizar_item_orcamento` como qualquer criação de despesa, e retorna
+  409 se o mês já foi confirmado antes). Categoria vinculada precisa ser
+  do tipo `despesa` (422 caso contrário, mesma regra de
+  `_TIPO_CATEGORIA_ESPERADO` de `transacoes.py`).
+- `routers/dashboard.py`: `compromissos_futuros()` busca recorrentes
+  ativos + todas as transações já confirmadas (`.in_("lancamento_recorrente_id",
+  [...])`, 1 query em lote, não 1 por recorrente — mesmo cuidado de perf
+  da Rodada 19.3), calcula a pendência de cada um e mescla com as parcelas
+  antes de ordenar por data.
+- 30 testes novos: CRUD completo, validações (categoria errada, refs
+  inexistentes), confirmação (transação criada certa, ajuste de dia em
+  mês curto, 409 em confirmação duplicada, sincronização de orçamento,
+  exclusão do molde preserva histórico), merge em Compromissos Futuros
+  (pendência aparece/avança/some, mistura ordenada com parcela), e
+  unitários puros de `data_ocorrencia`/`proxima_ocorrencia_pendente`.
+  Suíte offline: 259 passed (230 + 29).
+
+**Frontend:**
+- `lib/types.ts`: `LancamentoRecorrente`, `EstruturaCustoRecorrente`;
+  `CompromissoFuturo` ganhou `tipo`/`lancamento_recorrente_id`,
+  `parcela_atual`/`parcela_total` viraram opcionais.
+- `routes/configuracoes/LancamentosRecorrentesSection.tsx` novo — CRUD
+  completo (mesmo padrão de `CaixinhasSection.tsx`), com o formulário
+  completo de despesa (conta, categoria→subcategoria em cascata, estrutura
+  de custo, meio de pagamento) mais os campos próprios (dia do mês, início,
+  fim opcional). Nova aba "Despesas Fixas" em Configurações.
+- `routes/Dashboard.tsx`: "Compromissos Futuros" mostra "Despesa fixa
+  recorrente" em vez de "Parcela X de Y" pros itens desse tipo, com botão
+  "Confirmar" que chama `POST /confirmar` e recarrega a lista.
+- tsc + build + lint limpos (mesmos warnings pré-existentes, nenhum novo).
+
+**Checklist de teste manual** (visual, sem cobertura automatizada):
+- [ ] Configurações → Despesas Fixas → criar um recorrente (ex: Aluguel,
+  R$1500, dia 5, início neste mês) — aparece na lista.
+- [ ] Editar o recorrente (ex: mudar valor) — lista atualiza.
+- [ ] Desativar o recorrente — some de Compromissos Futuros no Dashboard,
+  mas continua na lista de Configurações (marcado "inativo").
+- [ ] Reativar — volta a aparecer em Compromissos Futuros.
+- [ ] Dashboard → Compromissos Futuros mostra o recorrente com "Despesa
+  fixa recorrente" e a data prevista (dia configurado do mês pendente).
+- [ ] Clicar "Confirmar" — cria o lançamento de verdade (aparece em
+  Lançamentos), some de Compromissos Futuros até o próximo mês vencer.
+- [ ] Tentar confirmar o mesmo mês de novo (ex: via chamada repetida) —
+  bloqueado com erro claro.
+- [ ] Excluir o recorrente em Configurações — o lançamento já confirmado
+  continua existindo normalmente em Lançamentos.
+- [ ] Compromissos Futuros mistura parcela de compra parcelada com
+  recorrente pendente, ordenado por data.

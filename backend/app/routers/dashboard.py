@@ -15,6 +15,7 @@ from ..schemas.dashboard import (
     SaldoCaixinha,
 )
 from ..services.fatura import somar_meses
+from ..services.recorrentes import data_ocorrencia, proxima_ocorrencia_pendente
 from ..services.resumo_financeiro import calcular_resumo
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
@@ -339,13 +340,19 @@ def compromissos_futuros(
     db: Client = Depends(get_db),
     user_id: str = Depends(get_current_user_id),
 ):
-    """Próxima parcela em aberto de cada compra parcelada ativa — as
-    parcelas futuras já estão materializadas na tabela (ver
-    POST /transacoes/parceladas), então isso é só filtrar o que ainda não
-    venceu e pegar a mais próxima de cada grupo. Não inclui despesas fixas
-    recorrentes (aluguel, assinaturas): esse conceito não existe no app —
-    não há cadastro de "lançamento recorrente" separado de uma transação já
-    lançada, só compra parcelada tem data futura conhecida de antemão."""
+    """Mistura 2 fontes de compromisso em aberto:
+
+    1. Próxima parcela em aberto de cada compra parcelada ativa — as
+       parcelas futuras já estão materializadas na tabela (ver
+       POST /transacoes/parceladas), só filtra o que ainda não venceu.
+    2. Próxima ocorrência PENDENTE de cada lançamento recorrente ativo —
+       despesa fixa recorrente (aluguel, assinatura), projeção virtual:
+       nada é gravado em transacoes até confirmar (ver
+       services/recorrentes.py e POST
+       /lancamentos-recorrentes/{id}/confirmar). Pode ser um mês já
+       vencido, se ficou sem confirmar — fica aparecendo até o usuário
+       confirmar ou desativar o recorrente, é assim que o "compromisso em
+       aberto" some da lista."""
     hoje = date.today()
     parcelas = (
         db.table("transacoes")
@@ -358,13 +365,56 @@ def compromissos_futuros(
         .data
     )
     vistos: set[str] = set()
-    resultado = []
+    itens: list[dict] = []
     for parcela in parcelas:
         grupo = parcela["compra_parcelada_id"]
         if grupo in vistos:
             continue
         vistos.add(grupo)
-        resultado.append(parcela)
-        if len(resultado) >= limite:
-            break
-    return resultado
+        itens.append(
+            {
+                "tipo": "parcela",
+                "descricao": parcela["descricao"],
+                "valor": parcela["valor"],
+                "data_compra": parcela["data_compra"],
+                "parcela_atual": parcela["parcela_atual"],
+                "parcela_total": parcela["parcela_total"],
+                "lancamento_recorrente_id": None,
+            }
+        )
+
+    recorrentes = (
+        db.table("lancamentos_recorrentes").select("*").eq("user_id", user_id).eq("ativo", True).execute().data
+    )
+    recorrente_ids = [r["id"] for r in recorrentes]
+    confirmados_por_recorrente: dict[str, set[str]] = {rid: set() for rid in recorrente_ids}
+    if recorrente_ids:
+        confirmados = (
+            db.table("transacoes")
+            .select("lancamento_recorrente_id,data_compra")
+            .eq("user_id", user_id)
+            .in_("lancamento_recorrente_id", recorrente_ids)
+            .execute()
+            .data
+        )
+        for c in confirmados:
+            confirmados_por_recorrente[c["lancamento_recorrente_id"]].add(f"{c['data_compra'][:7]}-01")
+
+    for recorrente in recorrentes:
+        vigencia_pendente = proxima_ocorrencia_pendente(recorrente, confirmados_por_recorrente[recorrente["id"]])
+        if vigencia_pendente is None:
+            continue
+        itens.append(
+            {
+                "tipo": "recorrente",
+                "descricao": recorrente["descricao"],
+                "valor": recorrente["valor"],
+                "data_compra": data_ocorrencia(vigencia_pendente, recorrente["dia_mes"]).isoformat(),
+                "parcela_atual": None,
+                "parcela_total": None,
+                "lancamento_recorrente_id": recorrente["id"],
+            }
+        )
+
+    itens.sort(key=lambda i: i["data_compra"])
+    return itens[:limite]

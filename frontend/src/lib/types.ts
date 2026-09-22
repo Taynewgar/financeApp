@@ -103,11 +103,32 @@ export type SaldoCaixinha = {
 }
 
 export type CompromissoFuturo = {
+  tipo: 'parcela' | 'recorrente'
   descricao: string | null
   valor: number
   data_compra: string
-  parcela_atual: number
-  parcela_total: number
+  parcela_atual: number | null
+  parcela_total: number | null
+  lancamento_recorrente_id: string | null
+}
+
+// despesa fixa recorrente (aluguel, assinatura) — projeção virtual, nada
+// vira transação real até confirmar (ver POST /lancamentos-recorrentes/{id}/confirmar)
+export type EstruturaCustoRecorrente = 'fixo' | 'variavel' | 'sazonal'
+
+export type LancamentoRecorrente = {
+  id: string
+  descricao: string
+  valor: number
+  dia_mes: number
+  conta_id: string
+  categoria_id: string
+  subcategoria_id: string | null
+  estrutura_custo: EstruturaCustoRecorrente
+  meio_pagamento: MeioPagamento
+  data_inicio: string
+  data_fim: string | null
+  ativo: boolean
 }
 
 export type PrimeiroMes = {

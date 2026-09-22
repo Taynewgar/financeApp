@@ -76,13 +76,36 @@ export function Dashboard() {
   const [mesesNegativosAno, setMesesNegativosAno] = useState<{ negativos: number; total: number } | null>(null)
   const [caixinhas, setCaixinhas] = useState<SaldoCaixinha[] | null>(null)
   const [compromissos, setCompromissos] = useState<CompromissoFuturo[] | null>(null)
+  const [confirmandoId, setConfirmandoId] = useState<string | null>(null)
+  const [erroConfirmar, setErroConfirmar] = useState<string | null>(null)
   const [despesasCategoria, setDespesasCategoria] = useState<DespesaPorCategoriaT[] | null>(null)
   const [erro, setErro] = useState<string | null>(null)
 
+  function buscarCompromissos() {
+    return apiFetch<CompromissoFuturo[]>('/dashboard/compromissos-futuros').then(setCompromissos).catch(() => setCompromissos([]))
+  }
+
   // compromissos futuros não dependem do período navegado (é sempre "a partir de hoje")
   useEffect(() => {
-    apiFetch<CompromissoFuturo[]>('/dashboard/compromissos-futuros').then(setCompromissos).catch(() => setCompromissos([]))
+    buscarCompromissos()
   }, [])
+
+  async function confirmarRecorrente(c: CompromissoFuturo) {
+    if (!c.lancamento_recorrente_id) return
+    setErroConfirmar(null)
+    setConfirmandoId(c.lancamento_recorrente_id)
+    try {
+      await apiFetch(`/lancamentos-recorrentes/${c.lancamento_recorrente_id}/confirmar`, {
+        method: 'POST',
+        body: JSON.stringify({ vigencia_mes: `${c.data_compra.slice(0, 7)}-01` }),
+      })
+      await buscarCompromissos()
+    } catch (e) {
+      setErroConfirmar(e instanceof ApiError ? e.message : 'Falha ao confirmar')
+    } finally {
+      setConfirmandoId(null)
+    }
+  }
 
   useEffect(() => {
     if (modoData === 'todos' && primeiroMes === null) return // aguarda carregar o início do histórico
@@ -362,6 +385,7 @@ export function Dashboard() {
 
           <div className="dashboard-secao">
             <h2 style={{ fontSize: 16, marginTop: 0, marginBottom: 8 }}>Compromissos Futuros</h2>
+            {erroConfirmar && <p className="mensagem-erro">{erroConfirmar}</p>}
             {compromissos === null ? (
               <p>Carregando…</p>
             ) : compromissos.length === 0 ? (
@@ -374,10 +398,23 @@ export function Dashboard() {
                       <div className="item-info">
                         <span className="item-titulo">{c.descricao ?? 'Sem descrição'}</span>
                         <span className="item-detalhe">
-                          Parcela {c.parcela_atual} de {c.parcela_total} · {formatarData(c.data_compra)}
+                          {c.tipo === 'parcela'
+                            ? `Parcela ${c.parcela_atual} de ${c.parcela_total}`
+                            : 'Despesa fixa recorrente'}{' '}
+                          · {formatarData(c.data_compra)}
                         </span>
                       </div>
                       <span className="resumo-card-valor valor-despesa">{formatarMoeda(c.valor, oculto)}</span>
+                      {c.tipo === 'recorrente' && (
+                        <button
+                          type="button"
+                          className="botao-secundario"
+                          disabled={confirmandoId === c.lancamento_recorrente_id}
+                          onClick={() => confirmarRecorrente(c)}
+                        >
+                          {confirmandoId === c.lancamento_recorrente_id ? 'Confirmando…' : 'Confirmar'}
+                        </button>
+                      )}
                     </div>
                   </li>
                 ))}

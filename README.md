@@ -65,6 +65,24 @@ PWA com backend hospedado (Render) e banco Supabase.
     preenchido pelo mesmo motivo. Os demais tipos de movimento (receita,
     estorno, ressarcimento, e aplicação/retirada COM caixinha) continuam
     sem exigir nenhum desses três campos.
+
+    **Despesa fixa recorrente** (`lancamentos_recorrentes` — aluguel,
+    assinaturas) usa **projeção virtual**: cadastrar um recorrente não
+    grava nada em `transacoes` — só quando um mês específico é confirmado
+    (`POST /lancamentos-recorrentes/{id}/confirmar`) é que a transação real
+    nasce (`tipo_movimento='despesa'`, vinculada de volta via
+    `lancamento_recorrente_id`). Decisão contra a alternativa óbvia
+    (materializar parcelas futuras de uma vez, como compra parcelada):
+    materializar exigiria um job periódico pra ir "abastecendo" mais meses
+    conforme o tempo passa — o projeto não tem nenhum cron — e deixaria
+    `transacoes` com linhas "no futuro" numa tabela pensada como histórico
+    do que já aconteceu. `GET /dashboard/compromissos-futuros` mistura a
+    próxima parcela de cada compra parcelada com a próxima ocorrência
+    PENDENTE de cada recorrente ativo (pode ser um mês já vencido, se
+    ficou sem confirmar — some da lista só quando confirmado ou o
+    recorrente é desativado). Confirmar o mesmo mês duas vezes retorna 409;
+    apagar o molde não apaga meses já confirmados (`ON DELETE SET NULL`).
+
     `GET /estrutura-custo/{vigencia_mes}` compara orçado x realizado do mês
     (por categoria/subcategoria, agrupado nos mesmos buckets do orçamento),
     lendo diretamente das transações — funciona mesmo sem orçamento
@@ -108,14 +126,15 @@ PWA com backend hospedado (Render) e banco Supabase.
     vinculados a uma despesa, que não contam como receita nova) — com taxa
     de poupança e resultado acumulado mês a mês.
 - `db/schema.sql` — schema inicial do Postgres (contas, categorias,
-  subcategorias, caixinhas, transações, orçamento versionado por mês), com
-  Row Level Security por usuário.
+  subcategorias, caixinhas, transações, lançamentos recorrentes, orçamento
+  versionado por mês), com Row Level Security por usuário.
 - `frontend/` — PWA em React + Vite + TypeScript, consome a API do
   `backend/`. Login (Supabase Auth), rotas protegidas, casca de navegação
   (sidebar no desktop, barra inferior no mobile, botão flutuante de Novo
   Lançamento). Telas com dados reais: Dashboard (KPIs do mês + gráfico de
   evolução), Lançamentos (lista/busca/edição), Novo Lançamento, e
-  Configurações (CRUDs de Contas/Categorias/Caixinhas), e Planejamento
+  Configurações (CRUDs de Contas/Categorias/Caixinhas/Despesas Fixas
+  Recorrentes), e Planejamento
   (configuração do orçamento por mês — renda, % por bucket, itens reativos
   a partir dos lançamentos, modo envelope). Estruturas de Custo ainda é
   placeholder — próxima tela da fila (motor já pronto no backend).
@@ -217,6 +236,49 @@ Depois de rodar isso, todas as categorias existentes ficam com
 frontend, ou `PATCH /categorias/{id}`) pra marcar qual categoria é a de
 Receita e qual é a de Investimentos (o Novo Lançamento usa essas duas
 automaticamente).
+
+### Migração pendente no seu Supabase: `lancamentos_recorrentes`
+
+Despesa fixa recorrente (aluguel, assinaturas) ganhou tabela própria —
+projeção virtual, nada é gravado em `transacoes` até o mês ser confirmado
+em "Compromissos Futuros" (ver seção "Transações" abaixo). Se o projeto já
+existia antes desta entrega, rode uma vez no *SQL Editor*:
+
+```sql
+create table if not exists lancamentos_recorrentes (
+    id uuid primary key default gen_random_uuid(),
+    user_id uuid not null references auth.users(id) on delete cascade,
+    descricao text not null,
+    valor numeric(14,2) not null check (valor >= 0),
+    dia_mes smallint not null check (dia_mes between 1 and 31),
+    conta_id uuid not null references contas(id),
+    categoria_id uuid not null references categorias(id),
+    subcategoria_id uuid references subcategorias(id),
+    estrutura_custo text not null check (estrutura_custo in ('fixo', 'variavel', 'sazonal')),
+    meio_pagamento text not null check (meio_pagamento in (
+        'pix', 'cartao_debito', 'cartao_credito', 'boleto', 'debito_automatico', 'dinheiro', 'transferencia', 'outro'
+    )),
+    data_inicio date not null,
+    data_fim date,
+    ativo boolean not null default true,
+    created_at timestamptz not null default now(),
+    updated_at timestamptz not null default now()
+);
+
+create index if not exists idx_lancamentos_recorrentes_user on lancamentos_recorrentes (user_id);
+
+alter table lancamentos_recorrentes enable row level security;
+create policy "lancamentos_recorrentes: dono" on lancamentos_recorrentes for all
+  using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+alter table transacoes
+  add column if not exists lancamento_recorrente_id uuid references lancamentos_recorrentes(id) on delete set null;
+
+create index if not exists idx_transacoes_lancamento_recorrente on transacoes (lancamento_recorrente_id);
+```
+
+Um projeto novo, criado rodando `db/schema.sql` já com esta versão, não
+precisa desse passo — tabela e coluna já nascem criadas.
 
 ## Desenvolvimento local
 

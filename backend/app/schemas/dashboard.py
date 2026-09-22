@@ -1,4 +1,5 @@
 from datetime import date
+from typing import Literal
 
 from pydantic import BaseModel
 
@@ -63,11 +64,15 @@ class SaldoCaixinha(BaseModel):
 
 
 class CompromissoFuturo(BaseModel):
+    tipo: Literal["parcela", "recorrente"]
     descricao: str | None
     valor: float
     data_compra: date
-    parcela_atual: int
-    parcela_total: int
+    parcela_atual: int | None = None
+    parcela_total: int | None = None
+    # só presente quando tipo == "recorrente" — usado pelo botão "Confirmar"
+    # (POST /lancamentos-recorrentes/{id}/confirmar)
+    lancamento_recorrente_id: str | None = None
 
 
 class PrimeiroMes(BaseModel):

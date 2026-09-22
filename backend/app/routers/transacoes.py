@@ -16,9 +16,10 @@ from ..schemas.transacoes import (
 )
 from ..services import crud
 from ..services.dedup import compute_hash
-from ..services.fatura import calcular_fatura_referencia, somar_meses
+from ..services.fatura import somar_meses
 from ..services.orcamento_sync import sincronizar_item_orcamento
 from ..services.resumo_financeiro import calcular_resumo
+from ..services.transacao_insercao import fatura_referencia_para, inserir_transacao
 
 router = APIRouter(prefix="/transacoes", tags=["transacoes"])
 TABLE = "transacoes"
@@ -162,38 +163,6 @@ def _check_campos_obrigatorios(
         raise HTTPException(status_code=422, detail=f"Campo(s) obrigatório(s) faltando: {', '.join(faltando)}")
 
 
-def _fatura_referencia_para(db: Client, user_id: str, conta_id: str, data_compra) -> str | None:
-    """Só se aplica a contas do tipo cartão de crédito com dia de
-    fechamento configurado; para as demais, fica None (não se aplica)."""
-    result = (
-        db.table("contas")
-        .select("tipo_conta,dia_fechamento")
-        .eq("id", conta_id)
-        .eq("user_id", user_id)
-        .execute()
-    )
-    if not result.data:
-        return None
-    conta = result.data[0]
-    if conta["tipo_conta"] != "cartao_credito" or not conta["dia_fechamento"]:
-        return None
-    return calcular_fatura_referencia(data_compra, conta["dia_fechamento"]).isoformat()
-
-
-def _insert(db: Client, row: dict) -> dict:
-    try:
-        result = db.table(TABLE).insert(row).execute()
-    except Exception as exc:  # noqa: BLE001 — traduzimos a violação de unicidade conhecida; o resto vai pro log
-        if "duplicate key value violates unique constraint" in str(exc) or "23505" in str(exc):
-            raise HTTPException(
-                status_code=409,
-                detail="Já existe um lançamento idêntico (mesma data, valor, conta e descrição).",
-            ) from exc
-        print(f"[transacoes] falha ao inserir: {exc!r} — row={row}")
-        raise HTTPException(status_code=500, detail="Falha ao salvar a transação") from exc
-    return result.data[0]
-
-
 @router.get("", response_model=list[Transacao])
 def listar(
     db: Client = Depends(get_db),
@@ -300,7 +269,7 @@ def criar(payload: TransacaoCreate, db: Client = Depends(get_db), user_id: str =
         parcela_atual=None,
         parcela_total=None,
         compra_parcelada_id=None,
-        fatura_referencia=_fatura_referencia_para(db, user_id, payload.conta_id, payload.data_compra),
+        fatura_referencia=fatura_referencia_para(db, user_id, payload.conta_id, payload.data_compra),
         fatura_override=False,
     )
     row["hash_dedup"] = compute_hash(
@@ -314,7 +283,7 @@ def criar(payload: TransacaoCreate, db: Client = Depends(get_db), user_id: str =
         parcela_total=None,
         compra_parcelada_id=None,
     )
-    criada = _insert(db, row)
+    criada = inserir_transacao(db, row)
     sincronizar_item_orcamento(db, user_id, criada)
     return criada
 
@@ -369,7 +338,7 @@ def criar_parcelada(
             "subcategoria_id": payload.subcategoria_id,
             "estrutura_custo": payload.estrutura_custo,
             "meio_pagamento": payload.meio_pagamento,
-            "fatura_referencia": _fatura_referencia_para(db, user_id, payload.conta_id, data_parcela),
+            "fatura_referencia": fatura_referencia_para(db, user_id, payload.conta_id, data_parcela),
             "fatura_override": False,
         }
         row["hash_dedup"] = compute_hash(
@@ -383,7 +352,7 @@ def criar_parcelada(
             parcela_total=row["parcela_total"],
             compra_parcelada_id=row["compra_parcelada_id"],
         )
-        criada = _insert(db, row)
+        criada = inserir_transacao(db, row)
         sincronizar_item_orcamento(db, user_id, criada)
         criadas.append(criada)
     return criadas
@@ -428,7 +397,7 @@ def atualizar(
         row["fatura_referencia"] = atual["fatura_referencia"]
         row["fatura_override"] = True
     else:
-        row["fatura_referencia"] = _fatura_referencia_para(db, user_id, payload.conta_id, payload.data_compra)
+        row["fatura_referencia"] = fatura_referencia_para(db, user_id, payload.conta_id, payload.data_compra)
         row["fatura_override"] = False
     row["hash_dedup"] = compute_hash(
         user_id=user_id,

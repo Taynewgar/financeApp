@@ -80,6 +80,36 @@ create table compras_parceladas (
     created_at timestamptz not null default now()
 );
 
+-- ── LANÇAMENTOS RECORRENTES (despesa fixa: aluguel, assinaturas) ────────
+-- Molde só — projeção virtual (decisão 2026-09-22, ver docs/backlog.md):
+-- nada é gravado em transacoes até o mês ser confirmado
+-- (POST /lancamentos-recorrentes/{id}/confirmar). Evita job de
+-- "abastecimento" periódico, que o projeto não tem, e mantém transacoes
+-- só com o que de fato aconteceu.
+create table lancamentos_recorrentes (
+    id uuid primary key default gen_random_uuid(),
+    user_id uuid not null references auth.users(id) on delete cascade,
+    descricao text not null,
+    valor numeric(14,2) not null check (valor >= 0),
+    dia_mes smallint not null check (dia_mes between 1 and 31),
+    conta_id uuid not null references contas(id),
+    categoria_id uuid not null references categorias(id),
+    subcategoria_id uuid references subcategorias(id),
+    -- só despesa fixa recorrente (aluguel, assinatura) — sem 'investimentos'
+    -- aqui, isso é aporte, não despesa recorrente
+    estrutura_custo text not null check (estrutura_custo in ('fixo', 'variavel', 'sazonal')),
+    meio_pagamento text not null check (meio_pagamento in (
+        'pix', 'cartao_debito', 'cartao_credito', 'boleto', 'debito_automatico', 'dinheiro', 'transferencia', 'outro'
+    )),
+    data_inicio date not null,
+    data_fim date, -- opcional; null = sem previsão de término
+    ativo boolean not null default true,
+    created_at timestamptz not null default now(),
+    updated_at timestamptz not null default now()
+);
+
+create index idx_lancamentos_recorrentes_user on lancamentos_recorrentes (user_id);
+
 -- ── TRANSAÇÕES ───────────────────────────────────────────────────────────
 create table transacoes (
     id uuid primary key default gen_random_uuid(),
@@ -118,6 +148,10 @@ create table transacoes (
 
     -- vincula estorno/ressarcimento à despesa original
     ajuste_de_transacao_id uuid references transacoes(id),
+    -- transação real criada ao confirmar um mês de um lançamento
+    -- recorrente (projeção virtual) — set null se o recorrente for
+    -- apagado depois, o histórico já confirmado não deve sumir junto
+    lancamento_recorrente_id uuid references lancamentos_recorrentes(id) on delete set null,
 
     -- garante idempotência na migração inicial e em importações futuras
     hash_dedup text not null unique,
@@ -130,6 +164,7 @@ create index idx_transacoes_user_data on transacoes (user_id, data_compra);
 create index idx_transacoes_conta on transacoes (conta_id);
 create index idx_transacoes_fatura on transacoes (conta_id, fatura_referencia);
 create index idx_transacoes_compra_parcelada on transacoes (compra_parcelada_id);
+create index idx_transacoes_lancamento_recorrente on transacoes (lancamento_recorrente_id);
 
 -- ── ORÇAMENTO (versionado por mês de vigência) ──────────────────────────
 create table orcamentos (
@@ -179,6 +214,7 @@ alter table categorias enable row level security;
 alter table subcategorias enable row level security;
 alter table caixinhas enable row level security;
 alter table compras_parceladas enable row level security;
+alter table lancamentos_recorrentes enable row level security;
 alter table transacoes enable row level security;
 alter table orcamentos enable row level security;
 alter table orcamento_itens enable row level security;
@@ -188,6 +224,7 @@ create policy "categorias: dono" on categorias for all using (auth.uid() = user_
 create policy "subcategorias: dono" on subcategorias for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 create policy "caixinhas: dono" on caixinhas for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 create policy "compras_parceladas: dono" on compras_parceladas for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+create policy "lancamentos_recorrentes: dono" on lancamentos_recorrentes for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 create policy "transacoes: dono" on transacoes for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 create policy "orcamentos: dono" on orcamentos for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 create policy "orcamento_itens: dono via orcamento" on orcamento_itens for all

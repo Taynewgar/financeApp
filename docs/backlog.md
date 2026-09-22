@@ -38,12 +38,18 @@ merecer não ficar misturado com a tabela proposto×implementado tela a tela.
    (R$, ao lado da taxa em % que já existia) e "Maior categoria de
    despesa" (mesmo recorte do gráfico "Despesas por Categoria", sem
    endpoint novo — os 3 vêm de dados já buscados na tela).
-7. Despesa fixa recorrente — aluguel, assinaturas (detalhe abaixo).
+7. ~~Despesa fixa recorrente — aluguel, assinaturas~~ **feito 2026-09-22**
+   — projeção virtual (decisão discutida e aprovada nesta rodada, ver
+   detalhe abaixo): `lancamentos_recorrentes` (tela em Configurações),
+   `POST /lancamentos-recorrentes/{id}/confirmar` materializa a transação
+   real só quando o mês é confirmado, `GET /dashboard/compromissos-futuros`
+   mistura parcelas + ocorrências pendentes.
 8. Edição de compra parcelada (detalhe abaixo).
 9. Exportação de relatório mensal/anual (detalhe abaixo) — próximo passo
    depois do MVP fechado (itens 3-6 acima).
-10. ~~Compromissos futuros no Dashboard~~ **feito parcialmente 2026-09-13**
-    — só parcelas futuras; "fixo recorrente" fica coberto pelo item 7.
+10. ~~Compromissos futuros no Dashboard~~ **feito por completo 2026-09-22**
+    — parcelas futuras (2026-09-13) + despesa fixa recorrente (item 7,
+    2026-09-22).
 11. **Indicador visual de tooltip** — registrado 2026-09-15, sugestão do
     usuário pra pós-MVP (não é baixa prioridade, só sequenciado depois do
     MVP fechado, igual ao item 9). Hoje o Dashboard tem tooltip explicando
@@ -134,7 +140,15 @@ fato, evita o job de "abastecimento" contínuo da opção 1, e o custo de
 construir a confirmação (manual ou automática) é comparável ao da opção 1
 de qualquer forma.
 
-**Status:** registrado, sem decisão de estratégia ainda.
+**Status:** implementado em 2026-09-22 — projeção virtual (opção 2),
+confirmação manual (escolha do usuário pro MVP, dado que o projeto não tem
+job/cron agendado nenhum hoje). Escopo já integra "Compromissos Futuros"
+(mescla parcelas + ocorrências pendentes, escolha do usuário — a
+alternativa seria isolar num "só cadastro + confirmação", sem tocar em
+Compromissos Futuros nesta rodada). Ver changelog pro detalhe completo:
+schema (`lancamentos_recorrentes` + `transacoes.lancamento_recorrente_id`),
+endpoints (`/lancamentos-recorrentes` CRUD + `/confirmar`), tela de gestão
+em Configurações, botão "Confirmar" no Dashboard.
 
 ### Edição de compra parcelada
 

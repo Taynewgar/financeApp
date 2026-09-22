@@ -507,6 +507,80 @@ def test_compromissos_futuros_respeita_limite(client):
     assert len(resposta) == 2
 
 
+def _recorrente(client, conta_id, categoria_id, **extra):
+    payload = {
+        "descricao": "Aluguel",
+        "valor": 1500,
+        "dia_mes": 5,
+        "conta_id": conta_id,
+        "categoria_id": categoria_id,
+        "estrutura_custo": "fixo",
+        "meio_pagamento": "boleto",
+        "data_inicio": "2026-01-01",
+    }
+    payload.update(extra)
+    return client.post("/lancamentos-recorrentes", json=payload).json()
+
+
+def test_compromissos_futuros_inclui_recorrente_pendente(client):
+    conta = _conta(client)
+    categoria = client.post("/categorias", json={"nome": "Aluguel"}).json()
+    _recorrente(client, conta["id"], categoria["id"])
+
+    resposta = client.get("/dashboard/compromissos-futuros").json()
+    assert len(resposta) == 1
+    assert resposta[0]["tipo"] == "recorrente"
+    assert resposta[0]["descricao"] == "Aluguel"
+    assert resposta[0]["data_compra"] == "2026-01-05"  # mês de data_inicio, ainda não confirmado
+    assert resposta[0]["parcela_atual"] is None
+
+
+def test_compromissos_futuros_avanca_apos_confirmar(client):
+    conta = _conta(client)
+    categoria = client.post("/categorias", json={"nome": "Aluguel"}).json()
+    recorrente = _recorrente(client, conta["id"], categoria["id"])
+    client.post(f"/lancamentos-recorrentes/{recorrente['id']}/confirmar", json={"vigencia_mes": "2026-01-01"})
+
+    resposta = client.get("/dashboard/compromissos-futuros").json()
+    assert len(resposta) == 1
+    assert resposta[0]["data_compra"] == "2026-02-05"  # janeiro confirmado, próxima pendência é fevereiro
+
+
+def test_compromissos_futuros_recorrente_inativo_nao_aparece(client):
+    conta = _conta(client)
+    categoria = client.post("/categorias", json={"nome": "Aluguel"}).json()
+    recorrente = _recorrente(client, conta["id"], categoria["id"])
+    client.patch(f"/lancamentos-recorrentes/{recorrente['id']}/ativo", params={"ativo": False})
+
+    assert client.get("/dashboard/compromissos-futuros").json() == []
+
+
+def test_compromissos_futuros_mistura_parcela_e_recorrente_ordenado_por_data(client):
+    cartao = _cartao(client)
+    categoria_cartao = client.post("/categorias", json={"nome": "Categoria Teste"}).json()
+    daqui_a_1_mes = date.today().replace(day=1) + timedelta(days=45)
+    client.post(
+        "/transacoes/parceladas",
+        json={
+            "descricao": "Notebook",
+            "valor_total": 1000,
+            "parcela_total": 4,
+            "data_primeira_parcela": daqui_a_1_mes.isoformat(),
+            "conta_id": cartao["id"],
+            "categoria_id": categoria_cartao["id"],
+            "estrutura_custo": "variavel",
+            "meio_pagamento": "cartao_credito",
+        },
+    )
+    conta = _conta(client)
+    categoria_aluguel = client.post("/categorias", json={"nome": "Aluguel"}).json()
+    _recorrente(client, conta["id"], categoria_aluguel["id"])  # pendência de 2026-01-05, bem mais antiga
+
+    resposta = client.get("/dashboard/compromissos-futuros").json()
+    assert [r["tipo"] for r in resposta] == ["recorrente", "parcela"]
+    assert resposta[0]["data_compra"] < resposta[1]["data_compra"]
+
+
 def test_resumo_periodo_soma_todas_as_transacoes_do_intervalo(client):
     conta = _conta(client)
     categoria_id = _categoria(client)
