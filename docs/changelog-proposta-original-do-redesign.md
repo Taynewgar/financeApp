@@ -1563,3 +1563,45 @@ pendente: `lancamentos_recorrentes`".
   continua existindo normalmente em Lançamentos.
 - [ ] Compromissos Futuros mistura parcela de compra parcelada com
   recorrente pendente, ordenado por data.
+
+### Rodada 20.1 (2026-09-22) — criação inline de categoria/subcategoria no formulário de recorrente
+
+Usuário reportou que o formulário de recorrente (Rodada 20) não tinha a
+opção de criar conta/categoria/subcategoria sem sair da tela, diferente do
+Novo Lançamento. Perguntei se conta também deveria ganhar criação inline
+(quebraria o padrão atual do app, onde conta só é criada em
+Configurações → Contas — é ação mais rara) ou só categoria/subcategoria
+(mesmo padrão já usado no Novo Lançamento). Usuário confirmou manter o
+padrão: só categoria/subcategoria.
+
+`LancamentosRecorrentesSection.tsx` ganhou os mesmos affordances "+ Nova
+categoria"/"+ Nova subcategoria" do Novo Lançamento (`criarCategoria()`/
+`criarSubcategoria()`, chips `.chip-criar`/`.chip-form`/`.chip-cancelar`
+já existentes em `forms.css` — reaproveitados, não criei CSS novo), sem a
+lista de "mais usadas" (chips de atalho por frequência de uso) — não foi
+pedido e o recorrente é cadastrado bem mais raramente que um lançamento
+avulso, não paga o custo de mais 2 chamadas de API por abertura de
+formulário. Escolher uma subcategoria nova ou existente sugere a
+estrutura de custo padrão dela, mesmo comportamento do Novo Lançamento
+(`selecionarSubcategoria`) — ignora a sugestão se for 'investimentos'
+(recorrente só aceita fixo/variavel/sazonal).
+
+- `frontend/src/routes/configuracoes/LancamentosRecorrentesSection.tsx`:
+  estado + handlers de criação inline, JSX dos selects de categoria/
+  subcategoria.
+- Sem mudança de backend — endpoints de criar categoria/subcategoria já
+  existiam. tsc + build + lint limpos (24 warnings, mesmo total de antes,
+  nenhum novo). Suíte backend não roda nesta rodada (nada mudou lá): 259
+  passed, sem alteração.
+
+**Checklist de teste manual** (visual, sem cobertura automatizada):
+- [ ] Configurações → Despesas Fixas → Novo recorrente → "+ Nova
+  categoria" abre o mini-formulário, cria e já seleciona a categoria nova.
+- [ ] Com uma categoria selecionada, "+ Nova subcategoria" cria e já
+  seleciona a subcategoria nova, respeitando a categoria pai escolhida.
+- [ ] Selecionar uma subcategoria existente que tem estrutura de custo
+  padrão preenche o campo "Estrutura de custo" sozinho.
+- [ ] Cancelar a criação inline limpa o mini-formulário sem afetar o
+  resto dos campos já preenchidos.
+- [ ] Conta continua só por dropdown (sem "+ Nova conta") — comportamento
+  intencional, mesmo padrão do resto do app.

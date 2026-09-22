@@ -54,6 +54,17 @@ export function LancamentosRecorrentesSection() {
   const [form, setForm] = useState<FormState>(FORM_VAZIO)
   const [salvando, setSalvando] = useState(false)
 
+  const [criandoCategoria, setCriandoCategoria] = useState(false)
+  const [novaCategoriaNome, setNovaCategoriaNome] = useState('')
+  const [salvandoCategoria, setSalvandoCategoria] = useState(false)
+  const [erroCategoria, setErroCategoria] = useState<string | null>(null)
+
+  const [criandoSubcategoria, setCriandoSubcategoria] = useState(false)
+  const [novaSubcategoriaNome, setNovaSubcategoriaNome] = useState('')
+  const [novaSubcategoriaEstrutura, setNovaSubcategoriaEstrutura] = useState<EstruturaCustoRecorrente | ''>('')
+  const [salvandoSubcategoria, setSalvandoSubcategoria] = useState(false)
+  const [erroSubcategoria, setErroSubcategoria] = useState<string | null>(null)
+
   useEffect(() => {
     Promise.all([
       apiFetch<LancamentoRecorrente[]>('/lancamentos-recorrentes'),
@@ -83,10 +94,21 @@ export function LancamentosRecorrentesSection() {
     return categorias.find((c) => c.id === id)?.nome ?? 'categoria removida'
   }
 
+  function fecharCriacaoInline() {
+    setCriandoCategoria(false)
+    setNovaCategoriaNome('')
+    setErroCategoria(null)
+    setCriandoSubcategoria(false)
+    setNovaSubcategoriaNome('')
+    setNovaSubcategoriaEstrutura('')
+    setErroSubcategoria(null)
+  }
+
   function iniciarCriacao() {
     setForm(FORM_VAZIO)
     setEditandoId(null)
     setMostrarForm(true)
+    fecharCriacaoInline()
   }
 
   function iniciarEdicao(r: LancamentoRecorrente) {
@@ -104,6 +126,70 @@ export function LancamentosRecorrentesSection() {
     })
     setEditandoId(r.id)
     setMostrarForm(true)
+    fecharCriacaoInline()
+  }
+
+  function escolherCategoria(id: string) {
+    setForm((f) => ({ ...f, categoria_id: id, subcategoria_id: '' }))
+    setCriandoCategoria(false)
+  }
+
+  function escolherSubcategoria(id: string) {
+    // sugestão de estrutura de custo da subcategoria, mesmo padrão do
+    // Novo Lançamento — não se aplica se o padrão for 'investimentos'
+    // (recorrente só aceita fixo/variavel/sazonal, é sempre despesa)
+    const sub = subcategorias.find((s) => s.id === id)
+    const sugestao =
+      sub?.estrutura_custo_padrao && sub.estrutura_custo_padrao !== 'investimentos'
+        ? (sub.estrutura_custo_padrao as EstruturaCustoRecorrente)
+        : null
+    setForm((f) => ({ ...f, subcategoria_id: id, estrutura_custo: sugestao ?? f.estrutura_custo }))
+  }
+
+  async function criarCategoria() {
+    const nome = novaCategoriaNome.trim()
+    if (!nome) return
+    setSalvandoCategoria(true)
+    setErroCategoria(null)
+    try {
+      const nova = await apiFetch<Categoria>('/categorias', {
+        method: 'POST',
+        body: JSON.stringify({ nome, tipo: 'despesa' }),
+      })
+      setCategorias((prev) => [...prev, nova].sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR')))
+      escolherCategoria(nova.id)
+      setNovaCategoriaNome('')
+    } catch (e) {
+      setErroCategoria(e instanceof ApiError ? e.message : 'Falha ao criar categoria.')
+    } finally {
+      setSalvandoCategoria(false)
+    }
+  }
+
+  async function criarSubcategoria() {
+    const nome = novaSubcategoriaNome.trim()
+    if (!nome || !form.categoria_id) return
+    setSalvandoSubcategoria(true)
+    setErroSubcategoria(null)
+    try {
+      const nova = await apiFetch<Subcategoria>('/subcategorias', {
+        method: 'POST',
+        body: JSON.stringify({
+          nome,
+          categoria_id: form.categoria_id,
+          estrutura_custo_padrao: novaSubcategoriaEstrutura || null,
+        }),
+      })
+      setSubcategorias((prev) => [...prev, nova].sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR')))
+      setForm((f) => ({ ...f, subcategoria_id: nova.id }))
+      setNovaSubcategoriaNome('')
+      setNovaSubcategoriaEstrutura('')
+      setCriandoSubcategoria(false)
+    } catch (e) {
+      setErroSubcategoria(e instanceof ApiError ? e.message : 'Falha ao criar subcategoria.')
+    } finally {
+      setSalvandoSubcategoria(false)
+    }
   }
 
   async function toggleAtivo(r: LancamentoRecorrente) {
@@ -237,11 +323,7 @@ export function LancamentosRecorrentesSection() {
             </label>
             <label className="campo">
               Categoria
-              <select
-                required
-                value={form.categoria_id}
-                onChange={(e) => setForm({ ...form, categoria_id: e.target.value, subcategoria_id: '' })}
-              >
+              <select required value={form.categoria_id} onChange={(e) => escolherCategoria(e.target.value)}>
                 <option value="">Selecione…</option>
                 {categorias.map((c) => (
                   <option key={c.id} value={c.id}>
@@ -249,12 +331,56 @@ export function LancamentosRecorrentesSection() {
                   </option>
                 ))}
               </select>
+              <button
+                type="button"
+                className="chip chip-criar chip-solta"
+                onClick={() => setCriandoCategoria((v) => !v)}
+              >
+                + Nova categoria
+              </button>
+              {criandoCategoria && (
+                <div className="chip-form">
+                  <input
+                    type="text"
+                    placeholder="Nome da categoria de despesa"
+                    value={novaCategoriaNome}
+                    onChange={(e) => setNovaCategoriaNome(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault()
+                        criarCategoria()
+                      }
+                    }}
+                    autoFocus
+                  />
+                  <button
+                    type="button"
+                    className="botao-secundario"
+                    disabled={salvandoCategoria || !novaCategoriaNome.trim()}
+                    onClick={criarCategoria}
+                  >
+                    {salvandoCategoria ? 'Criando…' : 'Criar'}
+                  </button>
+                  <button
+                    type="button"
+                    className="chip-cancelar"
+                    onClick={() => {
+                      setCriandoCategoria(false)
+                      setNovaCategoriaNome('')
+                      setErroCategoria(null)
+                    }}
+                  >
+                    Cancelar
+                  </button>
+                  {erroCategoria && <p className="mensagem-erro">{erroCategoria}</p>}
+                </div>
+              )}
             </label>
             <label className="campo">
               Subcategoria
               <select
                 value={form.subcategoria_id}
-                onChange={(e) => setForm({ ...form, subcategoria_id: e.target.value })}
+                onChange={(e) => escolherSubcategoria(e.target.value)}
                 disabled={!form.categoria_id}
               >
                 <option value="">Nenhuma</option>
@@ -264,6 +390,65 @@ export function LancamentosRecorrentesSection() {
                   </option>
                 ))}
               </select>
+              {form.categoria_id && (
+                <button
+                  type="button"
+                  className="chip chip-criar chip-solta"
+                  onClick={() => setCriandoSubcategoria((v) => !v)}
+                >
+                  + Nova subcategoria
+                </button>
+              )}
+              {criandoSubcategoria && (
+                <div className="chip-form">
+                  <input
+                    type="text"
+                    placeholder="Nome da subcategoria"
+                    value={novaSubcategoriaNome}
+                    onChange={(e) => setNovaSubcategoriaNome(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault()
+                        criarSubcategoria()
+                      }
+                    }}
+                    autoFocus
+                  />
+                  <select
+                    value={novaSubcategoriaEstrutura}
+                    onChange={(e) => setNovaSubcategoriaEstrutura(e.target.value as EstruturaCustoRecorrente | '')}
+                    title="Estrutura de custo padrão — sugerida sozinha nos próximos recorrentes com essa subcategoria"
+                  >
+                    <option value="">Estrutura padrão (opcional)</option>
+                    {ESTRUTURAS.filter((e) => e.valor !== 'investimentos').map((e) => (
+                      <option key={e.valor} value={e.valor}>
+                        {e.rotulo}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    className="botao-secundario"
+                    disabled={salvandoSubcategoria || !novaSubcategoriaNome.trim()}
+                    onClick={criarSubcategoria}
+                  >
+                    {salvandoSubcategoria ? 'Criando…' : 'Criar'}
+                  </button>
+                  <button
+                    type="button"
+                    className="chip-cancelar"
+                    onClick={() => {
+                      setCriandoSubcategoria(false)
+                      setNovaSubcategoriaNome('')
+                      setNovaSubcategoriaEstrutura('')
+                      setErroSubcategoria(null)
+                    }}
+                  >
+                    Cancelar
+                  </button>
+                  {erroSubcategoria && <p className="mensagem-erro">{erroSubcategoria}</p>}
+                </div>
+              )}
             </label>
           </div>
 
@@ -324,7 +509,14 @@ export function LancamentosRecorrentesSection() {
             <button type="submit" className="botao-primario" disabled={salvando}>
               {salvando ? 'Salvando…' : editandoId ? 'Salvar alterações' : 'Criar recorrente'}
             </button>
-            <button type="button" className="botao-secundario" onClick={() => setMostrarForm(false)}>
+            <button
+              type="button"
+              className="botao-secundario"
+              onClick={() => {
+                setMostrarForm(false)
+                fecharCriacaoInline()
+              }}
+            >
               Cancelar
             </button>
           </div>
