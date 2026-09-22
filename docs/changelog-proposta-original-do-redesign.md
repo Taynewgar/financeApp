@@ -1290,3 +1290,37 @@ Cor reaproveita `--pareto-cor` (laranja, slot "despesas" da paleta) —
   curva junto com a tabela.
 - [ ] Modo oculto (ícone de privacidade) mascara valor/% na curva do
   Pareto também, igual já faz na tabela.
+
+### Rodada 19.1 (2026-09-22) — fix: % não mascarado no modo oculto (Pareto e Despesas por Categoria)
+
+Usuário testou a Rodada 19 e percebeu que alguns percentuais continuavam
+visíveis com o modo oculto ligado. Causa: `Pareto.tsx` e
+`DespesasPorCategoria.tsx` mascaravam `valor` (via `formatarMoeda(...,
+oculto)`) mas não `percentual`/`percentualAcumulado`, que eram
+renderizados direto (`l.percentual.toFixed(1)}%`), sem passar por
+`oculto`. `ParetoTendenciaChart.tsx` (novo na Rodada 19) já nasceu
+mascarando os dois certo — o bug era só nos 2 componentes mais antigos.
+
+- `components/Pareto.tsx`: colunas `%` e `% acumulado` da tabela.
+- `components/DespesasPorCategoria.tsx`: `title` do tooltip da barra
+  segmentada e o `%` da lista.
+- Mesmo padrão já usado em `TaxaPoupancaChart`/`PercentualExecutadoChart`:
+  `oculto ? '•••' : `${valor.toFixed(1)}%`}`.
+- Também aproveitado pra decidir a dúvida levantada junto: curva do
+  Pareto fica separada da tabela (não sobreposta às barras) — sobrepor
+  misturaria a escala por valor absoluto da barra com a escala por %
+  da curva na mesma área, o dual-axis que a skill de dataviz do projeto
+  veta; confirmado que a implementação da Rodada 19 já segue esse
+  desenho, sem mudança necessária aqui.
+- Sem mudança de backend. Suíte offline: 227 passed (sem alteração).
+  tsc + build + lint limpos (mesmos warnings pré-existentes).
+
+**Checklist de teste manual** (visual, sem cobertura automatizada):
+- [ ] `/graficos` com modo oculto ligado: coluna `%` e `% acumulado` da
+  tabela do Pareto aparecem como `•••`.
+- [ ] Tooltip (hover) na barra segmentada de "Despesas por Categoria"
+  mostra "valores ocultos" em vez de nome + valor + %.
+- [ ] `%` na lista de "Despesas por Categoria" aparece como `•••` com
+  modo oculto ligado.
+- [ ] Desligar o modo oculto volta a mostrar os percentuais normalmente
+  nos 2 componentes.

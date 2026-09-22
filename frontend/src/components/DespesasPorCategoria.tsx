@@ -58,7 +58,11 @@ export function DespesasPorCategoria({ dados }: { dados: DespesaPorCategoria[] }
             key={l.categoria_id}
             className="despesas-categoria-segmento"
             style={{ width: `${l.percentual}%`, background: corDe(l.categoria_id) }}
-            title={`${l.categoria_nome}: ${formatarMoeda(l.valor, oculto)} (${l.percentual.toFixed(1)}%)`}
+            title={
+              oculto
+                ? `${l.categoria_nome}: valores ocultos`
+                : `${l.categoria_nome}: ${formatarMoeda(l.valor, oculto)} (${l.percentual.toFixed(1)}%)`
+            }
           />
         ))}
       </div>
@@ -68,7 +72,7 @@ export function DespesasPorCategoria({ dados }: { dados: DespesaPorCategoria[] }
             <span className="despesas-categoria-swatch" style={{ background: corDe(l.categoria_id) }} />
             <span className="despesas-categoria-nome">{l.categoria_nome}</span>
             <span className="despesas-categoria-valor">{formatarMoeda(l.valor, oculto)}</span>
-            <span className="despesas-categoria-percentual">{l.percentual.toFixed(1)}%</span>
+            <span className="despesas-categoria-percentual">{oculto ? '•••' : `${l.percentual.toFixed(1)}%`}</span>
           </li>
         ))}
       </ul>

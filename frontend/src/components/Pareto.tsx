@@ -68,8 +68,8 @@ export function Pareto({ itens }: { itens: ItemPareto[] }) {
                   </div>
                 </td>
                 <td className="pareto-col-numerica">{formatarMoeda(l.valor, oculto)}</td>
-                <td className="pareto-col-numerica">{l.percentual.toFixed(1)}%</td>
-                <td className="pareto-col-numerica">{l.percentualAcumulado.toFixed(1)}%</td>
+                <td className="pareto-col-numerica">{oculto ? '•••' : `${l.percentual.toFixed(1)}%`}</td>
+                <td className="pareto-col-numerica">{oculto ? '•••' : `${l.percentualAcumulado.toFixed(1)}%`}</td>
               </tr>
             </Fragment>
           ))}
