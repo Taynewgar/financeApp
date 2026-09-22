@@ -2,11 +2,13 @@ import './dashboard.css'
 import { hojeAnoMes, rotuloMesLongo, type Periodo } from '../lib/periodo'
 
 const EXPLICACAO_BASE_MEDIA =
-  '"Até o mês": média só dos meses que já têm lançamento no período. "Ritmo anual": soma do período ÷ 12, contando também meses futuros ainda sem lançamento — mostra o ritmo em relação ao ano cheio, não "quanto é o mês típico".'
+  '"Até o mês": média só dos meses que já têm lançamento no período. "Ritmo anual": soma do período ÷ 12 sempre — mostra o ritmo em relação a um ano cheio, não "quanto é o mês típico".'
 
 /** Mês / Intervalo / Todos os meses + Base da média — mesmo seletor
- * reaproveitado pelo Dashboard e pela tela de Gráficos (ver usePeriodo). */
-export function SeletorPeriodo(periodo: Periodo) {
+ * reaproveitado pelo Dashboard e pela tela de Gráficos (ver usePeriodo).
+ * `mostrarBaseMedia` fica desligado no Dashboard (nenhum KPI lá consome
+ * baseMedia — os gráficos que consomem migraram pra Gráficos). */
+export function SeletorPeriodo(periodo: Periodo & { mostrarBaseMedia?: boolean }) {
   const {
     modoData, setModoData,
     vigenciaMes, setVigenciaMes,
@@ -14,6 +16,7 @@ export function SeletorPeriodo(periodo: Periodo) {
     intervaloFim, setIntervaloFim,
     baseMedia, setBaseMedia,
     primeiroMes,
+    mostrarBaseMedia = true,
   } = periodo
 
   return (
@@ -68,7 +71,7 @@ export function SeletorPeriodo(periodo: Periodo) {
         </p>
       )}
 
-      {modoData !== 'mes' && (
+      {mostrarBaseMedia && (
         <div className="campo" title={EXPLICACAO_BASE_MEDIA}>
           <span style={{ fontSize: 12, color: 'var(--cor-texto-suave)' }}>Base da média</span>
           <div className="segmentado">

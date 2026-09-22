@@ -4,6 +4,7 @@ import { DespesasPorCategoria } from '../components/DespesasPorCategoria'
 import { EvolucaoChart } from '../components/EvolucaoChart'
 import { OrcadoRealizadoChart } from '../components/OrcadoRealizadoChart'
 import { Pareto } from '../components/Pareto'
+import { ParetoTendenciaChart } from '../components/ParetoTendenciaChart'
 import { PercentualExecutadoChart } from '../components/PercentualExecutadoChart'
 import { SeletorPeriodo } from '../components/SeletorPeriodo'
 import { TaxaPoupancaChart } from '../components/TaxaPoupancaChart'
@@ -120,6 +121,34 @@ export function Graficos() {
       <SeletorPeriodo {...periodo} />
 
       {erro && <p className="mensagem-erro">{erro}</p>}
+      {evolucao === null && !erro && <p>Carregando…</p>}
+
+      {evolucao && (
+        <div style={{ marginTop: 20, marginBottom: 24 }}>
+          <h2 style={{ fontSize: 16, marginBottom: 8 }}>Evolução Mensal</h2>
+          <EvolucaoChart meses={evolucao.meses} baseMedia={periodo.baseMedia} />
+          <h3 style={{ fontSize: 13, fontWeight: 600, color: 'var(--cor-texto-suave)', margin: '18px 0 8px' }}>
+            Taxa de poupança mensal
+          </h3>
+          <TaxaPoupancaChart meses={evolucao.meses} baseMedia={periodo.baseMedia} />
+        </div>
+      )}
+
+      {tendenciaOrcamento && (
+        <div style={{ marginTop: 20, marginBottom: 24 }}>
+          <h2 style={{ fontSize: 16, marginBottom: 8 }}>Orçado × Realizado</h2>
+          <OrcadoRealizadoChart meses={tendenciaOrcamento.meses} baseMedia={periodo.baseMedia} />
+          <h3 style={{ fontSize: 13, fontWeight: 600, color: 'var(--cor-texto-suave)', margin: '18px 0 8px' }}>
+            % do orçado executado
+          </h3>
+          <PercentualExecutadoChart meses={tendenciaOrcamento.meses} />
+          <p style={{ marginTop: 10 }}>
+            <Link to={`/estruturas-de-custo?mes=${mesReferencia}`} className="botao-link">
+              Ver detalhe de {rotuloMesLongo(mesReferencia)} em Estrutura de Custo →
+            </Link>
+          </p>
+        </div>
+      )}
 
       <div style={{ marginTop: 20, marginBottom: 24 }}>
         <h2 style={{ fontSize: 16, marginBottom: 8 }}>Pareto de Despesas — {rotuloPeriodoDespesas}</h2>
@@ -155,37 +184,15 @@ export function Graficos() {
           )}
         </div>
         {erroPareto && <p className="mensagem-erro">{erroPareto}</p>}
-        {carregandoPareto ? <p>Carregando…</p> : <Pareto itens={itensPareto} />}
+        {carregandoPareto ? (
+          <p>Carregando…</p>
+        ) : (
+          <>
+            <ParetoTendenciaChart itens={itensPareto} />
+            <Pareto itens={itensPareto} />
+          </>
+        )}
       </div>
-
-      {evolucao === null && !erro && <p>Carregando…</p>}
-
-      {tendenciaOrcamento && (
-        <div style={{ marginTop: 20, marginBottom: 24 }}>
-          <h2 style={{ fontSize: 16, marginBottom: 8 }}>Orçado × Realizado</h2>
-          <OrcadoRealizadoChart meses={tendenciaOrcamento.meses} baseMedia={periodo.baseMedia} />
-          <h3 style={{ fontSize: 13, fontWeight: 600, color: 'var(--cor-texto-suave)', margin: '18px 0 8px' }}>
-            % do orçado executado
-          </h3>
-          <PercentualExecutadoChart meses={tendenciaOrcamento.meses} />
-          <p style={{ marginTop: 10 }}>
-            <Link to={`/estruturas-de-custo?mes=${mesReferencia}`} className="botao-link">
-              Ver detalhe de {rotuloMesLongo(mesReferencia)} em Estrutura de Custo →
-            </Link>
-          </p>
-        </div>
-      )}
-
-      {evolucao && (
-        <div style={{ marginTop: 20, marginBottom: 24 }}>
-          <h2 style={{ fontSize: 16, marginBottom: 8 }}>Evolução Mensal</h2>
-          <EvolucaoChart meses={evolucao.meses} baseMedia={periodo.baseMedia} />
-          <h3 style={{ fontSize: 13, fontWeight: 600, color: 'var(--cor-texto-suave)', margin: '18px 0 8px' }}>
-            Taxa de poupança mensal
-          </h3>
-          <TaxaPoupancaChart meses={evolucao.meses} baseMedia={periodo.baseMedia} />
-        </div>
-      )}
 
       {despesasCategoria && (
         <div>

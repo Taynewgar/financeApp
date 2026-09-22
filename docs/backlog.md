@@ -28,8 +28,10 @@ merecer não ficar misturado com a tabela proposto×implementado tela a tela.
 5. ~~Feature "Gráficos" nova~~ **feita 2026-09-16**, em 3 rodadas (A: tela
    + migração + sparkline, com 2 ajustes extras 16.1/16.2; B: Pareto de
    despesas por categoria/subcategoria; C: tendência de Orçado×Realizado
-   em vários meses, linka pra Estrutura de Custo) — ver changelog pra
-   detalhe completo de cada rodada.
+   em vários meses, linka pra Estrutura de Custo), mais uma Rodada D de
+   refinamento em 2026-09-22 (Base da média sempre visível e com efeito
+   garantido em todo modo, reordenação por tema, curva de % acumulado no
+   Pareto) — ver changelog pra detalhe completo de cada rodada.
 6. ~~Dashboard — 3 KPIs novos~~ **feito 2026-09-16** (ordem invertida com o
    item 5 a pedido do usuário, entregue antes por não ter dependência real
    de Gráficos) — "Meses com resultado negativo", "Resultado acumulado"
@@ -207,7 +209,10 @@ implementado.
 
 **Onde morar:** dentro da nova Feature Gráficos (ver subseção abaixo).
 
-**Status:** registrado 2026-09-15, sem decisão de prioridade de execução.
+**Status:** implementado por completo em 2026-09-22 — tabela (Rodada B,
+2026-09-16) + `ParetoTendenciaChart` complementar (curva de % acumulado,
+eixo Y fixo 0-100%, linha tracejada em 80%, sem duplicar a leitura por
+categoria que a tabela já dá).
 
 ### Feature "Gráficos" — tela nova na navegação
 
@@ -303,12 +308,11 @@ Registradas 2026-09-22, a partir do teste do usuário nas Rodadas B e C da
 feature Gráficos. Nenhuma priorizada ainda — só documentadas pra não se
 perder.
 
-1. **Layout e posicionamento dos gráficos na página** — reorganizar
-   `/graficos` por tema (tendência: Evolução Mensal + Taxa de Poupança +
-   Orçado×Realizado + % executado; composição: Pareto + Despesas por
-   Categoria), em vez da ordem atual intercalada. Ver também os itens 2 e
-   3 do detalhamento da Feature Gráficos acima, que já apontam pra essa
-   reordenação.
+1. ~~**Layout e posicionamento dos gráficos na página**~~ **feito
+   2026-09-22** — `/graficos` reorganizada por tema: Evolução Mensal (+
+   Taxa de Poupança) → Orçado×Realizado (+ % executado) → Pareto de
+   Despesas → Despesas por Categoria fica por último (composição, não
+   tendência). Ver changelog pro detalhe completo desta rodada.
 2. **Cabeçalho fixo por feature, ou botão de ciclar topo↔ponto anterior**
    — qual é melhor pra UX numa página que cresceu (Gráficos já tem 4
    seções). **Só responder quando esta melhoria for implementada** —

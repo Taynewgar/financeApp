@@ -156,7 +156,7 @@ export function Dashboard() {
         <h1 style={{ fontSize: 22, marginTop: 0, marginBottom: 0 }}>Olá, {session?.user.email}</h1>
       </div>
 
-      <SeletorPeriodo {...periodo} />
+      <SeletorPeriodo {...periodo} mostrarBaseMedia={false} />
 
       {erro && <p className="mensagem-erro">{erro}</p>}
 

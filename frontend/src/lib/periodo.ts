@@ -71,10 +71,21 @@ export function usePeriodo() {
 export type Periodo = ReturnType<typeof usePeriodo>
 
 /** "Até o mês": média só dos meses com valor lançado (exclui mês vazio, seja
- * passado sem lançamento ou futuro ainda não navegado). "Ritmo anual": soma
- * ÷ pelo total de meses do período, incluindo os vazios — mostra o ritmo em
- * relação ao período cheio, não "quanto é o mês típico". */
+ * passado sem lançamento ou futuro ainda não navegado).
+ *
+ * "Ritmo anual": soma do período ÷ 12, SEMPRE — não ÷ quantidade de meses
+ * que vieram no array. Antes dividia pelo tamanho do array, o que em
+ * Intervalo/Todos os meses raramente coincidia com 12 mas também raramente
+ * tinha diferença visível de "até o mês" (só divergia se existisse pelo
+ * menos 1 mês exatamente zerado no meio do período) — na prática parecia
+ * "sem efeito". Dividir sempre por 12 garante que os dois modos sempre
+ * produzem números diferentes (a menos que o período tenha exatamente 12
+ * meses, todos com valor) — projeta o total sobre um ano cheio. */
 export function media(valores: number[], baseMedia: BaseMedia): number {
-  const relevantes = baseMedia === 'ate_mes' ? valores.filter((v) => v !== 0) : valores
-  return relevantes.length ? relevantes.reduce((soma, v) => soma + v, 0) / relevantes.length : 0
+  if (baseMedia === 'ate_mes') {
+    const relevantes = valores.filter((v) => v !== 0)
+    return relevantes.length ? relevantes.reduce((soma, v) => soma + v, 0) / relevantes.length : 0
+  }
+  const soma = valores.reduce((total, v) => total + v, 0)
+  return soma / 12
 }

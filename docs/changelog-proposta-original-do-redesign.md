@@ -1211,3 +1211,82 @@ Dashboard, tudo entregue nas rodadas 16-18.
   (não uma coluna de 0%).
 - [ ] O link "Ver detalhe de {mês} em Estrutura de Custo →" abre a tela
   já no mês certo (não no mês atual).
+
+### Rodada 19 (2026-09-22) — Rodada D: refinamento de Gráficos (Base da média, reordenação, curva de Pareto)
+
+Usuário testou as Rodadas B e C, trouxe 4 perguntas de discussão (skill
+`preferencia-projetos`) e aprovou as 3 mudanças recomendadas — a 4ª
+pergunta (Base da média) veio com um requisito adicional na aprovação:
+"garanta que terá efeito sempre, pois antes quando todos os meses era
+selecionado não surtia efeito".
+
+**1. "Base da média" sempre visível, com efeito garantido em todo modo.**
+Antes, o toggle só aparecia em Intervalo/Todos os meses (escondido em
+Mês) — inconsistente, já que os gráficos de Gráficos sempre mostram
+dado multi-mês independente do modo selecionado. Passou a aparecer nos
+3 modos via prop nova `mostrarBaseMedia` em `SeletorPeriodo` (Dashboard
+passa `false`, único lugar que não consome `baseMedia`).
+
+Mais importante: o bug real por trás do "sem efeito" relatado. `media()`
+("Ritmo anual") dividia pela contagem real de meses do array
+(`valores.length`), que em Intervalo/Todos os meses raramente é
+exatamente 12 mas também raramente diverge de "até o mês" (só quando
+existe mês zerado no meio do período) — na prática, os dois modos quase
+sempre davam o mesmo número. Agora "Ritmo anual" divide sempre por `12`
+fixo (soma do período ÷ 12, projetando sobre um ano cheio) — garante
+diferença visível na grande maioria dos períodos, não só nos que têm mês
+zerado.
+
+**2. Reordenação de `/graficos` por tema.** Ordem intercalada anterior
+(Pareto → Orçado×Realizado → Evolução Mensal → Despesas por Categoria)
+não seguia nenhuma lógica de agrupamento. Nova ordem: Evolução Mensal (+
+Taxa de Poupança) → Orçado×Realizado (+ % executado) → Pareto de
+Despesas → Despesas por Categoria — as 3 primeiras são leituras de
+tendência (evolução no tempo), a última é composição (retrato de 1
+período), fica isolada por natureza diferente. O indicador de
+carregamento global também subiu, pra logo depois do seletor de período
+em vez de ficar entre Pareto e Orçado×Realizado.
+
+**3. Curva de % acumulado no Pareto.** A tabela (Rodada B) já mostra o %
+acumulado como coluna numérica, mas não deixa visível o "cotovelo" da
+curva — onde o ganho marginal de cada categoria adicional desce rápido.
+`ParetoTendenciaChart` novo, complementando a tabela (não substituindo):
+gráfico de linha de eixo único (0-100%, sem dual-axis — mesma regra "one
+axis" de sempre), com linha tracejada em 80% marcando o critério
+clássico de Pareto. Sem rótulo de categoria no eixo X (mesmo motivo da
+tabela ir com barra horizontal: nome colide) — a ordem (rank) é a mesma
+da tabela abaixo, hover nomeia a categoria e mostra valor/% do período.
+Cor reaproveita `--pareto-cor` (laranja, slot "despesas" da paleta) —
+"% acumulado" e "despesa" são a mesma entidade.
+
+- Frontend: `lib/periodo.ts` (`media()` redefinida),
+  `components/SeletorPeriodo.tsx` (`mostrarBaseMedia`),
+  `routes/Dashboard.tsx` (passa `mostrarBaseMedia={false}`),
+  `routes/Graficos.tsx` (reordenação de seções + import/render de
+  `ParetoTendenciaChart`), `components/ParetoTendenciaChart.tsx` +
+  `paretoTendenciaChart.css` novos (reaproveita as classes genéricas de
+  `evolucaoChart.css`, com `--grade-cor`/`--eixo-cor` redeclarados no
+  próprio escopo — mesmo cuidado da Rodada 16.1 pra não repetir o bug de
+  grade/eixo sumindo).
+- Sem mudança de backend nesta rodada. Suíte offline: 227 passed (sem
+  alteração). tsc + build + lint limpos (mesmos warnings pré-existentes
+  de antes, nenhum novo nos arquivos tocados).
+
+**Checklist de teste manual** (visual, sem cobertura automatizada):
+- [ ] `/graficos`, modo Mês: "Base da média" aparece no seletor (antes
+  só aparecia em Intervalo/Todos os meses).
+- [ ] Alternar "Até o mês" ↔ "Ritmo anual" com "Todos os meses"
+  selecionado: as linhas/médias tracejadas de Evolução Mensal, Taxa de
+  Poupança e Orçado×Realizado mudam de posição visivelmente (não mais
+  "sem efeito").
+- [ ] Ordem das seções em `/graficos`: Evolução Mensal → Orçado ×
+  Realizado → Pareto de Despesas → Despesas por Categoria (Despesas por
+  Categoria por último).
+- [ ] Seção Pareto mostra a curva de % acumulado (linha) acima da
+  tabela, com linha tracejada em 80%.
+- [ ] Hover num ponto da curva do Pareto mostra tooltip com nome da
+  categoria, valor, % do período e % acumulado.
+- [ ] Trocar "Por categoria" ↔ "Por subcategoria" no Pareto atualiza a
+  curva junto com a tabela.
+- [ ] Modo oculto (ícone de privacidade) mascara valor/% na curva do
+  Pareto também, igual já faz na tabela.
