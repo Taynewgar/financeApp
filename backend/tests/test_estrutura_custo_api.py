@@ -495,6 +495,35 @@ def test_evolucao_orcamento_varios_meses_retorna_um_ponto_por_mes(client):
     assert [m["vigencia_mes"] for m in resposta["meses"]] == ["2026-07-01", "2026-08-01", "2026-09-01"]
 
 
+def test_evolucao_orcamento_compartilha_cache_de_saldo_entre_os_meses_do_periodo(client, monkeypatch):
+    """Perf: sem cache compartilhado entre os meses do loop, cada mês
+    recalculava a cadeia de saldo_anterior inteira do zero (~O(meses²)
+    chamadas ao Supabase — motivo real do "Gráficos demorando", Rodada
+    2026-09-22). Regressão de mecanismo (não de resultado, já coberto pelos
+    testes acima): garante que o loop passa o MESMO dict de cache pra
+    _estrutura_custo_do_mes em todos os meses do período, não um novo a
+    cada iteração."""
+    import app.routers.estrutura_custo as estrutura_custo_router
+
+    caches_vistos = []
+    original = estrutura_custo_router._estrutura_custo_do_mes
+
+    def _espiao(db, user_id, mes_inicio, cache_saldo=None):
+        caches_vistos.append(cache_saldo)
+        return original(db, user_id, mes_inicio, cache_saldo)
+
+    monkeypatch.setattr(estrutura_custo_router, "_estrutura_custo_do_mes", _espiao)
+
+    resposta = client.get(
+        "/estrutura-custo/evolucao/tendencia", params={"inicio": "2026-01-01", "fim": "2026-04-01"}
+    )
+
+    assert resposta.status_code == 200
+    assert len(caches_vistos) == 4  # 1 chamada por mês do período (jan-abr)
+    assert all(cache is not None for cache in caches_vistos)
+    assert all(cache is caches_vistos[0] for cache in caches_vistos)  # mesmo objeto em todos os meses
+
+
 def test_evolucao_orcamento_fim_antes_de_inicio_retorna_422(client):
     resposta = client.get(
         "/estrutura-custo/evolucao/tendencia", params={"inicio": "2026-09-01", "fim": "2026-07-01"}

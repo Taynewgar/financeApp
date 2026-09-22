@@ -71,7 +71,7 @@ export function ParetoTendenciaChart({ itens }: { itens: ItemPareto[] }) {
             <g key={v}>
               <line x1={MARGEM.esquerda} x2={LARGURA - MARGEM.direita} y1={y(v)} y2={y(v)} className="evolucao-grade" />
               <text x={MARGEM.esquerda - 6} y={y(v)} className="evolucao-eixo-texto" textAnchor="end" dominantBaseline="middle">
-                {v}%
+                {oculto ? '•••' : `${v}%`}
               </text>
             </g>
           ))}

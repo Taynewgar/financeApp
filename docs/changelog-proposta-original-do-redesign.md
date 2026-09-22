@@ -1324,3 +1324,53 @@ mascarando os dois certo — o bug era só nos 2 componentes mais antigos.
   modo oculto ligado.
 - [ ] Desligar o modo oculto volta a mostrar os percentuais normalmente
   nos 2 componentes.
+
+### Rodada 19.2 (2026-09-22) — fix: eixo do Pareto sem mascarar + perf de /graficos
+
+Usuário reportou 2 coisas separadas nesta rodada.
+
+**1. Rótulo do eixo Y do `ParetoTendenciaChart` também não mascarava** —
+mesma classe de bug da Rodada 19.1, num 3º lugar: `{v}%` do eixo (0/20/
+40/.../100%) era renderizado direto, sem checar `oculto`. Diferente das
+colunas de tabela (Rodada 19.1), esses valores são marcações fixas de
+escala, não dado real — mas o padrão já estabelecido em
+`TaxaPoupancaChart`/`PercentualExecutadoChart` mascara até o rótulo do
+eixo, então segui o mesmo padrão aqui por consistência.
+
+**2. `/graficos` demorando pra carregar — causa raiz achada e corrigida
+(v1 de 2 propostas).** Não é o bundle do frontend (build normal). É
+`/estrutura-custo/evolucao/tendencia`: pra cada mês do período, recalcula
+`saldo_anterior_ao_vivo` subindo recursivamente a cadeia de orçamentos
+anteriores — e o cache que evita recálculo repetido (`cache_saldo`) era
+recriado do zero a cada mês do loop, em vez de compartilhado entre eles.
+Resultado prático: pedir 12 meses com orçamento configurado ao longo do
+período refazia a subida completa da cadeia 12 vezes, ~O(meses²)
+chamadas HTTP sequenciais ao Supabase em vez de ~O(meses).
+
+Fix: `_estrutura_custo_do_mes()` ganhou parâmetro opcional `cache_saldo`
+(None → cria local, comportamento inalterado de `obter()`, que segue
+1 mês só); `evolucao_orcamento()` cria o cache uma vez fora do loop e
+passa o MESMO dict pra cada mês — meses seguintes reaproveitam o que já
+foi calculado dos meses anteriores em vez de refazer a cadeia inteira.
+
+- `backend/app/routers/estrutura_custo.py`: `cache_saldo` compartilhado.
+- `backend/tests/test_estrutura_custo_api.py`: teste novo de regressão
+  de mecanismo — espiona `_estrutura_custo_do_mes` via monkeypatch e
+  confirma que o loop passa o MESMO objeto de cache em todos os meses do
+  período (não um novo por mês). Verificado manualmente que falha contra
+  o código antigo (revertendo o fix, o teste quebra com `TypeError` —
+  assinatura antiga não aceitava `cache_saldo`).
+- `frontend/src/components/ParetoTendenciaChart.tsx`: eixo Y mascarado.
+- Suíte offline: 228 passed (227 + 1). tsc + build + lint limpos.
+
+**Se ainda estiver lento depois desse fix:** v2 proposta (não
+implementada) seria buscar todos os orçamentos/itens do período numa
+query só em vez de 1 por mês — mudança maior no formato da função,
+só vale a pena se a v1 não resolver na prática.
+
+**Checklist de teste manual** (visual, sem cobertura automatizada):
+- [ ] `/graficos`, seção Pareto, modo oculto ligado: rótulos do eixo Y
+  da curva (0%/20%/.../100%) aparecem como `•••`.
+- [ ] `/graficos` com um período de vários meses (Intervalo ou Todos os
+  meses, com orçamento configurado em vários deles) carrega
+  perceptivelmente mais rápido que antes desta rodada.

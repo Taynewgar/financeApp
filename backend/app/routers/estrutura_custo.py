@@ -65,12 +65,24 @@ def _chave(registro: dict, campo_conta: str) -> tuple[str, str | None]:
     return ("sem_vinculo", None)
 
 
-def _estrutura_custo_do_mes(db: Client, user_id: str, mes_inicio: date) -> dict:
+def _estrutura_custo_do_mes(
+    db: Client, user_id: str, mes_inicio: date, cache_saldo: dict | None = None
+) -> dict:
     """Compara orçado x realizado do mês, agrupado pelos mesmos buckets do
     orçamento. Funciona mesmo sem orçamento configurado para o mês (orcado
     fica 0) — a leitura de realizado não depende de planejamento prévio.
     Extraído de obter() pra ser reaproveitado por /evolucao (1 chamada por
-    mês do período pedido)."""
+    mês do período pedido).
+
+    `cache_saldo` é repassado pra saldo_anterior_ao_vivo (chave inclui o
+    mês, então serve pros dois casos: cache local de 1 chamada, quando None
+    (comportamento de obter()), ou cache COMPARTILHADO entre os meses de um
+    período, quando /evolucao/tendencia passa o mesmo dict pra cada mês do
+    loop — evita recalcular a cadeia de saldo_anterior inteira do zero a
+    cada mês (perf: virava ~O(meses²) chamadas ao Supabase, ver Rodada
+    2026-09-22)."""
+    if cache_saldo is None:
+        cache_saldo = {}
     mes_fim = somar_meses(mes_inicio, 1)
 
     orcamento_result = (
@@ -95,7 +107,6 @@ def _estrutura_custo_do_mes(db: Client, user_id: str, mes_inicio: date) -> dict:
             .execute()
             .data
         )
-        cache_saldo: dict = {}
         for item in itens_orcamento:
             # saldo_anterior recalculado ao vivo, não a coluna gravada —
             # mesmo motivo de orcamentos._enriquecer_item: fica congelado
@@ -225,8 +236,12 @@ def evolucao_orcamento(
 
     meses = []
     mes_atual = mes_inicio
+    # cache compartilhado entre TODOS os meses do período — sem isso, cada
+    # mês recalcula a cadeia de saldo_anterior inteira do zero (perf: ver
+    # docstring de _estrutura_custo_do_mes)
+    cache_saldo: dict = {}
     while mes_atual <= mes_fim:
-        estrutura = _estrutura_custo_do_mes(db, user_id, mes_atual)
+        estrutura = _estrutura_custo_do_mes(db, user_id, mes_atual, cache_saldo)
         buckets_por_nome = {b["bucket"]: b for b in estrutura["buckets"]}
         orcado = round(sum(buckets_por_nome[b]["orcado"] for b in _BUCKETS_POOL), 2)
         realizado = round(sum(buckets_por_nome[b]["realizado"] for b in _BUCKETS_POOL), 2)
