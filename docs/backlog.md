@@ -80,6 +80,9 @@ depois do MVP:
     editar o `> Status:` por cima como hoje — histórico fica honesto, mas
     com mais arquivos pra navegar. Mesma origem e confirmação do item 14.
     *(2026-09-16)*
+16. **Melhorias pós-MVP na tela Gráficos e na casca do app** — registradas
+    2026-09-22, a pedido do usuário, pra decidir quando essa fase chegar
+    (não agora). Detalhe de cada uma na subseção própria abaixo.
 
 Este arquivo não substitui o `README.md` da raiz (que descreve o que
 existe) nem o `/status-projeto` (relatório de andamento) — é o registro do
@@ -293,6 +296,31 @@ outra ferramenta) — não é primariamente um relatório bonito pra imprimir,
 **Status:** registrado 2026-09-15 a pedido explícito do usuário, como
 próximo passo pós-MVP, local de disparo já decidido. Falta só o formato
 exato do JSON quando for priorizado.
+
+### Melhorias pós-MVP na tela Gráficos e na casca do app
+
+Registradas 2026-09-22, a partir do teste do usuário nas Rodadas B e C da
+feature Gráficos. Nenhuma priorizada ainda — só documentadas pra não se
+perder.
+
+1. **Layout e posicionamento dos gráficos na página** — reorganizar
+   `/graficos` por tema (tendência: Evolução Mensal + Taxa de Poupança +
+   Orçado×Realizado + % executado; composição: Pareto + Despesas por
+   Categoria), em vez da ordem atual intercalada. Ver também os itens 2 e
+   3 do detalhamento da Feature Gráficos acima, que já apontam pra essa
+   reordenação.
+2. **Cabeçalho fixo por feature, ou botão de ciclar topo↔ponto anterior**
+   — qual é melhor pra UX numa página que cresceu (Gráficos já tem 4
+   seções). **Só responder quando esta melhoria for implementada** —
+   pedido explícito do usuário pra não decidir prematuramente.
+3. **Janela de meses pra trás × ano civil (jan-dez) nos gráficos** —
+   hoje o modo "Mês" em `/graficos` mostra N meses pra trás contando do
+   mês selecionado (12, ver Rodada 16.2). Repensar se um ano civil fixo
+   (janeiro-dezembro) seria mais legível — decidir quando esta fase de
+   melhoria chegar.
+4. **Barra lateral de navegação não deve sumir ao rolar** — hoje
+   acompanha o scroll do corpo da página (comportamento não intencional,
+   a confirmar onde exatamente isso acontece antes de corrigir).
 
 ---
 
