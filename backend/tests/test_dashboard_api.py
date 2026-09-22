@@ -282,6 +282,56 @@ def test_evolucao_acumula_resultado_entre_meses(client):
     assert meses[1]["resultado_saude_acumulado"] == 900
 
 
+def test_evolucao_busca_transacoes_do_periodo_em_lote_nao_por_mes(client, db_store):
+    """Perf (mesmo fix de estrutura_custo.evolucao_orcamento, Rodada
+    2026-09-22): antes era 1 SELECT em transacoes POR MÊS do período —
+    ~O(meses) idas e voltas sequenciais ao Supabase. Agora é 1 SELECT pro
+    período inteiro, agrupado em memória. Conta quantas vezes
+    `db.table(...)` é chamado numa requisição de 6 meses — tem que ficar
+    constante (1), não crescer com a quantidade de meses."""
+    from app.auth import get_db
+    from app.main import app
+
+    from .fakes import FakeSupabaseClient
+
+    conta = _conta(client)
+    categoria_id = _categoria(client)
+    for mes in range(1, 7):
+        client.post(
+            "/transacoes",
+            json={
+                "data_compra": f"2026-{mes:02d}-05",
+                "valor": 700,
+                "tipo_movimento": "despesa",
+                "conta_id": conta["id"],
+                "categoria_id": categoria_id,
+                "estrutura_custo": "variavel",
+                "meio_pagamento": "pix",
+            },
+        )
+
+    class _ContadorClient:
+        def __init__(self, store):
+            self._inner = FakeSupabaseClient(store)
+            self.chamadas: list[str] = []
+
+        def table(self, nome):
+            self.chamadas.append(nome)
+            return self._inner.table(nome)
+
+    contador = _ContadorClient(db_store)
+    app.dependency_overrides[get_db] = lambda: contador
+    try:
+        resposta = client.get("/dashboard/evolucao", params={"inicio": "2026-01-01", "fim": "2026-06-01"})
+    finally:
+        app.dependency_overrides[get_db] = lambda: FakeSupabaseClient(db_store)
+
+    assert resposta.status_code == 200
+    assert len(resposta.json()["meses"]) == 6
+    # sem o fix seriam pelo menos 6 (1 × 6 meses)
+    assert contador.chamadas == ["transacoes"]
+
+
 def test_evolucao_com_fim_antes_de_inicio_retorna_422(client):
     resposta = client.get("/dashboard/evolucao", params={"inicio": "2026-09-01", "fim": "2026-08-01"})
     assert resposta.status_code == 422

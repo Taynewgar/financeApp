@@ -1374,3 +1374,84 @@ só vale a pena se a v1 não resolver na prática.
 - [ ] `/graficos` com um período de vários meses (Intervalo ou Todos os
   meses, com orçamento configurado em vários deles) carrega
   perceptivelmente mais rápido que antes desta rodada.
+
+### Rodada 19.3 (2026-09-22) — perf v2: /graficos busca o período inteiro em vez de mês a mês
+
+Usuário testou a v1 (Rodada 19.2) e reportou "continua lento". Causa: v1
+só cortava o crescimento QUADRÁTICO (cache de saldo_anterior
+compartilhado entre meses), mas `/estrutura-custo/evolucao/tendencia` e
+`/dashboard/evolucao` continuavam fazendo pelo menos 1 SELECT por mês do
+período, sequencial, dentro de um loop Python — pra 12 meses, isso
+sozinho já são 12+ idas e voltas de rede ao Supabase, cada uma com
+latência real. v1 resolvia o pior caso (cadeia de orçamento longa), não
+o caso comum.
+
+**v2: busca o período inteiro numa quantidade fixa de queries, agrupa em
+memória.** Aplicado nos 2 endpoints com esse formato:
+
+- **`/estrutura-custo/evolucao/tendencia`** — antes: 3 SELECTs
+  (orçamento, itens, transações) por mês do loop. Agora: 1 SELECT de
+  todos os orçamentos do usuário (não só do período — a cadeia de
+  saldo_anterior pode subir antes de `inicio`; custo desprezível, no
+  máximo 1 linha por mês já orçado alguma vez), 1 SELECT em lote dos
+  itens desses orçamentos (`.in_(orcamento_id, [...])`), 1 SELECT das
+  transações do período inteiro (desde o orçamento mais antigo, se for
+  anterior a `inicio`). Todo o resto — inclusive a recursão de
+  saldo_anterior — passou a rodar 100% em memória sobre esses 3
+  resultados, sem nenhuma consulta a mais dentro do loop.
+- **`/dashboard/evolucao`** — mesmo formato de problema (sem a recursão):
+  1 SELECT em transações por mês → 1 SELECT do período inteiro, agrupado
+  por mês em Python antes de `calcular_resumo()` (já era uma função
+  pura, só precisava parar de ser chamada com dado buscado 1 mês por
+  vez).
+
+**Refactor de `estrutura_custo.py`:** a agregação (montar buckets,
+pool_despesas, piso_investimentos) virou uma função pura,
+`_agregar_estrutura_custo()`, que recebe os dados já carregados e uma
+função `saldo_anterior_de(item)` injetada pelo chamador — `obter()`
+(1 mês) continua batendo no banco a cada chamada via
+`saldo_anterior_ao_vivo()`; `evolucao_orcamento()` usa a nova
+`saldo_anterior_em_lote()` (`services/orcamento_saldo.py`), que reproduz
+a mesma conta recursiva mas 100% sobre dicionários em memória, sem
+`db`. Mesmo dado, dois jeitos de buscar.
+
+- `backend/app/services/orcamento_saldo.py`: `saldo_anterior_em_lote()` +
+  2 helpers (`calcular_realizado_item_em_lote`,
+  `_item_equivalente_no_mes_em_lote`) — mesma lógica de
+  `saldo_anterior_ao_vivo`/`calcular_realizado_item`/
+  `_item_equivalente_no_mes`, sem consulta ao banco.
+- `backend/app/routers/estrutura_custo.py`: `_agregar_estrutura_custo()`
+  extraída; `_estrutura_custo_do_mes()` (1 mês, banco) e
+  `_estrutura_custo_do_mes_em_lote()` (memória) chamam a mesma agregação
+  injetando a função de saldo certa; `evolucao_orcamento()` pré-carrega
+  o período inteiro antes do loop.
+- `backend/app/routers/dashboard.py`: `evolucao_mensal()` busca as
+  transações do período inteiro numa query e agrupa por mês antes de
+  chamar `calcular_resumo()`.
+- `backend/tests/fakes.py`: `FakeQuery.in_()` — faltava no dublê de
+  Supabase pra testar `.in_("orcamento_id", [...])`.
+- Testes novos, verificando a PERF de verdade (não só o resultado, já
+  coberto pelos testes existentes): contam quantas vezes `db.table(...)`
+  é chamado numa requisição de 6 meses com orçamento encadeado — tem que
+  ficar constante (3 e 1, respectivamente), não crescer com a
+  quantidade de meses. Confirmei manualmente que os dois falham contra o
+  código anterior (revertendo o fix, viram 18+ e 6 chamadas). Suíte
+  offline: 230 passed (228 + 2). tsc/build/lint não se aplicam — rodada
+  100% backend.
+
+**Se ainda estiver lento depois desse fix:** não deveria — o número de
+queries por requisição agora é CONSTANTE, não cresce mais com o tamanho
+do período. Se acontecer, o próximo suspeito é o cold start do Render
+(plano gratuito, já tem aviso na tela) ou o volume de dados em si
+(muitas transações/itens de orçamento na conta), não mais o formato da
+query.
+
+**Checklist de teste manual** (visual, sem cobertura automatizada):
+- [ ] `/graficos` com "Todos os meses" ou um Intervalo longo (vários
+  meses, com orçamento configurado neles) carrega visivelmente mais
+  rápido que na Rodada 19.2.
+- [ ] Os números batem com antes (Orçado × Realizado, % executado,
+  Evolução Mensal, Taxa de Poupança) — o resultado não deve ter mudado,
+  só a velocidade.
+- [ ] `/estruturas-de-custo/{mês}` (leitura de 1 mês só) continua
+  funcionando normalmente — não foi tocada por este refactor.

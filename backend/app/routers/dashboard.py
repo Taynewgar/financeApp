@@ -65,12 +65,34 @@ def evolucao_mensal(
     if total_meses > _MESES_MAXIMO_NA_EVOLUCAO:
         raise HTTPException(status_code=422, detail=f"Intervalo maior que {_MESES_MAXIMO_NA_EVOLUCAO} meses")
 
+    # busca o período INTEIRO numa query só (perf — antes era 1 SELECT em
+    # transacoes POR MÊS do loop, ~O(meses) idas e voltas sequenciais ao
+    # Supabase; ver Rodada 2026-09-22, mesmo motivo do fix em
+    # estrutura_custo.evolucao_orcamento) e agrupa por mês em Python antes
+    # de agregar cada um com calcular_resumo (já é uma função pura, não
+    # depende do banco).
+    mes_fim_exclusivo = somar_meses(mes_fim, 1)
+    todas_transacoes = (
+        db.table("transacoes")
+        .select("valor,tipo_movimento,ajuste_de_transacao_id,caixinha_id,data_compra")
+        .eq("user_id", user_id)
+        .gte("data_compra", mes_inicio.isoformat())
+        .lt("data_compra", mes_fim_exclusivo.isoformat())
+        .execute()
+        .data
+    )
+    transacoes_por_mes: dict[str, list[dict]] = {}
+    for t in todas_transacoes:
+        chave_mes = f"{t['data_compra'][:7]}-01"
+        transacoes_por_mes.setdefault(chave_mes, []).append(t)
+
     resultado_acumulado = 0.0
     receita_ajustada_acumulada = 0.0
     meses = []
     mes_atual = mes_inicio
     while mes_atual <= mes_fim:
-        resumo = _resumo_do_mes(db, user_id, mes_atual)
+        resumo = calcular_resumo(transacoes_por_mes.get(mes_atual.isoformat(), []))
+        resumo["vigencia_mes"] = mes_atual.isoformat()
         receita_ajustada = resumo.pop("_receita_ajustada")
         resultado_acumulado = round(resultado_acumulado + resumo["resultado_saude"], 2)
         receita_ajustada_acumulada = round(receita_ajustada_acumulada + receita_ajustada, 2)

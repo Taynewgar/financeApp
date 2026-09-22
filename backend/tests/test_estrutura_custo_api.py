@@ -496,23 +496,23 @@ def test_evolucao_orcamento_varios_meses_retorna_um_ponto_por_mes(client):
 
 
 def test_evolucao_orcamento_compartilha_cache_de_saldo_entre_os_meses_do_periodo(client, monkeypatch):
-    """Perf: sem cache compartilhado entre os meses do loop, cada mês
-    recalculava a cadeia de saldo_anterior inteira do zero (~O(meses²)
-    chamadas ao Supabase — motivo real do "Gráficos demorando", Rodada
-    2026-09-22). Regressão de mecanismo (não de resultado, já coberto pelos
-    testes acima): garante que o loop passa o MESMO dict de cache pra
-    _estrutura_custo_do_mes em todos os meses do período, não um novo a
-    cada iteração."""
+    """Perf (v1, mecanismo em memória): garante que o loop passa o MESMO
+    dict de cache pra _estrutura_custo_do_mes_em_lote em todos os meses do
+    período, não um novo a cada iteração — evita refazer a subida da
+    cadeia de saldo_anterior em memória mais de uma vez pro mesmo item+mês
+    (ver saldo_anterior_em_lote). A perf de banco em si (v2: período
+    inteiro em poucas queries, não 1 por mês) é coberta pelo teste
+    seguinte."""
     import app.routers.estrutura_custo as estrutura_custo_router
 
     caches_vistos = []
-    original = estrutura_custo_router._estrutura_custo_do_mes
+    original = estrutura_custo_router._estrutura_custo_do_mes_em_lote
 
-    def _espiao(db, user_id, mes_inicio, cache_saldo=None):
+    def _espiao(mes_inicio, orcamento_por_mes, itens_por_orcamento_id, transacoes_por_mes, cache_saldo):
         caches_vistos.append(cache_saldo)
-        return original(db, user_id, mes_inicio, cache_saldo)
+        return original(mes_inicio, orcamento_por_mes, itens_por_orcamento_id, transacoes_por_mes, cache_saldo)
 
-    monkeypatch.setattr(estrutura_custo_router, "_estrutura_custo_do_mes", _espiao)
+    monkeypatch.setattr(estrutura_custo_router, "_estrutura_custo_do_mes_em_lote", _espiao)
 
     resposta = client.get(
         "/estrutura-custo/evolucao/tendencia", params={"inicio": "2026-01-01", "fim": "2026-04-01"}
@@ -522,6 +522,75 @@ def test_evolucao_orcamento_compartilha_cache_de_saldo_entre_os_meses_do_periodo
     assert len(caches_vistos) == 4  # 1 chamada por mês do período (jan-abr)
     assert all(cache is not None for cache in caches_vistos)
     assert all(cache is caches_vistos[0] for cache in caches_vistos)  # mesmo objeto em todos os meses
+
+
+def test_evolucao_orcamento_busca_dados_do_periodo_em_lote_nao_por_mes(client, db_store):
+    """Perf (v2, o que de fato resolveu "Gráficos continua lento" — Rodada
+    2026-09-22): antes eram 3 SELECTs (orçamento, itens, transações) POR
+    MÊS do período dentro de um loop Python — ~O(meses) idas e voltas
+    sequenciais ao Supabase, cada uma com latência real de rede. Agora
+    busca o período inteiro em poucas queries e agrupa em memória. Testa
+    isso de verdade: conta quantas vezes `db.table(...)` é chamado numa
+    requisição de 6 meses com orçamento encadeado (cadeia de
+    saldo_anterior de verdade, não só meses vazios) — tem que ficar
+    constante, não crescer com a quantidade de meses."""
+    from app.auth import get_db
+    from app.main import app
+
+    from .fakes import FakeSupabaseClient
+
+    conta = client.post("/contas", json={"nome": "Conta", "tipo_conta": "corrente"}).json()
+    categoria = client.post("/categorias", json={"nome": "Aluguel"}).json()
+    orcamento = client.post(
+        "/orcamentos", json={"vigencia_mes": "2026-01-01", "receita_base": 10000, "percentual_geral": 100}
+    ).json()
+    client.post(
+        f"/orcamentos/{orcamento['id']}/itens",
+        json={"bucket": "custos_fixos", "categoria_id": categoria["id"], "orcamento_mensal": 1000},
+    )
+    # encadeia 6 meses via "gerar próximo mês" (jan-jun), mesma categoria
+    # em todo mundo — é isso que faz a cadeia de saldo_anterior existir de
+    # verdade (senão o teste passaria mesmo sem o fix, por falta de dado)
+    for mes in range(1, 6):
+        client.post(
+            "/transacoes",
+            json={
+                "data_compra": f"2026-{mes:02d}-05",
+                "valor": 700,
+                "tipo_movimento": "despesa",
+                "conta_id": conta["id"],
+                "categoria_id": categoria["id"],
+                "estrutura_custo": "fixo",
+                "meio_pagamento": "pix",
+            },
+        )
+        orcamento = client.post(f"/orcamentos/{orcamento['id']}/proximo-mes").json()
+
+    class _ContadorClient:
+        def __init__(self, store):
+            self._inner = FakeSupabaseClient(store)
+            self.chamadas: list[str] = []
+
+        def table(self, nome):
+            self.chamadas.append(nome)
+            return self._inner.table(nome)
+
+    contador = _ContadorClient(db_store)
+    app.dependency_overrides[get_db] = lambda: contador
+    try:
+        resposta = client.get(
+            "/estrutura-custo/evolucao/tendencia", params={"inicio": "2026-01-01", "fim": "2026-06-01"}
+        )
+    finally:
+        app.dependency_overrides[get_db] = lambda: FakeSupabaseClient(db_store)
+
+    assert resposta.status_code == 200
+    # 3 no total (orcamentos + orcamento_itens + transacoes), não 1 grupo
+    # dessas por mês — sem o fix seriam pelo menos 18 (3 × 6 meses)
+    assert contador.chamadas.count("orcamentos") == 1
+    assert contador.chamadas.count("orcamento_itens") == 1
+    assert contador.chamadas.count("transacoes") == 1
+    assert len(contador.chamadas) == 3
 
 
 def test_evolucao_orcamento_fim_antes_de_inicio_retorna_422(client):

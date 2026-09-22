@@ -167,3 +167,98 @@ def saldo_anterior_ao_vivo(
     resultado = round(disponivel_anterior - realizado_anterior, 2)
     cache[chave_cache] = resultado
     return resultado
+
+
+def calcular_realizado_item_em_lote(item: dict, transacoes_do_mes: list[dict]) -> float:
+    """Mesma regra de calcular_realizado_item (subcategoria > categoria >
+    conta vinculada, excluindo de "só categoria" o que já tem subcategoria
+    própria), mas filtrando em memória sobre uma lista de transações do mês
+    JÁ CARREGADA, em vez de consultar o banco — usado por
+    /estrutura-custo/evolucao/tendencia, que pré-carrega o período inteiro
+    de uma vez (ver saldo_anterior_em_lote)."""
+    if item.get("subcategoria_id"):
+        linhas = [t for t in transacoes_do_mes if t.get("subcategoria_id") == item["subcategoria_id"]]
+    elif item.get("categoria_id"):
+        linhas = [
+            t
+            for t in transacoes_do_mes
+            if t.get("categoria_id") == item["categoria_id"] and not t.get("subcategoria_id")
+        ]
+    elif item.get("conta_vinculada_id"):
+        linhas = [t for t in transacoes_do_mes if t.get("conta_id") == item["conta_vinculada_id"]]
+    else:
+        return 0.0
+
+    total = sum(_SINAL_REALIZADO.get(t["tipo_movimento"], 0) * t["valor"] for t in linhas)
+    return round(total, 2)
+
+
+def _item_equivalente_no_mes_em_lote(itens_do_orcamento: list[dict], item: dict) -> dict | None:
+    """Mesma busca de _item_equivalente_no_mes ("mesmo envelope" em outro
+    mês: mesmo bucket + mesmo vínculo), sobre uma lista de itens já
+    carregada em vez de consultar o banco."""
+    if item.get("subcategoria_id"):
+        chave = ("subcategoria_id", item["subcategoria_id"])
+    elif item.get("categoria_id"):
+        chave = ("categoria_id", item["categoria_id"])
+    elif item.get("conta_vinculada_id"):
+        chave = ("conta_vinculada_id", item["conta_vinculada_id"])
+    else:
+        return None
+
+    campo, valor = chave
+    for candidato in itens_do_orcamento:
+        if candidato.get("bucket") == item["bucket"] and candidato.get(campo) == valor:
+            return candidato
+    return None
+
+
+def saldo_anterior_em_lote(
+    item: dict,
+    vigencia_mes_item: date,
+    orcamento_por_mes: dict[str, dict],
+    itens_por_orcamento_id: dict[str, list[dict]],
+    transacoes_por_mes: dict[str, list[dict]],
+    cache: dict[tuple, float],
+) -> float:
+    """Mesmo cálculo recursivo de saldo_anterior_ao_vivo (mesma regra,
+    mesmo racional — ver docstring acima), mas 100% em memória sobre dados
+    pré-carregados em lote pra um período inteiro, sem nenhuma consulta ao
+    banco. Usado por /estrutura-custo/evolucao/tendencia: pedir vários
+    meses de uma vez não pode custar 1 ida-e-volta ao Supabase por mês (era
+    o gargalo real de "Gráficos" demorando — ver Rodada 2026-09-22)."""
+    sem_vinculo = not (item.get("subcategoria_id") or item.get("categoria_id") or item.get("conta_vinculada_id"))
+    if sem_vinculo:
+        return item.get("saldo_anterior", 0)
+
+    chave_cache = (
+        item.get("bucket"),
+        item.get("categoria_id"),
+        item.get("subcategoria_id"),
+        item.get("conta_vinculada_id"),
+        vigencia_mes_item.isoformat(),
+    )
+    if chave_cache in cache:
+        return cache[chave_cache]
+
+    mes_anterior = somar_meses(vigencia_mes_item, -1)
+    orcamento_anterior = orcamento_por_mes.get(mes_anterior.isoformat())
+    if orcamento_anterior is None:
+        cache[chave_cache] = 0.0
+        return 0.0
+
+    item_anterior = _item_equivalente_no_mes_em_lote(itens_por_orcamento_id.get(orcamento_anterior["id"], []), item)
+    if item_anterior is None:
+        cache[chave_cache] = 0.0
+        return 0.0
+
+    saldo_do_anterior = saldo_anterior_em_lote(
+        item_anterior, mes_anterior, orcamento_por_mes, itens_por_orcamento_id, transacoes_por_mes, cache
+    )
+    disponivel_anterior = round(item_anterior["orcamento_mensal"] + saldo_do_anterior, 2)
+    realizado_anterior = calcular_realizado_item_em_lote(
+        item_anterior, transacoes_por_mes.get(mes_anterior.isoformat(), [])
+    )
+    resultado = round(disponivel_anterior - realizado_anterior, 2)
+    cache[chave_cache] = resultado
+    return resultado

@@ -84,6 +84,10 @@ class FakeQuery:
         self._filters.append(("is", key, value))
         return self
 
+    def in_(self, key: str, values: list[Any]) -> "FakeQuery":
+        self._filters.append(("in", key, values))
+        return self
+
     def order(self, key: str, desc: bool = False) -> "FakeQuery":
         self._order_key = key
         self._order_desc = desc
@@ -105,6 +109,8 @@ class FakeQuery:
             if op == "ilike" and value not in (atual or "").lower():
                 return False
             if op == "is" and atual is not None:
+                return False
+            if op == "in" and atual not in value:
                 return False
         return True
 
