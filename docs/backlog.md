@@ -498,10 +498,16 @@ próximo pedido.
 Context React por tela, montado no `AppShell` (que fica montado o tempo
 todo — só o `<Outlet/>` troca entre rotas), sem `sessionStorage`/
 `localStorage` (não precisa sobreviver a fechar a aba, só à navegação
-dentro do app). Escopo confirmado com o usuário: as 4 telas com filtro/
-período (Lançamentos, Gráficos, Estrutura de Custo, Planejamento) — não
-só o exemplo original (Lançamentos↔Planejamento). Ver changelog Rodada
-24 pro detalhe técnico completo.
+dentro do app). Escopo final: **5 telas** — Lançamentos, Gráficos,
+Estrutura de Custo, Planejamento e Dashboard (Dashboard ficou de fora do
+escopo confirmado inicialmente por engano meu, corrigido no mesmo dia —
+Rodada 24.1). Bug real achado e corrigido no mesmo dia (Rodada 24.1):
+o efeito que aplica `?mes=` (drill-down vindo de Gráficos) em Estrutura
+de Custo dependia do objeto `searchParams` inteiro, que o react-router
+recria a cada render mesmo sem navegação — sobrescrevia cliques nas
+setas de mês sempre que a URL ainda carregava o `?mes=` antigo; corrigido
+pra depender só do valor (string). Ver changelog Rodadas 24/24.1 pro
+detalhe técnico completo.
 
 ### Filtro específico pra recorrentes
 

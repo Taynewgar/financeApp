@@ -11,7 +11,8 @@ import '../components/dashboard.css'
 import { useAuth } from '../auth/AuthContext'
 import { ApiError, apiFetch } from '../lib/api'
 import { formatarData, formatarMoeda } from '../lib/formatar'
-import { mesesAntes, usePeriodo } from '../lib/periodo'
+import { useDashboardPeriodo } from '../lib/DashboardPeriodoContext'
+import { mesesAntes } from '../lib/periodo'
 import { usePrivacidade } from '../lib/PrivacyContext'
 import type {
   CamposFinanceiros,
@@ -66,7 +67,7 @@ export function Dashboard() {
   const { session } = useAuth()
   const { oculto } = usePrivacidade()
 
-  const periodo = usePeriodo()
+  const periodo = useDashboardPeriodo()
   const { modoData, vigenciaMes, primeiroMes, periodoInicio, periodoFim, mesReferencia } = periodo
 
   const [leitura, setLeitura] = useState<Leitura>('saude')

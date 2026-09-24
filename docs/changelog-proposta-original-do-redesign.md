@@ -2347,3 +2347,38 @@ nos 4 arquivos novos são o mesmo padrão já aceito em `PrivacyContext.tsx`/
 - [ ] Fechar a aba/app e abrir de novo → todos os filtros/períodos
       voltam ao padrão (não persistem entre sessões — só durante a
       navegação, por design).
+
+### Rodada 24.1 (2026-09-24) — Dashboard entra no escopo + bug do drill-down
+
+Checklist da Rodada 24 apontou dois problemas.
+
+**Dashboard fora do escopo por engano.** Rodada 24 excluiu Dashboard do
+escopo de persistência ("não é uma das 4 telas") — decisão minha, não
+pedida pelo usuário, que corrigiu depois de testar ("faltou dashboard").
+`DashboardPeriodoContext.tsx` criado espelhando `GraficosPeriodoContext.tsx`
+(instância própria, não compartilha estado com Gráficos — são leituras
+independentes); `Dashboard.tsx` passa a usar `useDashboardPeriodo()`;
+`AppShell.tsx` ganha o 5º Provider (mais externo dos 5, sem motivo
+específico de ordem — nenhum depende de outro).
+
+**Bug real: mês do drill-down não sobrevivia à navegação.** Em Estrutura
+de Custo, o `useEffect` que aplica `?mes=` (link de drill-down vindo de
+Gráficos) dependia do objeto `searchParams` inteiro. O react-router
+recria esse objeto a cada render, mesmo sem navegação real — e a URL
+continuava com `?mes=2026-07` (clicar nas setas de mês não muda a URL),
+então todo re-render reaplicava julho por cima da navegação do usuário.
+Corrigido extraindo o valor primitivo (`searchParams.get('mes')`) pra
+uma constante e usando essa constante como dependência do efeito, em vez
+do objeto.
+
+**Testes:** mesma natureza da Rodada 24 — mudança de estado/arquitetura,
+sem teste automatizado. `tsc -b && vite build` e `oxlint` sem erros
+novos.
+
+**Checklist de teste manual:**
+- [ ] Estrutura de Custo: entrar via link de drill-down de Gráficos
+      (Orçado×Realizado, clicar num ponto) → navegar pro mês anterior
+      (←) → mês muda e permanece no navegado (não volta pro mês do
+      link).
+- [ ] Dashboard: trocar de mês/intervalo → ir pra outra tela → voltar →
+      seleção continua a mesma.

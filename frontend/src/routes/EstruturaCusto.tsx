@@ -278,14 +278,17 @@ export function EstruturaCusto() {
   const { oculto } = usePrivacidade()
   // ?mes=YYYY-MM permite chegar direto num mês específico (link da tendência
   // de Orçado×Realizado em Gráficos) — sobrepõe o mês persistido (contexto,
-  // sobrevive à navegação) só quando o param vem preenchido
+  // sobrevive à navegação) só quando o param vem preenchido. Depende do
+  // VALOR (string), não do objeto `searchParams` — esse é recriado a cada
+  // render mesmo sem navegação real, e depender dele reaplicava o mês do
+  // link toda vez que a URL ainda tinha ?mes=..., sobrescrevendo cliques
+  // nas setas de navegação de mês (bug reportado 2026-09-24).
   const [searchParams] = useSearchParams()
+  const mesDoLink = searchParams.get('mes')
   const { vigenciaMes, setVigenciaMes } = useEstruturaCustoMes()
   useEffect(() => {
-    const mes = searchParams.get('mes')
-    if (mes) setVigenciaMes(mes)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams])
+    if (mesDoLink) setVigenciaMes(mesDoLink)
+  }, [mesDoLink, setVigenciaMes])
   const [dados, setDados] = useState<EstruturaCustoMes | null>(null)
   const [categorias, setCategorias] = useState<Categoria[]>([])
   const [subcategorias, setSubcategorias] = useState<Subcategoria[]>([])

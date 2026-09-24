@@ -27,15 +27,17 @@ PWA em React + Vite + TypeScript, consumindo a API do `backend/`.
   `formatarMoedaCompacta` (`"1,8 mil"`, sem `R$`/centavos) pra espaços
   apertados onde o formato completo não cabe.
 - `src/lib/LancamentosFiltrosContext.tsx`, `GraficosPeriodoContext.tsx`,
-  `EstruturaCustoContext.tsx`, `PlanejamentoContext.tsx` — estado de
-  filtro/período de cada tela sobrevivendo à navegação (`docs/
-  backlog.md`, item 13, decidido 2026-09-24): Context React montado no
+  `EstruturaCustoContext.tsx`, `PlanejamentoContext.tsx`,
+  `DashboardPeriodoContext.tsx` — estado de filtro/período de cada tela
+  sobrevivendo à navegação (`docs/backlog.md`, item 13, decidido
+  2026-09-24, Dashboard incluído em 24.1): Context React montado no
   `AppShell` (que fica montado o tempo todo — só o `<Outlet/>` troca
   entre rotas), não `sessionStorage`/`localStorage` — não precisa
   sobreviver a fechar a aba, só à navegação dentro do app. Cada tela usa
   seu hook (`useLancamentosFiltros`/`useGraficosPeriodo`/
-  `useEstruturaCustoMes`/`usePlanejamentoMes`) no lugar do `useState`
-  local que tinha antes; o resto do componente não muda.
+  `useEstruturaCustoMes`/`usePlanejamentoMes`/`useDashboardPeriodo`) no
+  lugar do `useState` local que tinha antes; o resto do componente não
+  muda.
 - `src/lib/escala.ts` — marcações "redondas" (1/2/5 × potência de 10) pro
   eixo Y do gráfico de evolução.
 - `src/components/EvolucaoChart.tsx` — gráfico de linha (SVG puro) usado no

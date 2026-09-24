@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { Link, NavLink, Outlet } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { checkHealth } from '../lib/api'
+import { DashboardPeriodoProvider } from '../lib/DashboardPeriodoContext'
 import { EstruturaCustoProvider } from '../lib/EstruturaCustoContext'
 import { GraficosPeriodoProvider } from '../lib/GraficosPeriodoContext'
 import { LancamentosFiltrosProvider } from '../lib/LancamentosFiltrosContext'
@@ -116,13 +117,15 @@ export function AppShell({ children }: { children?: ReactNode }) {
         </nav>
 
         <main className="shell-conteudo">
-          <LancamentosFiltrosProvider>
-            <GraficosPeriodoProvider>
-              <EstruturaCustoProvider>
-                <PlanejamentoProvider>{children ?? <Outlet />}</PlanejamentoProvider>
-              </EstruturaCustoProvider>
-            </GraficosPeriodoProvider>
-          </LancamentosFiltrosProvider>
+          <DashboardPeriodoProvider>
+            <LancamentosFiltrosProvider>
+              <GraficosPeriodoProvider>
+                <EstruturaCustoProvider>
+                  <PlanejamentoProvider>{children ?? <Outlet />}</PlanejamentoProvider>
+                </EstruturaCustoProvider>
+              </GraficosPeriodoProvider>
+            </LancamentosFiltrosProvider>
+          </DashboardPeriodoProvider>
         </main>
 
         <Link to="/lancamentos/novo" className="shell-fab" aria-label="Novo lançamento" title="Novo lançamento">
