@@ -380,8 +380,8 @@ def atualizar(
         raise HTTPException(
             status_code=422,
             detail=(
-                "Parcela de compra parcelada não tem valor/data/conta editáveis — use "
-                "PATCH /transacoes/parceladas/{id} pra descrição/categoria/subcategoria/"
+                "Parcela de compra parcelada não tem data/conta editáveis por aqui — use "
+                "PATCH /transacoes/parceladas/{id} pra descrição/valor/categoria/subcategoria/"
                 "estrutura de custo/meio de pagamento, ou exclua e lance novamente"
             ),
         )
@@ -472,12 +472,18 @@ def atualizar_parcela(
     db: Client = Depends(get_db),
     user_id: str = Depends(get_current_user_id),
 ):
-    """Nível 1 da edição de compra parcelada (backlog): edita só o
-    metadado de UMA parcela — descrição/categoria/subcategoria/estrutura
-    de custo/meio de pagamento. Valor, data e conta continuam travados,
-    exatamente como em PATCH /transacoes/{id}. Editar o grupo inteiro
-    (valor total, quantidade de parcelas) fica pra decisão futura (nível
-    2, registrado no backlog como não priorizado)."""
+    """Nível 1 da edição de compra parcelada (backlog), estendido na
+    Rodada 21.1 pra incluir valor: edita descrição/valor/categoria/
+    subcategoria/estrutura de custo/meio de pagamento de UMA parcela.
+    Valor entra de propósito — não existe padrão bancário único pra
+    distribuir centavos de arredondamento entre parcelas, então a fatura
+    real do emissor pode diferir do que foi calculado na criação; editar
+    mês a mês, conforme a fatura fecha, é a forma de manter o lançamento
+    fiel à fatura real (ver ParcelaUpdate). Data e conta continuam
+    travadas, exatamente como em PATCH /transacoes/{id}. Editar o grupo
+    inteiro (recriar com novo valor total/quantidade de parcelas) fica
+    pra decisão futura (nível 2, registrado no backlog como não
+    priorizado)."""
     try:
         atual = crud.get_one(db, TABLE, user_id, transacao_id)
     except crud.NotFound:
@@ -491,12 +497,12 @@ def atualizar_parcela(
     _check_regras_tipo_movimento(db, user_id, "despesa", payload.categoria_id, None)
     _check_campos_obrigatorios("despesa", payload.categoria_id, payload.estrutura_custo, payload.meio_pagamento, None)
     row = payload.model_dump(mode="json")
-    # descrição entra no hash_dedup (unique) — precisa recalcular pra não
-    # deixar o hash antigo estagnado, mesma lógica de atualizar() acima
+    # descrição e valor entram no hash_dedup (unique) — precisa recalcular
+    # pra não deixar o hash antigo estagnado, mesma lógica de atualizar() acima
     row["hash_dedup"] = compute_hash(
         user_id=user_id,
         data_compra=atual["data_compra"],
-        valor=atual["valor"],
+        valor=row["valor"],
         descricao=row["descricao"],
         conta_id=atual["conta_id"],
         tipo_movimento=atual["tipo_movimento"],

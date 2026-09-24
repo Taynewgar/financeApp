@@ -67,17 +67,25 @@ PWA com backend hospedado (Render) e banco Supabase.
     sem exigir nenhum desses três campos.
 
     **Edição de compra parcelada** (`docs/backlog.md`, item 8 — nível 1 +
-    nível 3, decidido 2026-09-24): `PATCH /transacoes/parceladas/{id}`
-    edita só o metadado de UMA parcela (descrição/categoria/subcategoria/
-    estrutura de custo/meio de pagamento) — valor, data e conta continuam
-    fora do payload de propósito, mesma trava de `PATCH /transacoes/{id}`.
-    `DELETE /transacoes/parceladas/{compra_parcelada_id}` exclui todas as
-    parcelas do grupo (e a linha em `compras_parceladas`) numa ação só, em
-    vez de repetir `DELETE /transacoes/{id}` uma vez por parcela. Editar o
-    grupo inteiro recriando com novo valor total/quantidade de parcelas
-    (nível 2) fica pra decisão futura — parcelas já vencidas ou com fatura
-    movida manualmente (`fatura_override`) tornam essa recriação
-    ambígua.
+    nível 3, decidido 2026-09-24; nível 1 estendido pra incluir valor na
+    Rodada 21.1): `PATCH /transacoes/parceladas/{id}` edita descrição,
+    valor, categoria, subcategoria, estrutura de custo e meio de
+    pagamento de UMA parcela — data e conta continuam fora do payload de
+    propósito (mudariam o ciclo de fatura da parcela ou dividiriam a
+    compra entre duas contas). Valor entra porque não existe padrão
+    bancário único de arredondamento de centavos entre parcelas — a
+    fatura real do emissor pode divergir do que o app calculou na
+    criação (`valor_total / parcela_total`, resto na última parcela), e
+    `compras_parceladas.valor_total` não é conferido em nenhum outro
+    lugar do código depois da criação (só serviu pra calcular o valor
+    inicial), então ajustar uma parcela não quebra nada. `DELETE
+    /transacoes/parceladas/{compra_parcelada_id}` exclui todas as
+    parcelas do grupo (e a linha em `compras_parceladas`) numa ação só,
+    em vez de repetir `DELETE /transacoes/{id}` uma vez por parcela.
+    Editar o grupo inteiro recriando com novo valor total/quantidade de
+    parcelas (nível 2) fica pra decisão futura — parcelas já vencidas ou
+    com fatura movida manualmente (`fatura_override`) tornam essa
+    recriação ambígua.
 
     **Despesa fixa recorrente** (`lancamentos_recorrentes` — aluguel,
     assinaturas) usa **projeção virtual**: cadastrar um recorrente não

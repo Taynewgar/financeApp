@@ -43,12 +43,21 @@ class CompraParceladaCreate(BaseModel):
 
 
 class ParcelaUpdate(BaseModel):
-    """Edição de metadado de uma parcela isolada — valor, data e conta
-    ficam de fora de propósito: mexer neles quebraria a soma do grupo
-    (valor_total), o hash de dedup, ou dividiria a mesma compra entre
-    duas contas sem sentido (ver README.md, seção "Estrutura" > backend)."""
+    """Edição de uma parcela isolada. Valor entra de propósito (Rodada
+    21.1): não existe padrão bancário único pra distribuir o resto de
+    centavos entre parcelas, então a fatura real do emissor pode diferir
+    do que o app calculou na criação — editar valor mês a mês, conforme
+    a fatura fecha, é a forma de manter o lançamento fiel à fatura real.
+    `compras_parceladas.valor_total` não é conferido em nenhum lugar do
+    código depois da criação (só serviu pra calcular o valor inicial de
+    cada parcela) — editar aqui não quebra nenhuma validação. Data e
+    conta continuam de fora: não têm relação com o problema de
+    arredondamento, e mexer nelas moveria a parcela pra outro ciclo de
+    fatura ou dividiria a compra entre duas contas sem sentido (ver
+    README.md, seção "Estrutura" > backend)."""
 
     descricao: str
+    valor: float = Field(gt=0)
     categoria_id: str | None = None
     subcategoria_id: str | None = None
     estrutura_custo: EstruturaCusto | None = None

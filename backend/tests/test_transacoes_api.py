@@ -388,7 +388,7 @@ def test_editar_parcela_de_compra_parcelada_retorna_422(client):
     assert resposta.status_code == 422
 
 
-def test_editar_metadado_de_parcela_atualiza_campos_e_preserva_valor_data_conta(client):
+def test_editar_metadado_de_parcela_atualiza_campos_incluindo_valor_e_preserva_data_conta(client):
     cartao = _criar_conta_cartao(client)
     categoria_a = client.post("/categorias", json={"nome": "Categoria A"}).json()
     categoria_b = client.post("/categorias", json={"nome": "Categoria B"}).json()
@@ -411,6 +411,7 @@ def test_editar_metadado_de_parcela_atualiza_campos_e_preserva_valor_data_conta(
         f"/transacoes/parceladas/{parcela['id']}",
         json={
             "descricao": "Compra parcelada — corrigida",
+            "valor": 100.14,
             "categoria_id": categoria_b["id"],
             "estrutura_custo": "fixo",
             "meio_pagamento": "pix",
@@ -419,15 +420,52 @@ def test_editar_metadado_de_parcela_atualiza_campos_e_preserva_valor_data_conta(
     assert editada.status_code == 200
     corpo = editada.json()
     assert corpo["descricao"] == "Compra parcelada — corrigida"
+    # valor é o que a Rodada 21.1 passou a permitir editar — não existe
+    # padrão bancário único de arredondamento entre parcelas, então a
+    # fatura real do emissor pode divergir do calculado na criação
+    assert corpo["valor"] == 100.14
     assert corpo["categoria_id"] == categoria_b["id"]
     assert corpo["estrutura_custo"] == "fixo"
     assert corpo["meio_pagamento"] == "pix"
-    # valor, data e conta são exatamente o que o nível 1 promete não tocar
-    assert corpo["valor"] == parcela["valor"]
+    # data e conta continuam travadas — só valor/metadado são editáveis
     assert corpo["data_compra"] == parcela["data_compra"]
     assert corpo["conta_id"] == cartao["id"]
     assert corpo["parcela_atual"] == parcela["parcela_atual"]
     assert corpo["compra_parcelada_id"] == parcela["compra_parcelada_id"]
+
+
+def test_editar_valor_de_uma_parcela_nao_altera_as_outras_do_grupo(client):
+    cartao = _criar_conta_cartao(client)
+    categoria = client.post("/categorias", json={"nome": "Categoria Teste"}).json()
+    parcelas = client.post(
+        "/transacoes/parceladas",
+        json={
+            "descricao": "Compra parcelada",
+            "valor_total": 300,
+            "parcela_total": 3,
+            "data_primeira_parcela": "2026-08-05",
+            "conta_id": cartao["id"],
+            "categoria_id": categoria["id"],
+            "estrutura_custo": "variavel",
+            "meio_pagamento": "cartao_credito",
+        },
+    ).json()
+
+    client.patch(
+        f"/transacoes/parceladas/{parcelas[0]['id']}",
+        json={
+            "descricao": parcelas[0]["descricao"],
+            "valor": 99.87,
+            "categoria_id": categoria["id"],
+            "estrutura_custo": "variavel",
+            "meio_pagamento": "cartao_credito",
+        },
+    )
+
+    parcela_2 = client.get(f"/transacoes/{parcelas[1]['id']}").json()
+    parcela_3 = client.get(f"/transacoes/{parcelas[2]['id']}").json()
+    assert parcela_2["valor"] == parcelas[1]["valor"]
+    assert parcela_3["valor"] == parcelas[2]["valor"]
 
 
 def test_editar_metadado_de_parcela_em_transacao_avista_retorna_422(client):
@@ -446,14 +484,14 @@ def test_editar_metadado_de_parcela_em_transacao_avista_retorna_422(client):
         },
     ).json()
 
-    resposta = client.patch(f"/transacoes/parceladas/{transacao['id']}", json={"descricao": "Nova descrição"})
+    resposta = client.patch(f"/transacoes/parceladas/{transacao['id']}", json={"descricao": "Nova descrição", "valor": 50})
     assert resposta.status_code == 422
 
 
 def test_editar_metadado_de_parcela_inexistente_retorna_404(client):
     resposta = client.patch(
         "/transacoes/parceladas/00000000-0000-0000-0000-000000000000",
-        json={"descricao": "Nova descrição"},
+        json={"descricao": "Nova descrição", "valor": 50},
     )
     assert resposta.status_code == 404
 
@@ -478,7 +516,7 @@ def test_editar_metadado_de_parcela_de_outro_usuario_retorna_404(client, current
     current_user["id"] = OUTRO_USUARIO
     resposta = client.patch(
         f"/transacoes/parceladas/{parcelas[0]['id']}",
-        json={"descricao": "Nova descrição"},
+        json={"descricao": "Nova descrição", "valor": 50},
     )
     assert resposta.status_code == 404
 

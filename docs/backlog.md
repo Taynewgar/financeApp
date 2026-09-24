@@ -197,6 +197,8 @@ compra entre dois cartões sem sentido nenhum.
    travados — é exatamente a mesma trava de hoje, só que mais restrita
    (hoje a parcela é 100% travada; passaria a estar parcialmente aberta).
    Não mexe em `compras_parceladas`, não precisa recalcular nada.
+   *(Revisto na Rodada 21.1: valor saiu desse grupo travado — ver Status
+   abaixo.)*
 
 2. **Nível médio — editar o grupo inteiro.** A ação apaga todas as parcelas
    da compra e recria com os novos parâmetros (novo valor total, nova
@@ -224,10 +226,17 @@ praticamente grátis e já cobrir metade do caso de uso do nível médio (2).
 
 **Status:** implementado 2026-09-24 — níveis 1 e 3. `PATCH /transacoes/
 parceladas/{id}` (metadado) e `DELETE /transacoes/parceladas/
-{compra_parcelada_id}` (grupo inteiro). Nível 2 (editar o grupo
-recriando) segue sem decisão — o ponto difícil descrito acima (parcelas
-já vencidas / `fatura_override`) não mudou. Ver changelog pro detalhe
-técnico completo e o checklist de teste manual.
+{compra_parcelada_id}` (grupo inteiro). Nível 1 estendido no mesmo dia
+(Rodada 21.1) pra incluir **valor** — motivo real do pedido original:
+não existe padrão bancário único de arredondamento de centavos entre
+parcelas, então a fatura real do emissor pode divergir do calculado na
+criação, e `valor_total` do grupo nunca foi conferido em lugar nenhum do
+código depois da criação (só serviu pra calcular o valor inicial) — não
+havia inconsistência real a proteger. Nível 2 (editar o grupo recriando
+com novo valor total/quantidade de parcelas) segue sem decisão — o ponto
+difícil descrito acima (parcelas já vencidas / `fatura_override`) não
+mudou. Ver changelog pro detalhe técnico completo e o checklist de teste
+manual.
 
 ### Migração de dados do app antigo (CSV/JSON → Supabase)
 

@@ -177,6 +177,10 @@ export function EditarLancamento() {
       setErro('Preencha a descrição.')
       return
     }
+    if (!valor || Number(valor) <= 0) {
+      setErro('Informe um valor maior que zero.')
+      return
+    }
     if (!categoriaId) {
       setErro('Escolha uma categoria.')
       return
@@ -196,6 +200,7 @@ export function EditarLancamento() {
         method: 'PATCH',
         body: JSON.stringify({
           descricao,
+          valor: Number(valor),
           categoria_id: categoriaId || null,
           subcategoria_id: subcategoriaId || null,
           estrutura_custo: estruturaCusto || null,
@@ -227,16 +232,30 @@ export function EditarLancamento() {
       <div>
         <h1 style={{ fontSize: 22, marginTop: 0 }}>Editar Parcela</h1>
         <p style={{ color: 'var(--cor-texto-suave)', marginTop: -8 }}>
-          Parcela {transacaoOriginal.parcela_atual}/{transacaoOriginal.parcela_total} — valor, data e conta não são
-          editáveis por aqui (mexer neles quebraria a consistência do grupo). Pra corrigir isso, ou pra cancelar a
-          compra inteira, exclua a compra parcelada em Lançamentos e lance de novo.
+          Parcela {transacaoOriginal.parcela_atual}/{transacaoOriginal.parcela_total} — data e conta não são
+          editáveis por aqui. Valor pode ser ajustado pra bater com a fatura real do cartão (o app não segue
+          nenhum padrão bancário fixo de arredondamento entre parcelas). Pra cancelar a compra inteira, exclua a
+          compra parcelada em Lançamentos e lance de novo.
         </p>
 
         <form className="form" onSubmit={handleSubmitParcela}>
-          <label className="campo">
-            Descrição
-            <input type="text" required value={descricao} onChange={(e) => setDescricao(e.target.value)} />
-          </label>
+          <div className="campo-linha">
+            <label className="campo">
+              Valor
+              <input
+                type="number"
+                step="0.01"
+                min="0.01"
+                required
+                value={valor}
+                onChange={(e) => setValor(e.target.value)}
+              />
+            </label>
+            <label className="campo">
+              Descrição
+              <input type="text" required value={descricao} onChange={(e) => setDescricao(e.target.value)} />
+            </label>
+          </div>
 
           <div className="campo-linha">
             <label className="campo">

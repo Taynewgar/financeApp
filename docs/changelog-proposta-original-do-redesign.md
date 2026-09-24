@@ -1966,13 +1966,14 @@ intactas). Suíte offline: **287 passed** (279 + 8), 33 skipped. Frontend:
 de `set-state-in-effect`/`only-export-components` não relacionados a
 esta mudança).
 
-**Checklist de teste manual:**
+**Checklist de teste manual:** (item 1 corrigido na Rodada 21.1 — valor
+passou a ser editável, ver abaixo)
 - [ ] Lançamentos: abrir "Editar" numa parcela → formulário reduzido
-      aparece (sem campos de valor/data/conta), com os valores atuais
+      aparece (sem campos de data/conta), com os valores atuais
       pré-preenchidos.
 - [ ] Editar a descrição/categoria de uma parcela → salva, volta pra
-      Lançamentos, e o valor/data/conta da parcela continuam os mesmos
-      de antes.
+      Lançamentos, e a data/conta da parcela continuam os mesmos de
+      antes.
 - [ ] Trocar a categoria de uma parcela em cartão de crédito → meio de
       pagamento continua travado em "Cartão de crédito" (mesma trava do
       lançamento à vista).
@@ -1984,3 +1985,51 @@ esta mudança).
       continuam.
 - [ ] "Excluir" (sem ser "inteira") numa parcela isolada → continua
       apagando só aquela parcela, como já funcionava antes.
+
+### Rodada 21.1 (2026-09-24) — edição de compra parcelada: valor também editável
+
+Usuário testou a Rodada 21 e explicou o motivo real por trás do pedido:
+a fatura do cartão às vezes fecha uma parcela em R$ 100,13 e outra em
+R$ 100,14 (arredondamento do emissor), e ele queria ajustar mês a mês
+conforme cada fatura fecha. Perguntei se existe um padrão bancário único
+de arredondamento — não existe (BACEN não normatiza; cada emissor/
+adquirente distribui o resto de centavos do jeito que quiser: resto na
+última parcela, na primeira, ou espalhado). Isso muda o problema: não dá
+pra "acertar" o cálculo de antemão, editar valor por parcela é a forma
+real de manter o lançamento fiel à fatura.
+
+Reexaminando a objeção original (nível 1 excluía valor porque editar
+quebraria a soma com `valor_total` do grupo): `compras_parceladas.
+valor_total` é gravado uma vez, na criação, e nunca mais é lido em lugar
+nenhum do código — não tem validação, não aparece em tela, não entra em
+nenhum cálculo depois (só serviu pra calcular o valor inicial de cada
+parcela). A objeção era sobre uma invariante que não é de fato
+conferida em nenhum lugar — editar valor não quebra nada de verdade.
+
+**Backend:** `ParcelaUpdate` ganhou `valor: float = Field(gt=0)`
+(obrigatório, igual `descricao`). `PATCH /transacoes/parceladas/{id}`
+recalcula `hash_dedup` com o valor novo (valor também entra no hash,
+igual descrição). Data e conta continuam fora do schema — não têm
+relação com o problema de arredondamento (mexer nelas moveria a parcela
+pra outro ciclo de fatura ou dividiria a compra entre duas contas).
+
+**Frontend:** `EditarLancamento.tsx` ganhou o campo Valor no formulário
+reduzido de parcela, na mesma linha da Descrição; texto explicativo
+atualizado pra citar o motivo (sem padrão bancário fixo de
+arredondamento).
+
+**Testes:** teste existente de edição de metadado passou a incluir valor
+na asserção (era "preserva valor", virou "atualiza valor e preserva data/
+conta"); teste novo confirma que editar o valor de uma parcela não altera
+as outras parcelas do mesmo grupo. Suíte offline: **288 passed** (287 +
+1), 33 skipped. Frontend: `tsc -b && vite build` e `oxlint` sem erros
+novos.
+
+**Checklist de teste manual:**
+- [ ] Lançamentos: abrir "Editar" numa parcela → campo Valor aparece
+      pré-preenchido com o valor atual, editável.
+- [ ] Trocar o valor de uma parcela (ex: de R$ 100,13 pra R$ 100,14) →
+      salva; as outras parcelas da mesma compra continuam com o valor
+      original.
+- [ ] Deixar o valor em branco ou zerado e tentar salvar → mensagem de
+      erro, não salva.
