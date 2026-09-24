@@ -9,22 +9,30 @@ sinal nenhum a mais). Só a suíte offline roda de fato aqui.
 
 1. Rode a suíte offline do backend, na pasta `backend/`, usando o venv do
    projeto (`venv/bin/python -m pytest -q`, não `pytest` direto — evita o
-   erro de "externally-managed-environment" do pip/venv):
+   erro de "externally-managed-environment" do pip/venv). Use sempre
+   `--tb=no` — sem ele, cada falha imprime o traceback completo (chega a
+   dezenas de linhas por teste); com ele, só a seção final "short test
+   summary info" aparece, uma linha por falha com o tipo de erro/mensagem,
+   suficiente pra diagnosticar sem rolar a tela:
 
-   `venv/bin/python -m pytest -q`
+   `venv/bin/python -m pytest -q --tb=no`
 
    Depois de rodar, me diga:
    - Quantos passaram/falharam/skiparam
-   - Se algum teste falhou, o nome do teste e a mensagem de erro completa
+   - Se algum teste falhou, o nome do teste e a linha de erro (a própria
+     saída de `--tb=no` já traz isso — só peça o traceback completo de um
+     teste específico se a linha do resumo não for suficiente pra
+     diagnosticar)
 
 2. Ao final, **imprima os comandos abaixo** (não tente executá-los você
    mesmo) para o usuário copiar e rodar no terminal dele, onde
-   `backend/.env` já está preenchido com as credenciais do Supabase:
+   `backend/.env` já está preenchido com as credenciais do Supabase —
+   sempre com `--tb=no` também:
 
    ```bash
    cd backend
    source venv/bin/activate
-   TEST_USER_EMAIL=teste@teste.com TEST_USER_PASSWORD=teste venv/bin/python -m pytest -q
+   TEST_USER_EMAIL=teste@teste.com TEST_USER_PASSWORD=teste venv/bin/python -m pytest -q --tb=no
    ```
 
    Explique que o sinal de que rodou tudo certo é o total de `passed`
@@ -33,20 +41,31 @@ sinal nenhum a mais). Só a suíte offline roda de fato aqui.
 
    Se o usuário colar de volta uma saída com falhas do tipo `duplicate key
    value violates unique constraint "categorias_user_id_nome_key"` ou um
-   `KeyError: 'id'` em cima de `orcamento["id"]`, é lixo de uma rodada
-   anterior que não terminou de limpar (Ctrl+C, timeout de rede no meio da
-   suíte) — não é regressão de código. Passe esta sequência completa pra
-   ele rodar — limpa a conta de teste, repopula (contas/categorias/
-   caixinha/lançamentos de exemplo + orçamento encadeado com sobra
-   rolando, pra Planejamento/Estrutura de Custo não ficarem vazios) e
-   confirma que a suíte volta a passar limpa:
+   `KeyError: 'id'` em cima de `orcamento["id"]`, a explicação padrão era
+   "lixo de uma rodada anterior que não terminou de limpar" — mas em
+   2026-09-24 isso foi descartado numa conta comprovadamente zerada antes
+   da rodada (`limpar_dados_integracao.py --sim` confirmou "já está limpa
+   (0 registros)" e o pytest imediatamente seguinte já saiu com essas
+   mesmas 21 falhas). Ou seja: **não assuma mais que é lixo de rodada
+   anterior sem confirmar primeiro** — peça pro usuário rodar
+   `limpar_dados_integracao.py --sim` isolado e colar a saída; só se ela
+   mostrar contagem > 0 antes de zerar é que a causa é leftover. Se a
+   conta já estava zerada e a suíte falha do mesmo jeito assim que roda,
+   é sinal de um problema real de isolamento entre testes dentro da
+   própria suíte de integração (um teste anterior não limpou o que criou
+   antes do próximo, no mesmo run) — investigar em vez de mandar
+   limpar+reseed de novo, que não resolve.
+
+   Se o usuário quiser popular a conta com dados de exemplo pra testar
+   telas manualmente (não é isso que resolve o cenário de falha acima),
+   a sequência é:
 
    ```bash
    cd backend
    source venv/bin/activate
    TEST_USER_EMAIL=teste@teste.com TEST_USER_PASSWORD=teste venv/bin/python tests/limpar_dados_integracao.py --sim
    TEST_USER_EMAIL=teste@teste.com TEST_USER_PASSWORD=teste venv/bin/python tests/seed_dados_teste.py
-   TEST_USER_EMAIL=teste@teste.com TEST_USER_PASSWORD=teste venv/bin/python -m pytest -q
+   TEST_USER_EMAIL=teste@teste.com TEST_USER_PASSWORD=teste venv/bin/python -m pytest -q --tb=no
    ```
 
    Avise que o passo de seed não recria nada que o usuário tenha
