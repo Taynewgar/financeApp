@@ -1816,3 +1816,80 @@ crash total.
 
 Sem mudança em código de produção. Suíte offline sem alteração: 275
 passed, 33 skipped.
+
+### Rodada 20.6 (2026-09-24) — fix real: nome duplicado em categoria/subcategoria/caixinha quebrava com 500
+
+Usuário pediu pra investigar o "bug de isolamento" dos testes de
+integração. Não consegui reproduzir contra o Supabase real deles nesta
+sessão (sem `.env`), mas ao reler `services/crud.py` encontrei — e
+confirmei reproduzindo na suíte offline — uma causa raiz concreta e
+real, independente de qualquer leftover entre rodadas.
+
+**O bug:** `crud.create()` (usado por `categorias`, `subcategorias`,
+`caixinhas` — qualquer recurso simples do tipo "nome") fazia um
+`insert()` sem nenhum tratamento de exceção. `categorias` tem
+`unique(user_id, nome)`, `subcategorias` tem `unique(categoria_id,
+nome)`, `caixinhas` tem `unique(user_id, nome)` — criar um nome
+duplicado nunca foi um caso hipotético, é uma constraint real do
+schema. Sem captura, a violação sobe como `postgrest.exceptions.
+APIError` cru até o handler genérico do FastAPI — na API real isso é
+um 500 pro usuário; num teste de integração que usa `TestClient`, a
+exceção propaga direto pro teste, exatamente como
+`test_duplicata_e_bloqueada_pela_constraint_real` mostrou: `FAILED ...
+postgrest.exceptions.APIError: {'message': 'duplicate key value
+violates unique constraint "categorias_user_id_nome_key"...`.
+`orcamentos._insert_orcamento` já tratava isso corretamente (409) desde
+sempre — os outros recursos simples nunca tiveram o mesmo cuidado.
+
+**Prova de que é real, não hipótese:** ao adicionar `categorias`/
+`subcategorias`/`caixinhas` em `tests/fakes.py._UNIQUE_CONSTRAINTS`
+(pra simular a mesma constraint offline), **3 testes que já existiam
+quebraram na hora** — `test_pool_despesas_absorve_estouro_de_um_
+bucket_quando_outros_tem_folga` e `test_pool_despesas_estoura_quando_
+soma_total_passa_do_teto_agregado` (`test_estrutura_custo_api.py`)
+criavam "Categoria Teste" 3x na mesma chamada de teste;
+`test_atualizar_para_categoria_de_receita_retorna_422`
+(`test_lancamentos_recorrentes_api.py`) criava uma categoria despesa E
+uma receita, as duas chamadas "Aluguel". Isso é o mesmo padrão exato
+usado em `tests/integration/test_transacoes_integration.py` (toda
+função cria "Categoria Integração") e em `test_orcamentos_integration.
+py`/`test_estrutura_custo_integration.py` (`vigencia_mes="2026-09-01"`
+fixo, repetido entre funções) — qualquer teste anterior que falhe
+ANTES de registrar seu recurso no fixture `cleanup` deixa esse nome/mês
+presos pro resto da rodada, e agora (com o fix) a próxima tentativa
+recebe um 409 limpo em vez de travar com uma exceção crua — não elimina
+o "vazamento" entre testes, mas transforma o sintoma de "crash
+ininteligível" em "409 esperado", o que já teria deixado a causa óbvia
+desde a primeira falha reportada.
+
+**Fix:** `services/crud.py::create()` ganhou o mesmo try/except que
+`_insert_orcamento` já usava — traduz `"duplicate key value violates
+unique constraint"` (ou código `23505`) em `HTTPException(409, "Já
+existe um registro com esse nome.")`; qualquer outra exceção sobe
+normal. Sem mudança de assinatura, nenhum caller precisou ser tocado —
+frontend já trata `ApiError`/`.detail` genericamente em todo formulário
+de Configurações, então a mensagem nova já aparece sem trabalho extra.
+
+**Testes:** `tests/fakes.py` ganhou as 3 constraints citadas acima em
+`_UNIQUE_CONSTRAINTS`; 3 testes existentes corrigidos pra não colidir
+com nome repetido dentro da própria função (categoria compartilhada
+entre despesas do mesmo teste; nome do helper `_categoria()` varia por
+`tipo`); 4 testes novos (`test_criar_categoria_com_nome_duplicado_
+retorna_409`, `test_criar_subcategoria_com_nome_duplicado_na_mesma_
+categoria_retorna_409`, `test_mesmo_nome_de_subcategoria_em_categorias_
+diferentes_e_aceito` — confirma que o unique é por categoria, não
+global —, `test_criar_caixinha_com_nome_duplicado_retorna_409`). Suíte
+offline: **279 passed** (275 + 4), 33 skipped.
+
+**Não resolvido nesta rodada:** a causa exata do "vazamento" (qual
+teste especificamente falha antes de registrar `cleanup` na conta real
+deles) não foi identificada — precisaria rodar contra o Supabase real
+deles, que esta sessão não tem acesso. Também não toquei nos testes de
+integração em si (`test_orcamentos_integration.py`/`test_estrutura_
+custo_integration.py` reusando `vigencia_mes="2026-09-01"`,
+`test_transacoes_integration.py` reusando "Categoria Integração" entre
+funções) — dar a cada teste seu próprio mês/nome eliminaria a
+fragilidade de raiz (uma falha isolada não mais poderia envenenar o
+resto da rodada), mas é uma mudança mais ampla nos testes de
+integração que não pude validar sem acesso ao banco real; proposto ao
+usuário como próximo passo, não implementado.

@@ -17,6 +17,13 @@ def test_criar_caixinha_sem_conta_e_valido(client):
     assert resposta.json()["conta_id"] is None
 
 
+def test_criar_caixinha_com_nome_duplicado_retorna_409(client):
+    client.post("/caixinhas", json={"nome": "Viagem"})
+
+    repetida = client.post("/caixinhas", json={"nome": "Viagem"})
+    assert repetida.status_code == 409
+
+
 def test_criar_caixinha_com_conta_inexistente_retorna_404(client):
     resposta = client.post(
         "/caixinhas", json={"nome": "X", "conta_id": "00000000-0000-0000-0000-000000000000"}

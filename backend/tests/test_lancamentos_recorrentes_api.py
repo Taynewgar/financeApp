@@ -6,7 +6,12 @@ def _conta(client):
 
 
 def _categoria(client, tipo="despesa"):
-    return client.post("/categorias", json={"nome": "Aluguel", "tipo": tipo}).json()
+    # nome varia por tipo — categoria tem nome único por usuário
+    # (categorias_user_id_nome_key); um teste que cria despesa e receita
+    # (ex: test_atualizar_para_categoria_de_receita_retorna_422) bateria
+    # na constraint se as duas se chamassem "Aluguel"
+    nome = "Aluguel" if tipo == "despesa" else f"Aluguel ({tipo})"
+    return client.post("/categorias", json={"nome": nome, "tipo": tipo}).json()
 
 
 def _payload(conta_id, categoria_id, **extra):

@@ -36,6 +36,13 @@ def test_criar_categoria_sem_campo_obrigatorio_retorna_422(client):
     assert resposta.status_code == 422
 
 
+def test_criar_categoria_com_nome_duplicado_retorna_409(client):
+    client.post("/categorias", json={"nome": "Mercado"})
+
+    repetida = client.post("/categorias", json={"nome": "Mercado"})
+    assert repetida.status_code == 409
+
+
 def test_desativar_categoria_nao_exclui(client):
     categoria = client.post("/categorias", json={"nome": "Transporte"}).json()
 

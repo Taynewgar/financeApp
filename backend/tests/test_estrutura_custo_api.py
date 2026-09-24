@@ -310,10 +310,14 @@ def test_pool_despesas_absorve_estouro_de_um_bucket_quando_outros_tem_folga(clie
     sazonalidades sobraram — o agregado dos 3 continua dentro do teto."""
     _criar_orcamento_do_exemplo(client)
     conta = client.post("/contas", json={"nome": "Conta", "tipo_conta": "corrente"}).json()
+    # 1 categoria reaproveitada nas 3 despesas — categorias têm nome único
+    # por usuário (categorias_user_id_nome_key), _despesa() criaria 3
+    # "Categoria Teste" diferentes e a 2ª já bateria na constraint
+    categoria = client.post("/categorias", json={"nome": "Categoria Teste"}).json()
 
-    _despesa(client, conta["id"], 5800, "fixo")
-    _despesa(client, conta["id"], 2500, "variavel")
-    _despesa(client, conta["id"], 1000, "sazonal")
+    _despesa(client, conta["id"], 5800, "fixo", categoria_id=categoria["id"])
+    _despesa(client, conta["id"], 2500, "variavel", categoria_id=categoria["id"])
+    _despesa(client, conta["id"], 1000, "sazonal", categoria_id=categoria["id"])
 
     resposta = client.get("/estrutura-custo/2026-09-01").json()
     assert _bucket(client.get("/estrutura-custo/2026-09-01"), "custos_fixos")["realizado"] == 5800  # estourou sozinho
@@ -325,10 +329,11 @@ def test_pool_despesas_absorve_estouro_de_um_bucket_quando_outros_tem_folga(clie
 def test_pool_despesas_estoura_quando_soma_total_passa_do_teto_agregado(client):
     _criar_orcamento_do_exemplo(client)
     conta = client.post("/contas", json={"nome": "Conta", "tipo_conta": "corrente"}).json()
+    categoria = client.post("/categorias", json={"nome": "Categoria Teste"}).json()
 
-    _despesa(client, conta["id"], 6000, "fixo")
-    _despesa(client, conta["id"], 3000, "variavel")
-    _despesa(client, conta["id"], 1500, "sazonal")
+    _despesa(client, conta["id"], 6000, "fixo", categoria_id=categoria["id"])
+    _despesa(client, conta["id"], 3000, "variavel", categoria_id=categoria["id"])
+    _despesa(client, conta["id"], 1500, "sazonal", categoria_id=categoria["id"])
 
     resposta = client.get("/estrutura-custo/2026-09-01").json()
     assert resposta["pool_despesas"]["realizado"] == 10500

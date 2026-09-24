@@ -1,5 +1,6 @@
 from typing import Any
 
+from fastapi import HTTPException
 from supabase import Client
 
 
@@ -20,8 +21,19 @@ def get_one(db: Client, table: str, user_id: str, item_id: str) -> dict[str, Any
 
 
 def create(db: Client, table: str, user_id: str, payload: dict[str, Any]) -> dict[str, Any]:
+    """Cria a linha; traduz violação de UNIQUE (categorias/subcategorias/
+    caixinhas têm `unique(user_id, nome)` ou `unique(categoria_id, nome)`
+    no schema) em 409 em vez de deixar a exceção crua do Postgrest
+    subir — sem isso, criar um nome duplicado quebrava com um 500/erro
+    não tratado em vez de uma resposta que o frontend já sabe exibir
+    (mesmo padrão que orcamentos._insert_orcamento já usava)."""
     row = {**payload, "user_id": user_id}
-    result = db.table(table).insert(row).execute()
+    try:
+        result = db.table(table).insert(row).execute()
+    except Exception as exc:  # noqa: BLE001 — traduzimos a violação conhecida; o resto sobe
+        if "duplicate key value violates unique constraint" in str(exc) or "23505" in str(exc):
+            raise HTTPException(status_code=409, detail="Já existe um registro com esse nome.") from exc
+        raise
     return result.data[0]
 
 

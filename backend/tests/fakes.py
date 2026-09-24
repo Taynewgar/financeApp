@@ -24,6 +24,9 @@ class FakeResult:
 _UNIQUE_CONSTRAINTS: dict[str, tuple[str, ...]] = {
     "orcamentos": ("user_id", "vigencia_mes"),
     "lancamentos_recorrentes_pulados": ("lancamento_recorrente_id", "vigencia_mes"),
+    "categorias": ("user_id", "nome"),
+    "subcategorias": ("categoria_id", "nome"),
+    "caixinhas": ("user_id", "nome"),
 }
 
 
