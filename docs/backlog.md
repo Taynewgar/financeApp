@@ -16,6 +16,29 @@ merecer não ficar misturado com a tabela proposto×implementado tela a tela.
 
 ## Ordem de prioridade atual
 
+Reorganizado por prioridade em 2026-09-24 (a pedido do usuário — a
+numeração em si não muda, cada item mantém o número que já tinha em
+qualquer lugar que o referencie; só a ordem/agrupamento na lista muda,
+pra separar o que ainda está pendente do que já foi entregue e não ficar
+perdido em volta de itens concluídos).
+
+### Alta prioridade
+
+**Pendente:**
+
+9. **Migração de dados do app antigo** (detalhe abaixo) — registrada
+   2026-09-24. Passo do MVP original que ficou de fora do backlog quando
+   ele foi consolidado em arquivo próprio (2026-09-15); ver detalhe
+   abaixo pro porquê.
+10. Exportação de relatório mensal/anual (detalhe abaixo) — próximo passo
+    depois do MVP fechado (itens 1-8 abaixo).
+29. **Menu "mais" da barra de navegação mobile: promover item mais usado
+    por contador de uso** (detalhe abaixo) — sugestão minha (Claude),
+    confirmada como alta prioridade pelo usuário em 2026-09-24, durante a
+    discussão de mockups do item 21.
+
+**Concluído:**
+
 1. ~~Delta vs mês anterior nos KPIs do Dashboard~~ **feito 2026-09-13**
 2. ~~Tela de Planejamento~~ **feito 2026-09-14** — só configuração
 3. ~~Tela de Estrutura de Custo~~ **feito 2026-09-15** — tabela hierárquica
@@ -47,12 +70,6 @@ merecer não ficar misturado com a tabela proposto×implementado tela a tela.
 8. ~~Edição de compra parcelada~~ **feito 2026-09-24** — níveis 1
    (metadado) + 3 (exclusão em grupo); nível 2 (recriar o grupo) fica pra
    decisão futura (detalhe abaixo).
-9. **Migração de dados do app antigo** (detalhe abaixo) — alta
-   prioridade, registrada 2026-09-24. Passo do MVP original que ficou de
-   fora do backlog quando ele foi consolidado em arquivo próprio
-   (2026-09-15); ver detalhe abaixo pro porquê.
-10. Exportação de relatório mensal/anual (detalhe abaixo) — próximo passo
-    depois do MVP fechado (itens 3-6 acima).
 11. ~~Compromissos futuros no Dashboard~~ **feito por completo
     2026-09-22** — parcelas futuras (2026-09-13) + despesa fixa
     recorrente (item 7, 2026-09-22).
@@ -61,23 +78,14 @@ merecer não ficar misturado com a tabela proposto×implementado tela a tela.
     média), clicável (não depende de hover — não existe em touchscreen,
     corrigido na Rodada 22.1). Ver changelog Rodadas 22/22.1.
 
-**Média prioridade confirmada pelo usuário** — registrados 2026-09-24, a
-partir do teste do seed novo e dos mockups de cabeçalho fixo; depois do
-que está acima, antes da baixa prioridade abaixo:
+### Média prioridade confirmada pelo usuário
 
-13. ~~Persistir estado de filtros ao navegar entre features~~ **feito
-    2026-09-24** — Detalhe na subseção própria abaixo, ver changelog
-    Rodada 24.
-14. ~~Filtro específico pra recorrentes~~ **feito 2026-09-24** — Detalhe
-    na subseção própria abaixo, ver changelog Rodada 25.
-15. ~~Lista de "meses pulados" muito grande~~ **feito 2026-09-24** —
-    acordeão por ano, escolhido pelo usuário entre 2 mockups. Detalhe na
-    subseção própria abaixo, ver changelog Rodada 26.
-16. ~~Cabeçalho fixo/controles fixos por feature~~ **feito 2026-09-24** —
-    decidido via mockups (Lançamentos, Gráficos, Estrutura de Custo,
-    Planejamento, Dashboard). Ver changelog Rodada 23.
-17. ~~Barra lateral não deve sumir ao rolar~~ **feito 2026-09-24** — Ver
-    changelog Rodada 23.
+Registrados 2026-09-24, a partir do teste do seed novo e dos mockups de
+cabeçalho fixo; depois da alta prioridade acima, antes da baixa
+prioridade abaixo:
+
+**Pendente:**
+
 18. **Janela de meses pra trás × ano civil (jan-dez) nos gráficos** —
     hoje o modo "Mês" em `/graficos` mostra N meses pra trás contando do
     mês selecionado (12, ver Rodada 16.2). Repensar se um ano civil fixo
@@ -92,12 +100,12 @@ que está acima, antes da baixa prioridade abaixo:
 20. **Lançamentos: cards quebrando no layout mobile** — reportado
     2026-09-24.
 21. **Botões inferiores (barra de navegação mobile) pequenos e colados**
-    — reportado 2026-09-24.
-22. ~~Estrutura de Custo carregando devagar~~ **feito 2026-09-24** —
-    causa raiz era a mesma classe de bug já corrigida em Gráficos (Rodada
-    19.2/19.3), só que ainda não tinha sido aplicada em `obter()` (a
-    tela de 1 mês). Detalhe na subseção própria abaixo, ver changelog
-    Rodada 27.
+    — reportado 2026-09-24. Em andamento: 3 rodadas de mockups (Artifact
+    Design) — Opção A (ícones maiores, mantém 6 itens), Opção B (4 +
+    "Mais"), Opção C (mesclada, escolhida pelo usuário pra continuar
+    iterando: 4 itens diretos + botão "•••" abrindo uma sheet agrupada
+    por seção). v3 em revisão — falta aprovação final antes de implementar
+    de verdade em `AppShell.tsx`/`AppShell.css`.
 23. **Lançamentos recorrentes: aplicação/retirada com caixinha (reserva)**
     — registrado 2026-09-24. Escopo confirmado com o usuário depois da
     Rodada 25 (que estendeu recorrentes pra receita/despesa/aplicação/
@@ -117,12 +125,32 @@ que está acima, antes da baixa prioridade abaixo:
     Estrutura de Custo, só que ainda não portado pra cá. Registrado como
     achado, não corrigido nesta rodada (fora do escopo pedido).
 
-**Baixa prioridade confirmada pelo usuário** — todo o resto acima (itens
-1-23) é alta ou média prioridade, mesmo o que está sequenciado pra depois
-do MVP:
+**Concluído:**
 
-24. Aba Bancos em Configurações — hoje resolvido como campo de texto em
-    Conta, sem perda funcional real. *(2026-09-15)*
+13. ~~Persistir estado de filtros ao navegar entre features~~ **feito
+    2026-09-24** — Detalhe na subseção própria abaixo, ver changelog
+    Rodada 24.
+14. ~~Filtro específico pra recorrentes~~ **feito 2026-09-24** — Detalhe
+    na subseção própria abaixo, ver changelog Rodada 25.
+15. ~~Lista de "meses pulados" muito grande~~ **feito 2026-09-24** —
+    acordeão por ano, escolhido pelo usuário entre 2 mockups. Detalhe na
+    subseção própria abaixo, ver changelog Rodada 26.
+16. ~~Cabeçalho fixo/controles fixos por feature~~ **feito 2026-09-24** —
+    decidido via mockups (Lançamentos, Gráficos, Estrutura de Custo,
+    Planejamento, Dashboard). Ver changelog Rodada 23.
+17. ~~Barra lateral não deve sumir ao rolar~~ **feito 2026-09-24** — Ver
+    changelog Rodada 23.
+22. ~~Estrutura de Custo carregando devagar~~ **feito 2026-09-24** —
+    causa raiz era a mesma classe de bug já corrigida em Gráficos (Rodada
+    19.2/19.3), só que ainda não tinha sido aplicada em `obter()` (a
+    tela de 1 mês). Detalhe na subseção própria abaixo, ver changelog
+    Rodada 27.
+
+### Baixa prioridade confirmada pelo usuário
+
+Todo o resto acima é alta ou média prioridade, mesmo o que está
+sequenciado pra depois do MVP. Nenhum destes 4 está em andamento:
+
 25. Saldo atual de contas — hoje só caixinhas têm saldo calculado
     (`GET /dashboard/patrimonio/{mes}`); dar saldo a `contas` também seria
     a extensão natural, mas não é urgente. *(2026-09-15)*
@@ -142,6 +170,10 @@ do MVP:
     editar o `> Status:` por cima como hoje — histórico fica honesto, mas
     com mais arquivos pra navegar. Mesma origem e confirmação do item 26.
     *(2026-09-16)*
+28. Aba Bancos em Configurações — hoje resolvido como campo de texto em
+    Conta, sem perda funcional real. *(2026-09-15, renumerado de 24 pra 28
+    em 2026-09-24 nesta reorganização — colidia com o item 24 de média
+    prioridade acima)*
 
 Este arquivo não substitui o `README.md` da raiz (que descreve o que
 existe) nem o `/status-projeto` (relatório de andamento) — é o registro do
@@ -672,6 +704,45 @@ ganha sua própria versão.
 
 **Status:** registrado 2026-09-24, achado técnico (não relatado pelo
 usuário), sem decisão de prioridade ainda.
+
+### Menu "mais" da barra de navegação mobile: promover item mais usado
+
+**Contexto:** surgiu na discussão de mockups do item 21 (barra de
+navegação mobile). A Opção C (escolhida pelo usuário) reduz a barra a 4
+itens diretos + um botão "•••" que abre uma sheet com o resto
+(Planejamento, Exportar relatório, Configurações, e o que mais entrar
+aqui). Sugeri destacar o item mais usado dentro da sheet num atalho no
+topo, fora dos grupos — pensando que a lista de itens escondidos só vai
+crescer conforme o app ganha features, então "mais usado" vira cada vez
+mais valioso lá dentro. O usuário gostou e perguntou de volta: como
+saber qual é o mais usado? Um contador?
+
+**Resposta (Claude):** sim — um contador simples, incrementado a cada
+navegação pra uma das rotas escondidas no menu, sem endpoint novo:
+
+- **Onde guardar:** `localStorage`, por dispositivo — não precisa de
+  tabela nova nem de chamada ao backend. Custo real: o contador não
+  sincroniza entre dispositivos (usar o app no celular e no desktop conta
+  como dois contadores separados). Se isso incomodar na prática, a
+  extensão natural é uma coluna por usuário no backend (mais uma
+  chamada, mas sincroniza) — não vale o custo agora, pra um usuário só
+  com poucos dispositivos.
+- **O que contar:** 1 incremento por navegação bem-sucedida pra uma rota
+  que hoje vive dentro do menu (Planejamento, Configurações, e o que mais
+  entrar). Não precisa de janela deslizante nem decaimento no MVP —
+  "total de cliques desde sempre" já resolve o caso de uso (item usado
+  muito mais que os outros sobe pro topo); revisitar se o padrão de uso
+  mudar radicalmente algum dia (ex: parou de usar Planejamento, passou a
+  usar muito Exportar relatório).
+- **Como promover sem "piscar":** só destacar um item se ele tiver, por
+  exemplo, o dobro de cliques do 2º colocado — evita promover/despromover
+  a cada clique quando dois itens estão empatados, o que ficaria
+  bagunçado visualmente.
+
+**Status:** registrado 2026-09-24, sugestão minha confirmada como alta
+prioridade pelo usuário. Depende do item 21 (barra de navegação mobile)
+estar implementado primeiro, já que é uma melhoria de dentro do menu que
+o item 21 cria.
 
 ---
 
