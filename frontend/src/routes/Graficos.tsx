@@ -11,7 +11,8 @@ import { TaxaPoupancaChart } from '../components/TaxaPoupancaChart'
 import '../components/cabecalhoFixo.css'
 import '../components/forms.css'
 import { ApiError, apiFetch } from '../lib/api'
-import { mesesAntes, rotuloMesLongo, usePeriodo } from '../lib/periodo'
+import { useGraficosPeriodo } from '../lib/GraficosPeriodoContext'
+import { mesesAntes, rotuloMesLongo } from '../lib/periodo'
 import type {
   Categoria,
   DespesaPorCategoria as DespesaPorCategoriaT,
@@ -27,7 +28,7 @@ type NivelPareto = 'categoria' | 'subcategoria'
  * item 5 e o changelog (rodada 3/4 de 2026-09-15) pro racional completo
  * da divisão. */
 export function Graficos() {
-  const periodo = usePeriodo()
+  const periodo = useGraficosPeriodo()
   const { modoData, vigenciaMes, periodoInicio, periodoFim, mesReferencia, primeiroMes } = periodo
 
   const [evolucao, setEvolucao] = useState<EvolucaoMensal | null>(null)

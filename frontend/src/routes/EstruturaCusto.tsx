@@ -4,6 +4,7 @@ import '../components/cabecalhoFixo.css'
 import '../components/crud.css'
 import '../components/estruturaCusto.css'
 import { ApiError, apiFetch } from '../lib/api'
+import { useEstruturaCustoMes } from '../lib/EstruturaCustoContext'
 import { formatarMoeda } from '../lib/formatar'
 import { usePrivacidade } from '../lib/PrivacyContext'
 import type {
@@ -61,10 +62,6 @@ function mesesAntes(anoMes: string, n: number): string {
   const anoResultado = Math.floor(totalMeses / 12)
   const mesResultado = (totalMeses % 12) + 1
   return `${anoResultado}-${String(mesResultado).padStart(2, '0')}`
-}
-
-function hojeAnoMes(): string {
-  return new Date().toISOString().slice(0, 7)
 }
 
 function chaveCategoria(bucket: BucketEstruturaCusto, chave: string): string {
@@ -280,10 +277,15 @@ export function BucketBloco({
 export function EstruturaCusto() {
   const { oculto } = usePrivacidade()
   // ?mes=YYYY-MM permite chegar direto num mês específico (link da tendência
-  // de Orçado×Realizado em Gráficos) — sem o param, cai no mês atual como
-  // sempre foi
+  // de Orçado×Realizado em Gráficos) — sobrepõe o mês persistido (contexto,
+  // sobrevive à navegação) só quando o param vem preenchido
   const [searchParams] = useSearchParams()
-  const [vigenciaMes, setVigenciaMes] = useState(() => searchParams.get('mes') ?? hojeAnoMes())
+  const { vigenciaMes, setVigenciaMes } = useEstruturaCustoMes()
+  useEffect(() => {
+    const mes = searchParams.get('mes')
+    if (mes) setVigenciaMes(mes)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams])
   const [dados, setDados] = useState<EstruturaCustoMes | null>(null)
   const [categorias, setCategorias] = useState<Categoria[]>([])
   const [subcategorias, setSubcategorias] = useState<Subcategoria[]>([])

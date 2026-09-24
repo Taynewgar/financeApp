@@ -2287,3 +2287,63 @@ já usado em `.pareto`/`crud.css` — não muda com essa rede de segurança).
 - [ ] Conferir rapidamente Lançamentos/Dashboard/Estrutura de Custo/
       Planejamento no mobile → ainda sem rolagem lateral (a rede de
       segurança não deveria mudar nada ali, só confirmar).
+
+### Rodada 24 (2026-09-24) — filtro/período sobrevive à navegação entre telas
+
+Item 13 do backlog, próximo da ordem que o usuário definiu (depois do
+lote de cabeçalho fixo/barra lateral). Exemplo original: aplicar filtros
+em Lançamentos, ir pra Planejamento, voltar — os filtros resetavam.
+Escopo confirmado com o usuário antes de implementar (`AskUserQuestion`):
+as 4 telas com filtro/período (não só Lançamentos), pelo mesmo mecanismo.
+
+**Mecanismo escolhido:** Context React, um por tela, montado no
+`AppShell` — que fica montado o tempo todo entre trocas de rota (só o
+`<Outlet/>` interno troca) — em vez de `sessionStorage`/`localStorage`.
+Não precisa sobreviver a fechar a aba, só à navegação dentro do app, e
+Context evita serialização (os filtros de Lançamentos incluem `union
+types` como `TipoMovimento | ''`, sem custo extra de (de)serializar).
+
+**Arquivos novos** (`src/lib/`):
+- `LancamentosFiltrosContext.tsx` — `Filtros`/`FILTROS_VAZIOS` (movidos
+  de `Lancamentos.tsx`, agora fonte única) + `filtros`/`mesRapido`/
+  `anoRapido`. `filtroMobileAberto` (o painel colapsado da Rodada 23)
+  continua local — é estado de UI, não filtro, não faz sentido persistir
+  o painel aberto entre visitas.
+- `GraficosPeriodoContext.tsx` — não duplica a lógica de `usePeriodo()`
+  (`lib/periodo.ts`): o Provider só chama o hook por dentro e expõe o
+  resultado via Context. Dashboard continua chamando `usePeriodo()`
+  direto (fora do escopo confirmado — não é uma das 4 telas).
+- `EstruturaCustoContext.tsx` / `PlanejamentoContext.tsx` — só
+  `vigenciaMes`/`setVigenciaMes` (sem a derivação de período mais
+  elaborada de Gráficos).
+
+**Caso especial — Estrutura de Custo:** `?mes=YYYY-MM` na URL (link de
+drill-down vindo de Gráficos) precisa continuar sobrepondo o mês
+persistido. Virou um `useEffect` que, se o param existir, chama
+`setVigenciaMes` do contexto — sobrescreve e também passa a valer como
+"o mês atual" daí pra frente (mesmo padrão de antes, só que agora o novo
+valor sobrevive se o usuário navegar pra outro lugar e voltar).
+
+**Testes:** mudança de arquitetura de estado, sem lógica de negócio nova
+— sem teste automatizado (frontend não tem suíte). `tsc -b && vite
+build` e `oxlint` sem erros novos (os avisos `only-export-components`
+nos 4 arquivos novos são o mesmo padrão já aceito em `PrivacyContext.tsx`/
+`AuthContext.tsx` — Context sempre exporta hook junto do Provider).
+
+**Checklist de teste manual:**
+- [ ] Lançamentos: aplicar um filtro (ex: Tipo = Despesa) → ir pra
+      Planejamento → voltar pra Lançamentos → filtro continua aplicado.
+- [ ] Gráficos: trocar pra "Intervalo" (ou "Todos os meses") e mudar o
+      mês → ir pra outra tela → voltar → seleção continua.
+- [ ] Estrutura de Custo: navegar pra outro mês (← →) → ir pra outra
+      tela → voltar → mês continua o navegado, não volta pro atual.
+- [ ] Estrutura de Custo: entrar via link de drill-down de Gráficos
+      (Orçado×Realizado, clicar num ponto) → mês correto aparece; sair e
+      voltar sem usar o link de novo → mês do drill-down persiste.
+- [ ] Planejamento: mesmo teste do mês de Estrutura de Custo.
+- [ ] Lançamentos: painel de filtro mobile aberto → trocar de tela e
+      voltar → painel aparece colapsado de novo (não persiste aberto,
+      comportamento esperado).
+- [ ] Fechar a aba/app e abrir de novo → todos os filtros/períodos
+      voltam ao padrão (não persistem entre sessões — só durante a
+      navegação, por design).

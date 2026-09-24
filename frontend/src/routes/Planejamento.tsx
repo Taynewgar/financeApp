@@ -7,6 +7,7 @@ import '../components/planejamento.css'
 import { ApiError, apiFetch } from '../lib/api'
 import { formatarMoeda, formatarMoedaCompacta } from '../lib/formatar'
 import { ordenarPorNome } from '../lib/ordenar'
+import { usePlanejamentoMes } from '../lib/PlanejamentoContext'
 import { usePrivacidade } from '../lib/PrivacyContext'
 import type { Bucket, Categoria, Conta, Orcamento, OrcamentoItem, Subcategoria } from '../lib/types'
 
@@ -65,10 +66,6 @@ type FormItem = {
 
 const FORM_ITEM_VAZIO: FormItem = { categoria_id: '', subcategoria_id: '', nome: '', conta_vinculada_id: '', orcamento_mensal: '' }
 
-function hojeAnoMes(): string {
-  return new Date().toISOString().slice(0, 7)
-}
-
 /** 'YYYY-MM' menos N meses, sempre 'YYYY-MM' de volta. */
 function mesesAntes(anoMes: string, n: number): string {
   const [ano, mes] = anoMes.split('-').map(Number)
@@ -107,7 +104,7 @@ function linkBusca(mes: string, categoriaId: string | null, subcategoriaId: stri
 
 export function Planejamento() {
   const { oculto } = usePrivacidade()
-  const [vigenciaMes, setVigenciaMes] = useState(hojeAnoMes())
+  const { vigenciaMes, setVigenciaMes } = usePlanejamentoMes()
   const [orcamentos, setOrcamentos] = useState<Orcamento[] | null>(null)
   const [itens, setItens] = useState<OrcamentoItem[] | null>(null)
   const [categorias, setCategorias] = useState<Categoria[]>([])

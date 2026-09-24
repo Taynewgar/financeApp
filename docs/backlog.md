@@ -65,8 +65,9 @@ merecer não ficar misturado com a tabela proposto×implementado tela a tela.
 partir do teste do seed novo e dos mockups de cabeçalho fixo; depois do
 que está acima, antes da baixa prioridade abaixo:
 
-13. **Persistir estado de filtros ao navegar entre features** — Detalhe
-    na subseção própria abaixo.
+13. ~~Persistir estado de filtros ao navegar entre features~~ **feito
+    2026-09-24** — Detalhe na subseção própria abaixo, ver changelog
+    Rodada 24.
 14. **Filtro específico pra recorrentes** — Detalhe na subseção própria
     abaixo.
 15. **Lista de "meses pulados" muito grande** — com sugestão de
@@ -493,8 +494,14 @@ Custo também têm seletor de período) — decidir se é um mecanismo genérico
 (1 hook reaproveitado por tela) ou feito tela a tela quando aparecer o
 próximo pedido.
 
-**Status:** registrado 2026-09-24, a pedido do usuário, sem decisão de
-prioridade ainda.
+**Status:** implementado 2026-09-24 — escolhido o mecanismo genérico:
+Context React por tela, montado no `AppShell` (que fica montado o tempo
+todo — só o `<Outlet/>` troca entre rotas), sem `sessionStorage`/
+`localStorage` (não precisa sobreviver a fechar a aba, só à navegação
+dentro do app). Escopo confirmado com o usuário: as 4 telas com filtro/
+período (Lançamentos, Gráficos, Estrutura de Custo, Planejamento) — não
+só o exemplo original (Lançamentos↔Planejamento). Ver changelog Rodada
+24 pro detalhe técnico completo.
 
 ### Filtro específico pra recorrentes
 

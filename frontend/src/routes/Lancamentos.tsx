@@ -8,6 +8,7 @@ import '../components/lancamentos.css'
 import '../components/resumoCards.css'
 import { ApiError, apiFetch } from '../lib/api'
 import { formatarData, formatarMoeda } from '../lib/formatar'
+import { FILTROS_VAZIOS, useLancamentosFiltros, type Filtros } from '../lib/LancamentosFiltrosContext'
 import { usePrivacidade } from '../lib/PrivacyContext'
 import {
   ESTRUTURAS,
@@ -52,32 +53,6 @@ function pad2(n: number): string {
   return String(n).padStart(2, '0')
 }
 
-type Filtros = {
-  tipoMovimento: TipoMovimento | ''
-  categoriaId: string
-  subcategoriaId: string
-  contaId: string
-  caixinhaId: string
-  estruturaCusto: EstruturaCusto | ''
-  meioPagamento: MeioPagamento | ''
-  dataInicio: string
-  dataFim: string
-  descricao: string
-}
-
-const FILTROS_VAZIOS: Filtros = {
-  tipoMovimento: '',
-  categoriaId: '',
-  subcategoriaId: '',
-  contaId: '',
-  caixinhaId: '',
-  estruturaCusto: '',
-  meioPagamento: '',
-  dataInicio: '',
-  dataFim: '',
-  descricao: '',
-}
-
 // aplicação/retirada em caixinha é reserva, sem cor especial (fica no
 // texto padrão); só quando é investimento de verdade (categoria
 // investimento, sem caixinha) fica azul — ver Estrutura de Custo, mesma
@@ -119,9 +94,7 @@ export function Lancamentos() {
   const subcategoriasPorId = useMemo(() => new Map(subcategorias.map((s) => [s.id, s])), [subcategorias])
   const caixinhasPorId = useMemo(() => new Map(caixinhas.map((c) => [c.id, c])), [caixinhas])
 
-  const [filtros, setFiltros] = useState<Filtros>(FILTROS_VAZIOS)
-  const [mesRapido, setMesRapido] = useState('')
-  const [anoRapido, setAnoRapido] = useState(String(new Date().getFullYear()))
+  const { filtros, setFiltros, mesRapido, setMesRapido, anoRapido, setAnoRapido } = useLancamentosFiltros()
   const [filtroMobileAberto, setFiltroMobileAberto] = useState(false)
   const filtrosAtivos = Object.values(filtros).filter(Boolean).length
 
