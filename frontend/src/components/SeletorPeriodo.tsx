@@ -73,10 +73,10 @@ export function SeletorPeriodo(periodo: Periodo & { mostrarBaseMedia?: boolean }
       )}
 
       {mostrarBaseMedia && (
-        <div className="campo" title={EXPLICACAO_BASE_MEDIA}>
+        <div className="campo">
           <span style={{ fontSize: 12, color: 'var(--cor-texto-suave)' }}>
             Base da média
-            <InfoIcon />
+            <InfoIcon texto={EXPLICACAO_BASE_MEDIA} />
           </span>
           <div className="segmentado">
             <button type="button" className={baseMedia === 'ate_mes' ? 'ativo' : ''} onClick={() => setBaseMedia('ate_mes')}>

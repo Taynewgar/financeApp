@@ -2062,17 +2062,46 @@ subcategoria, sem rótulo próprio pra ancorar o ícone).
 automatizado (frontend não tem suíte). `tsc -b && vite build` e `oxlint`
 sem erros novos.
 
-**Checklist de teste manual:**
+**Checklist de teste manual:** (itens 2 e 4 corrigidos na Rodada 22.1 —
+clicar/tocar no ícone, não hover; "Base da média" só existe em Gráficos)
 - [ ] Dashboard: cada card de resumo (Receitas, Despesas, Reservas,
       Investimentos, Taxa de poupança, Meses com resultado negativo,
       Maior categoria de despesa) e o texto "Resultado de caixa/saúde"
       mostram um círculo pequeno com "?" ao lado do rótulo.
-- [ ] Passar o mouse sobre o círculo (ou sobre o card, como já
-      funcionava) → tooltip nativo com a explicação aparece.
+- [ ] Clicar/tocar no círculo → balão com a explicação aparece.
 - [ ] Lançamentos: os 5 cards de resumo (Lançamentos, Receitas, Despesas
       líquidas, Fluxo de caixa, Taxa de poupança) mostram o mesmo círculo.
-- [ ] Dashboard e Lançamentos → seletor de período → "Base da média"
-      mostra o círculo, com a explicação de "Até o mês" vs "Ritmo anual"
-      no hover.
+- [ ] Gráficos → seletor de período → "Base da média" mostra o círculo,
+      com a explicação de "Até o mês" vs "Ritmo anual" ao clicar.
 - [ ] Visual não quebra em mobile (< 720px) — círculo não estoura a
       largura do card nem sobrepõe o valor.
+
+### Rodada 22.1 (2026-09-24) — ícone de info clicável (não depende de hover)
+
+Usuário testou a Rodada 22 no celular e reportou: tocar no ícone não
+mostrava nada. Causa: o tooltip continuava sendo o `title` nativo do
+elemento pai, que só ativa com hover — e touchscreen não tem hover. O
+ícone visual resolvia "eu sei que tem explicação aqui" mas não "como eu
+vejo a explicação" no dispositivo onde essa PWA mais roda.
+
+**`components/InfoIcon.tsx`:** virou um `<button>` que recebe o texto via
+prop `texto` (antes ficava só no `title` do elemento pai) e mostra num
+balão próprio (`role="tooltip"`) ao ser clicado/tocado — funciona igual
+em mobile e desktop, sem depender de hover do navegador. Fecha ao clicar
+fora (`mousedown` no documento) ou Esc. `title` removido de todos os
+elementos pai (Dashboard, Lançamentos, `SeletorPeriodo`) — o ícone passou
+a ser o único lugar que carrega a explicação, evitando duplicar a mesma
+informação em dois mecanismos diferentes.
+
+**Testes:** mudança visual/interação, sem lógica de negócio — sem teste
+automatizado. `tsc -b && vite build` e `oxlint` sem erros novos.
+
+**Checklist de teste manual:**
+- [ ] No celular (ou DevTools em modo mobile): tocar num ícone "?" →
+      balão com a explicação aparece.
+- [ ] Tocar em outro lugar da tela → balão fecha.
+- [ ] No desktop: clicar no ícone → mesmo balão aparece; Esc fecha.
+- [ ] Abrir o balão de um card, depois clicar direto no ícone de outro
+      card sem fechar o primeiro → comportamento não trava (balão do
+      primeiro fecha, do segundo abre, ou os dois convivem sem quebrar
+      layout — qualquer um dos dois é aceitável, só não pode travar).

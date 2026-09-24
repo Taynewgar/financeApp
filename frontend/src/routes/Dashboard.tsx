@@ -221,14 +221,11 @@ export function Dashboard() {
             </button>
           </div>
 
-          <div
-            title={EXPLICACAO[leitura === 'caixa' ? 'fluxo_caixa' : 'resultado_saude']}
-            style={{ margin: '12px 0 20px', display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}
-          >
+          <div style={{ margin: '12px 0 20px', display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
             <div>
               <span style={{ fontSize: 12, color: 'var(--cor-texto-suave)' }}>
                 {leitura === 'caixa' ? 'Resultado de caixa' : 'Resultado de saúde'}
-                <InfoIcon />
+                <InfoIcon texto={EXPLICACAO[leitura === 'caixa' ? 'fluxo_caixa' : 'resultado_saude']} />
               </span>
               <div className={classeResultado(hero ?? 0)} style={{ fontSize: 48, fontWeight: 600, lineHeight: 1.1 }}>
                 {formatarMoeda(hero ?? 0, oculto)}
@@ -249,10 +246,10 @@ export function Dashboard() {
           <div className="resumo-cards">
             {leitura === 'caixa' ? (
               <>
-                <div className="resumo-card" title={EXPLICACAO.receitas}>
+                <div className="resumo-card">
                   <span className="resumo-card-rotulo">
                     Receitas
-                    <InfoIcon />
+                    <InfoIcon texto={EXPLICACAO.receitas} />
                   </span>
                   <span className="resumo-card-valor valor-receita">{formatarMoeda(resumo.receitas, oculto)}</span>
                   {mesAnterior && (
@@ -264,10 +261,10 @@ export function Dashboard() {
                     </div>
                   )}
                 </div>
-                <div className="resumo-card" title={EXPLICACAO.despesas_brutas}>
+                <div className="resumo-card">
                   <span className="resumo-card-rotulo">
                     Despesas
-                    <InfoIcon />
+                    <InfoIcon texto={EXPLICACAO.despesas_brutas} />
                   </span>
                   <span className="resumo-card-valor valor-despesa">{formatarMoeda(resumo.despesas_brutas, oculto)}</span>
                   {mesAnterior && (
@@ -284,10 +281,10 @@ export function Dashboard() {
               </>
             ) : (
               <>
-                <div className="resumo-card" title={EXPLICACAO.receita_ajustada}>
+                <div className="resumo-card">
                   <span className="resumo-card-rotulo">
                     Receita ajustada
-                    <InfoIcon />
+                    <InfoIcon texto={EXPLICACAO.receita_ajustada} />
                   </span>
                   <span className="resumo-card-valor valor-receita">{formatarMoeda(receitaAjustada(resumo), oculto)}</span>
                   {mesAnterior && (
@@ -301,10 +298,10 @@ export function Dashboard() {
                     </div>
                   )}
                 </div>
-                <div className="resumo-card" title={EXPLICACAO.despesas_liquidas}>
+                <div className="resumo-card">
                   <span className="resumo-card-rotulo">
                     Despesas líquidas
-                    <InfoIcon />
+                    <InfoIcon texto={EXPLICACAO.despesas_liquidas} />
                   </span>
                   <span className="resumo-card-valor valor-despesa">{formatarMoeda(resumo.despesas_liquidas, oculto)}</span>
                   {mesAnterior && (
@@ -321,10 +318,10 @@ export function Dashboard() {
               </>
             )}
 
-            <div className="resumo-card" title={EXPLICACAO.reservas}>
+            <div className="resumo-card">
               <span className="resumo-card-rotulo">
                 Reservas
-                <InfoIcon />
+                <InfoIcon texto={EXPLICACAO.reservas} />
               </span>
               <span className="resumo-card-valor valor-investimento">{formatarMoeda(resumo.reservas, oculto)}</span>
               {mesAnterior && (
@@ -336,10 +333,10 @@ export function Dashboard() {
                 </div>
               )}
             </div>
-            <div className="resumo-card" title={EXPLICACAO.investimentos}>
+            <div className="resumo-card">
               <span className="resumo-card-rotulo">
                 Investimentos
-                <InfoIcon />
+                <InfoIcon texto={EXPLICACAO.investimentos} />
               </span>
               <span className="resumo-card-valor valor-investimento">{formatarMoeda(resumo.investimentos, oculto)}</span>
               {mesAnterior && (
@@ -353,10 +350,10 @@ export function Dashboard() {
                 </div>
               )}
             </div>
-            <div className="resumo-card" title={EXPLICACAO.taxa_poupanca}>
+            <div className="resumo-card">
               <span className="resumo-card-rotulo">
                 Taxa de poupança
-                <InfoIcon />
+                <InfoIcon texto={EXPLICACAO.taxa_poupanca} />
               </span>
               <span className="resumo-card-valor">
                 {resumo.taxa_poupanca === null ? '—' : `${resumo.taxa_poupanca.toFixed(1)}%`}
@@ -380,10 +377,10 @@ export function Dashboard() {
                 </div>
               )}
             </div>
-            <div className="resumo-card" title={EXPLICACAO.meses_negativos}>
+            <div className="resumo-card">
               <span className="resumo-card-rotulo">
                 Meses com resultado negativo
-                <InfoIcon />
+                <InfoIcon texto={EXPLICACAO.meses_negativos} />
               </span>
               <span className="resumo-card-valor">
                 {mesesNegativosAno === null ? '—' : mesesNegativosAno.negativos}
@@ -392,10 +389,10 @@ export function Dashboard() {
                 <span className="resumo-card-delta">de {mesesNegativosAno.total} meses no ano</span>
               )}
             </div>
-            <div className="resumo-card" title={EXPLICACAO.maior_categoria_despesa}>
+            <div className="resumo-card">
               <span className="resumo-card-rotulo">
                 Maior categoria de despesa
-                <InfoIcon />
+                <InfoIcon texto={EXPLICACAO.maior_categoria_despesa} />
               </span>
               <span className="resumo-card-valor valor-despesa">
                 {maiorCategoriaDespesa ? maiorCategoriaDespesa.categoria_nome : '—'}

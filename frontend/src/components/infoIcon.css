@@ -1,15 +1,49 @@
+.info-icone-wrap {
+  position: relative;
+  display: inline-flex;
+}
+
 .info-icone {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 14px;
-  height: 14px;
+  width: 16px;
+  height: 16px;
   margin-left: 4px;
+  padding: 0;
   border-radius: 50%;
   border: 1px solid var(--cor-borda);
+  background: transparent;
   color: var(--cor-texto-suave);
   font-size: 10px;
   line-height: 1;
   font-weight: 600;
   flex-shrink: 0;
+  cursor: pointer;
+}
+
+.info-icone:hover,
+.info-icone[aria-expanded='true'] {
+  border-color: var(--cor-acento);
+  color: var(--cor-acento);
+}
+
+.info-icone-balao {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 6px);
+  left: 0;
+  width: max-content;
+  max-width: min(260px, 80vw);
+  padding: 8px 10px;
+  border-radius: var(--raio);
+  border: 1px solid var(--cor-borda);
+  background: var(--cor-superficie);
+  box-shadow: var(--sombra);
+  color: var(--cor-texto);
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.4;
+  text-align: left;
+  white-space: normal;
 }
