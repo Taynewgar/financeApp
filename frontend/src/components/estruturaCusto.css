@@ -27,35 +27,6 @@
   margin: 4px 0 16px;
 }
 
-.estrutura-custo-fita {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-  margin-bottom: 18px;
-}
-
-.estrutura-custo-fita-item {
-  flex: 1;
-  min-width: 140px;
-  background: var(--cor-superficie);
-  border: 1px solid var(--cor-borda);
-  border-radius: var(--raio);
-  padding: 10px 12px;
-}
-
-.estrutura-custo-fita-item .rotulo {
-  font-size: 11px;
-  color: var(--cor-texto-suave);
-  display: block;
-  margin-bottom: 3px;
-}
-
-.estrutura-custo-fita-item .valor {
-  font-size: 18px;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-}
-
 .estrutura-custo-aviso-sem-orcamento {
   background: var(--cor-superficie);
   border: 1px solid var(--cor-borda);
@@ -272,14 +243,21 @@
 }
 
 @media (max-width: 480px) {
-  .estrutura-custo-sub-linha,
-  .estrutura-custo-cabecalho-colunas {
+  .estrutura-custo-sub-linha {
     grid-template-columns: 1fr 100px 80px 60px;
   }
   .estrutura-custo-sub-linha .col-status,
-  .estrutura-custo-sub-linha .col-ir,
-  .estrutura-custo-cabecalho-colunas span:nth-child(5),
-  .estrutura-custo-cabecalho-colunas span:last-child {
+  .estrutura-custo-sub-linha .col-ir {
+    display: none;
+  }
+
+  /* larguras fixas em px (140/100/100/90/26) nunca cabem numa tela de
+   * celular — mesmo com só 4 colunas ainda estourava a largura (bug
+   * reportado 2026-09-24, "quebrando"). Cada linha de bucket/categoria já
+   * rotula os valores inline ("Orçado R$x Realizado R$y"), então o
+   * cabeçalho de coluna é só decorativo aqui — mais seguro esconder do
+   * que tentar espremer. */
+  .estrutura-custo-cabecalho-colunas {
     display: none;
   }
 

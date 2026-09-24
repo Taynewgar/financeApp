@@ -2517,3 +2517,59 @@ suíte offline é a cobertura real disponível aqui.
       continua aparecendo e editável normalmente (migração não quebrou
       dados antigos — depende de rodar a migração do README no Supabase
       real do usuário).
+
+### Rodada 25.1 (2026-09-24) — Estrutura de Custo no mobile: ribbon
+duplicada + cabeçalho de colunas estourando a tela
+
+Reportado com screenshot: "quebrando o menu inferior" — logo abaixo do
+cabeçalho fixo (Mês + KPIs compactos, Rodada 23), aparecia uma linha
+solta com dois números sem rótulo ("-R$700,00"/"R$350,00"), antes do
+primeiro bucket ("Custos Fixos") aparecer.
+
+**Investigação:** sem `backend/.env` real nesta sessão pra testar no
+navegador de verdade (ver CLAUDE.md), então a reprodução foi via
+`npm run dev` local + Playwright com auth e API do backend mockadas
+(sessão Supabase falsa via `localStorage`, respostas de
+`/estrutura-custo/{mes}` etc. interceptadas com os mesmos números do
+print) — não uma suíte de teste permanente, só uma investigação pontual.
+Achou dois problemas reais, ambos únicos dessa tela:
+
+1. **Ribbon duplicada:** `.estrutura-custo-fita` (Orçado no mês/
+   Realizado líquido/Diferença/Execução, em cards grandes) mostrava
+   exatamente os mesmos 4 números que o cabeçalho fixo compacto acima
+   dela — sobrou da versão anterior ao cabeçalho fixo (Rodada 23 já
+   tinha decidido "duplicar por enquanto", nunca voltou pra remover).
+   Sem motivo pra existir mais — removida (JSX e CSS
+   `.estrutura-custo-fita*`).
+2. **Cabeçalho de colunas estourando:** `.estrutura-custo-cabecalho-colunas`
+   (linha "BUCKET / ORÇADO / REALIZADO / DIFERENÇA / STATUS" acima da
+   lista de buckets, útil no desktop pra alinhar as colunas) usa larguras
+   fixas em px (140/100/100/90/26) que nunca cabem numa tela de celular
+   — mesmo a tentativa de mobile já existente (esconder 2 das 6 colunas
+   abaixo de 480px) não bastava, o resto ainda estourava. Cada linha de
+   bucket/categoria já rotula os valores inline ("Orçado R$x  Realizado
+   R$y"), então esse cabeçalho é só decorativo — mais seguro esconder
+   por completo abaixo de 480px do que continuar tentando espremer.
+
+Não achei uma reprodução exata do "nome do bucket sumindo" que o
+screenshot mostrava (com dados/CSS fiéis, "Custos Fixos" sempre apareceu
+completo nos testes) — a hipótese mais provável é que os dois blocos
+acima (~150-200px de conteúdo redundante/quebrado bem nessa região da
+tela) fossem a causa visual relatada. Se depois de testar o app real o
+problema persistir, preciso de um novo print/vídeo pra investigar mais.
+
+**Testes:** mudança visual — `tsc -b && vite build` e `oxlint` sem erros
+novos. Sem teste automatizado (frontend não tem suíte de componente).
+
+**Checklist de teste manual:**
+- [ ] Estrutura de Custo no mobile: rolar até o cabeçalho fixo (Mês +
+      KPIs) grudar no topo → não aparece mais nenhuma linha solta nem
+      cabeçalho de coluna cortado entre o cabeçalho fixo e "Custos
+      Fixos".
+- [ ] Estrutura de Custo no desktop: cabeçalho de colunas
+      ("Bucket/categoria/subcategoria", "Orçado", "Realizado"...)
+      continua aparecendo normalmente acima da lista de buckets (só
+      sumiu no mobile).
+- [ ] Confirmar que os números batem: só existe 1 lugar mostrando
+      Orçado/Realizado/Diferença/Execução do mês agora (o cabeçalho
+      fixo), não mais 2.

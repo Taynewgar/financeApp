@@ -466,29 +466,6 @@ export function EstruturaCusto() {
         </p>
       )}
 
-      {dados && resumoOrcamento && (
-        <div className="estrutura-custo-fita">
-          <div className="estrutura-custo-fita-item">
-            <span className="rotulo">Orçado no mês</span>
-            <span className="valor">{formatarMoeda(resumoOrcamento.orcado, oculto)}</span>
-          </div>
-          <div className="estrutura-custo-fita-item">
-            <span className="rotulo">Realizado líquido</span>
-            <span className="valor">{formatarMoeda(resumoOrcamento.realizado, oculto)}</span>
-          </div>
-          <div className="estrutura-custo-fita-item">
-            <span className="rotulo">Diferença</span>
-            <span className="valor" style={{ color: diferenca >= 0 ? 'var(--cor-sucesso)' : 'var(--cor-perigo)' }}>
-              {formatarMoeda(diferenca, oculto)}
-            </span>
-          </div>
-          <div className="estrutura-custo-fita-item">
-            <span className="rotulo">Execução</span>
-            <span className="valor">{execucao === null ? '—' : `${execucao.toFixed(1)}%`}</span>
-          </div>
-        </div>
-      )}
-
       {dados && (dados.pool_despesas || dados.piso_investimentos) && (
         <div className="estrutura-custo-veredito">
           {dados.pool_despesas && (
