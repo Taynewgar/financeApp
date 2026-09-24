@@ -13,7 +13,11 @@ PWA em React + Vite + TypeScript, consumindo a API do `backend/`.
 - `src/auth/ProtectedRoute.tsx` — redireciona para `/login` sem sessão.
 - `src/components/AppShell.tsx` — casca do app: navegação lateral no
   desktop, barra inferior no mobile (troca por CSS em 720px), botão
-  flutuante de "+" pra Novo Lançamento a partir de qualquer tela.
+  flutuante de "+" pra Novo Lançamento a partir de qualquer tela. A
+  navegação lateral (`.shell-nav`) é `position: sticky` — fica fixa no
+  viewport ao rolar o conteúdo (antes acompanhava o scroll do corpo da
+  página, comportamento não intencional corrigido 2026-09-24, `docs/
+  backlog.md` item 17).
 - `src/lib/types.ts` — tipos TS espelhando os schemas Pydantic do backend
   (mesmos nomes de campo, pra não precisar traduzir mentalmente).
 - `src/lib/rotulos.ts` — rótulos/mapeamentos compartilhados entre
@@ -31,6 +35,22 @@ PWA em React + Vite + TypeScript, consumindo a API do `backend/`.
   2026-09-24: no mobile, tocar não mostrava nada). Fecha ao clicar fora ou
   Esc. Componente único pro app inteiro (Dashboard, Lançamentos, Base da
   média em `SeletorPeriodo`), em vez de um ícone por tela.
+- `src/components/cabecalhoFixo.css` — controles fixos no topo do
+  conteúdo ao rolar (`docs/backlog.md`, item 16, decidido via mockups
+  2026-09-24): `.cabecalho-fixo` é só a mecânica (`position: sticky`);
+  `.cabecalho-fixo-card` dá o visual de card pra tela que não tem um card
+  próprio pra encaixar (Dashboard/Estrutura de Custo/Planejamento —
+  Gráficos reaproveita o card que `SeletorPeriodo` já desenha, então
+  não usa essa classe); `.cabecalho-fixo-grid`/`-stat`/`-barra` são a
+  grade compacta de estatísticas/barrinhas de progresso (KPIs no
+  Dashboard, alocação por bucket no Planejamento, fita de KPIs na
+  Estrutura de Custo) — sempre um resumo **reduzido** do que já existe
+  em detalhe mais abaixo na página, não uma fonte de dado própria.
+  Lançamentos é a exceção: no mobile o painel de filtro completo não
+  cabe fixo (ocupa a tela toda sozinho hoje), então vira uma barra
+  resumida ("N filtros ativos ▾") que expande o painel completo por
+  cima da lista ao tocar; no desktop o painel completo fica sempre
+  fixo, sem colapsar (espaço horizontal sobra).
 - `src/routes/` — uma tela por seção. `Dashboard` mostra os KPIs do mês e a
   evolução (ver abaixo); `Configuracoes` tem os CRUDs de Contas/Categorias/
   Caixinhas (ver abaixo);

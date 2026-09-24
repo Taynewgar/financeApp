@@ -42,6 +42,15 @@
   flex-direction: column;
   padding: 16px 12px;
   gap: 4px;
+  /* fixa a navegação no viewport em vez de rolar junto com o conteúdo —
+   * antes acompanhava o scroll do corpo da página (comportamento não
+   * intencional, backlog); self-scroll (overflow-y) cobre o caso raro de
+   * a lista de seções crescer mais que a altura da tela */
+  position: sticky;
+  top: 0;
+  align-self: flex-start;
+  height: 100vh;
+  overflow-y: auto;
 }
 
 .shell-nav-header {

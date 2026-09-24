@@ -19,3 +19,41 @@
   flex: 1;
   min-width: 140px;
 }
+
+/* resumo colapsado, só no mobile: o painel de filtro completo não cabe
+ * fixo na tela pequena (ver docs/backlog.md, "Lançamentos — filtro
+ * fixo"); toca pra abrir/fechar o painel completo por cima da lista */
+.filtros-resumo-mobile {
+  display: none;
+}
+
+@media (max-width: 720px) {
+  .filtros-resumo-mobile {
+    width: 100%;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    background: var(--cor-superficie);
+    border: 1px solid var(--cor-borda);
+    border-radius: var(--raio);
+    font-size: 13px;
+    color: var(--cor-texto);
+    cursor: pointer;
+  }
+
+  .filtros-resumo-mobile-contador {
+    flex: 1;
+    text-align: left;
+  }
+
+  .filtros {
+    display: none;
+    margin-top: 8px;
+  }
+
+  .filtros.filtros-mobile-aberto {
+    display: flex;
+  }
+}

@@ -2105,3 +2105,82 @@ automatizado. `tsc -b && vite build` e `oxlint` sem erros novos.
       card sem fechar o primeiro → comportamento não trava (balão do
       primeiro fecha, do segundo abre, ou os dois convivem sem quebrar
       layout — qualquer um dos dois é aceitável, só não pode travar).
+
+### Rodada 23 (2026-09-24) — barra lateral e cabeçalhos fixos ao rolar
+
+Itens 16 e 17 do backlog (antigos sub-itens 2 e 4 de "Melhorias pós-MVP
+na tela Gráficos e na casca do app"). Processo: usuário pediu mockups
+antes de decidir (ver `docs/backlog.md`, "Cabeçalho fixo — detalhe da
+decisão", pro histórico completo de 2 rodadas de design — a 1ª comparando
+alternativas genéricas, com o botão de ciclar descartado por não resolver
+o objetivo real; a 2ª com o controle de verdade de cada tela).
+
+**`AppShell.css`** — `.shell-nav` ganhou `position: sticky; top: 0;
+height: 100vh; overflow-y: auto`. Antes acompanhava o scroll do corpo da
+página (bug de layout não intencional, não um recurso ausente).
+
+**`components/cabecalhoFixo.css`** (novo, compartilhado): `.cabecalho-
+fixo` (mecânica sticky) + `.cabecalho-fixo-card` (visual de card pra
+quem não tem um pra encaixar) + `.cabecalho-fixo-grid`/`-stat`/`-barra`
+(grade compacta de estatísticas/barra de progresso). Aplicado em:
+
+- **Gráficos** — `SeletorPeriodo` (Mês/Intervalo/Todos + Base da média)
+  fixo. Reaproveita o card que o próprio `SeletorPeriodo` já desenha
+  (`.dashboard-seletor`), por isso não usa `.cabecalho-fixo-card` — regra
+  CSS nova zera o card duplicado quando `.dashboard-seletor` aparece
+  dentro de `.cabecalho-fixo-card` (usada pelas outras 3 telas abaixo).
+- **Dashboard** — toggle Leitura de Caixa/Saúde + `SeletorPeriodo` fixos,
+  mais uma linha nova com 3 KPIs compactos (Resultado/Despesas líquidas/
+  Taxa de poupança) — pedido do usuário na revisão do mockup, pra não
+  perder de vista os números principais enquanto rola até Patrimônio/
+  Compromissos Futuros.
+- **Estrutura de Custo** — navegador de mês fixo, saiu da linha do `<h1>`
+  pra dentro do cabeçalho fixo; fita de KPIs compacta nova (Orçado/
+  Realizado/Diferença/Execução) — duplica reduzido a fita completa que
+  já existia mais abaixo (`.estrutura-custo-fita`, intacta).
+- **Planejamento** — navegador de mês fixo; grade nova com os 4 buckets
+  em miniatura (barra de progresso + "alocado/teto" compacto) — pedido
+  do usuário na revisão do mockup ("não seria bom manter a alocação
+  visível, mesmo que reduzida?"). Reaproveita a mesma lógica de
+  `percentualUso`/`estourou` que os cards de bucket completos já usavam
+  mais abaixo.
+- **Lançamentos** — responsivo, resolvido diferente por tamanho de tela
+  (o painel de filtro tem 12 campos, não cabe fixo no mobile sem
+  colapsar): desktop mantém o painel completo (`.filtros`) sempre fixo e
+  visível; mobile esconde `.filtros` por padrão e mostra uma barra
+  resumida (`.filtros-resumo-mobile`, contador "N filtros ativos") que
+  alterna `.filtros` visível/escondido ao tocar — a mesma lógica de
+  filtro (`atualizarFiltro`) não mudou, só a exibição.
+
+**Testes:** mudança de layout/CSS, sem lógica de negócio nova — sem
+teste automatizado (frontend não tem suíte). `tsc -b && vite build` e
+`oxlint` sem erros novos em nenhum dos 6 arquivos tocados.
+
+**Checklist de teste manual:**
+- [ ] Desktop (>720px): em qualquer tela, rolar o conteúdo → a barra
+      lateral de navegação não se move, continua no lugar.
+- [ ] Gráficos: rolar pelas 4 seções → o seletor de período (Mês/
+      Intervalo/Todos + Base da média) continua visível e funcional no
+      topo; trocar de mês/intervalo enquanto rolado funciona normal.
+- [ ] Dashboard: rolar até Patrimônio/Compromissos Futuros → toggle
+      Leitura de Caixa/Saúde, seletor de período e os 3 KPIs (Resultado/
+      Despesas líquidas/Taxa de poupança) continuam visíveis no topo;
+      trocar de leitura enquanto rolado atualiza os 3 KPIs.
+- [ ] Estrutura de Custo: rolar a tabela de buckets → mês e fita de KPIs
+      compacta continuam visíveis; navegar de mês enquanto rolado
+      funciona normal.
+- [ ] Planejamento: rolar pelos 4 buckets → mês e as 4 barrinhas de
+      alocação continuam visíveis; provocar um bucket estourado (alocar
+      mais que o teto) → barrinha correspondente fica vermelha, tanto na
+      versão fixa quanto no card completo abaixo.
+- [ ] Lançamentos desktop (>720px): painel de filtro completo aparece
+      sempre fixo no topo, sem barra resumida nem botão de expandir.
+- [ ] Lançamentos mobile (≤720px, ou DevTools em modo mobile): painel de
+      filtro aparece escondido por padrão; barra resumida no
+      topo mostra "Sem filtros" ou "N filtro(s) ativo(s)"; tocar nela
+      expande o painel completo por cima da lista; tocar de novo
+      recolhe. Aplicar um filtro com o painel aberto → lista atualiza
+      normalmente (mesmo comportamento de sempre).
+- [ ] Redimensionar a janela do navegador de mobile pra desktop (ou
+      vice-versa) em Lançamentos com o painel aberto → não quebra o
+      layout (o painel deve continuar coerente com o breakpoint atual).

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
+import '../components/cabecalhoFixo.css'
 import '../components/forms.css'
 import '../components/crud.css'
 import '../components/planejamento.css'
@@ -318,16 +319,29 @@ export function Planejamento() {
   const somaLimites = orcamentoAtual ? BUCKETS.reduce((soma, b) => soma + orcamentoAtual[b.limiteCampo], 0) : 0
   const disponivelMensal = orcamentoAtual ? (orcamentoAtual.receita_base * orcamentoAtual.percentual_geral) / 100 : 0
 
+  const resumoBuckets = orcamentoAtual
+    ? BUCKETS.map((b) => {
+        const teto = tetoBucket(orcamentoAtual, b.limiteCampo)
+        const somaAlocada = (itens ?? [])
+          .filter((i) => i.bucket === b.valor && i.ativo)
+          .reduce((soma, i) => soma + i.orcamento_mensal, 0)
+        const percentualUso = teto > 0 ? Math.min(100, (somaAlocada / teto) * 100) : 0
+        const estourou = somaAlocada > teto + 0.005
+        return { ...b, teto, somaAlocada, percentualUso, estourou }
+      })
+    : []
+
   return (
     <div className="planejamento">
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 20 }}>
-        <div>
-          <h1 style={{ fontSize: 22, marginTop: 0, marginBottom: 4 }}>Planejamento</h1>
-          <p className="planejamento-resumo" style={{ margin: 0 }}>
-            Defina os valores-alvo do orçamento — a leitura do que foi de fato gasto fica na Estrutura de Custo.
-          </p>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6 }}>
+      <div style={{ marginBottom: 12 }}>
+        <h1 style={{ fontSize: 22, marginTop: 0, marginBottom: 4 }}>Planejamento</h1>
+        <p className="planejamento-resumo" style={{ margin: 0 }}>
+          Defina os valores-alvo do orçamento — a leitura do que foi de fato gasto fica na Estrutura de Custo.
+        </p>
+      </div>
+
+      <div className="cabecalho-fixo cabecalho-fixo-card">
+        <div className="cabecalho-fixo-linha">
           <button
             type="button"
             className="botao-secundario"
@@ -337,7 +351,7 @@ export function Planejamento() {
           >
             ←
           </button>
-          <label className="campo" style={{ maxWidth: 180 }}>
+          <label className="campo" style={{ maxWidth: 180, margin: 0 }}>
             Mês
             <input type="month" value={vigenciaMes} onChange={(e) => setVigenciaMes(e.target.value)} />
           </label>
@@ -351,6 +365,24 @@ export function Planejamento() {
             →
           </button>
         </div>
+        {resumoBuckets.length > 0 && (
+          <div className="cabecalho-fixo-grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}>
+            {resumoBuckets.map((b) => (
+              <div className="cabecalho-fixo-stat" key={b.valor}>
+                <div className="cabecalho-fixo-stat-rotulo">{b.rotulo}</div>
+                <div className="cabecalho-fixo-barra">
+                  <div
+                    className={`cabecalho-fixo-barra-fill${b.estourou ? ' estourou' : ''}`}
+                    style={{ width: `${b.percentualUso}%` }}
+                  />
+                </div>
+                <div className="cabecalho-fixo-stat-valor" style={{ fontSize: 10, fontWeight: 400 }}>
+                  {formatarMoeda(b.somaAlocada, oculto)}/{formatarMoeda(b.teto, oculto)}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {erro && <p className="mensagem-erro">{erro}</p>}

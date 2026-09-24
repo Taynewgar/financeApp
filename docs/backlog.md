@@ -56,22 +56,14 @@ merecer não ficar misturado com a tabela proposto×implementado tela a tela.
 11. ~~Compromissos futuros no Dashboard~~ **feito por completo
     2026-09-22** — parcelas futuras (2026-09-13) + despesa fixa
     recorrente (item 7, 2026-09-22).
-12. **Indicador visual de tooltip** — registrado 2026-09-15, sugestão do
-    usuário pra pós-MVP (não é baixa prioridade, só sequenciado depois do
-    MVP fechado, igual ao item 10). Hoje o Dashboard tem tooltip
-    explicando cada card de resumo (item 24 do histórico), mas nada na
-    tela avisa que o card é "hover-ável" — só se descobre passando o
-    mouse por acaso. Ideia: marcar com um ícone pequeno (círculo com "?",
-    tipo os de formulário) ao lado do que tem explicação extra — o padrão
-    atual (tooltip nativo via `title`) continua por trás, só falta o
-    *sinalizador visual*. Escopo: acha todo lugar que já usa tooltip
-    explicativo (Dashboard é o caso conhecido, mas vale auditar as outras
-    telas) e decide um componente/ícone padrão único pro app inteiro, não
-    um por tela.
+12. ~~Indicador visual de tooltip~~ **feito 2026-09-24** — componente
+    `InfoIcon` único pro app inteiro (Dashboard, Lançamentos, Base da
+    média), clicável (não depende de hover — não existe em touchscreen,
+    corrigido na Rodada 22.1). Ver changelog Rodadas 22/22.1.
 
 **Média prioridade confirmada pelo usuário** — registrados 2026-09-24, a
-partir do teste do seed novo; depois do que está acima, antes da baixa
-prioridade abaixo:
+partir do teste do seed novo e dos mockups de cabeçalho fixo; depois do
+que está acima, antes da baixa prioridade abaixo:
 
 13. **Persistir estado de filtros ao navegar entre features** — Detalhe
     na subseção própria abaixo.
@@ -79,17 +71,40 @@ prioridade abaixo:
     abaixo.
 15. **Lista de "meses pulados" muito grande** — com sugestão de
     abordagem. Detalhe na subseção própria abaixo.
+16. ~~Cabeçalho fixo/controles fixos por feature~~ **feito 2026-09-24** —
+    decidido via mockups (Lançamentos, Gráficos, Estrutura de Custo,
+    Planejamento, Dashboard). Ver changelog Rodada 23.
+17. ~~Barra lateral não deve sumir ao rolar~~ **feito 2026-09-24** — Ver
+    changelog Rodada 23.
+18. **Janela de meses pra trás × ano civil (jan-dez) nos gráficos** —
+    hoje o modo "Mês" em `/graficos` mostra N meses pra trás contando do
+    mês selecionado (12, ver Rodada 16.2). Repensar se um ano civil fixo
+    (janeiro-dezembro) seria mais legível.
+19. **Tooltip: balão abre perto da borda/canto no mobile aumentando a
+    área que precisa ser rolada** — reportado 2026-09-24, testando a
+    Rodada 22.1. O balão (`position:absolute`) pode extrapolar o
+    viewport perto das bordas, ampliando o scroll da página. Fix
+    provável: clampar a posição do balão dentro do viewport (ou usar
+    `position:fixed` com coordenadas calculadas via
+    `getBoundingClientRect`).
+20. **Lançamentos: cards quebrando no layout mobile** — reportado
+    2026-09-24.
+21. **Botões inferiores (barra de navegação mobile) pequenos e colados**
+    — reportado 2026-09-24.
+22. **Estrutura de Custo carregando devagar — investigar excesso de
+    requisições** — reportado 2026-09-24, suspeita de padrão parecido com
+    o bug já corrigido em Gráficos.
 
 **Baixa prioridade confirmada pelo usuário** — todo o resto acima (itens
-1-15) é alta ou média prioridade, mesmo o que está sequenciado pra depois
+1-22) é alta ou média prioridade, mesmo o que está sequenciado pra depois
 do MVP:
 
-16. Aba Bancos em Configurações — hoje resolvido como campo de texto em
+23. Aba Bancos em Configurações — hoje resolvido como campo de texto em
     Conta, sem perda funcional real. *(2026-09-15)*
-17. Saldo atual de contas — hoje só caixinhas têm saldo calculado
+24. Saldo atual de contas — hoje só caixinhas têm saldo calculado
     (`GET /dashboard/patrimonio/{mes}`); dar saldo a `contas` também seria
     a extensão natural, mas não é urgente. *(2026-09-15)*
-18. **Changelog estruturado** — trocar a prosa narrativa de
+25. **Changelog estruturado** — trocar a prosa narrativa de
     `changelog-proposta-original-do-redesign.md` pelo formato [Keep a
     Changelog](https://keepachangelog.com) (seções `Added/Changed/Fixed/
     Removed` por versão datada, amarrada a tag git). Ganho: escaneável e
@@ -98,16 +113,13 @@ do MVP:
     isso fica de baixa prioridade enquanto o projeto for de um usuário só.
     Sugestão minha (Claude), confirmada como baixa prioridade pelo usuário.
     *(2026-09-16)*
-19. **ADRs (Architecture Decision Records)** — trocar o Q&A único de
+26. **ADRs (Architecture Decision Records)** — trocar o Q&A único de
     `sugestoes-e-decisoes-do-redesign.md` por um arquivo curto e imutável
     por decisão relevante (formato Nygard: contexto/decisão/consequências).
     Decisão revista vira um ADR novo que supersede o antigo, em vez de
     editar o `> Status:` por cima como hoje — histórico fica honesto, mas
-    com mais arquivos pra navegar. Mesma origem e confirmação do item 18.
+    com mais arquivos pra navegar. Mesma origem e confirmação do item 25.
     *(2026-09-16)*
-20. **Melhorias pós-MVP na tela Gráficos e na casca do app** — registradas
-    2026-09-22, a pedido do usuário, pra decidir quando essa fase chegar
-    (não agora). Detalhe de cada uma na subseção própria abaixo.
 
 Este arquivo não substitui o `README.md` da raiz (que descreve o que
 existe) nem o `/status-projeto` (relatório de andamento) — é o registro do
@@ -402,26 +414,67 @@ exato do JSON quando for priorizado.
 ### Melhorias pós-MVP na tela Gráficos e na casca do app
 
 Registradas 2026-09-22, a partir do teste do usuário nas Rodadas B e C da
-feature Gráficos. Nenhuma priorizada ainda — só documentadas pra não se
-perder.
+feature Gráficos. As 3 primeiras já resolvidas; a 4ª (item 18 da lista de
+prioridade) segue pendente.
 
 1. ~~**Layout e posicionamento dos gráficos na página**~~ **feito
    2026-09-22** — `/graficos` reorganizada por tema: Evolução Mensal (+
    Taxa de Poupança) → Orçado×Realizado (+ % executado) → Pareto de
    Despesas → Despesas por Categoria fica por último (composição, não
    tendência). Ver changelog pro detalhe completo desta rodada.
-2. **Cabeçalho fixo por feature, ou botão de ciclar topo↔ponto anterior**
-   — qual é melhor pra UX numa página que cresceu (Gráficos já tem 4
-   seções). **Só responder quando esta melhoria for implementada** —
-   pedido explícito do usuário pra não decidir prematuramente.
-3. **Janela de meses pra trás × ano civil (jan-dez) nos gráficos** —
-   hoje o modo "Mês" em `/graficos` mostra N meses pra trás contando do
-   mês selecionado (12, ver Rodada 16.2). Repensar se um ano civil fixo
-   (janeiro-dezembro) seria mais legível — decidir quando esta fase de
-   melhoria chegar.
-4. **Barra lateral de navegação não deve sumir ao rolar** — hoje
-   acompanha o scroll do corpo da página (comportamento não intencional,
-   a confirmar onde exatamente isso acontece antes de corrigir).
+2. ~~**Cabeçalho fixo por feature**~~ **feito 2026-09-24** (item 16) —
+   decidido via mockups: controles (período/mês/KPIs-resumo) fixos no
+   topo, não um botão de ciclar (essa alternativa foi descartada — não
+   resolvia o objetivo real do usuário, que era não precisar rolar de
+   volta pra usar um controle). Ver "Cabeçalho fixo — detalhe da decisão"
+   abaixo e changelog Rodada 23.
+3. **Janela de meses pra trás × ano civil (jan-dez) nos gráficos** (item
+   18 da lista de prioridade) — hoje o modo "Mês" em `/graficos` mostra N
+   meses pra trás contando do mês selecionado (12, ver Rodada 16.2).
+   Repensar se um ano civil fixo (janeiro-dezembro) seria mais legível —
+   decidir quando esta fase de melhoria chegar.
+4. ~~**Barra lateral de navegação não deve sumir ao rolar**~~ **feito
+   2026-09-24** (item 17) — `position: sticky` em `.shell-nav`
+   (`AppShell.css`). Ver changelog Rodada 23.
+
+### Cabeçalho fixo — detalhe da decisão
+
+Processo: usuário pediu mockups (Artifact tipo Design/canvas) antes de
+decidir. 1ª rodada comparou 2 alternativas genéricas — cabeçalho com
+título de seção vs. botão de ciclar topo↔ponto anterior — usando Gráficos
+como exemplo. Usuário esclareceu a intenção real: não é sobre "saber em
+que seção estou", é sobre **não precisar rolar de volta pra usar um
+controle** (filtro de Lançamentos, período de Gráficos, mês de Estrutura
+de Custo/Planejamento/Dashboard). Isso descartou o botão de ciclar (não
+resolve esse problema) e redirecionou a 1ª opção pra fixar os controles
+de verdade, não um título ilustrativo.
+
+2ª rodada de mockups, um por tela, com o controle real de cada uma:
+- **Lançamentos** — comportamento diferente por tamanho de tela: no
+  desktop tem espaço pra fixar o painel de filtro completo (12 campos,
+  elementos reduzidos); no mobile o painel sozinho já ocupa a tela toda
+  hoje, então vira uma barra resumida fixa ("N filtros ativos ▾") que
+  expande o painel completo por cima da lista ao tocar.
+- **Gráficos** — seletor de período (Mês/Intervalo/Todos + Base da
+  média) fixo.
+- **Estrutura de Custo** — navegador de mês + fita de KPIs (Orçado/
+  Realizado/Diferença/Execução) fixos, versão compacta da fita que já
+  existe abaixo (não substitui, duplica reduzido).
+- **Planejamento** — navegador de mês fixo; usuário pediu pra também
+  manter a alocação por bucket visível (mesmo que reduzida) — versão
+  final tem 4 barrinhas de progresso compactas (uma por bucket) abaixo
+  do navegador.
+- **Dashboard** — toggle Leitura de Caixa/Saúde + seletor de período
+  fixos; usuário pediu pra também manter alguns KPIs visíveis — versão
+  final acrescenta uma linha com 3 KPIs (Resultado/Despesas líquidas/
+  Taxa de poupança).
+
+Todas as 5 aprovadas e implementadas na Rodada 23. Componente/CSS
+compartilhado: `components/cabecalhoFixo.css` (`.cabecalho-fixo` — só a
+mecânica sticky; `.cabecalho-fixo-card` — visual de card pras telas sem
+um card próprio pra encaixar; `.cabecalho-fixo-grid`/`-stat`/`-barra` —
+grade compacta de estatísticas/barrinhas de progresso reaproveitada em
+Estrutura de Custo/Planejamento/Dashboard).
 
 ### Persistir estado de filtros ao navegar entre features
 

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { InfoIcon } from '../components/InfoIcon'
+import '../components/cabecalhoFixo.css'
 import '../components/crud.css'
 import '../components/forms.css'
 import '../components/lancamentos.css'
@@ -121,6 +122,8 @@ export function Lancamentos() {
   const [filtros, setFiltros] = useState<Filtros>(FILTROS_VAZIOS)
   const [mesRapido, setMesRapido] = useState('')
   const [anoRapido, setAnoRapido] = useState(String(new Date().getFullYear()))
+  const [filtroMobileAberto, setFiltroMobileAberto] = useState(false)
+  const filtrosAtivos = Object.values(filtros).filter(Boolean).length
 
   // drill-down vindo de outra tela (ex: Estrutura de Custo) — lê uma vez na
   // montagem; categoria_id/subcategoria_id/mes (YYYY-MM) na URL
@@ -324,7 +327,21 @@ export function Lancamentos() {
         </div>
       )}
 
-      <div className="filtros">
+      <div className="cabecalho-fixo">
+        <button
+          type="button"
+          className="filtros-resumo-mobile"
+          onClick={() => setFiltroMobileAberto((v) => !v)}
+          aria-expanded={filtroMobileAberto}
+        >
+          <span aria-hidden="true">⚲</span>
+          <span className="filtros-resumo-mobile-contador">
+            {filtrosAtivos === 0 ? 'Sem filtros' : `${filtrosAtivos} filtro${filtrosAtivos > 1 ? 's' : ''} ativo${filtrosAtivos > 1 ? 's' : ''}`}
+          </span>
+          <span aria-hidden="true">{filtroMobileAberto ? '▲' : '▼'}</span>
+        </button>
+
+        <div className={`filtros${filtroMobileAberto ? ' filtros-mobile-aberto' : ''}`}>
         <div className="filtros-linha">
           <label className="campo">
             Tipo
@@ -479,6 +496,7 @@ export function Lancamentos() {
           >
             Limpar filtros
           </button>
+        </div>
         </div>
       </div>
 

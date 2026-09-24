@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { InfoIcon } from '../components/InfoIcon'
 import { SeletorPeriodo } from '../components/SeletorPeriodo'
 import { Sparkline } from '../components/Sparkline'
+import '../components/cabecalhoFixo.css'
 import '../components/forms.css'
 import '../components/resumoCards.css'
 import '../components/crud.css'
@@ -206,21 +207,46 @@ export function Dashboard() {
         <h1 style={{ fontSize: 22, marginTop: 0, marginBottom: 0 }}>Olá, {session?.user.email}</h1>
       </div>
 
-      <SeletorPeriodo {...periodo} mostrarBaseMedia={false} />
+      <div className="cabecalho-fixo cabecalho-fixo-card">
+        <SeletorPeriodo {...periodo} mostrarBaseMedia={false} />
+        {resumo && (
+          <>
+            <div className="segmentado">
+              <button type="button" className={leitura === 'caixa' ? 'ativo' : ''} onClick={() => setLeitura('caixa')}>
+                Leitura de Caixa
+              </button>
+              <button type="button" className={leitura === 'saude' ? 'ativo' : ''} onClick={() => setLeitura('saude')}>
+                Leitura de Saúde
+              </button>
+            </div>
+            <div className="cabecalho-fixo-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
+              <div className="cabecalho-fixo-stat">
+                <div className="cabecalho-fixo-stat-rotulo">Resultado</div>
+                <div className={`cabecalho-fixo-stat-valor ${classeResultado(hero ?? 0)}`}>
+                  {formatarMoeda(hero ?? 0, oculto)}
+                </div>
+              </div>
+              <div className="cabecalho-fixo-stat">
+                <div className="cabecalho-fixo-stat-rotulo">Despesas líq.</div>
+                <div className="cabecalho-fixo-stat-valor valor-despesa">
+                  {formatarMoeda(leitura === 'caixa' ? resumo.despesas_brutas : resumo.despesas_liquidas, oculto)}
+                </div>
+              </div>
+              <div className="cabecalho-fixo-stat">
+                <div className="cabecalho-fixo-stat-rotulo">Poupança</div>
+                <div className="cabecalho-fixo-stat-valor">
+                  {resumo.taxa_poupanca === null ? '—' : `${resumo.taxa_poupanca.toFixed(1)}%`}
+                </div>
+              </div>
+            </div>
+          </>
+        )}
+      </div>
 
       {erro && <p className="mensagem-erro">{erro}</p>}
 
       {resumo && (
         <>
-          <div className="segmentado" style={{ margin: '16px 0 0' }}>
-            <button type="button" className={leitura === 'caixa' ? 'ativo' : ''} onClick={() => setLeitura('caixa')}>
-              Leitura de Caixa
-            </button>
-            <button type="button" className={leitura === 'saude' ? 'ativo' : ''} onClick={() => setLeitura('saude')}>
-              Leitura de Saúde
-            </button>
-          </div>
-
           <div style={{ margin: '12px 0 20px', display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
             <div>
               <span style={{ fontSize: 12, color: 'var(--cor-texto-suave)' }}>

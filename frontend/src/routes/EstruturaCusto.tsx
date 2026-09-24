@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
+import '../components/cabecalhoFixo.css'
 import '../components/crud.css'
 import '../components/estruturaCusto.css'
 import { ApiError, apiFetch } from '../lib/api'
@@ -391,14 +392,15 @@ export function EstruturaCusto() {
 
   return (
     <div className="estrutura-custo">
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 20 }}>
-        <div>
-          <h1 style={{ fontSize: 22, marginTop: 0, marginBottom: 4 }}>Estrutura de Custo</h1>
-          <p className="estrutura-custo-resumo" style={{ margin: 0 }}>
-            Leitura do que foi de fato gasto no mês, comparado com o que foi planejado em Planejamento.
-          </p>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6 }}>
+      <div style={{ marginBottom: 12 }}>
+        <h1 style={{ fontSize: 22, marginTop: 0, marginBottom: 4 }}>Estrutura de Custo</h1>
+        <p className="estrutura-custo-resumo" style={{ margin: 0 }}>
+          Leitura do que foi de fato gasto no mês, comparado com o que foi planejado em Planejamento.
+        </p>
+      </div>
+
+      <div className="cabecalho-fixo cabecalho-fixo-card">
+        <div className="cabecalho-fixo-linha">
           <button
             type="button"
             className="botao-secundario"
@@ -408,7 +410,7 @@ export function EstruturaCusto() {
           >
             ←
           </button>
-          <label className="campo" style={{ maxWidth: 180 }}>
+          <label className="campo" style={{ maxWidth: 180, margin: 0 }}>
             Mês
             <input type="month" value={vigenciaMes} onChange={(e) => setVigenciaMes(e.target.value)} />
           </label>
@@ -422,6 +424,31 @@ export function EstruturaCusto() {
             →
           </button>
         </div>
+        {dados && resumoOrcamento && (
+          <div className="cabecalho-fixo-grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}>
+            <div className="cabecalho-fixo-stat">
+              <div className="cabecalho-fixo-stat-rotulo">Orçado</div>
+              <div className="cabecalho-fixo-stat-valor">{formatarMoeda(resumoOrcamento.orcado, oculto)}</div>
+            </div>
+            <div className="cabecalho-fixo-stat">
+              <div className="cabecalho-fixo-stat-rotulo">Realizado</div>
+              <div className="cabecalho-fixo-stat-valor">{formatarMoeda(resumoOrcamento.realizado, oculto)}</div>
+            </div>
+            <div className="cabecalho-fixo-stat">
+              <div className="cabecalho-fixo-stat-rotulo">Diferença</div>
+              <div
+                className="cabecalho-fixo-stat-valor"
+                style={{ color: diferenca >= 0 ? 'var(--cor-sucesso)' : 'var(--cor-perigo)' }}
+              >
+                {formatarMoeda(diferenca, oculto)}
+              </div>
+            </div>
+            <div className="cabecalho-fixo-stat">
+              <div className="cabecalho-fixo-stat-rotulo">Execução</div>
+              <div className="cabecalho-fixo-stat-valor">{execucao === null ? '—' : `${execucao.toFixed(1)}%`}</div>
+            </div>
+          </div>
+        )}
       </div>
 
       {erro && <p className="mensagem-erro">{erro}</p>}

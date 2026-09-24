@@ -8,6 +8,7 @@ import { ParetoTendenciaChart } from '../components/ParetoTendenciaChart'
 import { PercentualExecutadoChart } from '../components/PercentualExecutadoChart'
 import { SeletorPeriodo } from '../components/SeletorPeriodo'
 import { TaxaPoupancaChart } from '../components/TaxaPoupancaChart'
+import '../components/cabecalhoFixo.css'
 import '../components/forms.css'
 import { ApiError, apiFetch } from '../lib/api'
 import { mesesAntes, rotuloMesLongo, usePeriodo } from '../lib/periodo'
@@ -116,9 +117,11 @@ export function Graficos() {
 
   return (
     <div>
-      <h1 style={{ fontSize: 22, marginTop: 0, marginBottom: 0 }}>Gráficos</h1>
+      <h1 style={{ fontSize: 22, marginTop: 0, marginBottom: 12 }}>Gráficos</h1>
 
-      <SeletorPeriodo {...periodo} />
+      <div className="cabecalho-fixo">
+        <SeletorPeriodo {...periodo} />
+      </div>
 
       {erro && <p className="mensagem-erro">{erro}</p>}
       {evolucao === null && !erro && <p>Carregando…</p>}

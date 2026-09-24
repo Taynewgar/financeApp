@@ -1,0 +1,87 @@
+/* Controles (período, mês, KPIs-resumo) fixos no topo do conteúdo ao
+ * rolar — decidido via mockups em 2026-09-24 (docs/backlog.md, "Cabeçalho
+ * fixo por feature"). Reaproveitado em Gráficos/Dashboard/Estrutura de
+ * Custo/Planejamento — só o conteúdo de dentro muda por tela. */
+.cabecalho-fixo {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  margin-bottom: 16px;
+}
+
+/* Visual de card — telas que não têm um card próprio pra encaixar
+ * (Dashboard/Estrutura de Custo/Planejamento; Gráficos reaproveita o card
+ * que `.dashboard-seletor` já desenha em SeletorPeriodo, então não usa
+ * esta classe) combinam `cabecalho-fixo cabecalho-fixo-card`. */
+.cabecalho-fixo-card {
+  background: var(--cor-superficie);
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio);
+  padding: 10px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* SeletorPeriodo desenha seu próprio card (.dashboard-seletor) — dentro
+ * de um .cabecalho-fixo-card isso duplicaria borda/fundo; aqui ele vira
+ * só o conteúdo do card que já existe por fora. */
+.cabecalho-fixo-card .dashboard-seletor {
+  background: none;
+  border: none;
+  border-radius: 0;
+  padding: 0;
+  margin-top: 0;
+}
+
+.cabecalho-fixo-linha {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.cabecalho-fixo-grid {
+  display: grid;
+  gap: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--cor-borda);
+}
+
+.cabecalho-fixo-stat {
+  text-align: center;
+  min-width: 0;
+}
+
+.cabecalho-fixo-stat-rotulo {
+  font-size: 10px;
+  color: var(--cor-texto-suave);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cabecalho-fixo-stat-valor {
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.cabecalho-fixo-barra {
+  height: 4px;
+  border-radius: 999px;
+  background: var(--cor-fundo);
+  margin: 3px 0;
+  overflow: hidden;
+}
+
+.cabecalho-fixo-barra-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--cor-acento);
+}
+
+.cabecalho-fixo-barra-fill.estourou {
+  background: var(--cor-perigo);
+}
