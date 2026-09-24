@@ -1776,3 +1776,43 @@ não precisa de entrada própria — cascade a partir do recorrente.
 
 Sem mudança em código de produção — só nos scripts de seed/limpeza, que
 não rodam em CI. Suíte offline sem alteração: 275 passed, 33 skipped.
+
+### Rodada 20.5 (2026-09-24) — feedback de progresso no seed + limpeza resiliente por tabela
+
+Usuário rodou a sequência limpar→seed→pytest sugerida na Rodada 20.4 e
+ainda viu falhas de integração no mesmo formato ("duplicate key" em
+categorias, `KeyError: 'id'` em orçamento) — sinal de que a limpeza não
+zerou a conta de teste por completo — e perguntou se o seed podia
+imprimir progresso, já que a rodada com ~70 requisições sequenciais
+contra o Render pode parecer travada sem feedback.
+
+**`tests/seed_dados_teste.py`:** prints de progresso em cada etapa —
+autenticação, criação de contas/categorias, `[mês/4] (X%)` no início de
+cada mês do laço principal com um `.` por requisição concluída
+(sucesso ou 409), e uma linha própria pra compra parcelada e pra
+recorrentes. Puramente cosmético, não muda o que é criado.
+
+**`tests/limpar_dados_integracao.py`:** `contar()`/`limpar()` agora
+tentam cada tabela isoladamente (try/except por tabela, best-effort) em
+vez de uma falha numa tabela abortar o script inteiro antes de chegar
+nas tabelas seguintes da lista. Hipótese mais provável pro sintoma
+reportado: se a migração de `lancamentos_recorrentes` (Rodada 20, ver
+README "Migração pendente") ainda não tiver sido aplicada no Supabase
+de teste, a versão anterior deste script quebrava exatamente na 2ª
+tabela da lista (adicionada na Rodada 20.4) e nunca chegava a apagar
+orçamentos/categorias/contas — a conta de teste nunca era realmente
+zerada, apesar do script "terminar" sem erro visível pro usuário. Agora
+uma tabela que falha (migração pendente, ou qualquer outro motivo) só
+imprime um aviso e a limpeza continua nas próximas.
+
+**Ainda não confirmado:** não temos como reproduzir contra o Supabase
+real de teste nesta sessão — se as falhas de integração persistirem
+depois desta rodada, o próximo passo é o usuário confirmar (a) se as
+migrações `lancamentos_recorrentes`/`lancamentos_recorrentes_pulados`
+foram mesmo aplicadas nesse projeto Supabase e (b) colar a saída do
+próprio `limpar_dados_integracao.py` (não só do pytest) — agora ela
+mostra avisos por tabela que antes ficavam escondidos atrás de um
+crash total.
+
+Sem mudança em código de produção. Suíte offline sem alteração: 275
+passed, 33 skipped.

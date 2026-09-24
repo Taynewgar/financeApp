@@ -86,19 +86,34 @@ def user_id_do_token(access_token: str) -> str:
     return payload["sub"]
 
 
-def contar(admin, user_id: str) -> dict[str, int]:
-    return {
-        tabela: len(admin.table(tabela).select("id").eq("user_id", user_id).execute().data)
-        for tabela in TABELAS_NA_ORDEM
-    }
+def contar(admin, user_id: str) -> dict[str, int | None]:
+    """None numa tabela = não consegui contar (ex: migração ainda não
+    rodada nesse Supabase) — reportado separado de "0 registros", nunca
+    interrompe a contagem das outras tabelas."""
+    contagens: dict[str, int | None] = {}
+    for tabela in TABELAS_NA_ORDEM:
+        try:
+            contagens[tabela] = len(admin.table(tabela).select("id").eq("user_id", user_id).execute().data)
+        except Exception as exc:
+            print(f"  aviso: não consegui contar '{tabela}' ({exc}) — migração pendente nesse Supabase?")
+            contagens[tabela] = None
+    return contagens
 
 
 def limpar(admin, user_id: str) -> None:
     # ajuste_de_transacao_id é auto-referente (uma transação aponta pra
     # outra) — zera antes de apagar em massa pra não esbarrar na FK.
     admin.table("transacoes").update({"ajuste_de_transacao_id": None}).eq("user_id", user_id).execute()
+    # cada tabela é tentada isoladamente: uma falha (ex: tabela que ainda
+    # não existe nesse Supabase) não pode abortar a limpeza das seguintes
+    # — antes disso, um erro na 2ª tabela da lista deixava categorias/
+    # contas nunca apagadas, e o "duplicate key"/"KeyError: id" da rodada
+    # seguinte parecia um teste quebrado quando era só limpeza incompleta.
     for tabela in TABELAS_NA_ORDEM:
-        admin.table(tabela).delete().eq("user_id", user_id).execute()
+        try:
+            admin.table(tabela).delete().eq("user_id", user_id).execute()
+        except Exception as exc:
+            print(f"  aviso: falha ao limpar '{tabela}' ({exc}) — seguindo pras próximas tabelas")
 
 
 def main() -> None:
@@ -115,8 +130,9 @@ def main() -> None:
     admin = get_service_client()
 
     contagens = contar(admin, user_id)
-    total = sum(contagens.values())
-    if total == 0:
+    total = sum(n for n in contagens.values() if n)
+    tabelas_com_erro = [tabela for tabela, n in contagens.items() if n is None]
+    if total == 0 and not tabelas_com_erro:
         print(f"Conta {email} já está limpa (0 registros).")
         return
 

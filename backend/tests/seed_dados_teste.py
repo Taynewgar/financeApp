@@ -220,6 +220,7 @@ def montar_recorrentes(headers: dict, corrente: dict, cartao: dict, cat: dict) -
 
 
 def montar_massa(headers: dict) -> None:
+    print("Criando contas/categorias/subcategorias/caixinha...")
     corrente = get_ou_criar(headers, "/contas", "Conta Corrente (seed)", {"tipo_conta": "corrente"})
     cartao = get_ou_criar(
         headers, "/contas", "Cartão (seed)",
@@ -227,12 +228,15 @@ def montar_massa(headers: dict) -> None:
     )
     caixinha = get_ou_criar(headers, "/caixinhas", "Reserva de Emergência (seed)")
     cat = montar_categorias(headers)
+    print("Estrutura pronta — gerando lançamentos dos últimos 4 meses:")
 
     hoje = date.today()
     criados = 0
+    total_meses = 4
 
-    for meses_atras in range(3, -1, -1):  # últimos 3 meses + o atual
+    for indice, meses_atras in enumerate(range(3, -1, -1), start=1):  # últimos 3 meses + o atual
         ano, mes = mes_offset(hoje, meses_atras)
+        print(f"  [{indice}/{total_meses}] {mes:02d}/{ano} ({indice * 100 // total_meses}%) ", end="", flush=True)
         # orçamento sempre antes dos lançamentos do mês: assim os itens de
         # Aluguel/Mercado/Investimento já existem quando a transação chega,
         # e a sincronização reativa (sincronizar_item_orcamento) não cria
@@ -348,12 +352,13 @@ def montar_massa(headers: dict) -> None:
                 "estrutura_custo": "variavel", "meio_pagamento": "cartao_credito",
             }
             resposta = client.post("/transacoes", json=payload, headers=headers)
+            print(".", end="", flush=True)
             if resposta.status_code == 201:
                 criados += 1
                 if primeiro_supermercado_id is None:
                     primeiro_supermercado_id = resposta.json()["id"]
             elif resposta.status_code != 409:
-                print(f"  falhou: {payload['descricao']} — {resposta.status_code} {resposta.text}")
+                print(f"\n  falhou: {payload['descricao']} — {resposta.status_code} {resposta.text}")
 
         if meses_atras == 2 and primeiro_supermercado_id:  # estorno vinculado a uma compra real
             lancamentos.append(("/transacoes", {
@@ -373,12 +378,14 @@ def montar_massa(headers: dict) -> None:
 
         for path, payload in lancamentos:
             resposta = client.post(path, json=payload, headers=headers)
+            print(".", end="", flush=True)
             if resposta.status_code == 201:
                 criados += 1
             elif resposta.status_code != 409:  # 409 = já existe idêntico, seguimos
-                print(f"  falhou: {payload.get('descricao')} — {resposta.status_code} {resposta.text}")
+                print(f"\n  falhou: {payload.get('descricao')} — {resposta.status_code} {resposta.text}")
+        print(" ok")
 
-    # uma compra parcelada, pra testar a tela com parcelas
+    print("Criando compra parcelada de exemplo...")
     resposta = client.post(
         "/transacoes/parceladas",
         json={
@@ -392,9 +399,10 @@ def montar_massa(headers: dict) -> None:
     if resposta.status_code == 201:
         criados += len(resposta.json())
 
+    print("Criando despesas fixas recorrentes (Internet, Assinatura Streaming)...")
     montar_recorrentes(headers, corrente, cartao, cat)
 
-    print(f"{criados} lançamento(s) criado(s) com prefixo \"{PREFIXO}\".")
+    print(f"Pronto: {criados} lançamento(s) criado(s) com prefixo \"{PREFIXO}\".")
 
 
 def limpar(headers: dict) -> None:
@@ -421,7 +429,9 @@ def main() -> None:
     if not email or not password or not settings.supabase_url:
         sys.exit("Defina TEST_USER_EMAIL/TEST_USER_PASSWORD e backend/.env (mesmo usuário dos testes de integração).")
 
+    print(f"Autenticando como {email}...")
     headers = {"Authorization": f"Bearer {sign_in(email, password)}"}
+    print("Autenticado.")
 
     if args.limpar:
         limpar(headers)
