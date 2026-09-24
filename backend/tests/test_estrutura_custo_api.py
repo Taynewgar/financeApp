@@ -598,6 +598,86 @@ def test_evolucao_orcamento_busca_dados_do_periodo_em_lote_nao_por_mes(client, d
     assert len(contador.chamadas) == 3
 
 
+def test_obter_um_mes_busca_dados_em_lote_nao_recalcula_cadeia_item_a_item(client, db_store):
+    """Perf (Rodada 2026-09-24, item 22 do backlog — mesma classe de bug
+    de test_evolucao_orcamento_busca_dados_do_periodo_em_lote_nao_por_mes,
+    agora em obter(), a tela de Estrutura de Custo de 1 mês só). Antes,
+    `obter()` tinha sua própria versão que chamava
+    saldo_anterior_ao_vivo() por item do orçamento, recursiva, subindo a
+    cadeia de meses anteriores no banco a cada passo — um orçamento com
+    vários itens encadeados por vários meses virava dezenas de idas e
+    voltas sequenciais numa página que carrega 1 mês só. Agora usa o
+    mesmo helper de carregamento em lote que evolucao_orcamento() já
+    usava: tem que ficar em 3 chamadas fixas, não crescer com o tamanho
+    do histórico nem com o número de itens."""
+    from app.auth import get_db
+    from app.main import app
+
+    from .fakes import FakeSupabaseClient
+
+    conta = client.post("/contas", json={"nome": "Conta", "tipo_conta": "corrente"}).json()
+    categoria_a = client.post("/categorias", json={"nome": "Aluguel"}).json()
+    categoria_b = client.post("/categorias", json={"nome": "Mercado"}).json()
+    orcamento = client.post(
+        "/orcamentos", json={"vigencia_mes": "2026-01-01", "receita_base": 10000, "percentual_geral": 100}
+    ).json()
+    client.post(
+        f"/orcamentos/{orcamento['id']}/itens",
+        json={"bucket": "custos_fixos", "categoria_id": categoria_a["id"], "orcamento_mensal": 1000},
+    )
+    client.post(
+        f"/orcamentos/{orcamento['id']}/itens",
+        json={"bucket": "custos_variaveis", "categoria_id": categoria_b["id"], "orcamento_mensal": 500},
+    )
+    # encadeia 6 meses via "gerar próximo mês" (jan-jun) — é isso que faz
+    # a cadeia de saldo_anterior existir de verdade pros 2 itens
+    for mes in range(1, 6):
+        for categoria, valor in [(categoria_a, 700), (categoria_b, 300)]:
+            client.post(
+                "/transacoes",
+                json={
+                    "data_compra": f"2026-{mes:02d}-05",
+                    "valor": valor,
+                    "tipo_movimento": "despesa",
+                    "conta_id": conta["id"],
+                    "categoria_id": categoria["id"],
+                    "estrutura_custo": "fixo" if categoria is categoria_a else "variavel",
+                    "meio_pagamento": "pix",
+                },
+            )
+        orcamento = client.post(f"/orcamentos/{orcamento['id']}/proximo-mes").json()
+
+    class _ContadorClient:
+        def __init__(self, store):
+            self._inner = FakeSupabaseClient(store)
+            self.chamadas: list[str] = []
+
+        def table(self, nome):
+            self.chamadas.append(nome)
+            return self._inner.table(nome)
+
+    # pede só o ÚLTIMO mês da cadeia — é o pior caso pra recursão item a
+    # item (precisa subir os 5 meses anteriores pra cada um dos 2 itens)
+    contador = _ContadorClient(db_store)
+    app.dependency_overrides[get_db] = lambda: contador
+    try:
+        resposta = client.get("/estrutura-custo/2026-06-01")
+    finally:
+        app.dependency_overrides[get_db] = lambda: FakeSupabaseClient(db_store)
+
+    assert resposta.status_code == 200
+    corpo = resposta.json()
+    fixos = next(b for b in corpo["buckets"] if b["bucket"] == "custos_fixos")
+    assert fixos["itens"][0]["saldo_anterior"] != 0  # cadeia foi de fato calculada, não só "sem histórico"
+    # 3 no total (orcamentos + orcamento_itens + transacoes), não crescendo
+    # com o histórico (5 meses) nem com o número de itens (2) — sem o fix
+    # seriam dezenas de chamadas (2 itens × ~5 meses de cadeia × 3 queries)
+    assert contador.chamadas.count("orcamentos") == 1
+    assert contador.chamadas.count("orcamento_itens") == 1
+    assert contador.chamadas.count("transacoes") == 1
+    assert len(contador.chamadas) == 3
+
+
 def test_evolucao_orcamento_fim_antes_de_inicio_retorna_422(client):
     resposta = client.get(
         "/estrutura-custo/evolucao/tendencia", params={"inicio": "2026-09-01", "fim": "2026-07-01"}

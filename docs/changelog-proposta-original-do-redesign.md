@@ -2642,3 +2642,61 @@ e `oxlint` sem erros novos.
 - [ ] Fechar "Meses pulados" (botão "Ocultar meses pulados") e abrir de
       novo → ano corrente volta a aparecer aberto (não fica "lembrando"
       qual ano você tinha aberto/fechado da vez anterior).
+
+### Rodada 27 (2026-09-24) — perf: Estrutura de Custo carregando devagar
+
+Item 22 do backlog, próximo da ordem que o usuário definiu. Registrado
+mais cedo na sessão com a suspeita "padrão parecido com o bug já
+corrigido em Gráficos" — suspeita confirmada.
+
+**Causa raiz.** `GET /estrutura-custo/{vigencia_mes}` (`obter()`)
+montava o resultado chamando `saldo_anterior_ao_vivo()` uma vez por item
+do orçamento — função recursiva que sobe a cadeia de orçamentos
+anteriores DIRETO NO BANCO, mês a mês (3 SELECTs por mês subido:
+`orcamentos`, `orcamento_itens` do mês anterior, `transacoes` do mês
+anterior), até achar o primeiro mês sem orçamento anterior. Pra um
+orçamento com histórico de N meses e M itens, isso é até `3×N×M`
+requisições sequenciais — numa tela que mostra 1 mês só. A Rodada
+19.2/19.3 já tinha resolvido exatamente essa classe de bug em
+`/graficos` (`evolucao_orcamento()`) com `saldo_anterior_em_lote()` —
+carrega o histórico inteiro em 3 queries fixas e recalcula a cadeia
+100% em memória — mas isso nunca foi portado pra `obter()`, que "só
+pedia 1 mês" e parecia barato o bastante sem o fix.
+
+**Fix:** extraído `_carregar_dados_periodo()` (as mesmas 3 queries em
+lote que já existiam dentro de `evolucao_orcamento()` — todos os
+orçamentos do usuário, itens desses orçamentos, transações do período)
+como função compartilhada; `evolucao_orcamento()` passou a chamar essa
+função em vez de ter a lógica duplicada inline. `obter()` passou a
+chamar a MESMA função (com `mes_inicio == mes_fim`, já que é 1 mês só)
+e usar `_estrutura_custo_do_mes_em_lote()` (que já existia, usada só por
+`evolucao_orcamento()` até agora) — a função antiga `_estrutura_custo_do_mes()`,
+que fazia a versão item-a-item direto no banco, foi removida.
+
+- `backend/app/routers/estrutura_custo.py`: `_carregar_dados_periodo()`
+  novo; `obter()` e `evolucao_orcamento()` compartilham a mesma função
+  de carregamento; `_estrutura_custo_do_mes()` removida; import de
+  `saldo_anterior_ao_vivo` removido (não é mais usada aqui).
+- `backend/tests/test_estrutura_custo_api.py`: teste de regressão de
+  perf, mesmo formato do já existente pra `/graficos` — conta chamadas
+  reais a `db.table(...)` num cenário de 2 itens × 5 meses de cadeia
+  encadeada de verdade (via "gerar próximo mês"), pedindo só o ÚLTIMO
+  mês (pior caso pra recursão item a item). Confirmado manualmente que
+  falha contra o código antigo (13 chamadas a `orcamentos`, não 1 —
+  revertido o fix isoladamente via `git stash` pra provar). Suíte
+  offline: **298 passed** (297 + 1), 33 skipped.
+- **Achado de passagem, fora de escopo:** `routers/orcamentos.py`
+  (`_enriquecer_item`, usada por `GET /orcamentos/{id}/itens` —
+  Planejamento) tem o mesmo padrão recursivo item-a-item, ainda não
+  corrigido. Registrado como novo item 24 do backlog (não reportado
+  pelo usuário ainda, não corrigido nesta rodada).
+
+**Testes:** mudança 100% backend — tsc/build/lint não se aplicam.
+
+**Checklist de teste manual:**
+- [ ] Estrutura de Custo, um mês com orçamento que já veio sendo gerado
+      há vários meses ("gerar próximo mês" repetido): a tela carrega
+      perceptivelmente mais rápido que antes desta rodada.
+- [ ] Os números continuam batendo — Orçado/Realizado/saldo_anterior de
+      cada item, mesmos valores de antes do fix (o resultado não muda,
+      só como é calculado).

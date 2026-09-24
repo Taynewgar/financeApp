@@ -7,7 +7,7 @@ from supabase import Client
 from ..auth import get_current_user_id, get_db
 from ..schemas.estrutura_custo import EstruturaCustoMes, TendenciaOrcamento
 from ..services.fatura import somar_meses
-from ..services.orcamento_saldo import saldo_anterior_ao_vivo, saldo_anterior_em_lote
+from ..services.orcamento_saldo import saldo_anterior_em_lote
 from ..services.orcamento_teto import calcular_teto_bucket
 
 router = APIRouter(prefix="/estrutura-custo", tags=["estrutura-custo"])
@@ -76,10 +76,12 @@ def _agregar_estrutura_custo(
     """Monta o resultado de 1 mês (buckets, pool_despesas,
     piso_investimentos) a partir de dados JÁ CARREGADOS — sem nenhuma
     consulta ao banco aqui dentro. `saldo_anterior_de(item)` é injetado
-    pelo chamador: `obter()` usa saldo_anterior_ao_vivo (1 mês, direto no
-    banco); `evolucao_orcamento()` usa saldo_anterior_em_lote (período
-    inteiro, 100% em memória sobre dado pré-carregado — ver Rodada
-    2026-09-22, perf de /graficos)."""
+    pelo chamador — hoje sempre `saldo_anterior_em_lote` (100% em memória
+    sobre dado pré-carregado por `_carregar_dados_periodo`), usada tanto
+    por `obter()` (1 mês) quanto por `evolucao_orcamento()` (vários) —
+    ver Rodada 2026-09-22 (perf de /graficos) e Rodada 27 (mesmo fix
+    estendido a `obter()`, que até então recalculava a cadeia de
+    saldo_anterior item a item direto no banco)."""
     orcado_por_chave: dict[tuple, float] = {}
     orcamento_mensal_por_chave: dict[tuple, float] = {}
     saldo_anterior_por_chave: dict[tuple, float] = {}
@@ -172,51 +174,61 @@ def _agregar_estrutura_custo(
     }
 
 
-def _estrutura_custo_do_mes(db: Client, user_id: str, mes_inicio: date) -> dict:
-    """Busca os dados de 1 mês só, direto no banco, e agrega — usada por
-    obter() (1 chamada, sem período). Continua com o mesmo formato de
-    query de sempre; quem precisa de vários meses de uma vez usa
-    _estrutura_custo_do_mes_em_lote (evolucao_orcamento()), que busca o
-    período inteiro antes do loop em vez de 1 vez por mês (ver Rodada
-    2026-09-22, perf de /graficos)."""
-    mes_fim = somar_meses(mes_inicio, 1)
+def _carregar_dados_periodo(
+    db: Client, user_id: str, mes_inicio: date, mes_fim: date
+) -> tuple[dict[str, dict], dict[str, list[dict]], dict[str, list[dict]]]:
+    """Busca em lote (3 SELECTs fixos, não 1 grupo de 3 por mês) tudo que
+    `_estrutura_custo_do_mes_em_lote` precisa pra montar qualquer mês do
+    intervalo — incluindo a cadeia de `saldo_anterior` recursiva, que pode
+    subir arbitrariamente antes de `mes_inicio`. Usada tanto por `obter()`
+    (1 mês só, `mes_inicio == mes_fim`) quanto por `evolucao_orcamento()`
+    (vários meses) — antes de existir aqui, `obter()` tinha sua própria
+    versão que consultava o banco a cada item do orçamento, subindo a
+    cadeia de meses anteriores recursivamente: um orçamento com histórico
+    de vários meses e vários itens virava dezenas de idas e voltas
+    sequenciais ao Supabase por requisição (mesma classe de bug já
+    corrigida em `/graficos`, Rodada 2026-09-22 — reportado de novo pelo
+    usuário, agora contra Estrutura de Custo, Rodada 27)."""
+    todos_orcamentos = db.table("orcamentos").select("*").eq("user_id", user_id).execute().data
+    orcamento_por_mes = {o["vigencia_mes"]: o for o in todos_orcamentos}
 
-    orcamento_result = (
-        db.table("orcamentos")
-        .select("*")
-        .eq("user_id", user_id)
-        .eq("vigencia_mes", mes_inicio.isoformat())
-        .execute()
-    )
-    orcamento = orcamento_result.data[0] if orcamento_result.data else None
-
-    itens_orcamento = []
-    if orcamento:
-        itens_orcamento = (
+    itens_por_orcamento_id: dict[str, list[dict]] = {}
+    orcamento_ids = [o["id"] for o in todos_orcamentos]
+    if orcamento_ids:
+        todos_itens = (
             db.table("orcamento_itens")
             .select("*")
-            .eq("orcamento_id", orcamento["id"])
+            .in_("orcamento_id", orcamento_ids)
             .eq("ativo", True)
             .execute()
             .data
         )
+        for item in todos_itens:
+            itens_por_orcamento_id.setdefault(item["orcamento_id"], []).append(item)
 
-    transacoes = (
+    # transações: do mais antigo entre `mes_inicio` e o orçamento mais
+    # antigo (a cadeia de saldo_anterior de um mês do período pode
+    # precisar do realizado de um mês ANTES de `mes_inicio`) até `mes_fim`
+    transacoes_inicio = mes_inicio
+    if todos_orcamentos:
+        mes_orcamento_mais_antigo = min(date.fromisoformat(o["vigencia_mes"]) for o in todos_orcamentos)
+        transacoes_inicio = min(transacoes_inicio, mes_orcamento_mais_antigo)
+    mes_fim_exclusivo = somar_meses(mes_fim, 1)
+    todas_transacoes = (
         db.table("transacoes")
-        .select("valor,tipo_movimento,estrutura_custo,categoria_id,subcategoria_id,conta_id,caixinha_id")
+        .select("valor,tipo_movimento,estrutura_custo,categoria_id,subcategoria_id,conta_id,caixinha_id,data_compra")
         .eq("user_id", user_id)
-        .gte("data_compra", mes_inicio.isoformat())
-        .lt("data_compra", mes_fim.isoformat())
+        .gte("data_compra", transacoes_inicio.isoformat())
+        .lt("data_compra", mes_fim_exclusivo.isoformat())
         .execute()
         .data
     )
+    transacoes_por_mes: dict[str, list[dict]] = {}
+    for t in todas_transacoes:
+        chave_mes = f"{t['data_compra'][:7]}-01"
+        transacoes_por_mes.setdefault(chave_mes, []).append(t)
 
-    cache_saldo: dict = {}
-
-    def saldo_anterior_de(item: dict) -> float:
-        return saldo_anterior_ao_vivo(db, user_id, item, mes_inicio, cache_saldo)
-
-    return _agregar_estrutura_custo(mes_inicio, orcamento, itens_orcamento, transacoes, saldo_anterior_de)
+    return orcamento_por_mes, itens_por_orcamento_id, transacoes_por_mes
 
 
 def _estrutura_custo_do_mes_em_lote(
@@ -226,9 +238,10 @@ def _estrutura_custo_do_mes_em_lote(
     transacoes_por_mes: dict[str, list[dict]],
     cache_saldo: dict,
 ) -> dict:
-    """Mesma agregação de _estrutura_custo_do_mes, mas lendo de dados JÁ
-    CARREGADOS pra um período inteiro (ver evolucao_orcamento()) em vez de
-    consultar o banco a cada mês."""
+    """Monta 1 mês a partir de dados JÁ CARREGADOS em lote por
+    `_carregar_dados_periodo` (usada por `obter()`, 1 mês, e
+    `evolucao_orcamento()`, vários) — sem nenhuma consulta ao banco aqui
+    dentro."""
     orcamento = orcamento_por_mes.get(mes_inicio.isoformat())
     itens_orcamento = itens_por_orcamento_id.get(orcamento["id"], []) if orcamento else []
     transacoes = transacoes_por_mes.get(mes_inicio.isoformat(), [])
@@ -244,7 +257,12 @@ def _estrutura_custo_do_mes_em_lote(
 @router.get("/{vigencia_mes}", response_model=EstruturaCustoMes)
 def obter(vigencia_mes: date, db: Client = Depends(get_db), user_id: str = Depends(get_current_user_id)):
     mes_inicio = date(vigencia_mes.year, vigencia_mes.month, 1)
-    return _estrutura_custo_do_mes(db, user_id, mes_inicio)
+    orcamento_por_mes, itens_por_orcamento_id, transacoes_por_mes = _carregar_dados_periodo(
+        db, user_id, mes_inicio, mes_inicio
+    )
+    return _estrutura_custo_do_mes_em_lote(
+        mes_inicio, orcamento_por_mes, itens_por_orcamento_id, transacoes_por_mes, cache_saldo={}
+    )
 
 
 @router.get("/evolucao/tendencia", response_model=TendenciaOrcamento)
@@ -272,48 +290,11 @@ def evolucao_orcamento(
 
     # busca o período INTEIRO de uma vez (perf — antes era 1 SELECT em cada
     # uma das 3 tabelas POR MÊS do loop, ~O(meses) idas e voltas sequenciais
-    # ao Supabase; ver Rodada 2026-09-22). Todos os orçamentos do usuário
-    # (não só do período) porque a cadeia de saldo_anterior pode subir
-    # arbitrariamente antes de `inicio` — custo desprezível, no máximo 1
-    # linha por mês que o usuário já orçou alguma vez na vida.
-    todos_orcamentos = db.table("orcamentos").select("*").eq("user_id", user_id).execute().data
-    orcamento_por_mes = {o["vigencia_mes"]: o for o in todos_orcamentos}
-
-    itens_por_orcamento_id: dict[str, list[dict]] = {}
-    orcamento_ids = [o["id"] for o in todos_orcamentos]
-    if orcamento_ids:
-        todos_itens = (
-            db.table("orcamento_itens")
-            .select("*")
-            .in_("orcamento_id", orcamento_ids)
-            .eq("ativo", True)
-            .execute()
-            .data
-        )
-        for item in todos_itens:
-            itens_por_orcamento_id.setdefault(item["orcamento_id"], []).append(item)
-
-    # transações: do mais antigo entre `inicio` e o orçamento mais antigo
-    # (a cadeia de saldo_anterior de um mês dentro do período pode precisar
-    # do realizado de um mês ANTES de `inicio`) até `fim`
-    transacoes_inicio = mes_inicio
-    if todos_orcamentos:
-        mes_orcamento_mais_antigo = min(date.fromisoformat(o["vigencia_mes"]) for o in todos_orcamentos)
-        transacoes_inicio = min(transacoes_inicio, mes_orcamento_mais_antigo)
-    mes_fim_exclusivo = somar_meses(mes_fim, 1)
-    todas_transacoes = (
-        db.table("transacoes")
-        .select("valor,tipo_movimento,estrutura_custo,categoria_id,subcategoria_id,conta_id,caixinha_id,data_compra")
-        .eq("user_id", user_id)
-        .gte("data_compra", transacoes_inicio.isoformat())
-        .lt("data_compra", mes_fim_exclusivo.isoformat())
-        .execute()
-        .data
+    # ao Supabase; ver Rodada 2026-09-22) — mesmo helper que `obter()` usa
+    # pra 1 mês só (Rodada 27).
+    orcamento_por_mes, itens_por_orcamento_id, transacoes_por_mes = _carregar_dados_periodo(
+        db, user_id, mes_inicio, mes_fim
     )
-    transacoes_por_mes: dict[str, list[dict]] = {}
-    for t in todas_transacoes:
-        chave_mes = f"{t['data_compra'][:7]}-01"
-        transacoes_por_mes.setdefault(chave_mes, []).append(t)
 
     meses = []
     mes_atual = mes_inicio

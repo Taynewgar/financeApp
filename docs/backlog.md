@@ -93,9 +93,11 @@ que está acima, antes da baixa prioridade abaixo:
     2026-09-24.
 21. **Botões inferiores (barra de navegação mobile) pequenos e colados**
     — reportado 2026-09-24.
-22. **Estrutura de Custo carregando devagar — investigar excesso de
-    requisições** — reportado 2026-09-24, suspeita de padrão parecido com
-    o bug já corrigido em Gráficos.
+22. ~~Estrutura de Custo carregando devagar~~ **feito 2026-09-24** —
+    causa raiz era a mesma classe de bug já corrigida em Gráficos (Rodada
+    19.2/19.3), só que ainda não tinha sido aplicada em `obter()` (a
+    tela de 1 mês). Detalhe na subseção própria abaixo, ver changelog
+    Rodada 27.
 23. **Lançamentos recorrentes: aplicação/retirada com caixinha (reserva)**
     — registrado 2026-09-24. Escopo confirmado com o usuário depois da
     Rodada 25 (que estendeu recorrentes pra receita/despesa/aplicação/
@@ -104,6 +106,16 @@ que está acima, antes da baixa prioridade abaixo:
     retirada recorrente PODE ser vinculada a caixinha, igual em Novo
     Lançamento). Ordem confirmada: item 22 (lentidão de Estrutura de
     Custo) vem imediatamente antes deste na fila.
+24. **Planejamento com o mesmo padrão de lentidão de Estrutura de Custo**
+    — achado de passagem corrigindo o item 22 (Rodada 27), não reportado
+    pelo usuário ainda: `GET /orcamentos/{id}/itens` (tela de
+    Planejamento) chama `_enriquecer_item()` por item da lista, que
+    recalcula `saldo_anterior` subindo a cadeia de meses anteriores
+    direto no banco (`saldo_anterior_ao_vivo`, `routers/orcamentos.py`)
+    — mesma classe de bug de N+1 requisições, mesmo mecanismo que
+    `_carregar_dados_periodo`/`saldo_anterior_em_lote` já resolvem em
+    Estrutura de Custo, só que ainda não portado pra cá. Registrado como
+    achado, não corrigido nesta rodada (fora do escopo pedido).
 
 **Baixa prioridade confirmada pelo usuário** — todo o resto acima (itens
 1-23) é alta ou média prioridade, mesmo o que está sequenciado pra depois
@@ -572,6 +584,40 @@ sempre aberto ao abrir "Meses pulados", anos anteriores começam
 fechados — clique no ano alterna (`anosAbertos`, um `Set` de chaves
 `recorrenteId:ano`). Ver changelog Rodada 26 pro detalhe técnico.
 
+### Estrutura de Custo carregando devagar
+
+**Contexto:** reportado pelo usuário testando a tela — "provável excesso
+de requisições", mesma suspeita já confirmada e corrigida em `/graficos`
+(Rodada 19.2/19.3).
+
+**Causa raiz:** confirmada igual à suspeita. `GET /estrutura-custo/{mes}`
+(`obter()`) montava o resultado chamando `saldo_anterior_ao_vivo()` uma
+vez por item do orçamento do mês — função recursiva que sobe a cadeia de
+orçamentos anteriores no banco, mês a mês, até achar o primeiro mês sem
+orçamento anterior (3 SELECTs por mês subido: `orcamentos`,
+`orcamento_itens` do mês anterior, `transacoes` do mês anterior). Pra um
+orçamento com histórico de N meses e M itens, isso é até `3×N×M`
+requisições sequenciais numa tela que só mostra 1 mês. A Rodada 19.3 já
+tinha resolvido exatamente essa classe de bug pra `/graficos`
+(`evolucao_orcamento()`, que busca vários meses) via `saldo_anterior_em_lote()`
+— carrega todo o histórico em 3 queries fixas e recalcula a cadeia
+inteira em memória — mas não tinha sido portada pra `obter()` (só 1 mês,
+"parecia" não precisar).
+
+**Status:** implementado 2026-09-24 (Rodada 27) — `obter()` passou a usar
+o mesmo mecanismo de carregamento em lote de `evolucao_orcamento()`
+(`_carregar_dados_periodo()`, extraído como função compartilhada) +
+`_estrutura_custo_do_mes_em_lote()`, no lugar da função antiga
+`_estrutura_custo_do_mes()` (removida). Toda requisição a
+`/estrutura-custo/{mes}` agora faz exatamente 3 SELECTs, não importa o
+tamanho do histórico de orçamento nem o número de itens. Teste de
+regressão conta as chamadas reais (`db.table(...)`) — confirmado
+manualmente que falha contra o código antigo (13 chamadas a `orcamentos`
+num cenário de 2 itens × 5 meses de cadeia, onde deveria ser 1). Ver
+changelog Rodada 27 pro detalhe técnico completo. Achado de passagem
+registrado como novo item 24 (Planejamento tem o mesmo padrão, ainda não
+corrigido).
+
 ### Lançamentos recorrentes: aplicação/retirada com caixinha (reserva)
 
 **Contexto:** a Rodada 25 estendeu `lancamentos_recorrentes` pra cobrir
@@ -597,6 +643,35 @@ lentidão primeiro, esta extensão de recorrentes depois.
 
 **Status:** registrado 2026-09-24, a pedido do usuário, sem
 implementação ainda.
+
+### Planejamento com o mesmo padrão de lentidão de Estrutura de Custo
+
+**Contexto:** achado de passagem corrigindo o item 22 (Rodada 27) —
+não reportado pelo usuário ainda, então não corrigido junto (fora do
+escopo pedido: "seguir para o 22, lentidão estrutura de custo").
+
+`GET /orcamentos/{id}/itens` (a tela de Planejamento) monta cada item da
+lista chamando `_enriquecer_item()` (`routers/orcamentos.py`), que
+recalcula `saldo_anterior` via `saldo_anterior_ao_vivo()` — a mesma
+função recursiva que causava o N+1 de requisições em Estrutura de Custo,
+subindo a cadeia de orçamentos anteriores direto no banco, mês a mês, a
+cada item. `_validar_teto_bucket()` (chamada ao criar/editar um item)
+tem o mesmo padrão, numa escala menor (só os itens do bucket sendo
+validado, não a lista inteira).
+
+**O que precisaria:** portar o mesmo mecanismo que já resolveu Estrutura
+de Custo — carregar o histórico de orçamentos/itens/transações em lote
+(`_carregar_dados_periodo`, hoje em `estrutura_custo.py`) e recalcular a
+cadeia de `saldo_anterior` em memória (`saldo_anterior_em_lote`, já
+existe em `services/orcamento_saldo.py`) em vez de item a item no banco.
+Como as duas funções (`saldo_anterior_em_lote`/`saldo_anterior_ao_vivo`)
+já vivem no mesmo módulo de serviço, a troca deveria ser direta — o
+trabalho principal é decidir se `_carregar_dados_periodo` migra pra
+`services/` (compartilhada entre os dois routers) ou se `orcamentos.py`
+ganha sua própria versão.
+
+**Status:** registrado 2026-09-24, achado técnico (não relatado pelo
+usuário), sem decisão de prioridade ainda.
 
 ---
 
