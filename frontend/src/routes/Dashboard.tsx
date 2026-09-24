@@ -219,7 +219,7 @@ export function Dashboard() {
                 Leitura de Saúde
               </button>
             </div>
-            <div className="cabecalho-fixo-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
+            <div className="cabecalho-fixo-grid cabecalho-fixo-grid-3">
               <div className="cabecalho-fixo-stat">
                 <div className="cabecalho-fixo-stat-rotulo">Resultado</div>
                 <div className={`cabecalho-fixo-stat-valor ${classeResultado(hero ?? 0)}`}>

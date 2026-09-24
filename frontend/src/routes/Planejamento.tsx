@@ -5,7 +5,7 @@ import '../components/forms.css'
 import '../components/crud.css'
 import '../components/planejamento.css'
 import { ApiError, apiFetch } from '../lib/api'
-import { formatarMoeda } from '../lib/formatar'
+import { formatarMoeda, formatarMoedaCompacta } from '../lib/formatar'
 import { ordenarPorNome } from '../lib/ordenar'
 import { usePrivacidade } from '../lib/PrivacyContext'
 import type { Bucket, Categoria, Conta, Orcamento, OrcamentoItem, Subcategoria } from '../lib/types'
@@ -366,7 +366,7 @@ export function Planejamento() {
           </button>
         </div>
         {resumoBuckets.length > 0 && (
-          <div className="cabecalho-fixo-grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}>
+          <div className="cabecalho-fixo-grid cabecalho-fixo-grid-4">
             {resumoBuckets.map((b) => (
               <div className="cabecalho-fixo-stat" key={b.valor}>
                 <div className="cabecalho-fixo-stat-rotulo">{b.rotulo}</div>
@@ -376,8 +376,8 @@ export function Planejamento() {
                     style={{ width: `${b.percentualUso}%` }}
                   />
                 </div>
-                <div className="cabecalho-fixo-stat-valor" style={{ fontSize: 10, fontWeight: 400 }}>
-                  {formatarMoeda(b.somaAlocada, oculto)}/{formatarMoeda(b.teto, oculto)}
+                <div className="cabecalho-fixo-stat-valor compacto">
+                  {formatarMoedaCompacta(b.somaAlocada, oculto)}/{formatarMoedaCompacta(b.teto, oculto)}
                 </div>
               </div>
             ))}

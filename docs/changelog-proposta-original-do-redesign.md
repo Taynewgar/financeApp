@@ -2184,3 +2184,64 @@ teste automatizado (frontend não tem suíte). `tsc -b && vite build` e
 - [ ] Redimensionar a janela do navegador de mobile pra desktop (ou
       vice-versa) em Lançamentos com o painel aberto → não quebra o
       layout (o painel deve continuar coerente com o breakpoint atual).
+
+### Rodada 23.1 (2026-09-24) — cabeçalho fixo: texto pequeno, números sobrepondo, painel alto demais
+
+Usuário testou a Rodada 23 e reportou 3 problemas concretos (um 4º —
+cabeçalho não fixando no mobile em Gráficos/Estrutura de Custo/
+Planejamento — ainda em investigação, não corrigido nesta rodada por
+falta de causa raiz confirmada; sessão remota não consegue reproduzir
+com sessão autenticada real pra inspecionar ao vivo).
+
+**Texto dos KPIs/estatísticas compactas pequeno demais** (Dashboard,
+Estrutura de Custo, Planejamento): `.cabecalho-fixo-stat-rotulo` foi de
+10px pra 11px, `.cabecalho-fixo-stat-valor` de 13px pra 15px, barra de
+progresso de 4px pra 5px de altura — mais perto da proporção das seções
+normais da página (`.resumo-card-rotulo` 12px / `.resumo-card-valor`
+18px), sem virar um card completo.
+
+**Planejamento mobile — números da alocação se sobrepondo:** causa raiz
+real, não só estética — o valor usava `formatarMoeda()` (`"R$ 1.800,00"`,
+formato completo com centavos) dentro de uma grade de 4 colunas em tela
+de 390px (~85px de coluna útil), sem espaço nenhum pra esse tanto de
+caractere. `lib/formatar.ts` ganhou `formatarMoedaCompacta()`
+(`Intl.NumberFormat` com `notation: "compact"` — ex: "1,8 mil" em vez de
+"R$ 1.800,00"), usada só nessa grade compacta. Grade `.cabecalho-fixo-
+grid-3`/`-4` (substituindo o `style={{gridTemplateColumns}}` inline por
+classes) também ganhou uma regra `@media (max-width: 480px)` derrubando
+pra 2 colunas — 4 colunas nunca coube direito numa tela de celular,
+independente do tamanho do texto.
+
+**Lançamentos desktop — painel de filtro fixo alto demais:** os 10 campos
+estavam agrupados em 3 `<div className="filtros-linha">` fixos (grupos
+de 4/4/3), cada um sua própria linha de flexbox — mesmo com espaço
+sobrando numa tela larga, os grupos nunca se misturavam, sempre pelo
+menos 3 linhas. Os 3 grupos viraram 1 só (mesmo comportamento de
+`flex-wrap`, mas agora decidindo quantos campos cabem por linha pela
+largura real da tela, não por um agrupamento arbitrário) — o botão
+"Limpar filtros" continua numa linha própria.
+
+**Não corrigido — cabeçalho não fixando no mobile (Gráficos/Estrutura de
+Custo/Planejamento):** usuário suspeitou do tamanho da barra de navegação
+inferior (`.shell-bottom-nav`, já registrado como bug separado no
+backlog, item 21) forçando rolagem extra. Não encontrei uma causa
+concreta revisando o CSS estaticamente — o Dashboard usa o mesmo padrão
+de `.cabecalho-fixo` e funciona no mobile segundo o usuário, então não é
+um problema estrutural óbvio de `position: sticky`. Registrado como
+pendente, aguardando mais detalhe do usuário (print de tela ou descrição
+mais precisa do que acontece) antes de tentar outro fix às cegas.
+
+**Testes:** `tsc -b && vite build` e `oxlint` sem erros novos.
+
+**Checklist de teste manual:**
+- [ ] Dashboard/Estrutura de Custo/Planejamento: texto dos KPIs/
+      estatísticas fixas legível, proporção parecida com o resto da
+      página (não minúsculo).
+- [ ] Planejamento mobile: os 4 valores de alocação (ex: "1,8 mil/1,95
+      mil") não se sobrepõem nem quebram estranho, mesmo com a tela
+      girada/estreita.
+- [ ] Planejamento: grade de 4 colunas vira 2 colunas em telas bem
+      estreitas (≤480px) — sem espremer.
+- [ ] Lançamentos desktop: painel de filtro fixo ocupa menos altura que
+      antes (campos fluem em menos linhas, aproveitando a largura da
+      tela).

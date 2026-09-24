@@ -342,6 +342,9 @@ export function Lancamentos() {
         </button>
 
         <div className={`filtros${filtroMobileAberto ? ' filtros-mobile-aberto' : ''}`}>
+        {/* um único container flex-wrap — no desktop, a largura decide quantos
+            campos cabem por linha (menos linhas fixas que os 3 grupos fixos de
+            antes; bug reportado 2026-09-24: painel fixo ficava alto demais) */}
         <div className="filtros-linha">
           <label className="campo">
             Tipo
@@ -393,9 +396,6 @@ export function Lancamentos() {
               ))}
             </select>
           </label>
-        </div>
-
-        <div className="filtros-linha">
           <label className="campo">
             De
             <input type="date" value={filtros.dataInicio} onChange={(e) => atualizarFiltro('dataInicio', e.target.value)} />
@@ -426,9 +426,6 @@ export function Lancamentos() {
               ))}
             </select>
           </label>
-        </div>
-
-        <div className="filtros-linha">
           <label className="campo">
             Categoria
             <select value={filtros.categoriaId} onChange={(e) => atualizarFiltro('categoriaId', e.target.value)}>

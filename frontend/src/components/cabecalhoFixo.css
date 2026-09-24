@@ -44,9 +44,26 @@
 
 .cabecalho-fixo-grid {
   display: grid;
-  gap: 6px;
-  padding-top: 6px;
+  gap: 8px 10px;
+  padding-top: 8px;
   border-top: 1px solid var(--cor-borda);
+}
+
+.cabecalho-fixo-grid-3 {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.cabecalho-fixo-grid-4 {
+  grid-template-columns: repeat(4, 1fr);
+}
+
+/* telas estreitas: 4 (ou 3) colunas espremem demais o valor — trocar por
+ * 2 colunas antes que o texto se sobreponha (bug reportado 2026-09-24) */
+@media (max-width: 480px) {
+  .cabecalho-fixo-grid-3,
+  .cabecalho-fixo-grid-4 {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 
 .cabecalho-fixo-stat {
@@ -55,7 +72,7 @@
 }
 
 .cabecalho-fixo-stat-rotulo {
-  font-size: 10px;
+  font-size: 11px;
   color: var(--cor-texto-suave);
   white-space: nowrap;
   overflow: hidden;
@@ -63,16 +80,21 @@
 }
 
 .cabecalho-fixo-stat-valor {
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 600;
   white-space: nowrap;
 }
 
+.cabecalho-fixo-stat-valor.compacto {
+  font-size: 12px;
+  font-weight: 500;
+}
+
 .cabecalho-fixo-barra {
-  height: 4px;
+  height: 5px;
   border-radius: 999px;
   background: var(--cor-fundo);
-  margin: 3px 0;
+  margin: 4px 0;
   overflow: hidden;
 }
 

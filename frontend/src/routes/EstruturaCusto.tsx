@@ -425,7 +425,7 @@ export function EstruturaCusto() {
           </button>
         </div>
         {dados && resumoOrcamento && (
-          <div className="cabecalho-fixo-grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}>
+          <div className="cabecalho-fixo-grid cabecalho-fixo-grid-4">
             <div className="cabecalho-fixo-stat">
               <div className="cabecalho-fixo-stat-rotulo">Orçado</div>
               <div className="cabecalho-fixo-stat-valor">{formatarMoeda(resumoOrcamento.orcado, oculto)}</div>
