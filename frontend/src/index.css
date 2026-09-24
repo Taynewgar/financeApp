@@ -36,6 +36,12 @@ body {
   margin: 0;
   background: var(--cor-fundo);
   color: var(--cor-texto);
+  /* rede de segurança: uma legenda/linha sem flex-wrap em qualquer tela
+   * nova não deve mais conseguir alargar a página inteira e quebrar o
+   * cabeçalho fixo (bug real reportado 2026-09-24 — .evolucao-legenda
+   * sem flex-wrap em Gráficos). Tabela/gráfico genuinamente largo continua
+   * rolando na horizontal isolado, com overflow-x no próprio container. */
+  overflow-x: hidden;
 }
 
 /* scrollbar fina, sem os botões de seta pra cima/baixo do estilo clássico

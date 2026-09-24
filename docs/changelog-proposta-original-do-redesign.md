@@ -2245,3 +2245,45 @@ mais precisa do que acontece) antes de tentar outro fix às cegas.
 - [ ] Lançamentos desktop: painel de filtro fixo ocupa menos altura que
       antes (campos fluem em menos linhas, aproveitando a largura da
       tela).
+
+### Rodada 23.2 (2026-09-24) — causa raiz achada: Gráficos rolava de lado no mobile
+
+Usuário mandou prints do celular — a causa do "cabeçalho não fixa" em
+Gráficos (pendência da Rodada 23.1) não era o `position: sticky` nem a
+barra de navegação inferior (a suspeita inicial): era **rolagem
+horizontal na página inteira**, só em Gráficos. O cabeçalho até fica
+fixo verticalmente, mas desliza junto quando a página rola de lado — daí
+parecer "não fixo".
+
+**Causa raiz:** `.evolucao-legenda` (`evolucaoChart.css`) — a linha de
+legenda ("Receitas · Despesas · Resultado · Média receitas (R$...) ·
+Média despesas (R$...)") é `display: flex` sem `flex-wrap: wrap`. Com
+texto real (valores em R$, não os rótulos curtos dos mockups), a linha
+fica mais larga que uma tela de 390px e empurra a página inteira pra
+rolar na horizontal. Classe compartilhada por **5 componentes**
+(`EvolucaoChart`, `OrcadoRealizadoChart`, `TaxaPoupancaChart`,
+`ParetoTendenciaChart`, `PercentualExecutadoChart`) — um fix só resolve
+os 5.
+
+**Fix:** `.evolucao-legenda` ganhou `flex-wrap: wrap` (os itens quebram
+linha em vez de forçar largura). Também adicionada uma rede de segurança
+em `index.css`: `body { overflow-x: hidden }` — uma legenda/linha sem
+`flex-wrap` numa tela nova não deve mais conseguir alargar a página
+inteira de novo. Tabela genuinamente larga continua podendo rolar na
+horizontal, isolada, com `overflow-x: auto` no próprio container (padrão
+já usado em `.pareto`/`crud.css` — não muda com essa rede de segurança).
+
+**Testes:** `tsc -b && vite build` e `oxlint` sem erros novos.
+
+**Checklist de teste manual:**
+- [ ] Gráficos no mobile: rolar a tela não move mais de lado — só
+      verticalmente.
+- [ ] Gráficos no mobile: a legenda de cada gráfico (Evolução Mensal,
+      Orçado×Realizado, etc.) quebra em 2+ linhas quando não cabe numa
+      só, sem cortar texto nem forçar rolagem.
+- [ ] Gráficos: com a rolagem horizontal corrigida, o cabeçalho fixo
+      (seletor de período) agora se comporta igual às outras telas
+      (fica no topo ao rolar verticalmente).
+- [ ] Conferir rapidamente Lançamentos/Dashboard/Estrutura de Custo/
+      Planejamento no mobile → ainda sem rolagem lateral (a rede de
+      segurança não deveria mudar nada ali, só confirmar).

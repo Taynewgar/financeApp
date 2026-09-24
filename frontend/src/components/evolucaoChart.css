@@ -30,7 +30,8 @@
 
 .evolucao-legenda {
   display: flex;
-  gap: 16px;
+  flex-wrap: wrap;
+  gap: 6px 16px;
   font-size: 13px;
   color: var(--cor-texto-suave);
 }
