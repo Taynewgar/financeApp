@@ -44,35 +44,51 @@ merecer não ficar misturado com a tabela proposto×implementado tela a tela.
    `POST /lancamentos-recorrentes/{id}/confirmar` materializa a transação
    real só quando o mês é confirmado, `GET /dashboard/compromissos-futuros`
    mistura parcelas + ocorrências pendentes.
-8. Edição de compra parcelada (detalhe abaixo).
-9. Exportação de relatório mensal/anual (detalhe abaixo) — próximo passo
-   depois do MVP fechado (itens 3-6 acima).
-10. ~~Compromissos futuros no Dashboard~~ **feito por completo 2026-09-22**
-    — parcelas futuras (2026-09-13) + despesa fixa recorrente (item 7,
-    2026-09-22).
-11. **Indicador visual de tooltip** — registrado 2026-09-15, sugestão do
+8. Edição de compra parcelada (detalhe abaixo). **Próximo a ser
+   trabalhado — decidido 2026-09-24.**
+9. **Migração de dados do app antigo** (detalhe abaixo) — alta
+   prioridade, registrada 2026-09-24. Passo do MVP original que ficou de
+   fora do backlog quando ele foi consolidado em arquivo próprio
+   (2026-09-15); ver detalhe abaixo pro porquê.
+10. Exportação de relatório mensal/anual (detalhe abaixo) — próximo passo
+    depois do MVP fechado (itens 3-6 acima).
+11. ~~Compromissos futuros no Dashboard~~ **feito por completo
+    2026-09-22** — parcelas futuras (2026-09-13) + despesa fixa
+    recorrente (item 7, 2026-09-22).
+12. **Indicador visual de tooltip** — registrado 2026-09-15, sugestão do
     usuário pra pós-MVP (não é baixa prioridade, só sequenciado depois do
-    MVP fechado, igual ao item 9). Hoje o Dashboard tem tooltip explicando
-    cada card de resumo (item 24 do histórico), mas nada na tela avisa que
-    o card é "hover-ável" — só se descobre passando o mouse por acaso.
-    Ideia: marcar com um ícone pequeno (círculo com "?", tipo os de
-    formulário) ao lado do que tem explicação extra — o padrão atual
-    (tooltip nativo via `title`) continua por trás, só falta o
+    MVP fechado, igual ao item 10). Hoje o Dashboard tem tooltip
+    explicando cada card de resumo (item 24 do histórico), mas nada na
+    tela avisa que o card é "hover-ável" — só se descobre passando o
+    mouse por acaso. Ideia: marcar com um ícone pequeno (círculo com "?",
+    tipo os de formulário) ao lado do que tem explicação extra — o padrão
+    atual (tooltip nativo via `title`) continua por trás, só falta o
     *sinalizador visual*. Escopo: acha todo lugar que já usa tooltip
     explicativo (Dashboard é o caso conhecido, mas vale auditar as outras
     telas) e decide um componente/ícone padrão único pro app inteiro, não
     um por tela.
 
-**Baixa prioridade confirmada pelo usuário** — todo o resto acima (e o
-item 11) é alta ou média prioridade, mesmo o que está sequenciado pra
-depois do MVP:
+**Média prioridade confirmada pelo usuário** — registrados 2026-09-24, a
+partir do teste do seed novo; depois do que está acima, antes da baixa
+prioridade abaixo:
 
-12. Aba Bancos em Configurações — hoje resolvido como campo de texto em
+13. **Persistir estado de filtros ao navegar entre features** — Detalhe
+    na subseção própria abaixo.
+14. **Filtro específico pra recorrentes** — Detalhe na subseção própria
+    abaixo.
+15. **Lista de "meses pulados" muito grande** — com sugestão de
+    abordagem. Detalhe na subseção própria abaixo.
+
+**Baixa prioridade confirmada pelo usuário** — todo o resto acima (itens
+1-15) é alta ou média prioridade, mesmo o que está sequenciado pra depois
+do MVP:
+
+16. Aba Bancos em Configurações — hoje resolvido como campo de texto em
     Conta, sem perda funcional real. *(2026-09-15)*
-13. Saldo atual de contas — hoje só caixinhas têm saldo calculado
+17. Saldo atual de contas — hoje só caixinhas têm saldo calculado
     (`GET /dashboard/patrimonio/{mes}`); dar saldo a `contas` também seria
     a extensão natural, mas não é urgente. *(2026-09-15)*
-14. **Changelog estruturado** — trocar a prosa narrativa de
+18. **Changelog estruturado** — trocar a prosa narrativa de
     `changelog-proposta-original-do-redesign.md` pelo formato [Keep a
     Changelog](https://keepachangelog.com) (seções `Added/Changed/Fixed/
     Removed` por versão datada, amarrada a tag git). Ganho: escaneável e
@@ -81,23 +97,16 @@ depois do MVP:
     isso fica de baixa prioridade enquanto o projeto for de um usuário só.
     Sugestão minha (Claude), confirmada como baixa prioridade pelo usuário.
     *(2026-09-16)*
-15. **ADRs (Architecture Decision Records)** — trocar o Q&A único de
+19. **ADRs (Architecture Decision Records)** — trocar o Q&A único de
     `sugestoes-e-decisoes-do-redesign.md` por um arquivo curto e imutável
     por decisão relevante (formato Nygard: contexto/decisão/consequências).
     Decisão revista vira um ADR novo que supersede o antigo, em vez de
     editar o `> Status:` por cima como hoje — histórico fica honesto, mas
-    com mais arquivos pra navegar. Mesma origem e confirmação do item 14.
+    com mais arquivos pra navegar. Mesma origem e confirmação do item 18.
     *(2026-09-16)*
-16. **Melhorias pós-MVP na tela Gráficos e na casca do app** — registradas
+20. **Melhorias pós-MVP na tela Gráficos e na casca do app** — registradas
     2026-09-22, a pedido do usuário, pra decidir quando essa fase chegar
     (não agora). Detalhe de cada uma na subseção própria abaixo.
-17. **Persistir estado de filtros ao navegar entre features** — registrado
-    2026-09-24, pós-MVP. Detalhe na subseção própria abaixo.
-18. **Filtro específico pra recorrentes** — registrado 2026-09-24,
-    pós-MVP. Detalhe na subseção própria abaixo.
-19. **Lista de "meses pulados" muito grande** — registrado 2026-09-24,
-    pós-MVP, com sugestão de abordagem. Detalhe na subseção própria
-    abaixo.
 
 Este arquivo não substitui o `README.md` da raiz (que descreve o que
 existe) nem o `/status-projeto` (relatório de andamento) — é o registro do
@@ -212,7 +221,49 @@ resolve a reclamação mais comum (corrigir a categoria de uma parcela) sem
 nenhum risco de inconsistência — e exclusão em grupo (3) junto, por ser
 praticamente grátis e já cobrir metade do caso de uso do nível médio (2).
 
-**Status:** registrado, sem decisão de prioridade ainda.
+**Status:** registrado; **decidido 2026-09-24 como próximo item a ser
+trabalhado** (item 8).
+
+### Migração de dados do app antigo (CSV/JSON → Supabase)
+
+**Origem:** fase 2.e do plano original de evolução
+(`docs/plano-de-evolucao-original.md`, seção "2.e — Migrar dados
+existentes sem conflito") — script único, rodado uma vez, que importa o
+histórico consolidado do app desktop antigo (`historico_lancamentos.csv`
++ `orcamentos.json`, não o CSV bruto de extrato bancário) pras tabelas do
+Supabase.
+
+**Por que ficou de fora do backlog até agora:** quando o backlog foi
+consolidado num arquivo próprio (2026-09-15), esse item não foi trazido
+junto — só existia documentado dentro do plano de evolução original, que
+descreve o racional de decisão, não é pauta de trabalho. Achado e
+corrigido em 2026-09-24, a pedido do usuário.
+
+**O que o script precisa fazer** (detalhado no plano original):
+1. Rodar sobre o histórico consolidado/deduplicado, não sobre CSVs brutos
+   de banco.
+2. Normalizar texto (reaproveitando `_normalize_text` do app antigo) pra
+   agrupar variações e gerar `categorias`/`subcategorias`/`contas`/
+   `caixinhas` a partir dos valores distintos encontrados.
+3. Manter o texto original bruto numa coluna de auditoria
+   (`categoria_raw`) durante a transição, pra conferência.
+4. Reaproveitar `hash_dedup` (unique constraint já implementado desde a
+   Entrega 1, pronto exatamente pra isso) — rodar o script de novo não
+   duplica nada.
+5. Gerar um relatório de dry-run antes de gravar de vez (quantas
+   categorias novas, quantas transações, quantos itens não mapeados) pra
+   validação antes do commit definitivo.
+6. Checagem de reconciliação pós-migração: soma de receita/despesa por
+   mês no CSV antigo tem que bater exatamente com a soma no banco novo
+   (`docs/sugestoes-e-decisoes-do-redesign.md`, seção 4).
+
+**Depois da migração:** importação de CSV vira opcional (import assistido
+de extrato bancário, mapeando pras categorias já existentes) — não é mais
+o único caminho de entrada, já que o formulário guiado já cobre o uso do
+dia a dia.
+
+**Status:** registrado 2026-09-24, alta prioridade — nenhum trabalho
+iniciado ainda.
 
 ### Pareto de despesas por categoria/subcategoria
 
