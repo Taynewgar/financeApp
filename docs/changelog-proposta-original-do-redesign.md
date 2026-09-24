@@ -1903,3 +1903,15 @@ segue real e poderia ser eliminada dando a cada teste seu próprio
 mês/nome — mas como já ficou comprovado que não foi a causa deste
 incidente, fica registrado como melhoria de robustez futura, não como
 correção urgente.
+
+**Checklist de teste manual (409 de nome duplicado):**
+- [ ] Configurações → Categorias: criar uma categoria com nome já
+      existente → mensagem "Já existe um registro com esse nome."
+      aparece no formulário (não trava a tela, não é um erro genérico).
+- [ ] Configurações → Categorias: criar subcategoria com nome já usado
+      dentro da MESMA categoria pai → mesma mensagem de 409.
+- [ ] Configurações → Categorias: criar subcategoria com o mesmo nome
+      de uma subcategoria que já existe em OUTRA categoria → aceita
+      normalmente (unique é por categoria, não global).
+- [ ] Configurações → Caixinhas: criar caixinha com nome já existente →
+      mesma mensagem de 409.

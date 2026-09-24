@@ -91,6 +91,13 @@ depois do MVP:
 16. **Melhorias pós-MVP na tela Gráficos e na casca do app** — registradas
     2026-09-22, a pedido do usuário, pra decidir quando essa fase chegar
     (não agora). Detalhe de cada uma na subseção própria abaixo.
+17. **Persistir estado de filtros ao navegar entre features** — registrado
+    2026-09-24, pós-MVP. Detalhe na subseção própria abaixo.
+18. **Filtro específico pra recorrentes** — registrado 2026-09-24,
+    pós-MVP. Detalhe na subseção própria abaixo.
+19. **Lista de "meses pulados" muito grande** — registrado 2026-09-24,
+    pós-MVP, com sugestão de abordagem. Detalhe na subseção própria
+    abaixo.
 
 Este arquivo não substitui o `README.md` da raiz (que descreve o que
 existe) nem o `/status-projeto` (relatório de andamento) — é o registro do
@@ -350,6 +357,60 @@ perder.
 4. **Barra lateral de navegação não deve sumir ao rolar** — hoje
    acompanha o scroll do corpo da página (comportamento não intencional,
    a confirmar onde exatamente isso acontece antes de corrigir).
+
+### Persistir estado de filtros ao navegar entre features
+
+**Motivo de não existir hoje:** cada tela guarda seus filtros em estado
+local do componente React (`useState`), que é descartado ao desmontar —
+sair de Lançamentos pra Planejamento e voltar reseta o formulário de
+filtro pro padrão. Exemplo trazido pelo usuário: aplicar filtros em
+Lançamentos, ir pra Planejamento, voltar — os filtros deveriam continuar
+aplicados.
+
+**O que precisaria:** mover o estado de filtro pra fora do componente de
+tela (contexto React, ou persistência em `sessionStorage`/`localStorage`
+por feature) pra sobreviver à navegação. Escopo real depende de quantas
+telas têm filtro hoje (Lançamentos é a mais rica; Gráficos e Estrutura de
+Custo também têm seletor de período) — decidir se é um mecanismo genérico
+(1 hook reaproveitado por tela) ou feito tela a tela quando aparecer o
+próximo pedido.
+
+**Status:** registrado 2026-09-24, a pedido do usuário, sem decisão de
+prioridade ainda.
+
+### Filtro específico pra recorrentes
+
+**Contexto:** a tela de gestão de recorrentes (Configurações →
+Lançamentos Recorrentes) hoje lista tudo sem filtro — pedido do usuário
+depois de usar a tela com o seed novo (2 recorrentes já deixa a lista
+maior que o caminho feliz original previa).
+
+**O que precisaria:** decidir os eixos de filtro fazem sentido aqui —
+candidatos óbvios são status (ativo/inativo), categoria e tipo de
+movimento, no mesmo padrão visual dos filtros já usados em Lançamentos.
+
+**Status:** registrado 2026-09-24, a pedido do usuário, sem decisão de
+escopo/prioridade ainda.
+
+### Lista de "meses pulados" muito grande
+
+**Contexto:** a tela de "Meses pulados"/desfazer por recorrente (Rodada
+20.3) lista todos os meses pulados sem paginação nem agrupamento —
+funciona bem com poucos itens, mas um recorrente de longa duração pode
+acumular muitos pulados ao longo dos anos. Usuário pediu explicitamente
+uma sugestão de tratamento visual, não só o registro do problema.
+
+**Sugestão (Claude):** agrupar por ano com o ano corrente expandido e
+anos anteriores colapsados por padrão (acordeão) — cobre o caso comum
+(poucos pulados, tudo visível de cara) sem esconder o histórico, e evita
+paginação (mais complexa de implementar e pior UX numa lista pequena por
+natureza — "pular um mês" é uma ação ocasional, não constante). Alternativa
+mais simples, se o acordeão for exagero pro volume real: limitar a lista a
+"últimos 12 meses" com um link "ver todos" que expande o resto.
+
+**Status:** registrado 2026-09-24, a pedido do usuário, com sugestão de
+abordagem; decisão de qual variante (acordeão por ano vs. "últimos 12 +
+ver todos") fica pra quando esta melhoria for priorizada.
 
 ---
 
