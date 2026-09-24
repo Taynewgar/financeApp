@@ -1,8 +1,9 @@
 """Reseta os dados da conta de teste dedicada usada pelos testes de
 integração (mesma conta de TEST_USER_EMAIL/TEST_USER_PASSWORD) — apaga tudo
-que essa conta tem em transações/orçamentos/caixinhas/compras parceladas/
-categorias/contas, direto no banco (bypassa RLS via service_role, faz
-DELETE de verdade — a API só desativa, nunca exclui de fato).
+que essa conta tem em transações/lançamentos recorrentes/orçamentos/
+caixinhas/compras parceladas/categorias/contas, direto no banco (bypassa
+RLS via service_role, faz DELETE de verdade — a API só desativa, nunca
+exclui de fato).
 
 Por que existe: os testes de integração (tests/integration/) criam
 categorias/orçamentos com nomes e meses de vigência fixos (ex: "Categoria
@@ -48,8 +49,14 @@ from app.db import get_service_client  # noqa: E402
 # "on delete cascade"; orcamento_itens em si cascade a partir de orcamentos,
 # então não precisa de tabela própria aqui). Apagar nesta ordem garante que
 # nada referenciado ainda existe quando a tabela "pai" é apagada depois.
+# lancamentos_recorrentes também referencia contas/categorias sem cascade
+# (só transacoes.lancamento_recorrente_id tem "on delete set null") — sem
+# apagar antes de contas/categorias, o DELETE delas falharia por FK;
+# lancamentos_recorrentes_pulados cascade a partir de lancamentos_
+# recorrentes, mesmo padrão de orcamento_itens.
 TABELAS_NA_ORDEM = [
     "transacoes",
+    "lancamentos_recorrentes",
     "orcamentos",
     "caixinhas",
     "compras_parceladas",

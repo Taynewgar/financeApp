@@ -1740,3 +1740,39 @@ Usuário aprovou os 3 fixes.
   que a mensagem de erro do primeiro continua visível até a segunda ação
   também terminar (e, se a segunda também falhar, que a mensagem cita o
   item/mês certo).
+
+### Rodada 20.4 (2026-09-24) — seed de teste: mais variedade + cobertura de recorrentes
+
+Usuário rodou a suíte de integração e caiu no cenário já documentado na
+skill `/rodar-testes` (lixo de rodada anterior sem limpar) — pediu, junto
+da limpeza, pra atualizar o `seed_dados_teste.py` com mais opções de
+transação e cobertura das features recentes (recorrentes/pulados), e uma
+gama maior de categorias/subcategorias.
+
+**`tests/seed_dados_teste.py`:**
+- 9 categorias / 13 subcategorias (antes: 5 categorias, 2 subcategorias) —
+  Moradia (Aluguel, Condomínio, Conta de Luz, Internet), Mercado
+  (Supermercado, Feira), Lazer (Streaming, Restaurante, Viagem),
+  Transporte (Combustível, Apps de Transporte), Saúde (Plano de Saúde,
+  Farmácia), Renda Fixa e Ações e Fundos (investimento), Salário e Renda
+  Extra (receita). `montar_categorias()` extraído da função principal.
+- Cobre os 6 `tipo_movimento`: receita variável (Freelance só em 2 dos 4
+  meses), retirada pontual da caixinha, estorno vinculado a uma compra
+  real via `ajuste_de_transacao_id`, e ressarcimento avulso — antes só
+  receita/despesa/aplicação apareciam.
+- `montar_recorrentes()`: cria "Internet" (histórico com 2 meses
+  confirmados + 1 pulado, mês atual pendente) e "Assinatura Streaming"
+  (só mês atual pendente) — dados prontos pra testar a tela de "Meses
+  pulados"/desfazer (Rodada 20.3) sem precisar simular manualmente.
+- `--limpar` agora também remove os recorrentes de seed (antes só
+  `/transacoes`).
+
+**`tests/limpar_dados_integracao.py`:** `lancamentos_recorrentes` entrou em
+`TABELAS_NA_ORDEM`, antes de categorias/contas — sem isso, resetar a conta
+de teste falharia por FK assim que o seed passasse a criar recorrentes
+(`lancamentos_recorrentes.categoria_id`/`conta_id` não têm `on delete
+cascade`, ao contrário de `transacoes`). `lancamentos_recorrentes_pulados`
+não precisa de entrada própria — cascade a partir do recorrente.
+
+Sem mudança em código de produção — só nos scripts de seed/limpeza, que
+não rodam em CI. Suíte offline sem alteração: 275 passed, 33 skipped.
