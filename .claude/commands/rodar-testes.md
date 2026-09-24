@@ -41,20 +41,32 @@ sinal nenhum a mais). Só a suíte offline roda de fato aqui.
 
    Se o usuário colar de volta uma saída com falhas do tipo `duplicate key
    value violates unique constraint "categorias_user_id_nome_key"` ou um
-   `KeyError: 'id'` em cima de `orcamento["id"]`, a explicação padrão era
-   "lixo de uma rodada anterior que não terminou de limpar" — mas em
-   2026-09-24 isso foi descartado numa conta comprovadamente zerada antes
-   da rodada (`limpar_dados_integracao.py --sim` confirmou "já está limpa
-   (0 registros)" e o pytest imediatamente seguinte já saiu com essas
-   mesmas 21 falhas). Ou seja: **não assuma mais que é lixo de rodada
-   anterior sem confirmar primeiro** — peça pro usuário rodar
-   `limpar_dados_integracao.py --sim` isolado e colar a saída; só se ela
-   mostrar contagem > 0 antes de zerar é que a causa é leftover. Se a
-   conta já estava zerada e a suíte falha do mesmo jeito assim que roda,
-   é sinal de um problema real de isolamento entre testes dentro da
-   própria suíte de integração (um teste anterior não limpou o que criou
-   antes do próximo, no mesmo run) — investigar em vez de mandar
-   limpar+reseed de novo, que não resolve.
+   `KeyError: 'id'` em cima de `orcamento["id"]`, é lixo de uma rodada
+   anterior (ou de uso manual do app na mesma conta de teste) que não foi
+   limpo — confirmado em 2026-09-24: uma conta com 76 transações, 15
+   categorias e 4 orçamentos acumulados quebrava a suíte inteira; rodando
+   `limpar_dados_integracao.py --sim` **imediatamente antes** do pytest
+   (mesmo terminal, sem nada no meio) resolveu de cara. O detalhe que
+   importa é a **sequência, não só a limpeza em algum momento anterior da
+   sessão** — uso manual do app (Planejamento, Configurações, etc.) ou o
+   script de seed realimentam a mesma conta entre uma limpeza e a
+   próxima, então uma limpeza de horas atrás não garante nada. Sempre
+   passe a sequência limpar→pytest como um bloco só, nessa ordem, sem
+   comandos entre os dois:
+
+   ```bash
+   cd backend
+   source venv/bin/activate
+   TEST_USER_EMAIL=teste@teste.com TEST_USER_PASSWORD=teste venv/bin/python tests/limpar_dados_integracao.py --sim
+   TEST_USER_EMAIL=teste@teste.com TEST_USER_PASSWORD=teste venv/bin/python -m pytest -q --tb=no
+   ```
+
+   Se AINDA assim falhar do mesmo jeito logo depois de uma limpeza que
+   confirmou "já está limpa (0 registros)", isso sim seria inesperado —
+   peça a saída completa do `limpar_dados_integracao.py --sim` (as
+   contagens antes de zerar) junto com o pytest, pra conferir se as duas
+   rodaram mesmo na mesma conta/ambiente (ex: `.env` apontando pro
+   projeto Supabase certo, mesmo checkout do repo).
 
    Se o usuário quiser popular a conta com dados de exemplo pra testar
    telas manualmente (não é isso que resolve o cenário de falha acima),

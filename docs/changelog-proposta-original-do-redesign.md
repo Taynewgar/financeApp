@@ -1881,15 +1881,25 @@ diferentes_e_aceito` — confirma que o unique é por categoria, não
 global —, `test_criar_caixinha_com_nome_duplicado_retorna_409`). Suíte
 offline: **279 passed** (275 + 4), 33 skipped.
 
-**Não resolvido nesta rodada:** a causa exata do "vazamento" (qual
-teste especificamente falha antes de registrar `cleanup` na conta real
-deles) não foi identificada — precisaria rodar contra o Supabase real
-deles, que esta sessão não tem acesso. Também não toquei nos testes de
-integração em si (`test_orcamentos_integration.py`/`test_estrutura_
-custo_integration.py` reusando `vigencia_mes="2026-09-01"`,
-`test_transacoes_integration.py` reusando "Categoria Integração" entre
-funções) — dar a cada teste seu próprio mês/nome eliminaria a
-fragilidade de raiz (uma falha isolada não mais poderia envenenar o
-resto da rodada), mas é uma mudança mais ampla nos testes de
-integração que não pude validar sem acesso ao banco real; proposto ao
-usuário como próximo passo, não implementado.
+**Resolvido no mesmo dia (fora desta sessão, no terminal do usuário):**
+não era vazamento entre testes na suíte de integração — era leftover
+de verdade, só que a limpeza não estava rodando na sequência certa.
+Rodando `limpar_dados_integracao.py --sim` isolado, a conta mostrou 76
+transações, 15 categorias, 4 orçamentos, 2 lançamentos recorrentes
+acumulados (uso manual do app + rodadas de teste anteriores); depois de
+zerar, o teste isolado (`test_orcado_e_realizado_contra_banco_real`)
+passou de primeira. Conclusão: `limpar_dados_integracao.py --sim`
+precisa rodar **imediatamente antes** do pytest, no mesmo bloco de
+comandos — uma limpeza de horas/dias atrás não garante nada, porque uso
+manual do app ou o script de seed realimentam a mesma conta entre uma
+limpeza e a próxima. O achado do `crud.create()` (acima) continua
+válido e vale por si só — só não era a causa desse incidente específico.
+`/rodar-testes` atualizado para sempre recomendar limpar+pytest como um
+único bloco, sem nada no meio.
+
+A fragilidade estrutural nos testes de integração (`vigencia_mes=
+"2026-09-01"`/"Categoria Integração" fixos e reusados entre funções)
+segue real e poderia ser eliminada dando a cada teste seu próprio
+mês/nome — mas como já ficou comprovado que não foi a causa deste
+incidente, fica registrado como melhoria de robustez futura, não como
+correção urgente.
