@@ -2376,9 +2376,38 @@ sem teste automatizado. `tsc -b && vite build` e `oxlint` sem erros
 novos.
 
 **Checklist de teste manual:**
-- [ ] Estrutura de Custo: entrar via link de drill-down de Gráficos
+- [x] Estrutura de Custo: entrar via link de drill-down de Gráficos
       (Orçado×Realizado, clicar num ponto) → navegar pro mês anterior
       (←) → mês muda e permanece no navegado (não volta pro mês do
       link).
-- [ ] Dashboard: trocar de mês/intervalo → ir pra outra tela → voltar →
+- [x] Dashboard: trocar de mês/intervalo → ir pra outra tela → voltar →
       seleção continua a mesma.
+
+**Checklist do usuário (2026-09-24):** item 1 (mês do drill-down)
+reportado como "continua voltando pro mês do link" — comportamento
+correto, esclarecido depois: entrar de novo pelo link deve mesmo levar
+ao mês indicado, faz mais sentido assim (não é bug). Item 2: toggle
+Leitura de Caixa/Saúde do Dashboard não sobrevivia à navegação — real,
+tratado na Rodada 24.2 abaixo.
+
+### Rodada 24.2 (2026-09-24) — toggle Leitura de Caixa/Saúde do Dashboard
+
+Checklist da Rodada 24.1 apontou que o toggle "Leitura de Caixa"/"Leitura
+de Saúde" do Dashboard resetava pra "Saúde" a cada troca de tela — ficou
+de fora da Rodada 24 porque na época só o período (`usePeriodo()`) tinha
+sido movido pro Context; o toggle continuou em `useState` local.
+
+**Mecanismo:** `DashboardPeriodoContext.tsx` passa a carregar também
+`leitura`/`setLeitura` (tipo `LeituraDashboard`, movido de `Dashboard.tsx`
+pro Context — é o único lugar que agora declara esse tipo), ao lado do
+`Periodo` que já vinha de `usePeriodo()`. Mesmo racional dos outros 5
+Contexts: estado que precisa sobreviver à troca de rota vive no Provider
+montado no `AppShell`, não em `useState` do componente de rota
+(desmontado a cada navegação).
+
+**Testes:** mudança de estado, sem lógica nova — `tsc -b && vite build`
+e `oxlint` sem erros novos.
+
+**Checklist de teste manual:**
+- [ ] Dashboard: trocar pra "Leitura de Caixa" → ir pra outra tela →
+      voltar → continua em "Leitura de Caixa" (não volta pra "Saúde").

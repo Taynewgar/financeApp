@@ -24,8 +24,6 @@ import type {
   SaldoCaixinha,
 } from '../lib/types'
 
-type Leitura = 'caixa' | 'saude'
-
 const EXPLICACAO: Record<string, string> = {
   fluxo_caixa: 'Receitas menos despesas brutas (sem descontar estornos) — o que de fato entrou e saiu das contas.',
   receitas: 'Soma de todos os lançamentos do tipo Receita no período.',
@@ -68,9 +66,8 @@ export function Dashboard() {
   const { oculto } = usePrivacidade()
 
   const periodo = useDashboardPeriodo()
-  const { modoData, vigenciaMes, primeiroMes, periodoInicio, periodoFim, mesReferencia } = periodo
+  const { modoData, vigenciaMes, primeiroMes, periodoInicio, periodoFim, mesReferencia, leitura, setLeitura } = periodo
 
-  const [leitura, setLeitura] = useState<Leitura>('saude')
   const [resumo, setResumo] = useState<CamposFinanceiros | null>(null)
   const [mesAnterior, setMesAnterior] = useState<ResumoMensal | null>(null)
   const [evolucao, setEvolucao] = useState<EvolucaoMensal | null>(null)

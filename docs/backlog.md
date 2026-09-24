@@ -506,7 +506,12 @@ o efeito que aplica `?mes=` (drill-down vindo de Gráficos) em Estrutura
 de Custo dependia do objeto `searchParams` inteiro, que o react-router
 recria a cada render mesmo sem navegação — sobrescrevia cliques nas
 setas de mês sempre que a URL ainda carregava o `?mes=` antigo; corrigido
-pra depender só do valor (string). Ver changelog Rodadas 24/24.1 pro
+pra depender só do valor (string). Comportamento confirmado com o
+usuário: entrar de novo pelo link de drill-down deve mesmo levar ao mês
+indicado — não é bug, é o esperado. Toggle "Leitura de Caixa/Saúde" do
+Dashboard também entrou no escopo (Rodada 24.2) — era `useState` local,
+resetava pra "saúde" a cada troca de tela; passou a viver no mesmo
+Context de período do Dashboard. Ver changelog Rodadas 24/24.1/24.2 pro
 detalhe técnico completo.
 
 ### Filtro específico pra recorrentes
