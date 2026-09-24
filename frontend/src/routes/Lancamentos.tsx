@@ -6,6 +6,7 @@ import '../components/crud.css'
 import '../components/forms.css'
 import '../components/lancamentos.css'
 import '../components/resumoCards.css'
+import { RecorrentesSection } from './RecorrentesSection'
 import { ApiError, apiFetch } from '../lib/api'
 import { formatarData, formatarMoeda } from '../lib/formatar'
 import { FILTROS_VAZIOS, useLancamentosFiltros, type Filtros } from '../lib/LancamentosFiltrosContext'
@@ -15,6 +16,7 @@ import {
   MEIOS_PAGAMENTO,
   TIPOS_MOVIMENTO,
   TIPO_CATEGORIA_ESPERADO,
+  classePorTipoMovimento,
   rotuloEstruturaCusto,
   rotuloMeioPagamento,
   rotuloTipoMovimento,
@@ -53,20 +55,11 @@ function pad2(n: number): string {
   return String(n).padStart(2, '0')
 }
 
-// aplicação/retirada em caixinha é reserva, sem cor especial (fica no
-// texto padrão); só quando é investimento de verdade (categoria
-// investimento, sem caixinha) fica azul — ver Estrutura de Custo, mesma
-// distinção de bucket "reservas" vs "investimentos"
-function classeValor(transacao: Transacao): string {
-  const { tipo_movimento: tipo, caixinha_id: caixinhaId } = transacao
-  if (tipo === 'receita' || tipo === 'estorno' || tipo === 'ressarcimento') return 'valor-receita'
-  if (tipo === 'despesa') return 'valor-despesa'
-  if ((tipo === 'aplicacao' || tipo === 'retirada') && !caixinhaId) return 'valor-investimento'
-  return ''
-}
-
 export function Lancamentos() {
   const { oculto } = usePrivacidade()
+  // aba local, não persiste entre navegações — mesmo critério de
+  // filtroMobileAberto (estado de UI, não de filtro)
+  const [aba, setAba] = useState<'lista' | 'recorrentes'>('lista')
   const [contas, setContas] = useState<Conta[]>([])
   const [categorias, setCategorias] = useState<Categoria[]>([])
   const [subcategorias, setSubcategorias] = useState<Subcategoria[]>([])
@@ -256,6 +249,19 @@ export function Lancamentos() {
     <div>
       <h1 style={{ fontSize: 22, marginTop: 0 }}>Lançamentos</h1>
 
+      <div className="tabs">
+        <button type="button" className={aba === 'lista' ? 'ativo' : ''} onClick={() => setAba('lista')}>
+          Lançamentos
+        </button>
+        <button type="button" className={aba === 'recorrentes' ? 'ativo' : ''} onClick={() => setAba('recorrentes')}>
+          Recorrentes
+        </button>
+      </div>
+
+      {aba === 'recorrentes' && <RecorrentesSection />}
+
+      {aba === 'lista' && (
+        <>
       {resumo && (
         <div className="resumo-cards">
           <div className="resumo-card">
@@ -503,7 +509,7 @@ export function Lancamentos() {
                     <span className="item-detalhe">{detalhes.join(' — ')}</span>
                   </div>
                   <div className="item-acoes">
-                    <span className={classeValor(t)} style={{ fontWeight: 600 }}>
+                    <span className={classePorTipoMovimento(t.tipo_movimento, t.caixinha_id)} style={{ fontWeight: 600 }}>
                       {formatarMoeda(t.valor, oculto)}
                     </span>
                     <Link to={`/lancamentos/${t.id}/editar`} className="botao-link">
@@ -533,6 +539,8 @@ export function Lancamentos() {
             )
           })}
         </ul>
+      )}
+        </>
       )}
     </div>
   )

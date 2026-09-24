@@ -21,8 +21,13 @@ PWA em React + Vite + TypeScript, consumindo a API do `backend/`.
 - `src/lib/types.ts` — tipos TS espelhando os schemas Pydantic do backend
   (mesmos nomes de campo, pra não precisar traduzir mentalmente).
 - `src/lib/rotulos.ts` — rótulos/mapeamentos compartilhados entre
-  `NovoLancamento`, `EditarLancamento` e `Lancamentos` (estrutura de custo,
-  meio de pagamento, tipo de movimento).
+  `NovoLancamento`, `EditarLancamento`, `Lancamentos`, `RecorrentesSection`
+  e `Dashboard` (estrutura de custo, meio de pagamento, tipo de
+  movimento — `TIPOS_MOVIMENTO_RECORRENTE` é o subconjunto válido pra um
+  molde recorrente, sem estorno/ressarcimento); `classePorTipoMovimento()`
+  decide a cor do valor (receita/despesa/investimento) a partir do
+  `tipo_movimento` — usado na lista de Lançamentos e nos Compromissos
+  Futuros do Dashboard.
 - `src/lib/formatar.ts` — `formatarMoeda`/`formatarData` (pt-BR);
   `formatarMoedaCompacta` (`"1,8 mil"`, sem `R$`/centavos) pra espaços
   apertados onde o formato completo não cabe.
@@ -69,7 +74,10 @@ PWA em React + Vite + TypeScript, consumindo a API do `backend/`.
   evolução (ver abaixo); `Configuracoes` tem os CRUDs de Contas/Categorias/
   Caixinhas (ver abaixo);
   `NovoLancamento` é o formulário completo de lançamento (ver abaixo);
-  `Lancamentos` é a lista/busca (ver abaixo); `EditarLancamento` edita um
+  `Lancamentos` é a lista/busca (ver abaixo), com aba "Recorrentes"
+  (`RecorrentesSection` — cadastro de salário/aluguel/aporte mensal,
+  decidido 2026-09-24 sair de Configurações pra aqui, ver `docs/
+  backlog.md` item 14/changelog Rodada 25); `EditarLancamento` edita um
   lançamento à vista existente; Planejamento e Estruturas de Custo ainda
   são placeholders.
 - `src/routes/configuracoes/` — uma seção por aba de Configurações

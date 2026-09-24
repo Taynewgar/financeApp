@@ -2411,3 +2411,109 @@ e `oxlint` sem erros novos.
 **Checklist de teste manual:**
 - [ ] Dashboard: trocar pra "Leitura de Caixa" → ir pra outra tela →
       voltar → continua em "Leitura de Caixa" (não volta pra "Saúde").
+
+### Rodada 25 (2026-09-24) — Lançamentos Recorrentes: receita/aplicação/
+retirada + filtro + nova aba
+
+Item 14 do backlog, próximo da ordem que o usuário definiu. Pedido
+original era só "filtro pra recorrentes" — mas "recorrente" só existia
+como despesa fixa (aluguel, assinatura); ao discutir os eixos do filtro
+com o usuário, ficou claro que essa era uma limitação incorreta minha, e
+não uma regra de negócio real: o usuário tem receitas e aplicações
+recorrentes (salário mensal, aporte mensal), então o item virou uma
+extensão de escopo maior, decidida em duas perguntas diretas ao usuário
+antes de implementar: (1) estender o cadastro pros 4 tipos ou manter só
+despesa e tratar isso como "vir de um recorrente confirmado"; (2)
+manter a tela em Configurações ou mover pra dentro de Lançamentos. O
+usuário escolheu estender de verdade e mover a tela.
+
+**Backend** (`lancamentos_recorrentes` — schema, router, `db/schema.sql`):
+- Nova coluna `tipo_movimento` (`receita`/`despesa`/`aplicacao`/`retirada`
+  — sem estorno/ressarcimento, que só existem vinculados a uma despesa
+  específica já lançada, não fazem sentido como molde recorrente).
+  Migração documentada no README pra quem já tem o schema antigo no
+  Supabase (`alter table` com default `'despesa'` pra não quebrar linhas
+  existentes).
+- `estrutura_custo`/`meio_pagamento` deixam de ser `NOT NULL` — cada
+  tipo usa um subconjunto fixo de campos, mesmo padrão do Novo
+  Lançamento (`NovoLancamento.tsx`): `_normalizar_e_validar()` no router
+  força o resto a `null`/`'investimentos'` em vez de confiar no que o
+  cliente mandou, pra Estrutura de Custo/Busca nunca verem uma
+  combinação inconsistente. Despesa continua exigindo
+  categoria/estrutura_custo(fixo|variavel|sazonal)/meio_pagamento;
+  aplicação/retirada tem `estrutura_custo` sempre `'investimentos'`
+  (mesma regra de Novo Lançamento pra investimento "de verdade", sem
+  caixinha) e `meio_pagamento` sempre `null`; receita não usa nenhum dos
+  dois.
+- `_check_categoria_tipo()` substitui o antigo `_check_categoria_despesa`
+  — mesma tabela `_TIPO_CATEGORIA_ESPERADO` de `routers/transacoes.py`
+  (receita→receita, despesa→despesa, aplicação/retirada→investimento),
+  sem estorno/ressarcimento.
+- `confirmar()` usava `tipo_movimento="despesa"` fixo ao criar a
+  transação real — passou a usar `recorrente["tipo_movimento"]`.
+- Sem suporte a caixinha/reserva recorrente por enquanto (decisão de
+  escopo explícita — o usuário só pediu receita/aplicação recorrente,
+  não reserva) — fica registrado aqui pra um próximo pedido, não é
+  esquecimento.
+- `GET /dashboard/compromissos-futuros` (`CompromissoFuturo`) ganha
+  `tipo_movimento` (sempre `'despesa'` pra item `tipo='parcela'`, já que
+  compra parcelada continua despesa-only; o do próprio recorrente pro
+  item `tipo='recorrente'`) — usado pelo Dashboard pra rótulo/cor certos.
+
+**Frontend:**
+- `RecorrentesSection.tsx` (antes `configuracoes/LancamentosRecorrentesSection.tsx`)
+  — form ganha seletor "Tipo de lançamento" no topo; trocar o tipo reseta
+  categoria/subcategoria (universo de categorias válidas muda, mesmo
+  padrão de `NovoLancamento.tsx`) e limpa estrutura_custo/meio_pagamento
+  se saiu de despesa. Os dois campos só aparecem no formulário quando o
+  tipo é despesa. Lista busca `/categorias` sem filtro de tipo (antes só
+  `?tipo=despesa`) e filtra client-side pelo tipo elegível do formulário.
+  Filtro novo (status/categoria/tipo de movimento) acima da lista — os 3
+  eixos do pedido original, viáveis agora que existe mais de um tipo de
+  movimento pra filtrar.
+- `Lancamentos.tsx` ganha aba local "Lançamentos"/"Recorrentes" (mesmo
+  padrão `.tabs` de `Configuracoes.tsx`) — aba não persiste entre
+  navegações, mesmo critério de `filtroMobileAberto` (estado de UI, não
+  de filtro). `Configuracoes.tsx` perde a aba "Despesas Fixas".
+- `classePorTipoMovimento()` (novo, em `lib/rotulos.ts`) — extraído do
+  `classeValor()` que já existia só em `Lancamentos.tsx`, agora
+  reaproveitado também no Dashboard (Compromissos Futuros: rótulo e cor
+  do valor não são mais fixos em "Despesa fixa recorrente"/vermelho,
+  seguem o `tipo_movimento` do compromisso).
+
+**Testes:** 27 novos/alterados em `test_lancamentos_recorrentes_api.py`
+(criar cada tipo, forçar `estrutura_custo`/`meio_pagamento` corretos,
+validar categoria incompatível, `confirmar()` gerando o tipo certo,
+Estrutura de Custo não conta aplicação/retirada como despesa) — helpers
+de payload em `test_dashboard_api.py`/`seed_dados_teste.py` atualizados
+com o novo campo obrigatório `tipo_movimento`. Suíte completa: **297
+passed, 33 skipped**. `tsc -b && vite build` e `oxlint` sem erros novos.
+Sem teste manual no navegador nesta sessão — ambiente remoto sem
+`backend/.env` com credenciais reais do Supabase (ver CLAUDE.md),
+suíte offline é a cobertura real disponível aqui.
+
+**Checklist de teste manual:**
+- [ ] Lançamentos → aba "Recorrentes": criar um recorrente de Receita
+      (ex: "Salário", categoria de receita) → salvar → aparece na lista
+      com rótulo "Receita" e sem campos de estrutura de custo/meio de
+      pagamento.
+- [ ] Criar um recorrente de Aplicação (ex: "Aporte mensal", categoria
+      de investimento) → salvar → aparece na lista sem pedir estrutura
+      de custo/meio de pagamento no formulário.
+- [ ] Confirmar o mês desse recorrente de aplicação (Dashboard →
+      Compromissos Futuros → Confirmar) → a transação criada aparece em
+      Lançamentos como Aplicação, valor em azul (cor de investimento) —
+      e em Estrutura de Custo cai no bucket Investimentos, não nos
+      Custos Fixos/Variáveis.
+- [ ] Dashboard → Compromissos Futuros: um recorrente de receita/
+      aplicação pendente mostra o rótulo certo ("Receita recorrente"/
+      "Aplicação recorrente") com a cor certa (verde/azul), não mais
+      "Despesa fixa recorrente" em vermelho pra tudo.
+- [ ] Filtro em Lançamentos → Recorrentes: filtrar por Status=Inativos,
+      por Categoria, e por Tipo de lançamento — cada eixo isolado reduz
+      a lista corretamente; "Limpar filtros" volta a mostrar todos.
+- [ ] Configurações não mostra mais a aba "Despesas Fixas".
+- [ ] Um recorrente de despesa já existente (criado antes desta rodada)
+      continua aparecendo e editável normalmente (migração não quebrou
+      dados antigos — depende de rodar a migração do README no Supabase
+      real do usuário).

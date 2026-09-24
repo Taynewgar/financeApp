@@ -14,6 +14,7 @@ import { formatarData, formatarMoeda } from '../lib/formatar'
 import { useDashboardPeriodo } from '../lib/DashboardPeriodoContext'
 import { mesesAntes } from '../lib/periodo'
 import { usePrivacidade } from '../lib/PrivacyContext'
+import { classePorTipoMovimento, rotuloTipoMovimento } from '../lib/rotulos'
 import type {
   CamposFinanceiros,
   CompromissoFuturo,
@@ -476,11 +477,13 @@ export function Dashboard() {
                         <span className="item-detalhe">
                           {c.tipo === 'parcela'
                             ? `Parcela ${c.parcela_atual} de ${c.parcela_total}`
-                            : 'Despesa fixa recorrente'}{' '}
+                            : `${rotuloTipoMovimento(c.tipo_movimento)} recorrente`}{' '}
                           · {formatarData(c.data_compra)}
                         </span>
                       </div>
-                      <span className="resumo-card-valor valor-despesa">{formatarMoeda(c.valor, oculto)}</span>
+                      <span className={`resumo-card-valor ${classePorTipoMovimento(c.tipo_movimento)}`}>
+                        {formatarMoeda(c.valor, oculto)}
+                      </span>
                       {c.tipo === 'recorrente' && (
                         // colunas + gap maior (em vez do .item-acoes padrão lado a lado)
                         // pra reduzir o risco de clicar em "pular" querendo "confirmar" —

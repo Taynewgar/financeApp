@@ -68,6 +68,11 @@ class CompromissoFuturo(BaseModel):
     descricao: str | None
     valor: float
     data_compra: date
+    # compra parcelada é sempre despesa; recorrente carrega o tipo do
+    # próprio molde (pode ser receita/aplicação/retirada também, ver
+    # README.md "Lançamentos Recorrentes") — usado pro rótulo/cor no
+    # Dashboard (Compromissos Futuros)
+    tipo_movimento: Literal["receita", "despesa", "aplicacao", "retirada"]
     parcela_atual: int | None = None
     parcela_total: int | None = None
     # só presente quando tipo == "recorrente" — usado pelo botão "Confirmar"

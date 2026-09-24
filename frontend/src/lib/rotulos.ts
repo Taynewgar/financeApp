@@ -1,6 +1,6 @@
 // Rótulos compartilhados entre NovoLancamento, EditarLancamento e Lancamentos
 // — um único lugar pra manter em sincronia com os enums do backend.
-import type { EstruturaCusto, MeioPagamento, TipoMovimento } from './types'
+import type { EstruturaCusto, MeioPagamento, TipoMovimento, TipoMovimentoRecorrente } from './types'
 
 export const ESTRUTURAS: { valor: EstruturaCusto; rotulo: string }[] = [
   { valor: 'fixo', rotulo: 'Fixo' },
@@ -29,6 +29,16 @@ export const TIPOS_MOVIMENTO: { valor: TipoMovimento; rotulo: string }[] = [
   { valor: 'ressarcimento', rotulo: 'Ressarcimento' },
 ]
 
+// subconjunto de TIPOS_MOVIMENTO válido pra um molde de Lançamento
+// Recorrente (sem estorno/ressarcimento — só existem vinculados a uma
+// despesa específica já lançada, não fazem sentido como molde recorrente)
+export const TIPOS_MOVIMENTO_RECORRENTE: { valor: TipoMovimentoRecorrente; rotulo: string }[] = [
+  { valor: 'receita', rotulo: 'Receita' },
+  { valor: 'despesa', rotulo: 'Despesa' },
+  { valor: 'aplicacao', rotulo: 'Aplicação' },
+  { valor: 'retirada', rotulo: 'Retirada' },
+]
+
 // mesmo mapeamento de backend/app/routers/transacoes.py::_TIPO_CATEGORIA_ESPERADO
 export const TIPO_CATEGORIA_ESPERADO: Record<TipoMovimento, 'receita' | 'despesa' | 'investimento'> = {
   receita: 'receita',
@@ -49,4 +59,16 @@ export function rotuloMeioPagamento(valor: MeioPagamento): string {
 
 export function rotuloTipoMovimento(valor: TipoMovimento): string {
   return TIPOS_MOVIMENTO.find((t) => t.valor === valor)?.rotulo ?? valor
+}
+
+// aplicação/retirada em caixinha é reserva, sem cor especial (fica no
+// texto padrão); só quando é investimento de verdade (categoria
+// investimento, sem caixinha) fica azul — ver Estrutura de Custo, mesma
+// distinção de bucket "reservas" vs "investimentos". Usado em Lançamentos
+// (lista de transações) e no Dashboard (Compromissos Futuros).
+export function classePorTipoMovimento(tipo: TipoMovimento, caixinhaId?: string | null): string {
+  if (tipo === 'receita' || tipo === 'estorno' || tipo === 'ressarcimento') return 'valor-receita'
+  if (tipo === 'despesa') return 'valor-despesa'
+  if ((tipo === 'aplicacao' || tipo === 'retirada') && !caixinhaId) return 'valor-investimento'
+  return ''
 }

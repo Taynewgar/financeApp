@@ -512,6 +512,7 @@ def _recorrente(client, conta_id, categoria_id, **extra):
         "descricao": "Aluguel",
         "valor": 1500,
         "dia_mes": 5,
+        "tipo_movimento": "despesa",
         "conta_id": conta_id,
         "categoria_id": categoria_id,
         "estrutura_custo": "fixo",

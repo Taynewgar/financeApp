@@ -68,8 +68,8 @@ que está acima, antes da baixa prioridade abaixo:
 13. ~~Persistir estado de filtros ao navegar entre features~~ **feito
     2026-09-24** — Detalhe na subseção própria abaixo, ver changelog
     Rodada 24.
-14. **Filtro específico pra recorrentes** — Detalhe na subseção própria
-    abaixo.
+14. ~~Filtro específico pra recorrentes~~ **feito 2026-09-24** — Detalhe
+    na subseção própria abaixo, ver changelog Rodada 25.
 15. **Lista de "meses pulados" muito grande** — com sugestão de
     abordagem. Detalhe na subseção própria abaixo.
 16. ~~Cabeçalho fixo/controles fixos por feature~~ **feito 2026-09-24** —
@@ -516,17 +516,28 @@ detalhe técnico completo.
 
 ### Filtro específico pra recorrentes
 
-**Contexto:** a tela de gestão de recorrentes (Configurações →
-Lançamentos Recorrentes) hoje lista tudo sem filtro — pedido do usuário
+**Contexto:** a tela de gestão de recorrentes (então em Configurações →
+Despesas Fixas Recorrentes) listava tudo sem filtro — pedido do usuário
 depois de usar a tela com o seed novo (2 recorrentes já deixa a lista
-maior que o caminho feliz original previa).
+maior que o caminho feliz original previa). Ao discutir os eixos
+("tipo de movimento" fazia sentido?), veio à luz que "recorrente" tinha
+sido modelado só como despesa fixa por engano de análise meu — o usuário
+esclareceu que tem receitas e aplicações recorrentes também (salário
+mensal, aporte mensal), então o item virou dois: estender o cadastro
+pra cobrir receita/aplicação/retirada, e mover a tela de Configurações
+pra dentro de Lançamentos (nova aba "Recorrentes" — "tipo de movimento"
+só faz sentido como filtro real depois dessa extensão).
 
-**O que precisaria:** decidir os eixos de filtro fazem sentido aqui —
-candidatos óbvios são status (ativo/inativo), categoria e tipo de
-movimento, no mesmo padrão visual dos filtros já usados em Lançamentos.
-
-**Status:** registrado 2026-09-24, a pedido do usuário, sem decisão de
-escopo/prioridade ainda.
+**Status:** implementado 2026-09-24 (Rodada 25) — `lancamentos_recorrentes`
+ganhou `tipo_movimento` (receita/despesa/aplicacao/retirada); cada tipo
+usa o mesmo subconjunto de campos do Novo Lançamento, forçado pelo
+backend (despesa exige categoria/estrutura_custo/meio_pagamento;
+aplicação/retirada é sempre `estrutura_custo='investimentos'`; receita
+não usa nenhum dos dois). Sem suporte a caixinha/reserva recorrente por
+enquanto (fica pra um próximo item, se pedido). A tela saiu de
+Configurações e ganhou aba própria em Lançamentos, com filtro por
+status/categoria/tipo de movimento (os 3 eixos do pedido original). Ver
+changelog Rodada 25 pro detalhe técnico completo.
 
 ### Lista de "meses pulados" muito grande
 

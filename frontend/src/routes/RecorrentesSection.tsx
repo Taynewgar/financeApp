@@ -1,32 +1,48 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
-import '../../components/crud.css'
-import '../../components/forms.css'
-import { ApiError, apiFetch } from '../../lib/api'
-import { formatarMoeda } from '../../lib/formatar'
-import { rotuloMesLongo } from '../../lib/periodo'
-import { ESTRUTURAS, MEIOS_PAGAMENTO } from '../../lib/rotulos'
+import '../components/crud.css'
+import '../components/forms.css'
+import { ApiError, apiFetch } from '../lib/api'
+import { formatarMoeda } from '../lib/formatar'
+import { rotuloMesLongo } from '../lib/periodo'
+import {
+  ESTRUTURAS,
+  MEIOS_PAGAMENTO,
+  TIPOS_MOVIMENTO_RECORRENTE,
+  TIPO_CATEGORIA_ESPERADO,
+  rotuloTipoMovimento,
+} from '../lib/rotulos'
 import type {
   Categoria,
   Conta,
-  EstruturaCustoRecorrente,
+  EstruturaCusto,
   LancamentoRecorrente,
   MeioPagamento,
   MesPulado,
   Subcategoria,
-} from '../../lib/types'
+  TipoMovimentoRecorrente,
+} from '../lib/types'
 
 type FormState = {
   descricao: string
   valor: string
   dia_mes: string
+  tipo_movimento: TipoMovimentoRecorrente
   conta_id: string
   categoria_id: string
   subcategoria_id: string
-  estrutura_custo: EstruturaCustoRecorrente | ''
+  estrutura_custo: EstruturaCusto | ''
   meio_pagamento: MeioPagamento | ''
   data_inicio: string
   data_fim: string
 }
+
+type FiltrosRecorrente = {
+  status: 'ativo' | 'inativo' | ''
+  categoriaId: string
+  tipoMovimento: TipoMovimentoRecorrente | ''
+}
+
+const FILTROS_VAZIOS: FiltrosRecorrente = { status: '', categoriaId: '', tipoMovimento: '' }
 
 function ordenarPorDescricao(lista: LancamentoRecorrente[]): LancamentoRecorrente[] {
   return [...lista].sort((a, b) => a.descricao.localeCompare(b.descricao, 'pt-BR'))
@@ -36,6 +52,7 @@ const FORM_VAZIO: FormState = {
   descricao: '',
   valor: '',
   dia_mes: '',
+  tipo_movimento: 'despesa',
   conta_id: '',
   categoria_id: '',
   subcategoria_id: '',
@@ -45,7 +62,7 @@ const FORM_VAZIO: FormState = {
   data_fim: '',
 }
 
-export function LancamentosRecorrentesSection() {
+export function RecorrentesSection() {
   const [recorrentes, setRecorrentes] = useState<LancamentoRecorrente[] | null>(null)
   const [contas, setContas] = useState<Conta[]>([])
   const [categorias, setCategorias] = useState<Categoria[]>([])
@@ -55,6 +72,7 @@ export function LancamentosRecorrentesSection() {
   const [editandoId, setEditandoId] = useState<string | null>(null)
   const [form, setForm] = useState<FormState>(FORM_VAZIO)
   const [salvando, setSalvando] = useState(false)
+  const [filtros, setFiltros] = useState<FiltrosRecorrente>(FILTROS_VAZIOS)
 
   const [criandoCategoria, setCriandoCategoria] = useState(false)
   const [novaCategoriaNome, setNovaCategoriaNome] = useState('')
@@ -63,7 +81,7 @@ export function LancamentosRecorrentesSection() {
 
   const [criandoSubcategoria, setCriandoSubcategoria] = useState(false)
   const [novaSubcategoriaNome, setNovaSubcategoriaNome] = useState('')
-  const [novaSubcategoriaEstrutura, setNovaSubcategoriaEstrutura] = useState<EstruturaCustoRecorrente | ''>('')
+  const [novaSubcategoriaEstrutura, setNovaSubcategoriaEstrutura] = useState<EstruturaCusto | ''>('')
   const [salvandoSubcategoria, setSalvandoSubcategoria] = useState(false)
   const [erroSubcategoria, setErroSubcategoria] = useState<string | null>(null)
 
@@ -75,10 +93,12 @@ export function LancamentosRecorrentesSection() {
   const [desfazendoPulado, setDesfazendoPulado] = useState<string | null>(null)
 
   useEffect(() => {
+    // sem filtro de tipo aqui — o cadastro cobre receita/despesa/aplicação/
+    // retirada (Rodada 25), cada um usando categorias de um tipo diferente
     Promise.all([
       apiFetch<LancamentoRecorrente[]>('/lancamentos-recorrentes'),
       apiFetch<Conta[]>('/contas'),
-      apiFetch<Categoria[]>('/categorias?tipo=despesa'),
+      apiFetch<Categoria[]>('/categorias'),
       apiFetch<Subcategoria[]>('/subcategorias'),
     ])
       .then(([r, c, cat, sub]) => {
@@ -90,10 +110,27 @@ export function LancamentosRecorrentesSection() {
       .catch((e) => setErro(e instanceof ApiError ? e.message : 'Falha ao carregar lançamentos recorrentes'))
   }, [])
 
+  // categoria elegível pro tipo de movimento escolhido no formulário — mesmo
+  // padrão de NovoLancamento.tsx (categoriasElegiveis)
+  const categoriasElegiveis = useMemo(
+    () => categorias.filter((c) => c.tipo === TIPO_CATEGORIA_ESPERADO[form.tipo_movimento]),
+    [categorias, form.tipo_movimento],
+  )
+
   const subcategoriasDaCategoria = useMemo(
     () => subcategorias.filter((s) => s.categoria_id === form.categoria_id && s.ativo),
     [subcategorias, form.categoria_id],
   )
+
+  const recorrentesFiltrados = useMemo(() => {
+    if (!recorrentes) return recorrentes
+    return recorrentes.filter(
+      (r) =>
+        (filtros.status === '' || (filtros.status === 'ativo') === r.ativo) &&
+        (filtros.categoriaId === '' || r.categoria_id === filtros.categoriaId) &&
+        (filtros.tipoMovimento === '' || r.tipo_movimento === filtros.tipoMovimento),
+    )
+  }, [recorrentes, filtros])
 
   function nomeConta(id: string) {
     return contas.find((c) => c.id === id)?.nome ?? 'conta removida'
@@ -125,16 +162,32 @@ export function LancamentosRecorrentesSection() {
       descricao: r.descricao,
       valor: String(r.valor),
       dia_mes: String(r.dia_mes),
+      tipo_movimento: r.tipo_movimento,
       conta_id: r.conta_id,
       categoria_id: r.categoria_id,
       subcategoria_id: r.subcategoria_id ?? '',
-      estrutura_custo: r.estrutura_custo,
-      meio_pagamento: r.meio_pagamento,
+      estrutura_custo: r.estrutura_custo ?? '',
+      meio_pagamento: r.meio_pagamento ?? '',
       data_inicio: r.data_inicio,
       data_fim: r.data_fim ?? '',
     })
     setEditandoId(r.id)
     setMostrarForm(true)
+    fecharCriacaoInline()
+  }
+
+  // trocar o tipo de movimento muda o universo de categorias válidas —
+  // categoria/subcategoria escolhidas deixam de fazer sentido, mesmo padrão
+  // de NovoLancamento.tsx
+  function escolherTipoMovimento(tipo: TipoMovimentoRecorrente) {
+    setForm((f) => ({
+      ...f,
+      tipo_movimento: tipo,
+      categoria_id: '',
+      subcategoria_id: '',
+      estrutura_custo: tipo === 'despesa' ? f.estrutura_custo : '',
+      meio_pagamento: tipo === 'despesa' ? f.meio_pagamento : '',
+    }))
     fecharCriacaoInline()
   }
 
@@ -144,14 +197,16 @@ export function LancamentosRecorrentesSection() {
   }
 
   function escolherSubcategoria(id: string) {
-    // sugestão de estrutura de custo da subcategoria, mesmo padrão do
-    // Novo Lançamento — não se aplica se o padrão for 'investimentos'
-    // (recorrente só aceita fixo/variavel/sazonal, é sempre despesa)
+    // sugestão de estrutura de custo da subcategoria, mesmo padrão do Novo
+    // Lançamento — só faz sentido pra despesa (aplicação/retirada é sempre
+    // 'investimentos', forçado pelo backend; receita não usa o campo)
+    if (form.tipo_movimento !== 'despesa') {
+      setForm((f) => ({ ...f, subcategoria_id: id }))
+      return
+    }
     const sub = subcategorias.find((s) => s.id === id)
     const sugestao =
-      sub?.estrutura_custo_padrao && sub.estrutura_custo_padrao !== 'investimentos'
-        ? (sub.estrutura_custo_padrao as EstruturaCustoRecorrente)
-        : null
+      sub?.estrutura_custo_padrao && sub.estrutura_custo_padrao !== 'investimentos' ? sub.estrutura_custo_padrao : null
     setForm((f) => ({ ...f, subcategoria_id: id, estrutura_custo: sugestao ?? f.estrutura_custo }))
   }
 
@@ -163,7 +218,7 @@ export function LancamentosRecorrentesSection() {
     try {
       const nova = await apiFetch<Categoria>('/categorias', {
         method: 'POST',
-        body: JSON.stringify({ nome, tipo: 'despesa' }),
+        body: JSON.stringify({ nome, tipo: TIPO_CATEGORIA_ESPERADO[form.tipo_movimento] }),
       })
       setCategorias((prev) => [...prev, nova].sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR')))
       escolherCategoria(nova.id)
@@ -261,15 +316,20 @@ export function LancamentosRecorrentesSection() {
     setSalvando(true)
     setErro(null)
     try {
+      const ehDespesa = form.tipo_movimento === 'despesa'
       const payload = {
         descricao: form.descricao,
         valor: Number(form.valor),
         dia_mes: Number(form.dia_mes),
+        tipo_movimento: form.tipo_movimento,
         conta_id: form.conta_id,
         categoria_id: form.categoria_id,
         subcategoria_id: form.subcategoria_id || null,
-        estrutura_custo: form.estrutura_custo,
-        meio_pagamento: form.meio_pagamento,
+        // servidor força de qualquer forma (ver routers/lancamentos_recorrentes.py
+        // _normalizar_e_validar) — mandar já certo aqui evita um round-trip
+        // "corrigindo" o que foi mostrado antes de trocar de tipo
+        estrutura_custo: ehDespesa ? form.estrutura_custo || null : null,
+        meio_pagamento: ehDespesa ? form.meio_pagamento || null : null,
         data_inicio: form.data_inicio,
         data_fim: form.data_fim || null,
       }
@@ -303,7 +363,7 @@ export function LancamentosRecorrentesSection() {
   return (
     <div>
       <div className="secao-cabecalho">
-        <h2>Despesas Fixas Recorrentes</h2>
+        <h2>Lançamentos Recorrentes</h2>
         {!mostrarForm && (
           <button type="button" className="botao-primario" onClick={iniciarCriacao}>
             + Novo recorrente
@@ -312,8 +372,8 @@ export function LancamentosRecorrentesSection() {
       </div>
 
       <p style={{ color: 'var(--cor-texto-suave)', fontSize: 13, marginTop: -4 }}>
-        Aluguel, assinaturas — cadastradas aqui só viram lançamento de verdade quando você confirmar o mês em
-        "Compromissos Futuros" no Dashboard.
+        Salário, aluguel, assinaturas, aporte mensal — cadastrados aqui só viram lançamento de verdade quando você
+        confirmar o mês em "Compromissos Futuros" no Dashboard.
       </p>
 
       {erro && <p className="mensagem-erro">{erro}</p>}
@@ -322,13 +382,18 @@ export function LancamentosRecorrentesSection() {
         <form className="form" onSubmit={handleSubmit} style={{ marginBottom: 20 }}>
           <div className="campo-linha">
             <label className="campo">
-              Descrição
-              <input
-                type="text"
+              Tipo de lançamento
+              <select
                 required
-                value={form.descricao}
-                onChange={(e) => setForm({ ...form, descricao: e.target.value })}
-              />
+                value={form.tipo_movimento}
+                onChange={(e) => escolherTipoMovimento(e.target.value as TipoMovimentoRecorrente)}
+              >
+                {TIPOS_MOVIMENTO_RECORRENTE.map((t) => (
+                  <option key={t.valor} value={t.valor}>
+                    {t.rotulo}
+                  </option>
+                ))}
+              </select>
             </label>
             <label className="campo" style={{ maxWidth: 140 }}>
               Valor
@@ -356,6 +421,15 @@ export function LancamentosRecorrentesSection() {
 
           <div className="campo-linha">
             <label className="campo">
+              Descrição
+              <input
+                type="text"
+                required
+                value={form.descricao}
+                onChange={(e) => setForm({ ...form, descricao: e.target.value })}
+              />
+            </label>
+            <label className="campo">
               Conta
               <select
                 required
@@ -370,11 +444,14 @@ export function LancamentosRecorrentesSection() {
                 ))}
               </select>
             </label>
+          </div>
+
+          <div className="campo-linha">
             <label className="campo">
               Categoria
               <select required value={form.categoria_id} onChange={(e) => escolherCategoria(e.target.value)}>
                 <option value="">Selecione…</option>
-                {categorias.map((c) => (
+                {categoriasElegiveis.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.nome}
                   </option>
@@ -391,7 +468,7 @@ export function LancamentosRecorrentesSection() {
                 <div className="chip-form">
                   <input
                     type="text"
-                    placeholder="Nome da categoria de despesa"
+                    placeholder={`Nome da categoria de ${TIPO_CATEGORIA_ESPERADO[form.tipo_movimento]}`}
                     value={novaCategoriaNome}
                     onChange={(e) => setNovaCategoriaNome(e.target.value)}
                     onKeyDown={(e) => {
@@ -465,8 +542,8 @@ export function LancamentosRecorrentesSection() {
                   />
                   <select
                     value={novaSubcategoriaEstrutura}
-                    onChange={(e) => setNovaSubcategoriaEstrutura(e.target.value as EstruturaCustoRecorrente | '')}
-                    title="Estrutura de custo padrão — sugerida sozinha nos próximos recorrentes com essa subcategoria"
+                    onChange={(e) => setNovaSubcategoriaEstrutura(e.target.value as EstruturaCusto | '')}
+                    title="Estrutura de custo padrão — sugerida sozinha nos próximos recorrentes de despesa com essa subcategoria"
                   >
                     <option value="">Estrutura padrão (opcional)</option>
                     {ESTRUTURAS.filter((e) => e.valor !== 'investimentos').map((e) => (
@@ -501,38 +578,40 @@ export function LancamentosRecorrentesSection() {
             </label>
           </div>
 
-          <div className="campo-linha">
-            <label className="campo">
-              Estrutura de custo
-              <select
-                required
-                value={form.estrutura_custo}
-                onChange={(e) => setForm({ ...form, estrutura_custo: e.target.value as EstruturaCustoRecorrente })}
-              >
-                <option value="">Selecione…</option>
-                {ESTRUTURAS.filter((e) => e.valor !== 'investimentos').map((e) => (
-                  <option key={e.valor} value={e.valor}>
-                    {e.rotulo}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="campo">
-              Meio de pagamento
-              <select
-                required
-                value={form.meio_pagamento}
-                onChange={(e) => setForm({ ...form, meio_pagamento: e.target.value as MeioPagamento })}
-              >
-                <option value="">Selecione…</option>
-                {MEIOS_PAGAMENTO.map((m) => (
-                  <option key={m.valor} value={m.valor}>
-                    {m.rotulo}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
+          {form.tipo_movimento === 'despesa' && (
+            <div className="campo-linha">
+              <label className="campo">
+                Estrutura de custo
+                <select
+                  required
+                  value={form.estrutura_custo}
+                  onChange={(e) => setForm({ ...form, estrutura_custo: e.target.value as EstruturaCusto })}
+                >
+                  <option value="">Selecione…</option>
+                  {ESTRUTURAS.filter((e) => e.valor !== 'investimentos').map((e) => (
+                    <option key={e.valor} value={e.valor}>
+                      {e.rotulo}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="campo">
+                Meio de pagamento
+                <select
+                  required
+                  value={form.meio_pagamento}
+                  onChange={(e) => setForm({ ...form, meio_pagamento: e.target.value as MeioPagamento })}
+                >
+                  <option value="">Selecione…</option>
+                  {MEIOS_PAGAMENTO.map((m) => (
+                    <option key={m.valor} value={m.valor}>
+                      {m.rotulo}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+          )}
 
           <div className="campo-linha">
             <label className="campo">
@@ -572,17 +651,72 @@ export function LancamentosRecorrentesSection() {
         </form>
       )}
 
+      {!mostrarForm && recorrentes && recorrentes.length > 0 && (
+        <div className="campo-linha" style={{ marginBottom: 12 }}>
+          <label className="campo" style={{ maxWidth: 160 }}>
+            Status
+            <select
+              value={filtros.status}
+              onChange={(e) => setFiltros((f) => ({ ...f, status: e.target.value as FiltrosRecorrente['status'] }))}
+            >
+              <option value="">Todos</option>
+              <option value="ativo">Ativos</option>
+              <option value="inativo">Inativos</option>
+            </select>
+          </label>
+          <label className="campo">
+            Categoria
+            <select
+              value={filtros.categoriaId}
+              onChange={(e) => setFiltros((f) => ({ ...f, categoriaId: e.target.value }))}
+            >
+              <option value="">Todas</option>
+              {categorias.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.nome}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="campo" style={{ maxWidth: 180 }}>
+            Tipo de lançamento
+            <select
+              value={filtros.tipoMovimento}
+              onChange={(e) =>
+                setFiltros((f) => ({ ...f, tipoMovimento: e.target.value as FiltrosRecorrente['tipoMovimento'] }))
+              }
+            >
+              <option value="">Todos</option>
+              {TIPOS_MOVIMENTO_RECORRENTE.map((t) => (
+                <option key={t.valor} value={t.valor}>
+                  {t.rotulo}
+                </option>
+              ))}
+            </select>
+          </label>
+          {(filtros.status || filtros.categoriaId || filtros.tipoMovimento) && (
+            <button type="button" className="botao-link" onClick={() => setFiltros(FILTROS_VAZIOS)}>
+              Limpar filtros
+            </button>
+          )}
+        </div>
+      )}
+
       {recorrentes === null && <p>Carregando…</p>}
-      {recorrentes?.length === 0 && <p>Nenhuma despesa fixa recorrente cadastrada ainda.</p>}
-      {recorrentes && recorrentes.length > 0 && (
+      {recorrentes?.length === 0 && <p>Nenhum lançamento recorrente cadastrado ainda.</p>}
+      {recorrentes && recorrentes.length > 0 && recorrentesFiltrados?.length === 0 && (
+        <p style={{ color: 'var(--cor-texto-suave)' }}>Nenhum recorrente bate com os filtros aplicados.</p>
+      )}
+      {recorrentesFiltrados && recorrentesFiltrados.length > 0 && (
         <ul className="lista-crud">
-          {recorrentes.map((r) => (
+          {recorrentesFiltrados.map((r) => (
             <li key={r.id} className={r.ativo ? '' : 'item-inativo'}>
               <div className="item-linha">
                 <div className="item-info">
                   <span className="item-titulo">{r.descricao}</span>
                   <span className="item-detalhe">
-                    {formatarMoeda(r.valor)} · dia {r.dia_mes} · {nomeCategoria(r.categoria_id)} · {nomeConta(r.conta_id)}
+                    {rotuloTipoMovimento(r.tipo_movimento)} · {formatarMoeda(r.valor)} · dia {r.dia_mes} ·{' '}
+                    {nomeCategoria(r.categoria_id)} · {nomeConta(r.conta_id)}
                     {!r.ativo && ' — inativo'}
                   </span>
                 </div>

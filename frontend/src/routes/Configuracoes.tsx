@@ -3,15 +3,13 @@ import '../components/crud.css'
 import { CaixinhasSection } from './configuracoes/CaixinhasSection'
 import { CategoriasSection } from './configuracoes/CategoriasSection'
 import { ContasSection } from './configuracoes/ContasSection'
-import { LancamentosRecorrentesSection } from './configuracoes/LancamentosRecorrentesSection'
 
-type Aba = 'contas' | 'categorias' | 'caixinhas' | 'recorrentes'
+type Aba = 'contas' | 'categorias' | 'caixinhas'
 
 const ABAS: { valor: Aba; rotulo: string }[] = [
   { valor: 'contas', rotulo: 'Contas' },
   { valor: 'categorias', rotulo: 'Categorias' },
   { valor: 'caixinhas', rotulo: 'Caixinhas' },
-  { valor: 'recorrentes', rotulo: 'Despesas Fixas' },
 ]
 
 export function Configuracoes() {
@@ -32,7 +30,6 @@ export function Configuracoes() {
       {aba === 'contas' && <ContasSection />}
       {aba === 'categorias' && <CategoriasSection />}
       {aba === 'caixinhas' && <CaixinhasSection />}
-      {aba === 'recorrentes' && <LancamentosRecorrentesSection />}
     </div>
   )
 }

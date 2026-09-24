@@ -90,7 +90,8 @@ def get_ou_criar_recorrente(headers: dict, descricao: str, extra: dict) -> dict:
     achado = next((x for x in existentes if x["descricao"] == descricao), None)
     if achado:
         return achado
-    resposta = client.post("/lancamentos-recorrentes", json={"descricao": descricao, **extra}, headers=headers)
+    payload = {"descricao": descricao, "tipo_movimento": "despesa", **extra}
+    resposta = client.post("/lancamentos-recorrentes", json=payload, headers=headers)
     resposta.raise_for_status()
     return resposta.json()
 

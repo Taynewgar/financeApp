@@ -19,6 +19,7 @@ def _payload(conta_id, categoria_id, **extra):
         "descricao": "Aluguel",
         "valor": 1500,
         "dia_mes": 5,
+        "tipo_movimento": "despesa",
         "conta_id": conta_id,
         "categoria_id": categoria_id,
         "estrutura_custo": "fixo",
@@ -126,6 +127,180 @@ def test_recorrente_de_outro_usuario_nao_aparece(client, current_user):
 
     current_user["id"] = OUTRO_USUARIO
     assert client.get("/lancamentos-recorrentes").json() == []
+
+
+# ── tipo_movimento: receita/aplicação/retirada além de despesa ─────────────
+
+
+def test_criar_recorrente_de_receita(client):
+    conta = _conta(client)
+    categoria_receita = _categoria(client, tipo="receita")
+
+    resposta = client.post(
+        "/lancamentos-recorrentes",
+        json=_payload(
+            conta["id"],
+            categoria_receita["id"],
+            descricao="Salário",
+            tipo_movimento="receita",
+            estrutura_custo=None,
+            meio_pagamento=None,
+        ),
+    )
+    assert resposta.status_code == 201
+    corpo = resposta.json()
+    assert corpo["tipo_movimento"] == "receita"
+    # servidor força os dois a null pra receita, mesmo que o cliente mande algo
+    assert corpo["estrutura_custo"] is None
+    assert corpo["meio_pagamento"] is None
+
+
+def test_criar_recorrente_de_aplicacao_forca_estrutura_custo_investimentos(client):
+    conta = _conta(client)
+    categoria_investimento = _categoria(client, tipo="investimento")
+
+    resposta = client.post(
+        "/lancamentos-recorrentes",
+        json=_payload(
+            conta["id"],
+            categoria_investimento["id"],
+            descricao="Aporte mensal",
+            tipo_movimento="aplicacao",
+            # cliente manda um valor incoerente de propósito — servidor
+            # precisa ignorar e forçar 'investimentos'
+            estrutura_custo="fixo",
+            meio_pagamento="pix",
+        ),
+    )
+    assert resposta.status_code == 201
+    corpo = resposta.json()
+    assert corpo["tipo_movimento"] == "aplicacao"
+    assert corpo["estrutura_custo"] == "investimentos"
+    assert corpo["meio_pagamento"] is None
+
+
+def test_criar_recorrente_de_retirada(client):
+    conta = _conta(client)
+    categoria_investimento = _categoria(client, tipo="investimento")
+
+    resposta = client.post(
+        "/lancamentos-recorrentes",
+        json=_payload(
+            conta["id"],
+            categoria_investimento["id"],
+            descricao="Resgate mensal",
+            tipo_movimento="retirada",
+            estrutura_custo=None,
+            meio_pagamento=None,
+        ),
+    )
+    assert resposta.status_code == 201
+    assert resposta.json()["estrutura_custo"] == "investimentos"
+
+
+def test_criar_despesa_sem_estrutura_custo_retorna_422(client):
+    conta = _conta(client)
+    categoria = _categoria(client)
+
+    resposta = client.post(
+        "/lancamentos-recorrentes",
+        json=_payload(conta["id"], categoria["id"], estrutura_custo=None),
+    )
+    assert resposta.status_code == 422
+
+
+def test_criar_despesa_sem_meio_pagamento_retorna_422(client):
+    conta = _conta(client)
+    categoria = _categoria(client)
+
+    resposta = client.post(
+        "/lancamentos-recorrentes",
+        json=_payload(conta["id"], categoria["id"], meio_pagamento=None),
+    )
+    assert resposta.status_code == 422
+
+
+def test_criar_receita_com_categoria_de_despesa_retorna_422(client):
+    conta = _conta(client)
+    categoria_despesa = _categoria(client)
+
+    resposta = client.post(
+        "/lancamentos-recorrentes",
+        json=_payload(
+            conta["id"],
+            categoria_despesa["id"],
+            tipo_movimento="receita",
+            estrutura_custo=None,
+            meio_pagamento=None,
+        ),
+    )
+    assert resposta.status_code == 422
+
+
+def test_atualizar_tipo_movimento_de_despesa_para_receita_zera_campos_de_despesa(client):
+    conta = _conta(client)
+    categoria_despesa = _categoria(client)
+    categoria_receita = _categoria(client, tipo="receita")
+    criado = client.post("/lancamentos-recorrentes", json=_payload(conta["id"], categoria_despesa["id"])).json()
+
+    resposta = client.patch(
+        f"/lancamentos-recorrentes/{criado['id']}",
+        json={"tipo_movimento": "receita", "categoria_id": categoria_receita["id"]},
+    )
+    assert resposta.status_code == 200
+    corpo = resposta.json()
+    assert corpo["estrutura_custo"] is None
+    assert corpo["meio_pagamento"] is None
+
+
+def test_confirmar_recorrente_de_receita_cria_transacao_do_tipo_certo(client):
+    conta = _conta(client)
+    categoria_receita = _categoria(client, tipo="receita")
+    recorrente = client.post(
+        "/lancamentos-recorrentes",
+        json=_payload(
+            conta["id"],
+            categoria_receita["id"],
+            descricao="Salário",
+            tipo_movimento="receita",
+            estrutura_custo=None,
+            meio_pagamento=None,
+        ),
+    ).json()
+
+    resposta = client.post(f"/lancamentos-recorrentes/{recorrente['id']}/confirmar", json={"vigencia_mes": "2026-09-01"})
+    assert resposta.status_code == 201
+    transacao = resposta.json()
+    assert transacao["tipo_movimento"] == "receita"
+    assert transacao["estrutura_custo"] is None
+    assert transacao["meio_pagamento"] is None
+
+
+def test_confirmar_recorrente_de_aplicacao_cria_transacao_do_tipo_certo(client):
+    conta = _conta(client)
+    categoria_investimento = _categoria(client, tipo="investimento")
+    recorrente = client.post(
+        "/lancamentos-recorrentes",
+        json=_payload(
+            conta["id"],
+            categoria_investimento["id"],
+            descricao="Aporte mensal",
+            tipo_movimento="aplicacao",
+            estrutura_custo=None,
+            meio_pagamento=None,
+        ),
+    ).json()
+
+    resposta = client.post(f"/lancamentos-recorrentes/{recorrente['id']}/confirmar", json={"vigencia_mes": "2026-09-01"})
+    assert resposta.status_code == 201
+    transacao = resposta.json()
+    assert transacao["tipo_movimento"] == "aplicacao"
+    assert transacao["estrutura_custo"] == "investimentos"
+
+    # não deve poluir a Estrutura de Custo de despesas — some no bucket investimentos
+    estrutura = client.get("/estrutura-custo/2026-09-01").json()
+    fixos = next(b for b in estrutura["buckets"] if b["bucket"] == "custos_fixos")
+    assert fixos["realizado"] == 0
 
 
 # ── confirmar (projeção virtual → transação real) ───────────────────────────

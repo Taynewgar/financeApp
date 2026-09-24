@@ -87,32 +87,46 @@ PWA com backend hospedado (Render) e banco Supabase.
     com fatura movida manualmente (`fatura_override`) tornam essa
     recriação ambígua.
 
-    **Despesa fixa recorrente** (`lancamentos_recorrentes` — aluguel,
-    assinaturas) usa **projeção virtual**: cadastrar um recorrente não
-    grava nada em `transacoes` — só quando um mês específico é confirmado
-    (`POST /lancamentos-recorrentes/{id}/confirmar`) é que a transação real
-    nasce (`tipo_movimento='despesa'`, vinculada de volta via
+    **Lançamentos Recorrentes** (`lancamentos_recorrentes` — salário
+    mensal, aluguel/assinaturas, aporte mensal) usa **projeção virtual**:
+    cadastrar um recorrente não grava nada em `transacoes` — só quando um
+    mês específico é confirmado (`POST
+    /lancamentos-recorrentes/{id}/confirmar`) é que a transação real nasce
+    (no `tipo_movimento` do próprio recorrente, vinculada de volta via
     `lancamento_recorrente_id`). Decisão contra a alternativa óbvia
     (materializar parcelas futuras de uma vez, como compra parcelada):
     materializar exigiria um job periódico pra ir "abastecendo" mais meses
     conforme o tempo passa — o projeto não tem nenhum cron — e deixaria
     `transacoes` com linhas "no futuro" numa tabela pensada como histórico
-    do que já aconteceu. `GET /dashboard/compromissos-futuros` mistura a
-    próxima parcela de cada compra parcelada com a próxima ocorrência
-    PENDENTE de cada recorrente ativo (pode ser um mês já vencido, se
-    ficou sem confirmar — some da lista só quando confirmado, pulado, ou o
-    recorrente é desativado). Confirmar o mesmo mês duas vezes retorna 409;
-    apagar o molde não apaga meses já confirmados (`ON DELETE SET NULL`).
-    Um mês pode ser marcado como **pulado** (`POST
-    /lancamentos-recorrentes/{id}/pular`, ex: viajou e não teve a despesa
-    naquele mês) — grava só em `lancamentos_recorrentes_pulados`, nunca em
-    `transacoes` (pular não é um evento financeiro), e a busca da próxima
-    ocorrência pendente trata esse mês como resolvido, avançando pro
-    seguinte. `GET .../pulados` lista os meses pulados de um recorrente
-    (única forma de ver/desfazer um pular fora da API direta — a tela
-    fica em Configurações, na edição do recorrente); `DELETE
-    .../pular?vigencia_mes=` desfaz. Confirmar e pular são mutuamente
-    exclusivos pro mesmo mês (409 se o outro já aconteceu).
+    do que já aconteceu. Cobre `receita`/`despesa`/`aplicacao`/`retirada`
+    (sem estorno/ressarcimento, que só existem vinculados a uma despesa
+    específica já lançada, não fazem sentido como molde recorrente); cada
+    tipo usa o mesmo subconjunto de campos do Novo Lançamento — o backend
+    força o resto a `null` em vez de confiar no que o cliente mandou:
+    `despesa` exige `categoria_id`/`estrutura_custo`
+    (`fixo`/`variavel`/`sazonal`)/`meio_pagamento`; `aplicacao`/`retirada`
+    tem `estrutura_custo` sempre `'investimentos'` e `meio_pagamento`
+    sempre `null` (sem suporte a caixinha/reserva recorrente por
+    enquanto); `receita` não usa nenhum dos dois. Categoria (sempre
+    obrigatória, diferente de uma transação avulsa) precisa ter o `tipo`
+    compatível com o `tipo_movimento`, mesma tabela de
+    `_TIPO_CATEGORIA_ESPERADO` de transações. `GET
+    /dashboard/compromissos-futuros` mistura a próxima parcela de cada
+    compra parcelada com a próxima ocorrência PENDENTE de cada recorrente
+    ativo (pode ser um mês já vencido, se ficou sem confirmar — some da
+    lista só quando confirmado, pulado, ou o recorrente é desativado).
+    Confirmar o mesmo mês duas vezes retorna 409; apagar o molde não
+    apaga meses já confirmados (`ON DELETE SET NULL`). Um mês pode ser
+    marcado como **pulado** (`POST /lancamentos-recorrentes/{id}/pular`,
+    ex: viajou e não teve a despesa naquele mês) — grava só em
+    `lancamentos_recorrentes_pulados`, nunca em `transacoes` (pular não é
+    um evento financeiro), e a busca da próxima ocorrência pendente trata
+    esse mês como resolvido, avançando pro seguinte. `GET .../pulados`
+    lista os meses pulados de um recorrente (única forma de ver/desfazer
+    um pular fora da API direta — a tela fica na aba Lançamentos, seção
+    Recorrentes); `DELETE .../pular?vigencia_mes=` desfaz. Confirmar e
+    pular são mutuamente exclusivos pro mesmo mês (409 se o outro já
+    aconteceu).
 
     `GET /estrutura-custo/{vigencia_mes}` compara orçado x realizado do mês
     (por categoria/subcategoria, agrupado nos mesmos buckets do orçamento),
@@ -163,9 +177,10 @@ PWA com backend hospedado (Render) e banco Supabase.
   `backend/`. Login (Supabase Auth), rotas protegidas, casca de navegação
   (sidebar no desktop, barra inferior no mobile, botão flutuante de Novo
   Lançamento). Telas com dados reais: Dashboard (KPIs do mês + gráfico de
-  evolução), Lançamentos (lista/busca/edição), Novo Lançamento, e
-  Configurações (CRUDs de Contas/Categorias/Caixinhas/Despesas Fixas
-  Recorrentes), e Planejamento
+  evolução), Lançamentos (lista/busca/edição, com seção Recorrentes —
+  cadastro de salário/aluguel/aporte mensal, ver "Lançamentos Recorrentes"
+  acima), Novo Lançamento, e Configurações (CRUDs de Contas/Categorias/
+  Caixinhas), e Planejamento
   (configuração do orçamento por mês — renda, % por bucket, itens reativos
   a partir dos lançamentos, modo envelope). Estruturas de Custo ainda é
   placeholder — próxima tela da fila (motor já pronto no backend).
@@ -307,6 +322,35 @@ alter table transacoes
 
 create index if not exists idx_transacoes_lancamento_recorrente on transacoes (lancamento_recorrente_id);
 ```
+
+### Migração pendente no seu Supabase: `lancamentos_recorrentes.tipo_movimento`
+
+Lançamento recorrente deixa de ser só despesa fixa — passa a cobrir
+também receita e aplicação/retirada recorrentes (salário mensal, aporte
+mensal), ver seção "Lançamentos Recorrentes" abaixo. Se o projeto já
+existia antes desta entrega, rode uma vez no *SQL Editor* (depois das
+migrações de `lancamentos_recorrentes`/`lancamentos_recorrentes_pulados`
+acima, que precisam já ter rodado):
+
+```sql
+alter table lancamentos_recorrentes
+  add column if not exists tipo_movimento text not null default 'despesa';
+
+alter table lancamentos_recorrentes
+  add constraint lancamentos_recorrentes_tipo_movimento_check
+  check (tipo_movimento in ('receita', 'despesa', 'aplicacao', 'retirada'));
+
+alter table lancamentos_recorrentes alter column estrutura_custo drop not null;
+alter table lancamentos_recorrentes drop constraint lancamentos_recorrentes_estrutura_custo_check;
+alter table lancamentos_recorrentes
+  add constraint lancamentos_recorrentes_estrutura_custo_check
+  check (estrutura_custo in ('fixo', 'variavel', 'sazonal', 'investimentos'));
+
+alter table lancamentos_recorrentes alter column meio_pagamento drop not null;
+```
+
+Um projeto novo, criado rodando `db/schema.sql` já com esta versão, não
+precisa desse passo — coluna e constraints já nascem certas.
 
 ### Migração pendente no seu Supabase: `lancamentos_recorrentes_pulados`
 

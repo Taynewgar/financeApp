@@ -92,13 +92,19 @@ create table lancamentos_recorrentes (
     descricao text not null,
     valor numeric(14,2) not null check (valor >= 0),
     dia_mes smallint not null check (dia_mes between 1 and 31),
+    -- salário mensal (receita), aluguel/assinatura (despesa), aporte
+    -- mensal (aplicacao/retirada) — sem estorno/ressarcimento, que não
+    -- fazem sentido como molde recorrente (só existem vinculados a uma
+    -- despesa específica já lançada)
+    tipo_movimento text not null default 'despesa' check (tipo_movimento in ('receita', 'despesa', 'aplicacao', 'retirada')),
     conta_id uuid not null references contas(id),
     categoria_id uuid not null references categorias(id),
     subcategoria_id uuid references subcategorias(id),
-    -- só despesa fixa recorrente (aluguel, assinatura) — sem 'investimentos'
-    -- aqui, isso é aporte, não despesa recorrente
-    estrutura_custo text not null check (estrutura_custo in ('fixo', 'variavel', 'sazonal')),
-    meio_pagamento text not null check (meio_pagamento in (
+    -- obrigatório só pra despesa (fixo/variavel/sazonal); aplicação/retirada
+    -- é sempre 'investimentos' (forçado pelo backend); receita não usa
+    estrutura_custo text check (estrutura_custo in ('fixo', 'variavel', 'sazonal', 'investimentos')),
+    -- obrigatório só pra despesa; receita/aplicação/retirada não usam
+    meio_pagamento text check (meio_pagamento in (
         'pix', 'cartao_debito', 'cartao_credito', 'boleto', 'debito_automatico', 'dinheiro', 'transferencia', 'outro'
     )),
     data_inicio date not null,

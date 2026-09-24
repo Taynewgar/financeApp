@@ -107,25 +107,32 @@ export type CompromissoFuturo = {
   descricao: string | null
   valor: number
   data_compra: string
+  tipo_movimento: TipoMovimentoRecorrente
   parcela_atual: number | null
   parcela_total: number | null
   lancamento_recorrente_id: string | null
 }
 
-// despesa fixa recorrente (aluguel, assinatura) — projeção virtual, nada
-// vira transação real até confirmar (ver POST /lancamentos-recorrentes/{id}/confirmar)
-export type EstruturaCustoRecorrente = 'fixo' | 'variavel' | 'sazonal'
+// salário mensal (receita), aluguel/assinatura (despesa), aporte mensal
+// (aplicacao/retirada) — projeção virtual, nada vira transação real até
+// confirmar (ver POST /lancamentos-recorrentes/{id}/confirmar). Sem
+// estorno/ressarcimento — não fazem sentido como molde recorrente.
+export type TipoMovimentoRecorrente = 'receita' | 'despesa' | 'aplicacao' | 'retirada'
 
 export type LancamentoRecorrente = {
   id: string
   descricao: string
   valor: number
   dia_mes: number
+  tipo_movimento: TipoMovimentoRecorrente
   conta_id: string
   categoria_id: string
   subcategoria_id: string | null
-  estrutura_custo: EstruturaCustoRecorrente
-  meio_pagamento: MeioPagamento
+  // obrigatório só pra despesa (fixo/variavel/sazonal); aplicação/retirada
+  // é sempre 'investimentos' (forçado pelo backend); receita não usa
+  estrutura_custo: EstruturaCusto | null
+  // obrigatório só pra despesa
+  meio_pagamento: MeioPagamento | null
   data_inicio: string
   data_fim: string | null
   ativo: boolean

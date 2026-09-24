@@ -32,13 +32,47 @@ def _check_refs(db: Client, user_id: str, conta_id: str, categoria_id: str, subc
         raise HTTPException(status_code=404, detail="Subcategoria não encontrada")
 
 
-def _check_categoria_despesa(db: Client, user_id: str, categoria_id: str) -> None:
-    """Recorrente sempre confirma como despesa (ver confirmar()) — a
-    categoria vinculada precisa ser do tipo 'despesa', mesma regra de
-    _TIPO_CATEGORIA_ESPERADO em routers/transacoes.py."""
+# mesmo mapeamento de backend/app/routers/transacoes.py::_TIPO_CATEGORIA_ESPERADO
+# — sem estorno/ressarcimento, que não existem como molde recorrente
+_TIPO_CATEGORIA_ESPERADO = {
+    "receita": "receita",
+    "despesa": "despesa",
+    "aplicacao": "investimento",
+    "retirada": "investimento",
+}
+
+
+def _check_categoria_tipo(db: Client, user_id: str, tipo_movimento: str, categoria_id: str) -> None:
     categoria = db.table("categorias").select("tipo").eq("id", categoria_id).eq("user_id", user_id).execute()
-    if categoria.data and categoria.data[0]["tipo"] != "despesa":
-        raise HTTPException(status_code=422, detail="Categoria precisa ser do tipo 'despesa'")
+    if categoria.data:
+        esperado = _TIPO_CATEGORIA_ESPERADO[tipo_movimento]
+        if categoria.data[0]["tipo"] != esperado:
+            raise HTTPException(
+                status_code=422,
+                detail=f"Categoria precisa ser do tipo '{esperado}' para esse tipo de lançamento",
+            )
+
+
+def _normalizar_e_validar(dados: dict, atual: dict | None = None) -> None:
+    """Cada tipo de recorrente usa um subconjunto fixo de campos — mesmo
+    padrão do Novo Lançamento (NovoLancamento.tsx): o servidor força os
+    campos que não fazem sentido pro tipo em vez de confiar no que o
+    cliente mandou, pra Estrutura de Custo/Busca nunca verem uma
+    combinação inconsistente (ex: receita com estrutura_custo
+    preenchida). `atual` é a linha existente, numa atualização parcial —
+    usado só pra saber o tipo/campos efetivos quando não vêm no payload."""
+    efetivo = {**(atual or {}), **dados}
+    tipo = efetivo.get("tipo_movimento")
+    if tipo == "despesa":
+        faltando = [c for c in ("categoria_id", "estrutura_custo", "meio_pagamento") if not efetivo.get(c)]
+        if faltando:
+            raise HTTPException(status_code=422, detail=f"Campo(s) obrigatório(s) faltando: {', '.join(faltando)}")
+    elif tipo in ("aplicacao", "retirada"):
+        dados["estrutura_custo"] = "investimentos"
+        dados["meio_pagamento"] = None
+    elif tipo == "receita":
+        dados["estrutura_custo"] = None
+        dados["meio_pagamento"] = None
 
 
 @router.get("", response_model=list[LancamentoRecorrente])
@@ -61,8 +95,10 @@ def criar(
     user_id: str = Depends(get_current_user_id),
 ):
     _check_refs(db, user_id, payload.conta_id, payload.categoria_id, payload.subcategoria_id)
-    _check_categoria_despesa(db, user_id, payload.categoria_id)
-    return crud.create(db, TABLE, user_id, payload.model_dump(mode="json"))
+    dados = payload.model_dump(mode="json")
+    _normalizar_e_validar(dados)
+    _check_categoria_tipo(db, user_id, dados["tipo_movimento"], payload.categoria_id)
+    return crud.create(db, TABLE, user_id, dados)
 
 
 @router.patch("/{recorrente_id}", response_model=LancamentoRecorrente)
@@ -85,8 +121,10 @@ def atualizar(
         dados.get("categoria_id", atual["categoria_id"]),
         dados.get("subcategoria_id", atual["subcategoria_id"]),
     )
-    if "categoria_id" in dados:
-        _check_categoria_despesa(db, user_id, dados["categoria_id"])
+    _normalizar_e_validar(dados, atual)
+    _check_categoria_tipo(
+        db, user_id, dados.get("tipo_movimento", atual["tipo_movimento"]), dados.get("categoria_id", atual["categoria_id"])
+    )
 
     try:
         return crud.update(db, TABLE, user_id, recorrente_id, dados)
@@ -149,8 +187,9 @@ def confirmar(
     user_id: str = Depends(get_current_user_id),
 ):
     """Projeção virtual: nada existe em `transacoes` até este endpoint ser
-    chamado pra um mês específico — cria a transação real (despesa) e
-    vincula de volta ao recorrente (lancamento_recorrente_id)."""
+    chamado pra um mês específico — cria a transação real (no tipo de
+    movimento do próprio recorrente) e vincula de volta ao recorrente
+    (lancamento_recorrente_id)."""
     try:
         recorrente = crud.get_one(db, TABLE, user_id, recorrente_id)
     except crud.NotFound:
@@ -174,7 +213,7 @@ def confirmar(
         "data_compra": data_compra.isoformat(),
         "valor": recorrente["valor"],
         "descricao": recorrente["descricao"],
-        "tipo_movimento": "despesa",
+        "tipo_movimento": recorrente["tipo_movimento"],
         "pagamento": "avista",
         "parcela_atual": None,
         "parcela_total": None,
