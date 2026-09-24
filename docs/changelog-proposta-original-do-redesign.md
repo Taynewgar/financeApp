@@ -2115,6 +2115,18 @@ decisão", pro histórico completo de 2 rodadas de design — a 1ª comparando
 alternativas genéricas, com o botão de ciclar descartado por não resolver
 o objetivo real; a 2ª com o controle de verdade de cada tela).
 
+**Mockups (histórico, `docs/mockups/`):** 1ª rodada —
+[barra lateral fixa](mockups/rodada23-sidebar-fixa.png),
+[opção A: título de seção](mockups/rodada23-opcaoA-cabecalho-titulo-secao.png),
+[opção B: botão de ciclar, descartada](mockups/rodada23-opcaoB-botao-ciclar-descartada.png).
+2ª rodada (controle real por tela) —
+[Lançamentos desktop](mockups/rodada23-lancamentos-desktop-filtro-fixo.png),
+[Lançamentos mobile](mockups/rodada23-lancamentos-mobile-filtro-fixo.png),
+[Gráficos](mockups/rodada23-graficos-seletor-fixo.png),
+[Estrutura de Custo](mockups/rodada23-estrutura-custo-cabecalho-fixo.png),
+[Planejamento](mockups/rodada23-planejamento-cabecalho-fixo.png),
+[Dashboard](mockups/rodada23-dashboard-cabecalho-fixo.png).
+
 **`AppShell.css`** — `.shell-nav` ganhou `position: sticky; top: 0;
 height: 100vh; overflow-y: auto`. Antes acompanhava o scroll do corpo da
 página (bug de layout não intencional, não um recurso ausente).
@@ -2573,3 +2585,60 @@ novos. Sem teste automatizado (frontend não tem suíte de componente).
 - [ ] Confirmar que os números batem: só existe 1 lugar mostrando
       Orçado/Realizado/Diferença/Execução do mês agora (o cabeçalho
       fixo), não mais 2.
+
+### Rodada 26 (2026-09-24) — Meses pulados: acordeão por ano
+
+Item 15 do backlog, próximo da ordem que o usuário definiu. A lista de
+"Meses pulados" de um recorrente (dentro de Lançamentos → Recorrentes)
+mostrava tudo achatado, sem separação — um recorrente de longa duração
+acumula muitos pulados ao longo dos anos.
+
+**Mockups:** 2 opções em Artifact Design (canvas interativo, phone
+390×760, tema escuro igual ao do usuário) — Opção A (acordeão por ano,
+ano corrente aberto) e Opção B (últimos 12 + "ver todos"). Usuário
+escolheu a **Opção A**. Histórico em `docs/mockups/`:
+[opção A: acordeão por ano — escolhida](mockups/rodada26-meses-pulados-opcaoA-acordeao-escolhida.png),
+[opção B: últimos 12 + ver todos](mockups/rodada26-meses-pulados-opcaoB-ver-todos.png).
+
+**Implementação** (`RecorrentesSection.tsx`):
+- `agruparPuladosPorAno(lista)` — agrupa `MesPulado[]` pelo ano de
+  `vigencia_mes`, ano mais recente primeiro; dentro do ano mantém a
+  ordem cronológica que a API já devolve (`.order("vigencia_mes")`).
+- `anosAbertos` (novo `Set<string>`, chave `recorrenteId:ano`) — ao
+  abrir "Meses pulados" de um recorrente, o ano corrente
+  (`new Date().getFullYear()`) entra automaticamente no set; os demais
+  anos só entram quando o usuário clica no cabeçalho do ano
+  (`toggleAno`). Fechar e reabrir "Meses pulados" descarrega o cache
+  (`pulados[recorrenteId]`, comportamento que já existia) e reseeda o
+  ano corrente como aberto de novo — mesmo padrão sempre que a seção é
+  reaberta.
+- Cada grupo de ano vira um cabeçalho clicável (seta que gira 90°,
+  nome do ano, contagem "N meses"/"1 mês") seguido da lista de meses
+  quando aberto, cada um com o botão "Desfazer" que já existia.
+- **Bug pego na verificação visual:** o container `.chip-form` (`display:
+  flex; flex-wrap: wrap`) foi reaproveitado do código antigo, pensado
+  pra UM filho só (a lista achatada); com múltiplos grupos de ano como
+  filhos diretos, viravam "chips" lado a lado em vez de empilhar.
+  Corrigido envolvendo os grupos num `<div>` de coluna só, do jeito que
+  o `<ul>` antigo já fazia implicitamente.
+
+**Testes:** mudança de UI sem lógica de negócio nova — sem teste
+automatizado (frontend não tem suíte). Verificado visualmente com
+`npm run dev` local + Playwright (auth/API do backend mockadas, sem
+`backend/.env` real nesta sessão — ver CLAUDE.md): abrir "Meses
+pulados" mostra 2026 aberto com os pulados corretos e 2025/2024/2023
+fechados com a contagem certa; clicar em "2025" abre e mostra os 4
+meses na ordem certa, sem afetar os outros anos. `tsc -b && vite build`
+e `oxlint` sem erros novos.
+
+**Checklist de teste manual:**
+- [ ] Um recorrente com pulados em anos diferentes: abrir "Meses
+      pulados" → ano corrente já aparece aberto, anos anteriores
+      fechados com a contagem certa ("N meses"/"1 mês").
+- [ ] Clicar num ano fechado → expande mostrando os meses daquele ano;
+      clicar de novo → fecha. Outros anos não são afetados.
+- [ ] "Desfazer" num mês pulado continua funcionando normalmente
+      dentro do grupo do ano.
+- [ ] Fechar "Meses pulados" (botão "Ocultar meses pulados") e abrir de
+      novo → ano corrente volta a aparecer aberto (não fica "lembrando"
+      qual ano você tinha aberto/fechado da vez anterior).

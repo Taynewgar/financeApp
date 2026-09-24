@@ -70,8 +70,9 @@ que está acima, antes da baixa prioridade abaixo:
     Rodada 24.
 14. ~~Filtro específico pra recorrentes~~ **feito 2026-09-24** — Detalhe
     na subseção própria abaixo, ver changelog Rodada 25.
-15. **Lista de "meses pulados" muito grande** — com sugestão de
-    abordagem. Detalhe na subseção própria abaixo.
+15. ~~Lista de "meses pulados" muito grande~~ **feito 2026-09-24** —
+    acordeão por ano, escolhido pelo usuário entre 2 mockups. Detalhe na
+    subseção própria abaixo, ver changelog Rodada 26.
 16. ~~Cabeçalho fixo/controles fixos por feature~~ **feito 2026-09-24** —
     decidido via mockups (Lançamentos, Gráficos, Estrutura de Custo,
     Planejamento, Dashboard). Ver changelog Rodada 23.
@@ -563,9 +564,13 @@ natureza — "pular um mês" é uma ação ocasional, não constante). Alternati
 mais simples, se o acordeão for exagero pro volume real: limitar a lista a
 "últimos 12 meses" com um link "ver todos" que expande o resto.
 
-**Status:** registrado 2026-09-24, a pedido do usuário, com sugestão de
-abordagem; decisão de qual variante (acordeão por ano vs. "últimos 12 +
-ver todos") fica pra quando esta melhoria for priorizada.
+**Status:** implementado 2026-09-24 (Rodada 26) — as 2 variantes viraram
+mockups interativos (Artifact Design) pro usuário comparar lado a lado;
+escolhida a **Opção A (acordeão por ano)**. `RecorrentesSection.tsx`
+agrupa `pulados[r.id]` por ano (`agruparPuladosPorAno`), ano corrente
+sempre aberto ao abrir "Meses pulados", anos anteriores começam
+fechados — clique no ano alterna (`anosAbertos`, um `Set` de chaves
+`recorrenteId:ano`). Ver changelog Rodada 26 pro detalhe técnico.
 
 ### Lançamentos recorrentes: aplicação/retirada com caixinha (reserva)
 

@@ -75,6 +75,22 @@ implementado. Não existe mockup próprio para Estruturas de Custo (não foi
 desenhada nos 4 originais — ver nota na seção correspondente daquele
 documento).
 
+Mockups feitos depois (via Artifact Design, canvas interativo) seguem o
+mesmo princípio — versionados como PNG aqui pelo mesmo motivo (não
+depender do artifact original continuar acessível), referenciados
+inline na seção da rodada correspondente:
+
+- `rodada23-*.png` (9 arquivos) — 2 rodadas de decisão de cabeçalho
+  fixo/barra lateral (Rodada 23): comparação de alternativas
+  (`opcaoA-cabecalho-titulo-secao`, `opcaoB-botao-ciclar-descartada`,
+  `sidebar-fixa`) + o controle real aprovado por tela
+  (`lancamentos-desktop-filtro-fixo`, `lancamentos-mobile-filtro-fixo`,
+  `graficos-seletor-fixo`, `estrutura-custo-cabecalho-fixo`,
+  `planejamento-cabecalho-fixo`, `dashboard-cabecalho-fixo`).
+- `rodada26-meses-pulados-*.png` (2 arquivos) — as 2 opções comparadas
+  pra agrupar a lista de meses pulados (Rodada 26); `opcaoA-acordeao-
+  escolhida` foi a decisão do usuário.
+
 ## Como manter isso confiável
 
 Regra usada até aqui, e que deve continuar: **toda entrega nova ganha uma

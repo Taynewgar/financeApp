@@ -48,6 +48,23 @@ function ordenarPorDescricao(lista: LancamentoRecorrente[]): LancamentoRecorrent
   return [...lista].sort((a, b) => a.descricao.localeCompare(b.descricao, 'pt-BR'))
 }
 
+function chaveAno(recorrenteId: string, ano: number): string {
+  return `${recorrenteId}:${ano}`
+}
+
+// mais recente primeiro (ano corrente aparece no topo); dentro do ano, a
+// ordem cronológica que a API já devolve (.order("vigencia_mes")) é mantida
+function agruparPuladosPorAno(lista: MesPulado[]): { ano: number; itens: MesPulado[] }[] {
+  const porAno = new Map<number, MesPulado[]>()
+  for (const p of lista) {
+    const ano = Number(p.vigencia_mes.slice(0, 4))
+    porAno.set(ano, [...(porAno.get(ano) ?? []), p])
+  }
+  return [...porAno.entries()]
+    .sort(([a], [b]) => b - a)
+    .map(([ano, itens]) => ({ ano, itens }))
+}
+
 const FORM_VAZIO: FormState = {
   descricao: '',
   valor: '',
@@ -91,6 +108,10 @@ export function RecorrentesSection() {
   const [pulados, setPulados] = useState<Record<string, MesPulado[]>>({})
   const [carregandoPulados, setCarregandoPulados] = useState<string | null>(null)
   const [desfazendoPulado, setDesfazendoPulado] = useState<string | null>(null)
+  // agrupado por ano (mockup "Opção A" aprovado 2026-09-24, docs/backlog.md
+  // item 15) — ano corrente sempre aberto, anos anteriores começam
+  // fechados; chave "recorrenteId:ano"
+  const [anosAbertos, setAnosAbertos] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     // sem filtro de tipo aqui — o cadastro cobre receita/despesa/aplicação/
@@ -285,11 +306,23 @@ export function RecorrentesSection() {
     try {
       const lista = await apiFetch<MesPulado[]>(`/lancamentos-recorrentes/${recorrenteId}/pulados`)
       setPulados((atual) => ({ ...atual, [recorrenteId]: lista }))
+      // ano corrente sempre começa aberto (mockup "Opção A" aprovado
+      // 2026-09-24) — anos anteriores só abrem se o usuário clicar
+      setAnosAbertos((atual) => new Set(atual).add(chaveAno(recorrenteId, new Date().getFullYear())))
     } catch (e) {
       setErro(e instanceof ApiError ? e.message : 'Falha ao carregar meses pulados')
     } finally {
       setCarregandoPulados(null)
     }
+  }
+
+  function toggleAno(chave: string) {
+    setAnosAbertos((atual) => {
+      const proximo = new Set(atual)
+      if (proximo.has(chave)) proximo.delete(chave)
+      else proximo.add(chave)
+      return proximo
+    })
   }
 
   async function desfazerPulado(recorrenteId: string, vigenciaMes: string) {
@@ -746,24 +779,84 @@ export function RecorrentesSection() {
                       Nenhum mês pulado pra este recorrente.
                     </p>
                   ) : (
-                    <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 4 }}>
-                      {pulados[r.id].map((p) => {
-                        const chave = `${r.id}:${p.vigencia_mes}`
-                        return (
-                          <li key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 13 }}>
-                            <span>{rotuloMesLongo(p.vigencia_mes.slice(0, 7))}</span>
-                            <button
-                              type="button"
-                              className="botao-link"
-                              disabled={desfazendoPulado === chave}
-                              onClick={() => desfazerPulado(r.id, p.vigencia_mes)}
+                    // agrupado por ano — ano corrente aberto, anteriores
+                    // colapsados (mockup "Opção A" aprovado 2026-09-24,
+                    // docs/backlog.md item 15). Container próprio em coluna
+                    // porque .chip-form é flex-row (pensado pra 1 filho só,
+                    // como o <ul> desta lista antes de virar acordeão) —
+                    // sem isso os grupos de ano viravam "chips" lado a lado.
+                    <div style={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
+                    {agruparPuladosPorAno(pulados[r.id]).map((grupo) => {
+                      const chaveGrupo = chaveAno(r.id, grupo.ano)
+                      const aberto = anosAbertos.has(chaveGrupo)
+                      return (
+                        <div key={grupo.ano} style={{ borderTop: '1px solid var(--cor-borda)' }}>
+                          <button
+                            type="button"
+                            className="botao-link"
+                            onClick={() => toggleAno(chaveGrupo)}
+                            aria-expanded={aberto}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 8,
+                              padding: '8px 0',
+                              width: '100%',
+                              color: 'var(--cor-texto)',
+                            }}
+                          >
+                            <span
+                              aria-hidden="true"
+                              style={{
+                                fontSize: 11,
+                                color: 'var(--cor-texto-suave)',
+                                display: 'inline-block',
+                                transform: aberto ? 'rotate(90deg)' : 'rotate(0deg)',
+                              }}
                             >
-                              {desfazendoPulado === chave ? 'Desfazendo…' : 'Desfazer'}
-                            </button>
-                          </li>
-                        )
-                      })}
-                    </ul>
+                              ▶
+                            </span>
+                            <span style={{ fontWeight: 700, fontSize: 13 }}>{grupo.ano}</span>
+                            <span style={{ fontSize: 12, color: 'var(--cor-texto-suave)' }}>
+                              {grupo.itens.length === 1 ? '1 mês' : `${grupo.itens.length} meses`}
+                            </span>
+                          </button>
+                          {aberto && (
+                            <ul
+                              style={{
+                                listStyle: 'none',
+                                margin: 0,
+                                padding: '0 0 6px 22px',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: 4,
+                              }}
+                            >
+                              {grupo.itens.map((p) => {
+                                const chave = `${r.id}:${p.vigencia_mes}`
+                                return (
+                                  <li
+                                    key={p.id}
+                                    style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 13 }}
+                                  >
+                                    <span>{rotuloMesLongo(p.vigencia_mes.slice(0, 7))}</span>
+                                    <button
+                                      type="button"
+                                      className="botao-link"
+                                      disabled={desfazendoPulado === chave}
+                                      onClick={() => desfazerPulado(r.id, p.vigencia_mes)}
+                                    >
+                                      {desfazendoPulado === chave ? 'Desfazendo…' : 'Desfazer'}
+                                    </button>
+                                  </li>
+                                )
+                              })}
+                            </ul>
+                          )}
+                        </div>
+                      )
+                    })}
+                    </div>
                   )}
                 </div>
               )}
