@@ -91,18 +91,23 @@ export function Dashboard() {
     buscarCompromissos()
   }, [])
 
+  // erro não é limpo no início da ação — só quando ELA MESMA termina (sucesso
+  // limpa, falha substitui) — senão uma ação rápida em cima de outra apaga o
+  // erro da anterior antes de dar tempo de ler (bug reportado 2026-09-24)
   async function confirmarRecorrente(c: CompromissoFuturo) {
     if (!c.lancamento_recorrente_id) return
-    setErroConfirmar(null)
     setConfirmandoId(c.lancamento_recorrente_id)
     try {
       await apiFetch(`/lancamentos-recorrentes/${c.lancamento_recorrente_id}/confirmar`, {
         method: 'POST',
         body: JSON.stringify({ vigencia_mes: `${c.data_compra.slice(0, 7)}-01` }),
       })
+      setErroConfirmar(null)
       await buscarCompromissos()
     } catch (e) {
-      setErroConfirmar(e instanceof ApiError ? e.message : 'Falha ao confirmar')
+      setErroConfirmar(
+        `Falha ao confirmar "${c.descricao ?? 'recorrente'}" (${formatarData(c.data_compra)}): ${e instanceof ApiError ? e.message : 'erro desconhecido'}`,
+      )
     } finally {
       setConfirmandoId(null)
     }
@@ -111,16 +116,18 @@ export function Dashboard() {
   async function pularRecorrente(c: CompromissoFuturo) {
     if (!c.lancamento_recorrente_id) return
     if (!window.confirm(`Marcar "${c.descricao ?? 'este recorrente'}" como não aplicável neste mês?`)) return
-    setErroConfirmar(null)
     setPulandoId(c.lancamento_recorrente_id)
     try {
       await apiFetch(`/lancamentos-recorrentes/${c.lancamento_recorrente_id}/pular`, {
         method: 'POST',
         body: JSON.stringify({ vigencia_mes: `${c.data_compra.slice(0, 7)}-01` }),
       })
+      setErroConfirmar(null)
       await buscarCompromissos()
     } catch (e) {
-      setErroConfirmar(e instanceof ApiError ? e.message : 'Falha ao pular')
+      setErroConfirmar(
+        `Falha ao pular "${c.descricao ?? 'recorrente'}" (${formatarData(c.data_compra)}): ${e instanceof ApiError ? e.message : 'erro desconhecido'}`,
+      )
     } finally {
       setPulandoId(null)
     }
@@ -425,7 +432,10 @@ export function Dashboard() {
                       </div>
                       <span className="resumo-card-valor valor-despesa">{formatarMoeda(c.valor, oculto)}</span>
                       {c.tipo === 'recorrente' && (
-                        <div className="item-acoes">
+                        // colunas + gap maior (em vez do .item-acoes padrão lado a lado)
+                        // pra reduzir o risco de clicar em "pular" querendo "confirmar" —
+                        // bug reportado 2026-09-24
+                        <div className="item-acoes" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 4 }}>
                           <button
                             type="button"
                             className="botao-secundario"
@@ -438,6 +448,7 @@ export function Dashboard() {
                             type="button"
                             className="botao-link"
                             title="Marcar esse mês como não aplicável (ex: viajou, não teve a despesa)"
+                            style={{ fontSize: 12, color: 'var(--cor-texto-suave)', marginTop: 6 }}
                             disabled={confirmandoId === c.lancamento_recorrente_id || pulandoId === c.lancamento_recorrente_id}
                             onClick={() => pularRecorrente(c)}
                           >

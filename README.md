@@ -87,8 +87,11 @@ PWA com backend hospedado (Render) e banco Supabase.
     naquele mês) — grava só em `lancamentos_recorrentes_pulados`, nunca em
     `transacoes` (pular não é um evento financeiro), e a busca da próxima
     ocorrência pendente trata esse mês como resolvido, avançando pro
-    seguinte. `DELETE .../pular?vigencia_mes=` desfaz. Confirmar e pular
-    são mutuamente exclusivos pro mesmo mês (409 se o outro já aconteceu).
+    seguinte. `GET .../pulados` lista os meses pulados de um recorrente
+    (única forma de ver/desfazer um pular fora da API direta — a tela
+    fica em Configurações, na edição do recorrente); `DELETE
+    .../pular?vigencia_mes=` desfaz. Confirmar e pular são mutuamente
+    exclusivos pro mesmo mês (409 se o outro já aconteceu).
 
     `GET /estrutura-custo/{vigencia_mes}` compara orçado x realizado do mês
     (por categoria/subcategoria, agrupado nos mesmos buckets do orçamento),

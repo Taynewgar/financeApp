@@ -131,6 +131,14 @@ export type LancamentoRecorrente = {
   ativo: boolean
 }
 
+// mês marcado como "não aplicável" (ex: viajou) — nunca vira transação,
+// só some da lista de pendências (ver POST/DELETE .../pular)
+export type MesPulado = {
+  id: string
+  lancamento_recorrente_id: string
+  vigencia_mes: string
+}
+
 export type PrimeiroMes = {
   vigencia_mes: string | null
 }

@@ -307,3 +307,52 @@ def test_desfazer_pular_mes_que_nao_foi_pulado_retorna_404(client):
         f"/lancamentos-recorrentes/{recorrente['id']}/pular", params={"vigencia_mes": "2026-09-01"}
     )
     assert resposta.status_code == 404
+
+
+def test_listar_pulados_retorna_vazio_sem_nenhum_pulado(client):
+    conta = _conta(client)
+    categoria = _categoria(client)
+    recorrente = client.post("/lancamentos-recorrentes", json=_payload(conta["id"], categoria["id"])).json()
+
+    resposta = client.get(f"/lancamentos-recorrentes/{recorrente['id']}/pulados")
+    assert resposta.status_code == 200
+    assert resposta.json() == []
+
+
+def test_listar_pulados_ordenado_por_mes(client):
+    conta = _conta(client)
+    categoria = _categoria(client)
+    recorrente = client.post("/lancamentos-recorrentes", json=_payload(conta["id"], categoria["id"])).json()
+    client.post(f"/lancamentos-recorrentes/{recorrente['id']}/pular", json={"vigencia_mes": "2026-11-01"})
+    client.post(f"/lancamentos-recorrentes/{recorrente['id']}/pular", json={"vigencia_mes": "2026-09-01"})
+
+    resposta = client.get(f"/lancamentos-recorrentes/{recorrente['id']}/pulados").json()
+    assert [p["vigencia_mes"] for p in resposta] == ["2026-09-01", "2026-11-01"]
+
+
+def test_listar_pulados_nao_inclui_pulados_de_outro_recorrente(client):
+    conta = _conta(client)
+    categoria = _categoria(client)
+    r1 = client.post("/lancamentos-recorrentes", json=_payload(conta["id"], categoria["id"])).json()
+    r2 = client.post(
+        "/lancamentos-recorrentes", json=_payload(conta["id"], categoria["id"], descricao="Outro")
+    ).json()
+    client.post(f"/lancamentos-recorrentes/{r1['id']}/pular", json={"vigencia_mes": "2026-09-01"})
+
+    assert client.get(f"/lancamentos-recorrentes/{r2['id']}/pulados").json() == []
+
+
+def test_listar_pulados_recorrente_inexistente_retorna_404(client):
+    resposta = client.get("/lancamentos-recorrentes/00000000-0000-0000-0000-000000000000/pulados")
+    assert resposta.status_code == 404
+
+
+def test_desfazer_pular_remove_da_listagem(client):
+    conta = _conta(client)
+    categoria = _categoria(client)
+    recorrente = client.post("/lancamentos-recorrentes", json=_payload(conta["id"], categoria["id"])).json()
+    client.post(f"/lancamentos-recorrentes/{recorrente['id']}/pular", json={"vigencia_mes": "2026-09-01"})
+
+    client.delete(f"/lancamentos-recorrentes/{recorrente['id']}/pular", params={"vigencia_mes": "2026-09-01"})
+
+    assert client.get(f"/lancamentos-recorrentes/{recorrente['id']}/pulados").json() == []

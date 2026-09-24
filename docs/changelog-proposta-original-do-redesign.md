@@ -1673,3 +1673,70 @@ superfície na UI.
   bloqueado com erro claro.
 - [ ] Tentar pular um mês já confirmado (via chamada repetida à API) —
   bloqueado com erro claro.
+
+### Rodada 20.3 (2026-09-24) — bug: clique acidental em "Pular" some com o mês confirmado
+
+Usuário reportou incidente real: ao clicar repetidamente numa confirmação,
+alguns meses da recorrente "Diarista" ficaram faltando (nov/dez) e
+Compromissos Futuros saltou pra fevereiro/2027, sem nenhum erro visível.
+
+**Diagnóstico.** Dois problemas, um de UX e um de bug real:
+1. Em Compromissos Futuros, "Confirmar" e "Pular este mês" ficavam lado a
+   lado na mesma linha com só 8px de espaço — um clique mirando
+   "Confirmar" podia acertar "Pular", que é uma ação válida e silenciosa
+   (201, sem erro), indistinguível de "não aconteceu nada".
+2. Bug real em `Dashboard.tsx`: `setErroConfirmar(null)` era chamado no
+   INÍCIO de toda ação (confirmar e pular), não só na própria ação que
+   tinha sucesso. Um clique rápido em qualquer ação apagava o erro da
+   ação anterior antes do usuário ler — daí a sensação de "não apareceu
+   nada".
+3. Consequência do item 1 do backlog fora-de-escopo da Rodada 20.2: não
+   havia superfície na UI pra ver ou desfazer meses pulados por engano —
+   único jeito de recuperar era via API direto.
+
+Usuário aprovou os 3 fixes.
+
+**Backend:**
+- `routers/lancamentos_recorrentes.py`: `GET /{id}/pulados` — lista os
+  meses pulados de um recorrente (ordenado por `vigencia_mes`), única
+  forma de visualizar o que já existe via `DELETE /{id}/pular` desde a
+  Rodada 20.2. 404 se o recorrente não existe/não é do usuário.
+- 5 testes novos (vazio, ordenado, isolado por recorrente, 404, e
+  confirma que `DELETE` some da listagem). Suíte offline: 275 passed
+  (270 + 5).
+
+**Frontend:**
+- `configuracoes/LancamentosRecorrentesSection.tsx`: botão "Meses
+  pulados" por recorrente, abre lista sob demanda (busca só no primeiro
+  clique, evita N requisições extras no carregamento da página) com
+  "Desfazer" por item — usa `rotuloMesLongo` pro mês, reaproveita
+  `.chip-form`/`.chip-cancelar` já existentes (nenhuma classe CSS nova).
+- `types.ts`: `MesPulado` novo, espelhando o schema do backend.
+- `Dashboard.tsx`:
+  - `confirmarRecorrente`/`pularRecorrente`: erro só é limpo no sucesso
+    da própria ação (nunca preventivamente no início) e a mensagem de
+    erro agora cita a descrição do recorrente e a data do mês, pra ficar
+    claro a qual ação/mês um erro pertence mesmo se outra ação rodar
+    depois.
+  - Compromissos Futuros: "Confirmar" e "Pular este mês" agora empilhados
+    verticalmente (em vez de lado a lado) com mais espaço entre os dois e
+    "Pular" com texto menor/mais discreto — reduz o risco do mesmo
+    misclique.
+- tsc + build + lint limpos (24 warnings, mesmo total de antes).
+
+**Checklist de teste manual** (visual, sem cobertura automatizada):
+- [ ] Configurações → Lançamentos Recorrentes → recorrente com algum mês
+  pulado → "Meses pulados" → lista aparece só depois do clique (checar
+  Network: 1 request nesse momento, nenhum antes).
+- [ ] "Desfazer" num mês pulado → some da lista e o mês volta a aparecer
+  como pendente em Compromissos Futuros.
+- [ ] Recorrente sem nenhum pulado → "Meses pulados" mostra lista vazia
+  (sem erro).
+- [ ] Dashboard → Compromissos Futuros → "Confirmar" e "Pular este mês"
+  aparecem empilhados, com espaço visível entre os dois e "Pular" em
+  texto discreto — não dá pra confundir um clique num pelo outro.
+- [ ] Provocar um erro em "Confirmar" (ex: chamar a API duas vezes rápido
+  pro mesmo mês) e depois clicar em "Pular" num outro item — confirmar
+  que a mensagem de erro do primeiro continua visível até a segunda ação
+  também terminar (e, se a segunda também falhar, que a mensagem cita o
+  item/mês certo).

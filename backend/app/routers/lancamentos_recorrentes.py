@@ -210,6 +210,26 @@ def confirmar(
     return criada
 
 
+@router.get("/{recorrente_id}/pulados", response_model=list[MesPulado])
+def listar_pulados(recorrente_id: str, db: Client = Depends(get_db), user_id: str = Depends(get_current_user_id)):
+    """Meses marcados como "não aplicável" deste recorrente — única forma
+    hoje de ver/desfazer um pular é aqui (não aparece em nenhum outro
+    lugar da API nem do app, já que "pulado" não é uma transação)."""
+    try:
+        crud.get_one(db, TABLE, user_id, recorrente_id)
+    except crud.NotFound:
+        raise HTTPException(status_code=404, detail="Lançamento recorrente não encontrado")
+
+    return (
+        db.table("lancamentos_recorrentes_pulados")
+        .select("*")
+        .eq("lancamento_recorrente_id", recorrente_id)
+        .order("vigencia_mes")
+        .execute()
+        .data
+    )
+
+
 @router.post("/{recorrente_id}/pular", response_model=MesPulado, status_code=201)
 def pular(
     recorrente_id: str,

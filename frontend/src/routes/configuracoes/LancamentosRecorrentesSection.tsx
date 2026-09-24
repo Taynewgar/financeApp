@@ -2,14 +2,16 @@ import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import '../../components/crud.css'
 import '../../components/forms.css'
 import { ApiError, apiFetch } from '../../lib/api'
-import { ESTRUTURAS, MEIOS_PAGAMENTO } from '../../lib/rotulos'
 import { formatarMoeda } from '../../lib/formatar'
+import { rotuloMesLongo } from '../../lib/periodo'
+import { ESTRUTURAS, MEIOS_PAGAMENTO } from '../../lib/rotulos'
 import type {
   Categoria,
   Conta,
   EstruturaCustoRecorrente,
   LancamentoRecorrente,
   MeioPagamento,
+  MesPulado,
   Subcategoria,
 } from '../../lib/types'
 
@@ -64,6 +66,13 @@ export function LancamentosRecorrentesSection() {
   const [novaSubcategoriaEstrutura, setNovaSubcategoriaEstrutura] = useState<EstruturaCustoRecorrente | ''>('')
   const [salvandoSubcategoria, setSalvandoSubcategoria] = useState(false)
   const [erroSubcategoria, setErroSubcategoria] = useState<string | null>(null)
+
+  // meses pulados — carregado sob demanda (só quando o usuário abre "Meses
+  // pulados" de um recorrente), pra não bater 1 GET a mais por recorrente
+  // já na carga inicial da tela
+  const [pulados, setPulados] = useState<Record<string, MesPulado[]>>({})
+  const [carregandoPulados, setCarregandoPulados] = useState<string | null>(null)
+  const [desfazendoPulado, setDesfazendoPulado] = useState<string | null>(null)
 
   useEffect(() => {
     Promise.all([
@@ -205,6 +214,46 @@ export function LancamentosRecorrentesSection() {
       return
     await apiFetch(`/lancamentos-recorrentes/${r.id}`, { method: 'DELETE' })
     setRecorrentes((atual) => atual!.filter((x) => x.id !== r.id))
+  }
+
+  async function toggleMesesPulados(recorrenteId: string) {
+    if (pulados[recorrenteId]) {
+      setPulados((atual) => {
+        const restante = { ...atual }
+        delete restante[recorrenteId]
+        return restante
+      })
+      return
+    }
+    setErro(null)
+    setCarregandoPulados(recorrenteId)
+    try {
+      const lista = await apiFetch<MesPulado[]>(`/lancamentos-recorrentes/${recorrenteId}/pulados`)
+      setPulados((atual) => ({ ...atual, [recorrenteId]: lista }))
+    } catch (e) {
+      setErro(e instanceof ApiError ? e.message : 'Falha ao carregar meses pulados')
+    } finally {
+      setCarregandoPulados(null)
+    }
+  }
+
+  async function desfazerPulado(recorrenteId: string, vigenciaMes: string) {
+    const chave = `${recorrenteId}:${vigenciaMes}`
+    setErro(null)
+    setDesfazendoPulado(chave)
+    try {
+      await apiFetch(`/lancamentos-recorrentes/${recorrenteId}/pular?vigencia_mes=${vigenciaMes}`, {
+        method: 'DELETE',
+      })
+      setPulados((atual) => ({
+        ...atual,
+        [recorrenteId]: (atual[recorrenteId] ?? []).filter((p) => p.vigencia_mes !== vigenciaMes),
+      }))
+    } catch (e) {
+      setErro(e instanceof ApiError ? e.message : 'Falha ao desfazer o pular')
+    } finally {
+      setDesfazendoPulado(null)
+    }
   }
 
   async function handleSubmit(event: FormEvent) {
@@ -544,11 +593,46 @@ export function LancamentosRecorrentesSection() {
                   <button type="button" className="botao-link" onClick={() => toggleAtivo(r)}>
                     {r.ativo ? 'Desativar' : 'Reativar'}
                   </button>
+                  <button type="button" className="botao-link" onClick={() => toggleMesesPulados(r.id)}>
+                    {carregandoPulados === r.id
+                      ? 'Carregando…'
+                      : pulados[r.id]
+                        ? 'Ocultar meses pulados'
+                        : 'Meses pulados'}
+                  </button>
                   <button type="button" className="botao-link" onClick={() => excluir(r)}>
                     Excluir
                   </button>
                 </div>
               </div>
+              {pulados[r.id] && (
+                <div className="chip-form" style={{ marginTop: 8 }}>
+                  {pulados[r.id].length === 0 ? (
+                    <p style={{ color: 'var(--cor-texto-suave)', fontSize: 13, margin: 0 }}>
+                      Nenhum mês pulado pra este recorrente.
+                    </p>
+                  ) : (
+                    <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                      {pulados[r.id].map((p) => {
+                        const chave = `${r.id}:${p.vigencia_mes}`
+                        return (
+                          <li key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 13 }}>
+                            <span>{rotuloMesLongo(p.vigencia_mes.slice(0, 7))}</span>
+                            <button
+                              type="button"
+                              className="botao-link"
+                              disabled={desfazendoPulado === chave}
+                              onClick={() => desfazerPulado(r.id, p.vigencia_mes)}
+                            >
+                              {desfazendoPulado === chave ? 'Desfazendo…' : 'Desfazer'}
+                            </button>
+                          </li>
+                        )
+                      })}
+                    </ul>
+                  )}
+                </div>
+              )}
             </li>
           ))}
         </ul>

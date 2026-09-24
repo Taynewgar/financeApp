@@ -153,7 +153,13 @@ categoria/subcategoria no formulário (mesmo padrão do Novo Lançamento,
 conta continua só por dropdown) e ação de **pular um mês** (`/pular` —
 ex: viajou, não teve a despesa naquele mês; não vira transação, só faz o
 mês parar de reaparecer como pendente) adicionadas no mesmo dia, a partir
-de feedback do usuário testando a entrega original.
+de feedback do usuário testando a entrega original. Em 2026-09-24, bug
+real reportado em uso (clique acidental em "Pular" confundido com
+"Confirmar" + mensagem de erro apagada por uma ação subsequente antes de
+ser lida) motivou 3 fixes: tela de ver/desfazer meses pulados em
+Configurações (`GET /pulados`), erro só limpo no sucesso da própria ação
+(com contexto do item/mês na mensagem), e separação visual dos botões
+"Confirmar"/"Pular este mês" no Dashboard. Ver changelog Rodada 20.3.
 
 ### Edição de compra parcelada
 
