@@ -42,6 +42,19 @@ class CompraParceladaCreate(BaseModel):
     meio_pagamento: MeioPagamento | None = None
 
 
+class ParcelaUpdate(BaseModel):
+    """Edição de metadado de uma parcela isolada — valor, data e conta
+    ficam de fora de propósito: mexer neles quebraria a soma do grupo
+    (valor_total), o hash de dedup, ou dividiria a mesma compra entre
+    duas contas sem sentido (ver README.md, seção "Estrutura" > backend)."""
+
+    descricao: str
+    categoria_id: str | None = None
+    subcategoria_id: str | None = None
+    estrutura_custo: EstruturaCusto | None = None
+    meio_pagamento: MeioPagamento | None = None
+
+
 class MoverFaturaPayload(BaseModel):
     fatura_referencia: date
 

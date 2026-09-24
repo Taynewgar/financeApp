@@ -388,6 +388,101 @@ def test_editar_parcela_de_compra_parcelada_retorna_422(client):
     assert resposta.status_code == 422
 
 
+def test_editar_metadado_de_parcela_atualiza_campos_e_preserva_valor_data_conta(client):
+    cartao = _criar_conta_cartao(client)
+    categoria_a = client.post("/categorias", json={"nome": "Categoria A"}).json()
+    categoria_b = client.post("/categorias", json={"nome": "Categoria B"}).json()
+    parcelas = client.post(
+        "/transacoes/parceladas",
+        json={
+            "descricao": "Compra parcelada",
+            "valor_total": 300,
+            "parcela_total": 3,
+            "data_primeira_parcela": "2026-08-05",
+            "conta_id": cartao["id"],
+            "categoria_id": categoria_a["id"],
+            "estrutura_custo": "variavel",
+            "meio_pagamento": "cartao_credito",
+        },
+    ).json()
+    parcela = parcelas[0]
+
+    editada = client.patch(
+        f"/transacoes/parceladas/{parcela['id']}",
+        json={
+            "descricao": "Compra parcelada — corrigida",
+            "categoria_id": categoria_b["id"],
+            "estrutura_custo": "fixo",
+            "meio_pagamento": "pix",
+        },
+    )
+    assert editada.status_code == 200
+    corpo = editada.json()
+    assert corpo["descricao"] == "Compra parcelada — corrigida"
+    assert corpo["categoria_id"] == categoria_b["id"]
+    assert corpo["estrutura_custo"] == "fixo"
+    assert corpo["meio_pagamento"] == "pix"
+    # valor, data e conta são exatamente o que o nível 1 promete não tocar
+    assert corpo["valor"] == parcela["valor"]
+    assert corpo["data_compra"] == parcela["data_compra"]
+    assert corpo["conta_id"] == cartao["id"]
+    assert corpo["parcela_atual"] == parcela["parcela_atual"]
+    assert corpo["compra_parcelada_id"] == parcela["compra_parcelada_id"]
+
+
+def test_editar_metadado_de_parcela_em_transacao_avista_retorna_422(client):
+    cartao = _criar_conta_cartao(client)
+    categoria = client.post("/categorias", json={"nome": "Categoria Teste"}).json()
+    transacao = client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-08-05",
+            "valor": 30,
+            "tipo_movimento": "despesa",
+            "conta_id": cartao["id"],
+            "categoria_id": categoria["id"],
+            "estrutura_custo": "variavel",
+            "meio_pagamento": "cartao_credito",
+        },
+    ).json()
+
+    resposta = client.patch(f"/transacoes/parceladas/{transacao['id']}", json={"descricao": "Nova descrição"})
+    assert resposta.status_code == 422
+
+
+def test_editar_metadado_de_parcela_inexistente_retorna_404(client):
+    resposta = client.patch(
+        "/transacoes/parceladas/00000000-0000-0000-0000-000000000000",
+        json={"descricao": "Nova descrição"},
+    )
+    assert resposta.status_code == 404
+
+
+def test_editar_metadado_de_parcela_de_outro_usuario_retorna_404(client, current_user):
+    cartao = _criar_conta_cartao(client)
+    categoria = client.post("/categorias", json={"nome": "Categoria Teste"}).json()
+    parcelas = client.post(
+        "/transacoes/parceladas",
+        json={
+            "descricao": "Compra parcelada",
+            "valor_total": 300,
+            "parcela_total": 3,
+            "data_primeira_parcela": "2026-08-05",
+            "conta_id": cartao["id"],
+            "categoria_id": categoria["id"],
+            "estrutura_custo": "variavel",
+            "meio_pagamento": "cartao_credito",
+        },
+    ).json()
+
+    current_user["id"] = OUTRO_USUARIO
+    resposta = client.patch(
+        f"/transacoes/parceladas/{parcelas[0]['id']}",
+        json={"descricao": "Nova descrição"},
+    )
+    assert resposta.status_code == 404
+
+
 def test_editar_transacao_inexistente_retorna_404(client):
     resposta = client.patch(
         "/transacoes/00000000-0000-0000-0000-000000000000",
@@ -459,6 +554,88 @@ def test_excluir_transacao(client):
 def test_excluir_transacao_inexistente_retorna_404(client):
     resposta = client.delete("/transacoes/00000000-0000-0000-0000-000000000000")
     assert resposta.status_code == 404
+
+
+def test_excluir_compra_parcelada_remove_todas_as_parcelas_de_uma_vez(client):
+    cartao = _criar_conta_cartao(client)
+    categoria = client.post("/categorias", json={"nome": "Categoria Teste"}).json()
+    parcelas = client.post(
+        "/transacoes/parceladas",
+        json={
+            "descricao": "Compra parcelada",
+            "valor_total": 300,
+            "parcela_total": 3,
+            "data_primeira_parcela": "2026-08-05",
+            "conta_id": cartao["id"],
+            "categoria_id": categoria["id"],
+            "estrutura_custo": "variavel",
+            "meio_pagamento": "cartao_credito",
+        },
+    ).json()
+    compra_parcelada_id = parcelas[0]["compra_parcelada_id"]
+
+    excluida = client.delete(f"/transacoes/parceladas/{compra_parcelada_id}")
+    assert excluida.status_code == 204
+
+    for parcela in parcelas:
+        assert client.get(f"/transacoes/{parcela['id']}").status_code == 404
+
+
+def test_excluir_compra_parcelada_nao_afeta_outras_compras(client):
+    cartao = _criar_conta_cartao(client)
+    categoria = client.post("/categorias", json={"nome": "Categoria Teste"}).json()
+    payload_base = {
+        "valor_total": 300,
+        "parcela_total": 3,
+        "data_primeira_parcela": "2026-08-05",
+        "conta_id": cartao["id"],
+        "categoria_id": categoria["id"],
+        "estrutura_custo": "variavel",
+        "meio_pagamento": "cartao_credito",
+    }
+    compra_a = client.post(
+        "/transacoes/parceladas", json={**payload_base, "descricao": "Compra A"}
+    ).json()
+    compra_b = client.post(
+        "/transacoes/parceladas", json={**payload_base, "descricao": "Compra B"}
+    ).json()
+
+    client.delete(f"/transacoes/parceladas/{compra_a[0]['compra_parcelada_id']}")
+
+    for parcela in compra_b:
+        assert client.get(f"/transacoes/{parcela['id']}").status_code == 200
+
+
+def test_excluir_compra_parcelada_inexistente_retorna_404(client):
+    resposta = client.delete("/transacoes/parceladas/00000000-0000-0000-0000-000000000000")
+    assert resposta.status_code == 404
+
+
+def test_excluir_compra_parcelada_de_outro_usuario_retorna_404(client, current_user):
+    cartao = _criar_conta_cartao(client)
+    categoria = client.post("/categorias", json={"nome": "Categoria Teste"}).json()
+    parcelas = client.post(
+        "/transacoes/parceladas",
+        json={
+            "descricao": "Compra parcelada",
+            "valor_total": 300,
+            "parcela_total": 3,
+            "data_primeira_parcela": "2026-08-05",
+            "conta_id": cartao["id"],
+            "categoria_id": categoria["id"],
+            "estrutura_custo": "variavel",
+            "meio_pagamento": "cartao_credito",
+        },
+    ).json()
+    compra_parcelada_id = parcelas[0]["compra_parcelada_id"]
+
+    current_user["id"] = OUTRO_USUARIO
+    resposta = client.delete(f"/transacoes/parceladas/{compra_parcelada_id}")
+    assert resposta.status_code == 404
+
+    current_user["id"] = "11111111-1111-1111-1111-111111111111"
+    for parcela in parcelas:
+        assert client.get(f"/transacoes/{parcela['id']}").status_code == 200
 
 
 def test_compra_parcelada_gera_uma_transacao_por_ciclo(client):

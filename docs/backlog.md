@@ -44,8 +44,9 @@ merecer não ficar misturado com a tabela proposto×implementado tela a tela.
    `POST /lancamentos-recorrentes/{id}/confirmar` materializa a transação
    real só quando o mês é confirmado, `GET /dashboard/compromissos-futuros`
    mistura parcelas + ocorrências pendentes.
-8. Edição de compra parcelada (detalhe abaixo). **Próximo a ser
-   trabalhado — decidido 2026-09-24.**
+8. ~~Edição de compra parcelada~~ **feito 2026-09-24** — níveis 1
+   (metadado) + 3 (exclusão em grupo); nível 2 (recriar o grupo) fica pra
+   decisão futura (detalhe abaixo).
 9. **Migração de dados do app antigo** (detalhe abaixo) — alta
    prioridade, registrada 2026-09-24. Passo do MVP original que ficou de
    fora do backlog quando ele foi consolidado em arquivo próprio
@@ -221,8 +222,12 @@ resolve a reclamação mais comum (corrigir a categoria de uma parcela) sem
 nenhum risco de inconsistência — e exclusão em grupo (3) junto, por ser
 praticamente grátis e já cobrir metade do caso de uso do nível médio (2).
 
-**Status:** registrado; **decidido 2026-09-24 como próximo item a ser
-trabalhado** (item 8).
+**Status:** implementado 2026-09-24 — níveis 1 e 3. `PATCH /transacoes/
+parceladas/{id}` (metadado) e `DELETE /transacoes/parceladas/
+{compra_parcelada_id}` (grupo inteiro). Nível 2 (editar o grupo
+recriando) segue sem decisão — o ponto difícil descrito acima (parcelas
+já vencidas / `fatura_override`) não mudou. Ver changelog pro detalhe
+técnico completo e o checklist de teste manual.
 
 ### Migração de dados do app antigo (CSV/JSON → Supabase)
 

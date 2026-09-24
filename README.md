@@ -66,6 +66,19 @@ PWA com backend hospedado (Render) e banco Supabase.
     estorno, ressarcimento, e aplicação/retirada COM caixinha) continuam
     sem exigir nenhum desses três campos.
 
+    **Edição de compra parcelada** (`docs/backlog.md`, item 8 — nível 1 +
+    nível 3, decidido 2026-09-24): `PATCH /transacoes/parceladas/{id}`
+    edita só o metadado de UMA parcela (descrição/categoria/subcategoria/
+    estrutura de custo/meio de pagamento) — valor, data e conta continuam
+    fora do payload de propósito, mesma trava de `PATCH /transacoes/{id}`.
+    `DELETE /transacoes/parceladas/{compra_parcelada_id}` exclui todas as
+    parcelas do grupo (e a linha em `compras_parceladas`) numa ação só, em
+    vez de repetir `DELETE /transacoes/{id}` uma vez por parcela. Editar o
+    grupo inteiro recriando com novo valor total/quantidade de parcelas
+    (nível 2) fica pra decisão futura — parcelas já vencidas ou com fatura
+    movida manualmente (`fatura_override`) tornam essa recriação
+    ambígua.
+
     **Despesa fixa recorrente** (`lancamentos_recorrentes` — aluguel,
     assinaturas) usa **projeção virtual**: cadastrar um recorrente não
     grava nada em `transacoes` — só quando um mês específico é confirmado

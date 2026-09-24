@@ -168,6 +168,48 @@ export function EditarLancamento() {
     }
   }
 
+  async function handleSubmitParcela(event: FormEvent) {
+    event.preventDefault()
+    setErro(null)
+    if (!transacaoOriginal) return
+
+    if (!descricao.trim()) {
+      setErro('Preencha a descrição.')
+      return
+    }
+    if (!categoriaId) {
+      setErro('Escolha uma categoria.')
+      return
+    }
+    if (!estruturaCusto) {
+      setErro('Escolha uma estrutura de custo.')
+      return
+    }
+    if (!meioPagamento) {
+      setErro('Escolha um meio de pagamento.')
+      return
+    }
+
+    setEnviando(true)
+    try {
+      await apiFetch(`/transacoes/parceladas/${transacaoOriginal.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          descricao,
+          categoria_id: categoriaId || null,
+          subcategoria_id: subcategoriaId || null,
+          estrutura_custo: estruturaCusto || null,
+          meio_pagamento: meioPagamento || null,
+        }),
+      })
+      navigate('/lancamentos')
+    } catch (e) {
+      setErro(e instanceof ApiError ? (typeof e.detail === 'string' ? e.detail : e.message) : 'Falha ao salvar a parcela.')
+    } finally {
+      setEnviando(false)
+    }
+  }
+
   if (carregando) {
     return <p>Carregando…</p>
   }
@@ -183,13 +225,105 @@ export function EditarLancamento() {
   if (transacaoOriginal.pagamento === 'parcelado') {
     return (
       <div>
-        <h1 style={{ fontSize: 22, marginTop: 0 }}>Editar Lançamento</h1>
-        <p className="mensagem-erro">
-          Parcela de compra parcelada não pode ser editada — exclua e lance novamente se precisar corrigir.
+        <h1 style={{ fontSize: 22, marginTop: 0 }}>Editar Parcela</h1>
+        <p style={{ color: 'var(--cor-texto-suave)', marginTop: -8 }}>
+          Parcela {transacaoOriginal.parcela_atual}/{transacaoOriginal.parcela_total} — valor, data e conta não são
+          editáveis por aqui (mexer neles quebraria a consistência do grupo). Pra corrigir isso, ou pra cancelar a
+          compra inteira, exclua a compra parcelada em Lançamentos e lance de novo.
         </p>
-        <Link to="/lancamentos" className="botao-secundario">
-          Voltar
-        </Link>
+
+        <form className="form" onSubmit={handleSubmitParcela}>
+          <label className="campo">
+            Descrição
+            <input type="text" required value={descricao} onChange={(e) => setDescricao(e.target.value)} />
+          </label>
+
+          <div className="campo-linha">
+            <label className="campo">
+              Categoria
+              <select
+                value={categoriaId}
+                onChange={(e) => {
+                  setCategoriaId(e.target.value)
+                  setSubcategoriaId('')
+                }}
+                required
+              >
+                <option value="">Selecione…</option>
+                {categoriasElegiveis.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.nome}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="campo">
+              Subcategoria
+              <select value={subcategoriaId} onChange={(e) => selecionarSubcategoria(e.target.value)} disabled={!categoriaId}>
+                <option value="">Nenhuma</option>
+                {subcategoriasDaCategoria.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.nome}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+
+          <div className="campo-linha">
+            <label className="campo">
+              Estrutura de custo
+              <select
+                value={estruturaCusto}
+                onChange={(e) => setEstruturaCusto(e.target.value as EstruturaCusto | '')}
+                required
+              >
+                <option value="">Selecione…</option>
+                {ESTRUTURAS.filter((e) => e.valor !== 'investimentos').map((e) => (
+                  <option key={e.valor} value={e.valor}>
+                    {e.rotulo}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="campo">
+              Meio de pagamento
+              <select
+                value={meioPagamento}
+                onChange={(e) => setMeioPagamento(e.target.value as MeioPagamento | '')}
+                disabled={contaSelecionada?.tipo_conta === 'cartao_credito'}
+                required
+              >
+                <option value="">Selecione…</option>
+                {MEIOS_PAGAMENTO.map((m) => (
+                  <option key={m.valor} value={m.valor}>
+                    {m.rotulo}
+                  </option>
+                ))}
+              </select>
+              {contaSelecionada?.tipo_conta === 'cartao_credito' && (
+                <span style={{ fontSize: 12, color: 'var(--cor-texto-suave)' }}>
+                  Fixo em Cartão de crédito — a conta desta parcela é um cartão.
+                </span>
+              )}
+            </label>
+          </div>
+
+          {erro && (
+            <p role="alert" className="mensagem-erro">
+              {erro}
+            </p>
+          )}
+
+          <div className="form-acoes">
+            <button type="submit" className="botao-primario" disabled={enviando}>
+              {enviando ? 'Salvando…' : 'Salvar alterações'}
+            </button>
+            <Link to="/lancamentos" className="botao-secundario">
+              Cancelar
+            </Link>
+          </div>
+        </form>
       </div>
     )
   }

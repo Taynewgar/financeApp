@@ -1915,3 +1915,72 @@ correção urgente.
       normalmente (unique é por categoria, não global).
 - [ ] Configurações → Caixinhas: criar caixinha com nome já existente →
       mesma mensagem de 409.
+
+### Rodada 21 (2026-09-24) — edição de compra parcelada: metadado + exclusão em grupo
+
+Item 8 do backlog, discutido e decidido antes de implementar: dos 3
+níveis registrados (metadado editável / recriar o grupo / excluir o
+grupo inteiro), usuário aprovou os níveis 1 e 3, deixando o nível 2
+(editar valor total/quantidade de parcelas recriando o grupo) pra decisão
+futura — o ponto caro daquele nível (parcelas já vencidas ou com fatura
+movida manualmente entram na recriação ou ficam de fora?) é uma decisão
+de produto, não só mais código.
+
+**Backend — `routers/transacoes.py`:**
+- `PATCH /transacoes/parceladas/{id}` (nível 1): edita só `descricao`/
+  `categoria_id`/`subcategoria_id`/`estrutura_custo`/`meio_pagamento` de
+  uma parcela. Novo schema `ParcelaUpdate` nem aceita valor/data/conta no
+  payload — não é uma checagem em runtime, é impossível de enviar. Roda
+  as mesmas validações de `POST /transacoes/parceladas` (categoria
+  precisa ser tipo despesa, campos obrigatórios de despesa) e
+  `sincronizar_item_orcamento` no final, já que categoria/estrutura
+  podem trocar o bucket do orçamento. Descrição entra no `hash_dedup`
+  (unique) — o endpoint recalcula o hash com a nova descrição, mesma
+  lógica que `PATCH /transacoes/{id}` já usava pra edição à vista.
+- `DELETE /transacoes/parceladas/{compra_parcelada_id}` (nível 3): apaga
+  todas as parcelas do grupo (filtradas por `user_id`) numa chamada só,
+  mais a linha em `compras_parceladas` — em vez de repetir `DELETE
+  /transacoes/{id}` uma vez por parcela. 404 se o grupo não existir ou
+  não pertencer ao usuário.
+- `PATCH /transacoes/{id}` (edição à vista) continua bloqueando parcela
+  com 422 — mensagem atualizada pra apontar pro endpoint novo em vez de
+  só "exclua e lance novamente".
+
+**Frontend:**
+- `EditarLancamento.tsx`: o bloqueio total de antes virou um formulário
+  reduzido (só os 5 campos do nível 1) quando a transação é uma parcela,
+  chamando o endpoint novo.
+- `Lancamentos.tsx`: link "Editar" passa a aparecer pra parcelas também
+  (antes só pra lançamento à vista). Botão novo "Excluir compra inteira"
+  ao lado de "Excluir", só quando o item tem `compra_parcelada_id`, com
+  confirmação nomeando quantas parcelas serão apagadas.
+
+**Testes:** 8 novos em `test_transacoes_api.py` — edição de metadado
+(atualiza os 5 campos e preserva valor/data/conta/parcela_atual/
+compra_parcelada_id; 422 se a transação for à vista; 404 se não existir
+ou for de outro usuário) e exclusão em grupo (remove todas as parcelas;
+não afeta outra compra parcelada do mesmo usuário; 404 se o grupo não
+existir ou for de outro usuário — nesse caso as parcelas continuam
+intactas). Suíte offline: **287 passed** (279 + 8), 33 skipped. Frontend:
+`tsc -b && vite build` e `oxlint` sem erros novos (avisos pré-existentes
+de `set-state-in-effect`/`only-export-components` não relacionados a
+esta mudança).
+
+**Checklist de teste manual:**
+- [ ] Lançamentos: abrir "Editar" numa parcela → formulário reduzido
+      aparece (sem campos de valor/data/conta), com os valores atuais
+      pré-preenchidos.
+- [ ] Editar a descrição/categoria de uma parcela → salva, volta pra
+      Lançamentos, e o valor/data/conta da parcela continuam os mesmos
+      de antes.
+- [ ] Trocar a categoria de uma parcela em cartão de crédito → meio de
+      pagamento continua travado em "Cartão de crédito" (mesma trava do
+      lançamento à vista).
+- [ ] Deixar a descrição em branco e tentar salvar → mensagem de erro,
+      não salva.
+- [ ] Lançamentos: no card de uma parcela, clicar "Excluir compra
+      inteira" → confirmação nomeia a quantidade de parcelas; confirmar
+      → todas as parcelas da compra somem da lista, as de outras compras
+      continuam.
+- [ ] "Excluir" (sem ser "inteira") numa parcela isolada → continua
+      apagando só aquela parcela, como já funcionava antes.

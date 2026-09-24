@@ -251,6 +251,26 @@ export function Lancamentos() {
     }
   }
 
+  async function excluirCompraParcelada(transacao: Transacao) {
+    if (!transacao.compra_parcelada_id) return
+    const rotulo = transacao.descricao ?? 'esta compra parcelada'
+    if (
+      !window.confirm(
+        `Excluir TODAS as ${transacao.parcela_total} parcelas de "${rotulo}"? Essa ação não pode ser desfeita.`,
+      )
+    )
+      return
+    setExcluindoId(transacao.compra_parcelada_id)
+    try {
+      await apiFetch(`/transacoes/parceladas/${transacao.compra_parcelada_id}`, { method: 'DELETE' })
+      carregar()
+    } catch (e) {
+      setErro(e instanceof ApiError ? (typeof e.detail === 'string' ? e.detail : e.message) : 'Falha ao excluir a compra parcelada')
+    } finally {
+      setExcluindoId(null)
+    }
+  }
+
   if (erroCarga) {
     return <p className="mensagem-erro">{erroCarga}</p>
   }
@@ -482,11 +502,9 @@ export function Lancamentos() {
                     <span className={classeValor(t)} style={{ fontWeight: 600 }}>
                       {formatarMoeda(t.valor, oculto)}
                     </span>
-                    {t.pagamento === 'avista' && (
-                      <Link to={`/lancamentos/${t.id}/editar`} className="botao-link">
-                        Editar
-                      </Link>
-                    )}
+                    <Link to={`/lancamentos/${t.id}/editar`} className="botao-link">
+                      Editar
+                    </Link>
                     <button
                       type="button"
                       className="botao-link"
@@ -495,6 +513,16 @@ export function Lancamentos() {
                     >
                       Excluir
                     </button>
+                    {t.compra_parcelada_id && (
+                      <button
+                        type="button"
+                        className="botao-link"
+                        disabled={excluindoId === t.compra_parcelada_id}
+                        onClick={() => excluirCompraParcelada(t)}
+                      >
+                        Excluir compra inteira
+                      </button>
+                    )}
                   </div>
                 </div>
               </li>

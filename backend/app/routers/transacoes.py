@@ -9,6 +9,7 @@ from ..schemas.transacoes import (
     EstruturaCusto,
     MeioPagamento,
     MoverFaturaPayload,
+    ParcelaUpdate,
     ResumoLancamentos,
     Transacao,
     TransacaoCreate,
@@ -378,7 +379,11 @@ def atualizar(
     if atual["pagamento"] == "parcelado":
         raise HTTPException(
             status_code=422,
-            detail="Parcela de compra parcelada não pode ser editada — exclua e lance novamente",
+            detail=(
+                "Parcela de compra parcelada não tem valor/data/conta editáveis — use "
+                "PATCH /transacoes/parceladas/{id} pra descrição/categoria/subcategoria/"
+                "estrutura de custo/meio de pagamento, ou exclua e lance novamente"
+            ),
         )
     _check_refs(
         db, user_id, payload.conta_id, payload.categoria_id, payload.subcategoria_id,
@@ -458,6 +463,77 @@ def mover_fatura(
         )
     except crud.NotFound:
         raise HTTPException(status_code=404, detail="Transação não encontrada")
+
+
+@router.patch("/parceladas/{transacao_id}", response_model=Transacao)
+def atualizar_parcela(
+    transacao_id: str,
+    payload: ParcelaUpdate,
+    db: Client = Depends(get_db),
+    user_id: str = Depends(get_current_user_id),
+):
+    """Nível 1 da edição de compra parcelada (backlog): edita só o
+    metadado de UMA parcela — descrição/categoria/subcategoria/estrutura
+    de custo/meio de pagamento. Valor, data e conta continuam travados,
+    exatamente como em PATCH /transacoes/{id}. Editar o grupo inteiro
+    (valor total, quantidade de parcelas) fica pra decisão futura (nível
+    2, registrado no backlog como não priorizado)."""
+    try:
+        atual = crud.get_one(db, TABLE, user_id, transacao_id)
+    except crud.NotFound:
+        raise HTTPException(status_code=404, detail="Transação não encontrada")
+    if atual["pagamento"] != "parcelado":
+        raise HTTPException(
+            status_code=422,
+            detail="Este endpoint edita só parcelas — lançamento à vista usa PATCH /transacoes/{id}",
+        )
+    _check_refs(db, user_id, atual["conta_id"], payload.categoria_id, payload.subcategoria_id)
+    _check_regras_tipo_movimento(db, user_id, "despesa", payload.categoria_id, None)
+    _check_campos_obrigatorios("despesa", payload.categoria_id, payload.estrutura_custo, payload.meio_pagamento, None)
+    row = payload.model_dump(mode="json")
+    # descrição entra no hash_dedup (unique) — precisa recalcular pra não
+    # deixar o hash antigo estagnado, mesma lógica de atualizar() acima
+    row["hash_dedup"] = compute_hash(
+        user_id=user_id,
+        data_compra=atual["data_compra"],
+        valor=atual["valor"],
+        descricao=row["descricao"],
+        conta_id=atual["conta_id"],
+        tipo_movimento=atual["tipo_movimento"],
+        parcela_atual=atual["parcela_atual"],
+        parcela_total=atual["parcela_total"],
+        compra_parcelada_id=atual["compra_parcelada_id"],
+    )
+    try:
+        atualizada = crud.update(db, TABLE, user_id, transacao_id, row)
+    except crud.NotFound:
+        raise HTTPException(status_code=404, detail="Transação não encontrada")
+    except Exception as exc:  # noqa: BLE001 — mesma tradução de unicidade usada em atualizar()
+        if "duplicate key value violates unique constraint" in str(exc) or "23505" in str(exc):
+            raise HTTPException(
+                status_code=409,
+                detail="Já existe um lançamento idêntico (mesma data, valor, conta e descrição).",
+            ) from exc
+        raise HTTPException(status_code=500, detail="Falha ao salvar a parcela") from exc
+    sincronizar_item_orcamento(db, user_id, atualizada)
+    return atualizada
+
+
+@router.delete("/parceladas/{compra_parcelada_id}", status_code=204)
+def excluir_parcelada(
+    compra_parcelada_id: str, db: Client = Depends(get_db), user_id: str = Depends(get_current_user_id)
+):
+    """Nível 3 da edição de compra parcelada (backlog): exclui todas as
+    parcelas do grupo numa ação só, em vez de repetir DELETE /transacoes/
+    {id} uma vez por parcela. Cobre metade da dor do nível 2 (recriar o
+    grupo com novos parâmetros) sem o risco de inconsistência — cancela e
+    permite relançar do zero."""
+    result = (
+        db.table(TABLE).delete().eq("compra_parcelada_id", compra_parcelada_id).eq("user_id", user_id).execute()
+    )
+    if not result.data:
+        raise HTTPException(status_code=404, detail="Compra parcelada não encontrada")
+    db.table("compras_parceladas").delete().eq("id", compra_parcelada_id).eq("user_id", user_id).execute()
 
 
 @router.delete("/{transacao_id}", status_code=204)
