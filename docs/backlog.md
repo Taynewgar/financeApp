@@ -95,17 +95,25 @@ que está acima, antes da baixa prioridade abaixo:
 22. **Estrutura de Custo carregando devagar — investigar excesso de
     requisições** — reportado 2026-09-24, suspeita de padrão parecido com
     o bug já corrigido em Gráficos.
+23. **Lançamentos recorrentes: aplicação/retirada com caixinha (reserva)**
+    — registrado 2026-09-24. Escopo confirmado com o usuário depois da
+    Rodada 25 (que estendeu recorrentes pra receita/despesa/aplicação/
+    retirada, mas deixou caixinha de fora por decisão minha, não pedida —
+    limitação de análise, o usuário esclareceu depois que aplicação/
+    retirada recorrente PODE ser vinculada a caixinha, igual em Novo
+    Lançamento). Ordem confirmada: item 22 (lentidão de Estrutura de
+    Custo) vem imediatamente antes deste na fila.
 
 **Baixa prioridade confirmada pelo usuário** — todo o resto acima (itens
-1-22) é alta ou média prioridade, mesmo o que está sequenciado pra depois
+1-23) é alta ou média prioridade, mesmo o que está sequenciado pra depois
 do MVP:
 
-23. Aba Bancos em Configurações — hoje resolvido como campo de texto em
+24. Aba Bancos em Configurações — hoje resolvido como campo de texto em
     Conta, sem perda funcional real. *(2026-09-15)*
-24. Saldo atual de contas — hoje só caixinhas têm saldo calculado
+25. Saldo atual de contas — hoje só caixinhas têm saldo calculado
     (`GET /dashboard/patrimonio/{mes}`); dar saldo a `contas` também seria
     a extensão natural, mas não é urgente. *(2026-09-15)*
-25. **Changelog estruturado** — trocar a prosa narrativa de
+26. **Changelog estruturado** — trocar a prosa narrativa de
     `changelog-proposta-original-do-redesign.md` pelo formato [Keep a
     Changelog](https://keepachangelog.com) (seções `Added/Changed/Fixed/
     Removed` por versão datada, amarrada a tag git). Ganho: escaneável e
@@ -114,12 +122,12 @@ do MVP:
     isso fica de baixa prioridade enquanto o projeto for de um usuário só.
     Sugestão minha (Claude), confirmada como baixa prioridade pelo usuário.
     *(2026-09-16)*
-26. **ADRs (Architecture Decision Records)** — trocar o Q&A único de
+27. **ADRs (Architecture Decision Records)** — trocar o Q&A único de
     `sugestoes-e-decisoes-do-redesign.md` por um arquivo curto e imutável
     por decisão relevante (formato Nygard: contexto/decisão/consequências).
     Decisão revista vira um ADR novo que supersede o antigo, em vez de
     editar o `> Status:` por cima como hoje — histórico fica honesto, mas
-    com mais arquivos pra navegar. Mesma origem e confirmação do item 25.
+    com mais arquivos pra navegar. Mesma origem e confirmação do item 26.
     *(2026-09-16)*
 
 Este arquivo não substitui o `README.md` da raiz (que descreve o que
@@ -558,6 +566,32 @@ mais simples, se o acordeão for exagero pro volume real: limitar a lista a
 **Status:** registrado 2026-09-24, a pedido do usuário, com sugestão de
 abordagem; decisão de qual variante (acordeão por ano vs. "últimos 12 +
 ver todos") fica pra quando esta melhoria for priorizada.
+
+### Lançamentos recorrentes: aplicação/retirada com caixinha (reserva)
+
+**Contexto:** a Rodada 25 estendeu `lancamentos_recorrentes` pra cobrir
+receita/despesa/aplicação/retirada (antes só despesa fixa), mas deixou
+caixinha/reserva de fora — decisão minha de escopo na hora, não um "não"
+do usuário. Testando, o usuário esclareceu: aplicação/retirada
+recorrente PODE ser vinculada a uma caixinha (reserva), mesma
+possibilidade que já existe em Novo Lançamento — a limitação foi só
+falta de eu ter perguntado, não uma regra de negócio real.
+
+**O que precisaria:** `lancamentos_recorrentes` ganhar `caixinha_id`
+(nullable), mesma regra de `transacoes`/Novo Lançamento — caixinha só em
+aplicação/retirada, e a conta do recorrente precisa bater com a conta
+vinculada da caixinha. `confirmar()` passa `caixinha_id` pra transação
+real gerada. No formulário (`RecorrentesSection.tsx`), aplicação/
+retirada ganha a mesma escolha "Investimento × Reserva" que Novo
+Lançamento já tem (`direcao`/tipo `reserva` vs `investimento`), com
+seleção de caixinha quando for reserva.
+
+**Ordem confirmada com o usuário:** o item 22 (Estrutura de Custo
+carregando devagar) é o item anterior a este na fila — corrigir a
+lentidão primeiro, esta extensão de recorrentes depois.
+
+**Status:** registrado 2026-09-24, a pedido do usuário, sem
+implementação ainda.
 
 ---
 
