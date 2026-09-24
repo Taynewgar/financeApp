@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { InfoIcon } from '../components/InfoIcon'
 import { SeletorPeriodo } from '../components/SeletorPeriodo'
 import { Sparkline } from '../components/Sparkline'
 import '../components/forms.css'
@@ -227,6 +228,7 @@ export function Dashboard() {
             <div>
               <span style={{ fontSize: 12, color: 'var(--cor-texto-suave)' }}>
                 {leitura === 'caixa' ? 'Resultado de caixa' : 'Resultado de saúde'}
+                <InfoIcon />
               </span>
               <div className={classeResultado(hero ?? 0)} style={{ fontSize: 48, fontWeight: 600, lineHeight: 1.1 }}>
                 {formatarMoeda(hero ?? 0, oculto)}
@@ -248,7 +250,10 @@ export function Dashboard() {
             {leitura === 'caixa' ? (
               <>
                 <div className="resumo-card" title={EXPLICACAO.receitas}>
-                  <span className="resumo-card-rotulo">Receitas</span>
+                  <span className="resumo-card-rotulo">
+                    Receitas
+                    <InfoIcon />
+                  </span>
                   <span className="resumo-card-valor valor-receita">{formatarMoeda(resumo.receitas, oculto)}</span>
                   {mesAnterior && (
                     <span className="resumo-card-delta">{textoDelta(resumo.receitas, mesAnterior.receitas, oculto)}</span>
@@ -260,7 +265,10 @@ export function Dashboard() {
                   )}
                 </div>
                 <div className="resumo-card" title={EXPLICACAO.despesas_brutas}>
-                  <span className="resumo-card-rotulo">Despesas</span>
+                  <span className="resumo-card-rotulo">
+                    Despesas
+                    <InfoIcon />
+                  </span>
                   <span className="resumo-card-valor valor-despesa">{formatarMoeda(resumo.despesas_brutas, oculto)}</span>
                   {mesAnterior && (
                     <span className="resumo-card-delta">
@@ -277,7 +285,10 @@ export function Dashboard() {
             ) : (
               <>
                 <div className="resumo-card" title={EXPLICACAO.receita_ajustada}>
-                  <span className="resumo-card-rotulo">Receita ajustada</span>
+                  <span className="resumo-card-rotulo">
+                    Receita ajustada
+                    <InfoIcon />
+                  </span>
                   <span className="resumo-card-valor valor-receita">{formatarMoeda(receitaAjustada(resumo), oculto)}</span>
                   {mesAnterior && (
                     <span className="resumo-card-delta">
@@ -291,7 +302,10 @@ export function Dashboard() {
                   )}
                 </div>
                 <div className="resumo-card" title={EXPLICACAO.despesas_liquidas}>
-                  <span className="resumo-card-rotulo">Despesas líquidas</span>
+                  <span className="resumo-card-rotulo">
+                    Despesas líquidas
+                    <InfoIcon />
+                  </span>
                   <span className="resumo-card-valor valor-despesa">{formatarMoeda(resumo.despesas_liquidas, oculto)}</span>
                   {mesAnterior && (
                     <span className="resumo-card-delta">
@@ -308,7 +322,10 @@ export function Dashboard() {
             )}
 
             <div className="resumo-card" title={EXPLICACAO.reservas}>
-              <span className="resumo-card-rotulo">Reservas</span>
+              <span className="resumo-card-rotulo">
+                Reservas
+                <InfoIcon />
+              </span>
               <span className="resumo-card-valor valor-investimento">{formatarMoeda(resumo.reservas, oculto)}</span>
               {mesAnterior && (
                 <span className="resumo-card-delta">{textoDelta(resumo.reservas, mesAnterior.reservas, oculto)}</span>
@@ -320,7 +337,10 @@ export function Dashboard() {
               )}
             </div>
             <div className="resumo-card" title={EXPLICACAO.investimentos}>
-              <span className="resumo-card-rotulo">Investimentos</span>
+              <span className="resumo-card-rotulo">
+                Investimentos
+                <InfoIcon />
+              </span>
               <span className="resumo-card-valor valor-investimento">{formatarMoeda(resumo.investimentos, oculto)}</span>
               {mesAnterior && (
                 <span className="resumo-card-delta">
@@ -334,7 +354,10 @@ export function Dashboard() {
               )}
             </div>
             <div className="resumo-card" title={EXPLICACAO.taxa_poupanca}>
-              <span className="resumo-card-rotulo">Taxa de poupança</span>
+              <span className="resumo-card-rotulo">
+                Taxa de poupança
+                <InfoIcon />
+              </span>
               <span className="resumo-card-valor">
                 {resumo.taxa_poupanca === null ? '—' : `${resumo.taxa_poupanca.toFixed(1)}%`}
               </span>
@@ -358,7 +381,10 @@ export function Dashboard() {
               )}
             </div>
             <div className="resumo-card" title={EXPLICACAO.meses_negativos}>
-              <span className="resumo-card-rotulo">Meses com resultado negativo</span>
+              <span className="resumo-card-rotulo">
+                Meses com resultado negativo
+                <InfoIcon />
+              </span>
               <span className="resumo-card-valor">
                 {mesesNegativosAno === null ? '—' : mesesNegativosAno.negativos}
               </span>
@@ -367,7 +393,10 @@ export function Dashboard() {
               )}
             </div>
             <div className="resumo-card" title={EXPLICACAO.maior_categoria_despesa}>
-              <span className="resumo-card-rotulo">Maior categoria de despesa</span>
+              <span className="resumo-card-rotulo">
+                Maior categoria de despesa
+                <InfoIcon />
+              </span>
               <span className="resumo-card-valor valor-despesa">
                 {maiorCategoriaDespesa ? maiorCategoriaDespesa.categoria_nome : '—'}
               </span>

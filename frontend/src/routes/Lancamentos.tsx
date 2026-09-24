@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
+import { InfoIcon } from '../components/InfoIcon'
 import '../components/crud.css'
 import '../components/forms.css'
 import '../components/lancamentos.css'
@@ -282,25 +283,40 @@ export function Lancamentos() {
       {resumo && (
         <div className="resumo-cards">
           <div className="resumo-card" title={EXPLICACAO_RESUMO.total}>
-            <span className="resumo-card-rotulo">Lançamentos</span>
+            <span className="resumo-card-rotulo">
+              Lançamentos
+              <InfoIcon />
+            </span>
             <span className="resumo-card-valor">{resumo.total_lancamentos}</span>
           </div>
           <div className="resumo-card" title={EXPLICACAO_RESUMO.receitas}>
-            <span className="resumo-card-rotulo">Receitas</span>
+            <span className="resumo-card-rotulo">
+              Receitas
+              <InfoIcon />
+            </span>
             <span className="resumo-card-valor valor-receita">{formatarMoeda(resumo.receitas, oculto)}</span>
           </div>
           <div className="resumo-card" title={EXPLICACAO_RESUMO.despesas_liquidas}>
-            <span className="resumo-card-rotulo">Despesas líquidas</span>
+            <span className="resumo-card-rotulo">
+              Despesas líquidas
+              <InfoIcon />
+            </span>
             <span className="resumo-card-valor valor-despesa">{formatarMoeda(resumo.despesas_liquidas, oculto)}</span>
           </div>
           <div className="resumo-card" title={EXPLICACAO_RESUMO.fluxo_caixa}>
-            <span className="resumo-card-rotulo">Fluxo de caixa</span>
+            <span className="resumo-card-rotulo">
+              Fluxo de caixa
+              <InfoIcon />
+            </span>
             <span className={`resumo-card-valor ${resumo.resultado_fluxo_caixa >= 0 ? 'valor-receita' : 'valor-despesa'}`}>
               {formatarMoeda(resumo.resultado_fluxo_caixa, oculto)}
             </span>
           </div>
           <div className="resumo-card" title={EXPLICACAO_RESUMO.taxa_poupanca}>
-            <span className="resumo-card-rotulo">Taxa de poupança</span>
+            <span className="resumo-card-rotulo">
+              Taxa de poupança
+              <InfoIcon />
+            </span>
             <span className="resumo-card-valor">
               {resumo.taxa_poupanca === null ? '—' : `${resumo.taxa_poupanca.toFixed(1)}%`}
             </span>

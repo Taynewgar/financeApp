@@ -2033,3 +2033,46 @@ novos.
       original.
 - [ ] Deixar o valor em branco ou zerado e tentar salvar → mensagem de
       erro, não salva.
+
+### Rodada 22 (2026-09-24) — indicador visual de tooltip
+
+Item registrado 2026-09-15 (backlog), primeiro da leva pós-MVP que o
+usuário decidiu priorizar agora, em ordem, cada um com checklist próprio.
+Motivo original: o Dashboard já tem `title` explicando cada card de
+resumo, mas nada na tela avisa que o card é "hover-ável" — só se descobre
+passando o mouse por acaso.
+
+**`components/InfoIcon.tsx`** (componente novo): círculo pequeno com "?",
+puramente decorativo (`aria-hidden`) — a explicação acessível continua
+sendo o `title` nativo do elemento pai, que já existia; o ícone só sinaliza
+que ele existe. Um componente único reaproveitado em todas as telas, em
+vez de um ícone por tela (like pedido no backlog).
+
+**Auditoria de onde entra:** todo lugar com o mesmo padrão do Dashboard —
+um rótulo curto com `title` explicativo no elemento pai (cards de resumo,
+toggles). Aplicado em: Dashboard (toggle Leitura de Caixa/Saúde + 9 cards
+de resumo), Lançamentos (5 cards de resumo), `SeletorPeriodo` ("Base da
+média"). Dois lugares com `title` foram conscientemente deixados de fora
+por não seguirem esse padrão: `EstruturaCusto.tsx` (anotação de "+sobra"
+é um valor inline, não um rótulo de card) e `NovoLancamento.tsx`
+(`<select>` de estrutura de custo padrão na criação inline de
+subcategoria, sem rótulo próprio pra ancorar o ícone).
+
+**Testes:** mudança puramente visual, sem lógica nova — sem teste
+automatizado (frontend não tem suíte). `tsc -b && vite build` e `oxlint`
+sem erros novos.
+
+**Checklist de teste manual:**
+- [ ] Dashboard: cada card de resumo (Receitas, Despesas, Reservas,
+      Investimentos, Taxa de poupança, Meses com resultado negativo,
+      Maior categoria de despesa) e o texto "Resultado de caixa/saúde"
+      mostram um círculo pequeno com "?" ao lado do rótulo.
+- [ ] Passar o mouse sobre o círculo (ou sobre o card, como já
+      funcionava) → tooltip nativo com a explicação aparece.
+- [ ] Lançamentos: os 5 cards de resumo (Lançamentos, Receitas, Despesas
+      líquidas, Fluxo de caixa, Taxa de poupança) mostram o mesmo círculo.
+- [ ] Dashboard e Lançamentos → seletor de período → "Base da média"
+      mostra o círculo, com a explicação de "Até o mês" vs "Ritmo anual"
+      no hover.
+- [ ] Visual não quebra em mobile (< 720px) — círculo não estoura a
+      largura do card nem sobrepõe o valor.

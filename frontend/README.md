@@ -24,6 +24,12 @@ PWA em React + Vite + TypeScript, consumindo a API do `backend/`.
   eixo Y do gráfico de evolução.
 - `src/components/EvolucaoChart.tsx` — gráfico de linha (SVG puro) usado no
   Dashboard, com hover/crosshair/tooltip e alternância pra tabela.
+- `src/components/InfoIcon.tsx` — círculo pequeno com "?", decorativo,
+  usado ao lado de rótulos que têm explicação extra no `title` (tooltip
+  nativo) do elemento pai — sinaliza que dá pra passar o mouse, sem repetir
+  o texto da explicação. Componente único pro app inteiro (Dashboard,
+  Lançamentos, Base da média em `SeletorPeriodo`), em vez de um ícone por
+  tela.
 - `src/routes/` — uma tela por seção. `Dashboard` mostra os KPIs do mês e a
   evolução (ver abaixo); `Configuracoes` tem os CRUDs de Contas/Categorias/
   Caixinhas (ver abaixo);

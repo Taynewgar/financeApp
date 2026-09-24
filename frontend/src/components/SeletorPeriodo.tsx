@@ -1,4 +1,5 @@
 import './dashboard.css'
+import { InfoIcon } from './InfoIcon'
 import { hojeAnoMes, rotuloMesLongo, type Periodo } from '../lib/periodo'
 
 const EXPLICACAO_BASE_MEDIA =
@@ -73,7 +74,10 @@ export function SeletorPeriodo(periodo: Periodo & { mostrarBaseMedia?: boolean }
 
       {mostrarBaseMedia && (
         <div className="campo" title={EXPLICACAO_BASE_MEDIA}>
-          <span style={{ fontSize: 12, color: 'var(--cor-texto-suave)' }}>Base da média</span>
+          <span style={{ fontSize: 12, color: 'var(--cor-texto-suave)' }}>
+            Base da média
+            <InfoIcon />
+          </span>
           <div className="segmentado">
             <button type="button" className={baseMedia === 'ate_mes' ? 'ativo' : ''} onClick={() => setBaseMedia('ate_mes')}>
               Até o mês

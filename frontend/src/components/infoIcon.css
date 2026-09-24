@@ -1,0 +1,15 @@
+.info-icone {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  margin-left: 4px;
+  border-radius: 50%;
+  border: 1px solid var(--cor-borda);
+  color: var(--cor-texto-suave);
+  font-size: 10px;
+  line-height: 1;
+  font-weight: 600;
+  flex-shrink: 0;
+}
