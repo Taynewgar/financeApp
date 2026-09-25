@@ -2844,3 +2844,66 @@ item, agora 0).
 - [ ] Criar/editar/reativar um item que estoura o teto do bucket ainda
       bloqueia com a mensagem de erro esperada (validação de teto
       continua funcionando com os dados vindos do contexto em lote).
+
+### Rodada 30 (2026-09-25) — 2 fixes de layout mobile: tooltip perto da borda + cards de Lançamentos quebrando
+
+Itens 19 e 20 do backlog, pedidos juntos pelo usuário ("correções de
+layout"). Detalhe técnico completo de cada um em `docs/backlog.md`
+(seções "Tooltip: balão abre perto da borda/canto no mobile" e
+"Lançamentos: cards quebrando no layout mobile") — aqui só o resumo.
+
+**Item 19 — balão do InfoIcon estourando a tela perto das bordas:**
+`.info-icone-balao` trocou `position: absolute` (ancorado no ícone via
+CSS, sem noção de onde estava na tela) por `position: fixed` com
+coordenadas calculadas via `getBoundingClientRect()` do botão, clampadas
+dentro do viewport — se não coubesse embaixo do ícone, abre em cima.
+Fecha também ao rolar a página (um balão `fixed` fica desalinhado do
+ícone assim que a página rola), além dos fechamentos que já existiam
+(clique fora, Escape).
+
+- `frontend/src/components/InfoIcon.tsx`: `useLayoutEffect` calcula
+  `{top, left}` a cada abertura; listener de `scroll` (capture) somado
+  ao efeito de fechar.
+- `frontend/src/components/infoIcon.css`: `.info-icone-balao` vira
+  `position: fixed`, sem `top`/`left` fixos (vêm inline).
+
+**Item 20 — cards de Lançamentos quebrando no mobile:** causa raiz era
+no componente de lista COMPARTILHADO (`crud.css`), não específica de
+Lançamentos — afeta também Contas/Categorias/Caixinhas, Recorrentes e
+Compromissos Futuros. `.item-acoes` tinha `flex-shrink: 0`: numa parcela
+com "Editar" + "Excluir" + "Excluir compra inteira" (label longo, só em
+compra parcelada), a soma dos botões passava da largura da tela e vazava
+do card — `flex-wrap: wrap` sozinho não resolvia porque `flex-shrink: 0`
+impede o container de encolher, então seu próprio `flex-wrap` interno
+nunca tinha chance de agir.
+
+- `frontend/src/components/crud.css`: `.item-linha` ganhou
+  `flex-wrap: wrap`; `.item-acoes` trocou `flex-shrink: 0` por
+  `min-width: 0` (+ `flex-wrap: wrap` nele mesmo).
+
+**Testes:** mudança 100% frontend, sem lógica nova — tsc/build/lint
+limpos (nenhum warning novo; os 2 leftover `set-state-in-effect` já
+existiam antes desta rodada, padrão já tolerado em outras telas). QA
+visual via Playwright (harness de auth mockada, descartado ao final):
+- Item 19: os 8 `InfoIcon` do Dashboard a 390px — todos os balões
+  fecham dentro do viewport (horizontal e vertical), incluindo o mais
+  próximo da borda direita; `scrollHeight` do documento não muda
+  antes/depois de abrir nenhum.
+- Item 20: `/lancamentos` a 360px e 320px com uma transação parcelada de
+  descrição longa (pior caso) — `scrollWidth` do documento bate exato
+  com a largura do viewport nos dois tamanhos; varredura de
+  `getBoundingClientRect()` em todos os elementos da página não achou
+  nenhum passando da borda. `/configuracoes` a 320px também sem
+  overflow (mesmo componente compartilhado).
+
+**Checklist de teste manual:**
+- [ ] Num celular de verdade, abrir um InfoIcon perto da borda direita
+      da tela (ex: KPI "Investimentos" no Dashboard) — balão aparece
+      inteiro, sem cortar.
+- [ ] Abrir um InfoIcon perto do fim da tela (rolar até o fim antes) —
+      balão abre em cima do ícone em vez de embaixo.
+- [ ] Rolar a página com um balão aberto — ele fecha.
+- [ ] Lançamentos, mobile, um item de compra parcelada com descrição
+      longa — botões quebram linha dentro do card, sem vazar.
+- [ ] Configurações → Contas/Categorias/Caixinhas e Lançamentos →
+      Recorrentes, mobile — sem regressão visual (mesmo componente).

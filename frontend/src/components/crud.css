@@ -18,7 +18,8 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  flex-wrap: wrap;
+  gap: 6px 12px;
 }
 
 .item-inativo {
@@ -43,8 +44,17 @@
 
 .item-acoes {
   display: flex;
-  gap: 8px;
-  flex-shrink: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px 8px;
+  /* min-width:0 (não flex-shrink:0) é o que de fato permite ao container
+   * encolher dentro do .item-linha — sem isso, o flex-wrap aqui dentro
+   * nunca tinha chance de agir: um item com largura mínima = conteúdo
+   * inteiro (a soma dos botões) nunca fica menor que ele mesmo, então
+   * "Excluir compra inteira" (bem largo) vazava pra fora do card mesmo
+   * numa linha própria (bug real, item 20 do backlog). */
+  min-width: 0;
 }
 
 .botao-link {

@@ -90,15 +90,6 @@ prioridade abaixo:
     hoje o modo "Mês" em `/graficos` mostra N meses pra trás contando do
     mês selecionado (12, ver Rodada 16.2). Repensar se um ano civil fixo
     (janeiro-dezembro) seria mais legível.
-19. **Tooltip: balão abre perto da borda/canto no mobile aumentando a
-    área que precisa ser rolada** — reportado 2026-09-24, testando a
-    Rodada 22.1. O balão (`position:absolute`) pode extrapolar o
-    viewport perto das bordas, ampliando o scroll da página. Fix
-    provável: clampar a posição do balão dentro do viewport (ou usar
-    `position:fixed` com coordenadas calculadas via
-    `getBoundingClientRect`).
-20. **Lançamentos: cards quebrando no layout mobile** — reportado
-    2026-09-24.
 23. **Lançamentos recorrentes: aplicação/retirada com caixinha (reserva)**
     — registrado 2026-09-24. Escopo confirmado com o usuário depois da
     Rodada 25 (que estendeu recorrentes pra receita/despesa/aplicação/
@@ -135,6 +126,15 @@ prioridade abaixo:
 24. ~~Planejamento com o mesmo padrão de lentidão de Estrutura de Custo~~
     **feito 2026-09-25** — mesmo fix portado pra `routers/orcamentos.py`.
     Detalhe na subseção própria abaixo, ver changelog Rodada 29.
+19. ~~Tooltip: balão abre perto da borda/canto no mobile aumentando a
+    área que precisa ser rolada~~ **feito 2026-09-25** — `InfoIcon` passou
+    a `position:fixed` com coordenadas calculadas via
+    `getBoundingClientRect`, clampadas dentro do viewport. Detalhe na
+    subseção própria abaixo, ver changelog Rodada 30.
+20. ~~Lançamentos: cards quebrando no layout mobile~~ **feito 2026-09-25**
+    — causa era compartilhada com Contas/Categorias/Caixinhas/Recorrentes
+    (mesmo componente de lista, `crud.css`), não só Lançamentos. Detalhe
+    na subseção própria abaixo, ver changelog Rodada 30.
 
 ### Baixa prioridade confirmada pelo usuário
 
@@ -783,6 +783,93 @@ dark, indicador de ativo em `/configuracoes`, menu aberto/fechado,
 desktop sem regressão na sidebar) — sem Supabase real nesta sessão, então
 sem teste de navegação de ponta a ponta contra dados reais. Ver checklist
 de teste manual no changelog.
+
+### Tooltip: balão abre perto da borda/canto no mobile
+
+**Contexto:** reportado 2026-09-24, testando a Rodada 22.1 (ícone de
+info clicável do `InfoIcon`). O balão (`.info-icone-balao`) era
+`position: absolute; top: calc(100% + 6px); left: 0;`, ancorado sem
+noção nenhuma de onde estava na tela — perto da borda direita do
+viewport ele estourava (o `body` já tinha `overflow-x: hidden` desde a
+Rodada 23.2, então não alargava a página, mas o texto ficava cortado/
+ilegível); perto do fundo, como só `overflow-x` é escondido (não
+`overflow-y`), o balão empurrava a altura rolável do documento pra baixo
+do necessário.
+
+**Fix:** balão trocou de `position: absolute` (ancorado no ícone via
+CSS) pra `position: fixed` com coordenadas calculadas em JS
+(`getBoundingClientRect()` do botão) e clampadas dentro do viewport (8px
+de margem): `left` nunca deixa o balão passar da borda direita nem da
+esquerda; se não coubesse embaixo do ícone (estimativa de altura de
+90px — suficiente pros textos reais, todos curtos), abre em cima dele
+em vez de embaixo. Fecha também ao rolar a página (um balão `fixed`
+"gruda" no lugar errado assim que qualquer container rolável se move) —
+antes só fechava por clique fora ou Escape.
+
+- `frontend/src/components/InfoIcon.tsx`: `useLayoutEffect` novo calcula
+  `{top, left}` sempre que o balão abre; listener de `scroll` (capture)
+  adicionado ao efeito que já fechava por clique fora/Escape.
+- `frontend/src/components/infoIcon.css`: `.info-icone-balao` de
+  `position: absolute` pra `position: fixed`, sem `top`/`left` fixos no
+  CSS (vêm inline, calculados).
+
+**Status:** implementado 2026-09-25 (Rodada 30). QA visual via
+Playwright (harness de auth mockada) nos 8 `InfoIcon` do Dashboard, a
+390px de largura: todos os balões ficam dentro do viewport (horizontal e
+vertical) ao abrir, incluindo o mais próximo da borda direita (que
+precisou do clamp de verdade pra não estourar); `document.
+documentElement.scrollHeight` não muda antes/depois de abrir nenhum
+deles — o sintoma original ("amplia a área que precisa ser rolada")
+confirmado resolvido.
+
+**Checklist de teste manual:**
+- [ ] Num celular de verdade (não só emulação), abrir um InfoIcon perto
+      da borda direita da tela (ex: KPI "Investimentos" no Dashboard) —
+      o balão deve aparecer inteiro, sem cortar.
+- [ ] Abrir um InfoIcon perto do fim da tela (rolar até o fim antes) —
+      o balão deve abrir em cima do ícone em vez de embaixo, sem cortar
+      nem exigir rolar mais.
+- [ ] Rolar a página com um balão aberto — ele deve fechar (em vez de
+      ficar desalinhado do ícone).
+
+### Lançamentos: cards quebrando no layout mobile
+
+**Contexto:** reportado 2026-09-24. Ao investigar, a causa não era
+específica de Lançamentos — é o componente de lista compartilhado
+(`.lista-crud`/`.item-linha`/`.item-info`/`.item-acoes`, `crud.css`),
+usado também em Contas/Categorias/Caixinhas (Configurações),
+Recorrentes e Compromissos Futuros (Dashboard). `.item-acoes` tinha
+`flex-shrink: 0` — em uma parcela com "Editar", "Excluir" e "Excluir
+compra inteira" (label longo, só aparece em compra parcelada), a soma
+dos botões passava da largura da tela e vazava pra fora do card. O
+`flex-wrap: wrap` que parecia a correção óbvia não bastava sozinho:
+`flex-shrink: 0` impede o container de encolher, então mesmo numa linha
+própria (`.item-linha` já quebrando linha) ele nunca ficava menor que o
+próprio conteúdo — precisava de `min-width: 0` pra que o `flex-wrap`
+interno dele (os botões entre si) tivesse chance de agir.
+
+**Fix:** `crud.css` — `.item-linha` ganhou `flex-wrap: wrap`;
+`.item-acoes` trocou `flex-shrink: 0` por `min-width: 0` (mantendo
+`flex-wrap: wrap` nele também, mais `justify-content: flex-end` pra
+manter os botões alinhados à direita quando cabem numa linha só).
+
+**Status:** implementado 2026-09-25 (Rodada 30). QA visual via
+Playwright (harness de auth mockada) em `/lancamentos` a 360px e 320px
+de largura com uma transação parcelada de descrição longa (pior caso:
+"Excluir compra inteira" + valor + "Editar" + "Excluir" não cabem numa
+linha só) — `document.documentElement.scrollWidth` bate exatamente com
+a largura do viewport nos dois tamanhos (sem overflow), varredura por
+`getBoundingClientRect()` de todos os elementos da página não encontrou
+nenhum passando da borda. `/configuracoes` (mesmo componente
+compartilhado) testado a 320px também sem overflow.
+
+**Checklist de teste manual:**
+- [ ] Lançamentos, mobile, um item de compra parcelada com descrição
+      longa: os botões ("Editar"/"Excluir"/"Excluir compra inteira")
+      quebram linha dentro do card em vez de vazar pra fora dele.
+- [ ] Configurações → Contas/Categorias/Caixinhas e Lançamentos →
+      Recorrentes, mobile: nenhuma lista com esse mesmo layout deve ter
+      regressão visual (o fix é no componente compartilhado).
 
 ### Menu "mais" da barra de navegação mobile: promover item mais usado
 
