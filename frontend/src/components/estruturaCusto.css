@@ -125,10 +125,17 @@
   font-variant-numeric: tabular-nums;
 }
 
-.estrutura-custo-bucket-valores .rotulo-inline {
+.rotulo-inline {
   color: var(--cor-texto-suave);
   font-weight: 400;
   margin-right: 4px;
+}
+
+/* nas linhas de item (col-num), o rótulo só aparece no mobile — no
+ * desktop o cabeçalho de coluna (Orçado/Realizado/Diferença) já diz o
+ * que é cada número, repetir em toda linha seria ruído visual */
+.estrutura-custo-sub-linha .rotulo-inline {
+  display: none;
 }
 
 .estrutura-custo-seta {
@@ -242,21 +249,48 @@
   color: var(--cor-texto-suave);
 }
 
-@media (max-width: 480px) {
+/* mesmo breakpoint do AppShell (720px, onde a navegação vira barra
+ * inferior) — não um valor próprio (480px, como era até a Rodada 25.1):
+ * um tablet estreito em modo retrato (ex: 600px) já usa a casca mobile,
+ * mas ainda caía na grade "desktop" daqui, com colunas fixas de até
+ * 140px que não cabiam nem nesse meio-termo. Unificar no mesmo
+ * breakpoint elimina essa zona intermediária quebrada. */
+@media (max-width: 720px) {
+  /* linhas de item: a grade de colunas fixas (140/100/100/90/26px) nunca
+   * cabe numa tela de celular — mesmo a versão "encolhida" (100/80/60px)
+   * ainda estourava a largura, cortando números no fim da tela (bug
+   * reportado 2026-09-24 e de novo 2026-09-25, com prints do app real).
+   * Causa: colunas de largura fixa em px, mais o texto do nome (1ª
+   * coluna) que não tem como encolher além do próprio conteúdo — a soma
+   * sempre passa da largura da tela em algum breakpoint. Troca de grid
+   * por flex-wrap: nome ocupa a linha inteira, os valores (agora com
+   * rótulo — Orçado/Realizado/Diferença — já que o cabeçalho de coluna
+   * fica escondido) fluem numa 2ª linha e quebram entre si se precisar,
+   * em vez de vazar pra fora do card. */
   .estrutura-custo-sub-linha {
-    grid-template-columns: 1fr 100px 80px 60px;
-  }
-  .estrutura-custo-sub-linha .col-status,
-  .estrutura-custo-sub-linha .col-ir {
-    display: none;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    row-gap: 6px;
+    column-gap: 14px;
   }
 
-  /* larguras fixas em px (140/100/100/90/26) nunca cabem numa tela de
-   * celular — mesmo com só 4 colunas ainda estourava a largura (bug
-   * reportado 2026-09-24, "quebrando"). Cada linha de bucket/categoria já
-   * rotula os valores inline ("Orçado R$x Realizado R$y"), então o
-   * cabeçalho de coluna é só decorativo aqui — mais seguro esconder do
-   * que tentar espremer. */
+  .estrutura-custo-sub-linha-nome {
+    flex: 1 1 100%;
+  }
+
+  .estrutura-custo-sub-linha .col-num,
+  .estrutura-custo-sub-linha .col-status,
+  .estrutura-custo-sub-linha .col-ir {
+    text-align: left;
+  }
+
+  .estrutura-custo-sub-linha .rotulo-inline {
+    display: inline;
+  }
+
+  /* cabeçalho de coluna era só decorativo mesmo no desktop (cada linha
+   * já rotula os valores) — sem espaço pra ele no mobile. */
   .estrutura-custo-cabecalho-colunas {
     display: none;
   }

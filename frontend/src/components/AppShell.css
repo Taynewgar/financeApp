@@ -148,7 +148,11 @@
 /* mobile: nav vira barra inferior, sidebar some */
 @media (max-width: 720px) {
   :root {
-    --shell-altura-barra-mobile: 64px;
+    /* altura real medida da barra (padding do container + padding do
+     * próprio link + ícone + rótulo) é ~70-71px, não 64px como estava —
+     * a subestimativa deixava a sheet/backdrop sobrepondo ~7px do topo da
+     * barra e reduzia o respiro do FAB acima dela. */
+    --shell-altura-barra-mobile: 72px;
   }
 
   .shell-nav {
@@ -304,7 +308,10 @@
 
   .shell-fab {
     right: 16px;
-    bottom: calc(var(--shell-altura-barra-mobile) + 8px);
+    /* 8px deixava o FAB quase colado na barra (reportado pelo usuário,
+     * item 21) — 20px dá um respiro visual claro sem afastar demais do
+     * botão "+" que ele substitui/complementa. */
+    bottom: calc(var(--shell-altura-barra-mobile) + 20px);
   }
 
   .shell-topo-mobile {

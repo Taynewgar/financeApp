@@ -144,10 +144,8 @@ prioridade abaixo:
 - **21.** ~~Botões inferiores (barra de navegação mobile) pequenos e
   colados~~ **feito 2026-09-25** — decidido via 3 rodadas de mockups
   (Opção A/B/C, Opção C mesclada escolhida e refinada pelo usuário).
-  Detalhe na subseção própria abaixo, ver changelog Rodada 28. Ajuste
-  pendente reportado pelo usuário: o FAB ("+") ficou muito colado no
-  menu inferior — aguardando a próxima rodada de trabalho na barra pra
-  corrigir junto.
+  Ajuste de acabamento (FAB colado na barra) feito na Rodada 31. Detalhe
+  na subseção própria abaixo, ver changelog Rodadas 28 e 31.
 - **22.** ~~Estrutura de Custo carregando devagar~~ **feito
   2026-09-24** — causa raiz era a mesma classe de bug já corrigida em
   Gráficos (Rodada 19.2/19.3), só que ainda não tinha sido aplicada em
@@ -157,6 +155,11 @@ prioridade abaixo:
   Custo~~ **feito 2026-09-25** — mesmo fix portado pra
   `routers/orcamentos.py`. Detalhe na subseção própria abaixo, ver
   changelog Rodada 29.
+- **30.** ~~Estrutura de Custo: tabela de itens quebrando no mobile~~
+  **feito 2026-09-25** — reportado com prints do app real; causa igual
+  à do item 20 (colunas de largura fixa que não cabem em tela estreita),
+  só que numa tela ainda não coberta por aquele fix. Detalhe na
+  subseção própria abaixo, ver changelog Rodada 31.
 
 ### Baixa prioridade confirmada pelo usuário
 
@@ -806,6 +809,20 @@ desktop sem regressão na sidebar) — sem Supabase real nesta sessão, então
 sem teste de navegação de ponta a ponta contra dados reais. Ver checklist
 de teste manual no changelog.
 
+**Ajuste de acabamento (Rodada 31, 2026-09-25):** usuário testou no
+aparelho real e reportou o FAB ("+") muito colado na barra — o gap era
+`--shell-altura-barra-mobile (64px, valor ESTIMADO) + 8px`. Duas causas
+juntas: o gap em si (8px) era pequeno, e a constante da altura da barra
+estava errada — a altura real medida (soma do padding do container +
+padding do próprio link + ícone + rótulo) é ~70-71px, não 64px, então a
+sheet/backdrop do menu também sobrepunham ~7px do topo da barra sem que
+desse pra perceber a olho nu contra o fundo escurecido. Corrigido os
+dois: constante ajustada pra 72px (mais próxima da real) e gap do FAB
+subiu de 8px pra 20px. Confirmado via `getBoundingClientRect` no
+Playwright: gap FAB→barra foi de ~13px (ainda contaminado pela
+constante errada) pra ~21px; gap sheet→barra foi de -6.6px (sobrepondo)
+pra ~1px (colado, sem sobrepor).
+
 ### Tooltip: balão abre perto da borda/canto no mobile
 
 **Contexto:** reportado 2026-09-24, testando a Rodada 22.1 (ícone de
@@ -892,6 +909,69 @@ compartilhado) testado a 320px também sem overflow.
 - [ ] Configurações → Contas/Categorias/Caixinhas e Lançamentos →
       Recorrentes, mobile: nenhuma lista com esse mesmo layout deve ter
       regressão visual (o fix é no componente compartilhado).
+
+### Estrutura de Custo: tabela de itens quebrando no mobile
+
+**Contexto:** reportado 2026-09-25 com 3 prints do app real (não emulado)
+mostrando números cortados na borda direita da tela (ex: "R$ 2.000,0"
+sem o último dígito, "R$ 1.32" separado de "7,51"). Mesma classe de bug
+do item 20 (colunas de largura fixa em px que não cabem em tela
+estreita), só que numa tela ainda não coberta por aquele fix —
+`.estrutura-custo-sub-linha` (a linha de cada categoria/subcategoria
+dentro de um bucket expandido) usa `display: grid` com colunas fixas.
+
+**Causa raiz, em detalhe:** já existia um ajuste pra mobile (Rodada
+25.1) que reduzia a grade de `1fr 140px 100px 100px 90px 26px` pra
+`1fr 100px 80px 60px` abaixo de 480px, escondendo status/link. Não
+bastou — a última coluna (Diferença, 60px) é estreita demais pra
+valores de 4+ dígitos ("-R$ 2.000,00" não cabe, e como é 1 token só,
+sem espaço pra quebrar, o CSS Grid não tem como encolher: ele deixa o
+conteúdo vazar da coluna e da tela em vez de cortar). Um segundo
+problema, estrutural: esse breakpoint (480px) era diferente do
+breakpoint em que o resto do app (`AppShell.css`) já vira layout mobile
+(720px) — um aparelho entre 480 e 720px de largura (comum: tablet
+retrato, ou um celular grande com zoom do sistema reduzindo a densidade
+de pixels efetiva) caía numa zona intermediária nunca testada, ainda
+usando a grade "desktop" de 140/100/100/90/26px, pior ainda.
+
+**Fix:**
+- `frontend/src/components/estruturaCusto.css`: breakpoint unificado com
+  o do `AppShell` (720px, não mais 480px — elimina a zona intermediária
+  quebrada). `.estrutura-custo-sub-linha` troca `display: grid` (colunas
+  fixas) por `display: flex; flex-wrap: wrap` nesse breakpoint — o nome
+  do item ocupa a linha inteira, os valores (Orçado/Realizado/Diferença
+  + status + link) fluem numa 2ª linha e quebram entre si se precisar,
+  em vez de vazar pra fora do card (mesmo princípio do fix do item 20).
+  `.rotulo-inline` generalizado (antes só existia escopado a
+  `.estrutura-custo-bucket-valores`) e reaproveitado aqui.
+- `frontend/src/routes/EstruturaCusto.tsx`: como o cabeçalho de coluna
+  (`.estrutura-custo-cabecalho-colunas`, que dizia "Orçado"/"Realizado"/
+  etc.) continua escondido no mobile, cada valor da linha de item ganhou
+  um rótulo inline (`<span className="rotulo-inline">Orçado</span>` etc,
+  mesmo padrão já usado no cabeçalho de bucket/categoria) — sem isso, um
+  usuário não teria como saber qual número é qual só pela ordem, já
+  quebrada em várias linhas.
+
+**Status:** implementado 2026-09-25 (Rodada 31). QA visual via
+Playwright (harness de auth mockada) reproduzindo os valores exatos dos
+prints do usuário (Aluguel, Conta de Luz, Condomínio, Plano de Saúde,
+com sobra/furo do mês anterior) a 390px e 360px de largura, bucket
+"Custos Fixos" e categoria "Moradia" expandidos: `scrollWidth` do
+documento bate exato com a largura do viewport nos dois tamanhos,
+varredura de `getBoundingClientRect()` não achou nenhum elemento
+passando da borda. Mudança 100% CSS/JSX — `tsc`/`vite build`/`oxlint`
+limpos, sem warning novo.
+
+**Checklist de teste manual:**
+- [ ] Num celular de verdade, Estrutura de Custo, expandir um bucket com
+      vários itens (incluindo algum com sobra/furo do mês anterior,
+      linha maior): nenhum número corta na borda da tela.
+- [ ] Os rótulos "Orçado"/"Realizado"/"Diferença" aparecem antes de cada
+      valor no mobile (cabeçalho de coluna reaparece só no desktop).
+- [ ] Um tablet ou celular grande em modo retrato (~500-700px de
+      largura): mesma barra inferior mobile do resto do app, e a tabela
+      de itens também no layout quebrado em linha (não mais a grade
+      "desktop").
 
 ### Menu "mais" da barra de navegação mobile: promover item mais usado
 

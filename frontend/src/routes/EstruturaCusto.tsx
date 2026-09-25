@@ -237,8 +237,9 @@ export function BucketBloco({
                 {categoriaAberta &&
                   g.folhas.map((f) => (
                     <div className="estrutura-custo-sub-linha" key={f.chave}>
-                      <span>{f.nome}</span>
+                      <span className="estrutura-custo-sub-linha-nome">{f.nome}</span>
                       <span className="col-num">
+                        <span className="rotulo-inline">Orçado</span>
                         {formatarMoeda(f.orcado, oculto)}
                         {f.saldoAnterior !== 0 && (
                           <span className="estrutura-custo-detalhe-sobra" title="Planejado + sobra/furo do mês anterior">
@@ -247,8 +248,14 @@ export function BucketBloco({
                           </span>
                         )}
                       </span>
-                      <span className="col-num">{formatarMoeda(f.realizado, oculto)}</span>
-                      <span className="col-num">{formatarMoeda(f.orcado - f.realizado, oculto)}</span>
+                      <span className="col-num">
+                        <span className="rotulo-inline">Realizado</span>
+                        {formatarMoeda(f.realizado, oculto)}
+                      </span>
+                      <span className="col-num">
+                        <span className="rotulo-inline">Diferença</span>
+                        {formatarMoeda(f.orcado - f.realizado, oculto)}
+                      </span>
                       <span className="col-status">
                         <BadgeStatus orcado={f.orcado} realizado={f.realizado} />
                       </span>

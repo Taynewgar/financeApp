@@ -2907,3 +2907,74 @@ visual via Playwright (harness de auth mockada, descartado ao final):
       longa — botões quebram linha dentro do card, sem vazar.
 - [ ] Configurações → Contas/Categorias/Caixinhas e Lançamentos →
       Recorrentes, mobile — sem regressão visual (mesmo componente).
+
+### Rodada 31 (2026-09-25) — FAB colado na barra + tabela de Estrutura de Custo quebrando no mobile
+
+Usuário testou item 21 (barra inferior) e itens 19/20 (fixes da Rodada
+30) no aparelho real, mandou 3 prints. Feedback: 19 e 20 ficaram bons;
+21 tinha um ajuste de acabamento pendente (FAB colado na barra); e um
+bug novo, não relatado antes — a tabela de itens da Estrutura de Custo
+também quebra no mobile. Pedido: corrigir o FAB e avaliar/resolver a
+quebra da tabela. Detalhe técnico completo de cada um em
+`docs/backlog.md` (seções "Botões inferiores..." e "Estrutura de Custo:
+tabela de itens quebrando no mobile") — aqui só o resumo.
+
+**FAB colado na barra:** duas causas. (1) o gap entre o FAB e a barra
+era só 8px. (2) a constante `--shell-altura-barra-mobile`, usada pra
+posicionar FAB/sheet/backdrop acima da barra, estava em 64px — a altura
+real medida (padding do container + padding do próprio link + ícone +
+rótulo, os dois paddings empilham) é ~70-71px. Isso deixava a
+sheet/backdrop do menu sobrepondo ~7px do topo da barra (mascarado pelo
+fundo escurecido, ninguém tinha notado) e reduzia ainda mais o respiro
+do FAB.
+
+- `frontend/src/components/AppShell.css`: `--shell-altura-barra-mobile`
+  de 64px pra 72px; gap do FAB de `+8px` pra `+20px` sobre essa
+  constante.
+
+**Tabela de Estrutura de Custo quebrando:** mesma classe de bug do item
+20 (Rodada 30) — colunas de largura fixa em px que não cabem em tela
+estreita — só que numa tela ainda não coberta por aquele fix.
+`.estrutura-custo-sub-linha` (linha de cada categoria/subcategoria)
+usava `display: grid` com colunas fixas (`1fr 100px 80px 60px` no
+mobile); a coluna "Diferença" (60px) é estreita demais pra valores de
+4+ dígitos, e como CSS Grid não quebra um token só no meio, o número
+vazava da coluna e da tela. Bônus: o breakpoint dessa tabela (480px) era
+diferente do breakpoint do resto do app (720px, `AppShell.css`) — uma
+tela entre os dois caía numa zona nunca testada.
+
+- `frontend/src/components/estruturaCusto.css`: breakpoint unificado
+  pra 720px; `.estrutura-custo-sub-linha` de `display: grid` (colunas
+  fixas) pra `display: flex; flex-wrap: wrap` — nome do item ocupa a
+  linha inteira, valores fluem numa 2ª linha e quebram entre si se
+  precisar, em vez de vazar. `.rotulo-inline` generalizado (antes só
+  valia dentro de `.estrutura-custo-bucket-valores`).
+- `frontend/src/routes/EstruturaCusto.tsx`: cada valor da linha de item
+  ganhou rótulo inline ("Orçado"/"Realizado"/"Diferença") — o cabeçalho
+  de coluna continua escondido no mobile, então sem rótulo não dava pra
+  saber qual número é qual numa linha quebrada em várias.
+
+**Testes:** mudança 100% frontend — tsc/build/lint limpos, sem warning
+novo. QA visual via Playwright (harness de auth mockada, descartado ao
+final):
+- FAB: `getBoundingClientRect` do FAB e da barra em `/configuracoes` —
+  gap subiu de ~13px pra ~21px; gap da sheet do menu até a barra foi de
+  -6.6px (sobrepondo) pra ~1px (colado, sem sobrepor).
+- Estrutura de Custo: reproduzidos os valores exatos dos prints do
+  usuário (Aluguel, Conta de Luz, Condomínio, Plano de Saúde) a 390px e
+  360px, bucket e categoria expandidos — `scrollWidth` do documento bate
+  exato com o viewport nos dois tamanhos, varredura de
+  `getBoundingClientRect()` não achou elemento nenhum passando da borda.
+
+**Checklist de teste manual:**
+- [ ] Num celular de verdade, olhar o espaço entre o "+" e a barra
+      inferior — deve ter um respiro visível, não mais colado.
+- [ ] Abrir o menu "•••" e conferir que a sheet nasce coladinha acima da
+      barra, sem sobrepor nem deixar um vão visível entre os dois.
+- [ ] Estrutura de Custo, expandir um bucket com vários itens (algum com
+      sobra/furo do mês anterior): nenhum número corta na borda da tela,
+      rótulos "Orçado"/"Realizado"/"Diferença" aparecem antes de cada
+      valor.
+- [ ] Um tablet ou celular grande em modo retrato (~500-700px): tabela
+      de itens também no layout quebrado em linha, não mais a grade
+      "desktop".
