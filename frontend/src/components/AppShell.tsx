@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { checkHealth } from '../lib/api'
@@ -7,6 +7,7 @@ import { EstruturaCustoProvider } from '../lib/EstruturaCustoContext'
 import { GraficosPeriodoProvider } from '../lib/GraficosPeriodoContext'
 import { LancamentosFiltrosProvider } from '../lib/LancamentosFiltrosContext'
 import { PlanejamentoProvider } from '../lib/PlanejamentoContext'
+import { itemMaisUsadoMenuMobile, registrarUsoMenuMobile } from '../lib/usoMenuMobile'
 import { BotaoPrivacidade } from './BotaoPrivacidade'
 import './AppShell.css'
 
@@ -48,15 +49,33 @@ export function AppShell({ children }: { children?: ReactNode }) {
   const [segundosEspera, setSegundosEspera] = useState(0)
   const [tentativa, setTentativa] = useState(0)
   const [menuMobileAberto, setMenuMobileAberto] = useState(false)
+  const [usoRegistrado, setUsoRegistrado] = useState(0)
 
   // AppShell não desmonta ao navegar (só o <Outlet/> troca) — sem isso o
   // menu ficaria aberto por cima da tela seguinte depois de tocar num item.
   useEffect(() => {
     setMenuMobileAberto(false)
+
+    // item 29 do backlog: cada visita a uma rota que vive dentro do menu
+    // "mais" conta pro contador de uso (localStorage) que decide se ela
+    // vira atalho de destaque no topo da sheet.
+    const secaoVisitada = SECOES_MENU_MOBILE.find((secao) => location.pathname.startsWith(secao.to))
+    if (secaoVisitada) {
+      registrarUsoMenuMobile(secaoVisitada.to)
+      setUsoRegistrado((n) => n + 1)
+    }
   }, [location.pathname])
 
   const menuMobileAtivo =
     menuMobileAberto || SECOES_MENU_MOBILE.some((secao) => location.pathname.startsWith(secao.to))
+
+  // usoRegistrado não é usado no corpo — só existe pra invalidar este memo
+  // quando o contador de uso muda (ele mesmo mora em localStorage, fora do
+  // ciclo de re-render normal do React).
+  const itemDestaqueMenuMobile = useMemo(
+    () => itemMaisUsadoMenuMobile(SECOES_MENU_MOBILE),
+    [usoRegistrado], // eslint-disable-line react-hooks/exhaustive-deps
+  )
 
   // dispara assim que o usuário entra no app — se o backend estiver
   // "dormindo" (plano free do Render hiberna após inatividade), começa a
@@ -175,6 +194,15 @@ export function AppShell({ children }: { children?: ReactNode }) {
               </button>
             </div>
             <div className="shell-menu-sheet-lista">
+              {itemDestaqueMenuMobile && (
+                <div className="shell-menu-sheet-destaque">
+                  <div className="shell-menu-sheet-grupo-titulo">Mais usado</div>
+                  <Link to={itemDestaqueMenuMobile.to} className="shell-menu-sheet-item">
+                    <span aria-hidden="true">{itemDestaqueMenuMobile.icone}</span>
+                    {itemDestaqueMenuMobile.label}
+                  </Link>
+                </div>
+              )}
               {SECOES_MENU_MOBILE.map((secao) => (
                 <div key={secao.to} className="shell-menu-sheet-grupo">
                   <div className="shell-menu-sheet-grupo-titulo">{secao.grupo}</div>

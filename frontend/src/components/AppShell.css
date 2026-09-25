@@ -277,6 +277,18 @@
     padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
   }
 
+  /* atalho pro item mais usado (item 29 do backlog) — fica FORA dos
+   * grupos normais, com um fundo levemente tingido pra se destacar do
+   * resto da lista sem precisar de mais uma cor nova. */
+  .shell-menu-sheet-destaque {
+    background: color-mix(in srgb, var(--cor-acento) 8%, transparent);
+    border-bottom: 1px solid var(--cor-borda);
+  }
+
+  .shell-menu-sheet-destaque .shell-menu-sheet-grupo-titulo {
+    color: var(--cor-acento);
+  }
+
   .shell-menu-sheet-grupo-titulo {
     font-size: 10px;
     letter-spacing: 0.05em;

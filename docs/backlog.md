@@ -42,10 +42,6 @@ perdido em volta de itens concluídos).
   ver detalhe abaixo pro porquê.
 - **10.** Exportação de relatório mensal/anual (detalhe abaixo) —
   próximo passo depois do MVP fechado (itens 1-8 abaixo).
-- **29.** **Menu "mais" da barra de navegação mobile: promover item
-  mais usado por contador de uso** (detalhe abaixo) — sugestão minha
-  (Claude), confirmada como alta prioridade pelo usuário em 2026-09-24,
-  durante a discussão de mockups do item 21.
 - **32.** **Melhoria geral de layout da aplicação (V2, pós-MVP)** —
   reportado pelo usuário testando a Rodada 28-31: alguns elementos
   fora de escala, cabeçalho fixo um pouco desproporcional em algumas
@@ -101,6 +97,10 @@ perdido em volta de itens concluídos).
   Base da média), clicável (não depende de hover — não existe em
   touchscreen, corrigido na Rodada 22.1). Ver changelog Rodadas
   22/22.1.
+- **29.** ~~Menu "mais" da barra de navegação mobile: promover item
+  mais usado por contador de uso~~ **feito 2026-09-25** — contador em
+  `localStorage`, sem endpoint novo. Detalhe na subseção própria abaixo,
+  ver changelog Rodada 32.
 
 ### Média prioridade confirmada pelo usuário
 
@@ -1023,10 +1023,57 @@ navegação pra uma das rotas escondidas no menu, sem endpoint novo:
   a cada clique quando dois itens estão empatados, o que ficaria
   bagunçado visualmente.
 
-**Status:** registrado 2026-09-24, sugestão minha confirmada como alta
-prioridade pelo usuário. Depende do item 21 (barra de navegação mobile)
-estar implementado primeiro, já que é uma melhoria de dentro do menu que
-o item 21 cria.
+**Fix:**
+- `frontend/src/lib/usoMenuMobile.ts` (novo arquivo): `registrarUsoMenuMobile(rota)`
+  incrementa um contador por rota num único objeto em
+  `localStorage['financeapp:menu-mobile-uso']` (mesmo padrão try/catch de
+  acesso a `localStorage` já usado em `PrivacyContext`, silencioso se
+  indisponível — aba privada, storage bloqueado). `itemMaisUsadoMenuMobile(itens)`
+  ordena por contagem e só retorna um vencedor se ele tiver pelo menos o
+  dobro de cliques do 2º colocado **e** um mínimo absoluto de 3 cliques —
+  sem o mínimo absoluto, a 1ª navegação a qualquer rota já promovia (2º
+  colocado em 0 cliques satisfaz "o dobro" trivialmente), destacando algo
+  como "mais usado" cedo demais; achado durante o QA desta rodada, não
+  estava no desenho original.
+- `frontend/src/components/AppShell.tsx`: o `useEffect` que já existia
+  pra fechar o menu ao trocar de rota ganhou a chamada de
+  `registrarUsoMenuMobile` quando a rota visitada é uma das que vivem
+  dentro do menu "mais" (`SECOES_MENU_MOBILE`). Um `itemDestaqueMenuMobile`
+  (via `useMemo`, invalidado por um contador `usoRegistrado` que sobe a
+  cada registro — o dado real mora fora do ciclo de render do React, em
+  `localStorage`) decide se renderiza o bloco de destaque "Mais usado" no
+  topo da sheet, fora dos grupos normais, antes do `.map` que desenha
+  Planejamento/Configurações.
+- `frontend/src/components/AppShell.css`: `.shell-menu-sheet-destaque` —
+  fundo com leve tingimento na cor de acento
+  (`color-mix(in srgb, var(--cor-acento) 8%, transparent)`) e título do
+  grupo também na cor de acento, pra destacar sem precisar de mais uma
+  cor nova na paleta.
+
+**Status:** implementado 2026-09-25 (Rodada 32). Sem endpoint novo, sem
+mudança de schema — só frontend. QA via Playwright (harness de auth
+mockada, build de produção — o dev server em StrictMode duplica o
+contador por rodar effects 2x, então a contagem só é confiável testando
+contra `vite build` + `vite preview`) cobrindo: 1 navegação isolada não
+promove nada; 2 rotas empatadas (1×1) não promovem; 3 navegações a uma
+rota vs. 1 a outra (razão 3:1, acima do mínimo de 3 cliques) promove e
+exibe o link correto; aparência conferida em claro e escuro. `tsc`/`vite
+build`/`oxlint` limpos, sem warning novo (bundle 232,93 kB, igual à
+baseline).
+
+**Checklist de teste manual:**
+- [ ] Navegar pra Configurações e Planejamento pelo menu "•••" algumas
+      vezes num celular real, priorizando bem mais uma rota que a outra
+      (ex: 4x Configurações, 1x Planejamento): depois de recarregar o
+      app, o atalho "Mais usado" aparece no topo da sheet, fora dos
+      grupos, apontando pra rota certa.
+- [ ] Com uso ainda empatado ou abaixo do mínimo, o atalho não aparece
+      (sheet mostra só os grupos normais).
+- [ ] Fechar e reabrir o app (contador é local ao aparelho): o destaque
+      permanece, confirmando que persiste em `localStorage` entre
+      sessões.
+- [ ] Aba anônima/privada (ou `localStorage` bloqueado): app não quebra,
+      menu funciona normalmente, só sem o atalho de destaque.
 
 ---
 

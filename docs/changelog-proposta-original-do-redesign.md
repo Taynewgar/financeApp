@@ -3091,3 +3091,53 @@ final):
 - [ ] Um tablet ou celular grande em modo retrato (~500-700px): tabela
       de itens também no layout quebrado em linha, não mais a grade
       "desktop".
+
+### Rodada 32 (2026-09-25) — Menu "mais" mobile: destacar item mais usado (item 29)
+
+Item 29 do backlog: sugestão minha durante a discussão de mockups do
+item 21, confirmada pelo usuário como alta prioridade. A sheet do menu
+"•••" (Opção C, item 21) tende a crescer conforme o app ganha telas —
+destacar o item mais usado no topo, fora dos grupos, evita que ele fique
+perdido lá dentro conforme a lista cresce. Detalhe técnico completo em
+`docs/backlog.md` ("Menu 'mais' da barra de navegação mobile: promover
+item mais usado") — aqui só o resumo.
+
+**Implementação:** contador em `localStorage`, sem endpoint novo nem
+mudança de schema — o uso não precisa sincronizar entre dispositivos
+para este caso (usuário único, poucos aparelhos).
+
+- `frontend/src/lib/usoMenuMobile.ts` (novo): `registrarUsoMenuMobile`
+  incrementa a contagem da rota visitada; `itemMaisUsadoMenuMobile`
+  decide o vencedor.
+- `frontend/src/components/AppShell.tsx`: registra uso no `useEffect` de
+  troca de rota já existente; bloco "Mais usado" renderizado no topo da
+  sheet quando há vencedor.
+- `frontend/src/components/AppShell.css`: `.shell-menu-sheet-destaque`
+  com leve tingimento na cor de acento.
+
+**Ajuste feito durante o QA, fora do desenho original:** a regra
+combinada no backlog ("o dobro de cliques do 2º colocado") promovia já
+na 1ª navegação a qualquer rota, porque o 2º colocado em 0 cliques
+satisfaz "o dobro" trivialmente — destacar algo como "mais usado" depois
+de 1 clique é cedo demais. Adicionado um mínimo absoluto de 3 cliques
+além da razão 2:1.
+
+**Testes:** mudança 100% frontend — `tsc`/`vite build`/`oxlint` limpos,
+sem warning novo (bundle 232,93 kB, igual à baseline). QA via Playwright
+(harness de auth mockada) contra `vite build` + `vite preview` — o dev
+server roda em React StrictMode, que duplica os efeitos e portanto o
+contador, então só o build de produção dá uma contagem confiável. Casos
+cobertos: 1 navegação isolada não promove; 2 rotas empatadas (1×1) não
+promovem; 3 navegações a uma rota vs. 1 a outra promove e aponta pro
+link certo; aparência conferida em claro e escuro.
+
+**Checklist de teste manual:**
+- [ ] Navegar pelo menu "•••" priorizando bem mais uma rota que a outra
+      (ex: Configurações várias vezes, Planejamento só 1) num celular
+      real: o atalho "Mais usado" aparece no topo da sheet, fora dos
+      grupos.
+- [ ] Com uso ainda empatado ou abaixo do mínimo, o atalho não aparece.
+- [ ] Fechar e reabrir o app: o destaque persiste (contador é local ao
+      aparelho, salvo em `localStorage`).
+- [ ] Aba anônima/`localStorage` bloqueado: app não quebra, menu
+      funciona normalmente, só sem o atalho.
