@@ -21,7 +21,7 @@ from scripts.migracao.mapeamento import (
 )
 from scripts.migracao.overrides import chave_linha
 from scripts.migracao.parcelas import agrupar_parcelas, extrair_parcela
-from scripts.migracao.parsing import Lancamento, parse_data, parse_valor
+from scripts.migracao.parsing import Lancamento, carregar_lancamentos, parse_data, parse_valor
 
 import pytest
 
@@ -279,3 +279,28 @@ class TestChaveLinha:
         l1 = _lancamento(valor=100.0)
         l2 = _lancamento(valor=100.01)
         assert chave_linha(l1) != chave_linha(l2)
+
+
+class TestCarregarLancamentos:
+    """Regressão: achada rodando o script de verdade (2026-09-25) — uma
+    linha 'curta' (menos colunas que o cabeçalho, comum nas linhas de
+    sobra de template da planilha) faz o csv.DictReader preencher a
+    coluna faltante com `None`, não com string vazia. `_campo()` batia
+    de frente nisso (`None.strip()`) tanto pras linhas realmente
+    puladas quanto, em tese, pra qualquer lançamento válido com uma
+    coluna à direita faltando."""
+
+    def test_linha_curta_nao_quebra_e_e_reportada_como_pulada(self, tmp_path: Path):
+        csv_path = tmp_path / "lancamentos.csv"
+        csv_path.write_text(
+            "Data,Sub Categoria,Categoria,Meio de Pagamento,Valor,Descrição,"
+            "Tipo do Pag / Movimento,Custo,Banco,Dia,Mês,Ano,Mês Texto,Caixinhas,Movimentação\n"
+            '01/01/2026,Aluguel,Moradia,Pix,"R$ 1.000,00",Aluguel,Compra à vista,'
+            "Custos Fixos,Banco do Brasil,1,1,2026,janeiro,,Despesa\n"
+            ",,Preencher\n",  # linha curta: só 3 das 15 colunas
+            encoding="utf-8",
+        )
+        lancamentos, puladas = carregar_lancamentos(csv_path)
+        assert len(lancamentos) == 1
+        assert len(puladas) == 1
+        assert puladas[0].motivo == "sem Data preenchida"

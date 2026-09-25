@@ -353,7 +353,7 @@ def main() -> None:
     parser.add_argument("--executar", action="store_true", help="Grava de verdade (padrão: só dry-run)")
     args = parser.parse_args()
 
-    lancamentos = carregar_lancamentos(args.csv_lancamentos)
+    lancamentos, linhas_puladas = carregar_lancamentos(args.csv_lancamentos)
     categorias_csv = carregar_categorias(args.csv_categorias)
     caixinhas_csv = carregar_caixinhas(args.csv_caixinhas)
 
@@ -389,6 +389,14 @@ def main() -> None:
     print(f"  Transações em grupos de parcela: {total_parcelas}")
     print(f"  Transações avista/receita/reserva: {len(lancamentos_avista)}")
     print(f"  Total de transações a criar: {len(lancamentos_avista) + total_parcelas}")
+    if linhas_puladas:
+        print(f"  Linhas do CSV ignoradas: {len(linhas_puladas)} (sem a coluna Data preenchida — sobra de template da planilha, não é lançamento)")
+        exemplos = linhas_puladas[:5]
+        for p in exemplos:
+            resumo = {k: v for k, v in p.linha_bruta.items() if v and v.strip()}
+            print(f"    linha {p.numero}: {resumo or '(completamente vazia)'}")
+        if len(linhas_puladas) > len(exemplos):
+            print(f"    ... e mais {len(linhas_puladas) - len(exemplos)} linha(s) igual(is)")
     if sem_padrao:
         print(f"  ATENÇÃO: {len(sem_padrao)} linha(s) 'Parcela sem juros' sem padrão (N/M) reconhecido — não serão migradas:")
         for l in sem_padrao:

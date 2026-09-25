@@ -48,13 +48,32 @@ def parse_data(bruto: str) -> date:
 
 
 def _campo(linha: dict[str, str], nome: str) -> str:
-    return linha.get(nome, "").strip()
+    """`linha.get(nome, "")` não basta: numa linha "curta" (menos colunas
+    que o cabeçalho — comum nas linhas de sobra de template), o
+    `csv.DictReader` preenche a coluna faltante com `None`, não com "" —
+    a chave existe, só o valor é `None`, então o default do `.get` nunca
+    entra em ação."""
+    return (linha.get(nome) or "").strip()
 
 
-def carregar_lancamentos(caminho: str | Path) -> list[Lancamento]:
+@dataclass
+class LinhaPulada:
+    """Uma linha do CSV que não virou `Lancamento` — guarda o número da
+    linha (1 = 1ª linha de dados, logo após o cabeçalho) e o motivo, pra
+    o relatório do dry-run poder mostrar exatamente o que foi ignorado
+    em vez de só um total."""
+
+    numero: int
+    motivo: str
+    linha_bruta: dict[str, str] = field(repr=False)
+
+
+def carregar_lancamentos(caminho: str | Path) -> tuple[list[Lancamento], list[LinhaPulada]]:
     """Lê o CSV principal. Ignora linhas sem `Data` preenchida — sobra de
     template da planilha original (`Categoria: Preencher`, milhares de
-    linhas em branco no fim do arquivo), não são lançamentos de verdade."""
+    linhas em branco no fim do arquivo), não são lançamentos de
+    verdade. Devolve (lançamentos válidos, linhas ignoradas) — nunca
+    ignora nada silenciosamente."""
     with Path(caminho).open(encoding="utf-8-sig", newline="") as f:
         amostra = f.read(4096)
         f.seek(0)
@@ -62,8 +81,10 @@ def carregar_lancamentos(caminho: str | Path) -> list[Lancamento]:
         linhas_brutas = list(csv.DictReader(f, delimiter=delimitador))
 
     lancamentos = []
-    for bruta in linhas_brutas:
+    puladas = []
+    for numero, bruta in enumerate(linhas_brutas, start=1):
         if not _campo(bruta, "Data"):
+            puladas.append(LinhaPulada(numero, "sem Data preenchida", bruta))
             continue
         lancamentos.append(
             Lancamento(
@@ -80,7 +101,7 @@ def carregar_lancamentos(caminho: str | Path) -> list[Lancamento]:
                 movimentacao=_campo(bruta, "Movimentação"),
             )
         )
-    return lancamentos
+    return lancamentos, puladas
 
 
 def carregar_categorias(caminho: str | Path) -> dict[str, list[str]]:
