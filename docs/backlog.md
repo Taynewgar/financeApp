@@ -352,31 +352,159 @@ junto — só existia documentado dentro do plano de evolução original, que
 descreve o racional de decisão, não é pauta de trabalho. Achado e
 corrigido em 2026-09-24, a pedido do usuário.
 
-**O que o script precisa fazer** (detalhado no plano original):
-1. Rodar sobre o histórico consolidado/deduplicado, não sobre CSVs brutos
-   de banco.
-2. Normalizar texto (reaproveitando `_normalize_text` do app antigo) pra
-   agrupar variações e gerar `categorias`/`subcategorias`/`contas`/
-   `caixinhas` a partir dos valores distintos encontrados.
-3. Manter o texto original bruto numa coluna de auditoria
-   (`categoria_raw`) durante a transição, pra conferência.
-4. Reaproveitar `hash_dedup` (unique constraint já implementado desde a
-   Entrega 1, pronto exatamente pra isso) — rodar o script de novo não
-   duplica nada.
-5. Gerar um relatório de dry-run antes de gravar de vez (quantas
-   categorias novas, quantas transações, quantos itens não mapeados) pra
-   validação antes do commit definitivo.
-6. Checagem de reconciliação pós-migração: soma de receita/despesa por
-   mês no CSV antigo tem que bater exatamente com a soma no banco novo
-   (`docs/sugestoes-e-decisoes-do-redesign.md`, seção 4).
+**O que o plano original previa** (`docs/plano-de-evolucao-original.md`):
+rodar sobre histórico consolidado/deduplicado (não CSV bruto de banco),
+normalizar texto (`_normalize_text` do app antigo) pra agrupar variações,
+manter uma coluna de auditoria `categoria_raw`, reaproveitar `hash_dedup`
+pra idempotência, dry-run antes de gravar, reconciliação pós-migração
+(soma de receita/despesa por mês tem que bater).
+
+**Desenho técnico (2026-09-25, revisa o plano acima com base na análise
+real dos arquivos do usuário — ver changelog/histórico da conversa pro
+diagnóstico completo):** a análise linha a linha dos CSVs reais (1.862
+lançamentos válidos, dez/2025–mai/2027, mais `Categorias.csv` e
+`Caixinhas.csv`) mostrou que a hierarquia categoria→subcategoria e as
+caixinhas já batem 100% sem nenhum typo — **normalização de texto e
+`categoria_raw` não são necessários**, o dado de origem já está limpo. O
+que sobrou pra resolver foi outra coisa: como preencher os ~4% de
+lançamentos sem estrutura de custo e como reconstruir o vínculo de
+compra parcelada que o app antigo nunca guardou.
+
+**Fontes de dados:** `Lançamentos_Calculado.csv` (principal),
+`Categorias.csv`, `Caixinhas.csv`. Nunca são commitados no repo (dados
+financeiros pessoais) — o script recebe os 3 caminhos por argumento de
+linha de comando; os arquivos ficam fora do controle de versão.
+
+**Onde mora o script:** `backend/scripts/migrar_dados_antigos.py` (novo
+diretório `backend/scripts/`, paralelo a `backend/tests/`). Segue o
+mesmo padrão já usado por `tests/seed_dados_teste.py`: `TestClient(app)`
++ `sign_in()` via `POST /auth/v1/token` do Supabase + header `Bearer` —
+chama os endpoints reais (`POST /contas`, `/categorias`, `/subcategorias`,
+`/caixinhas`, `/transacoes`) em vez de escrever direto no Supabase, o que
+reaproveita de graça toda validação já implementada (campos obrigatórios,
+`hash_dedup`, cálculo de fatura). Só roda localmente, com `backend/.env`
+preenchido — mesma limitação dos testes de integração, não roda nesta
+sessão remota.
+
+**Exceção — compras parceladas:** `POST /transacoes/parceladas` não serve
+pra isso. Ele foi desenhado pra criar as `parcela_total` transações de
+uma vez, dividindo `valor_total` igualmente e calculando as datas a
+partir de uma única data inicial — nosso histórico tem valor real
+(não-uniforme) por parcela, séries truncadas (começam ou terminam fora
+da janela do CSV) e nem sempre começam na parcela 1. Pra isso, o script
+importa direto os módulos de serviço já existentes — `app.services.
+transacao_insercao.inserir_transacao`/`fatura_referencia_para`,
+`app.services.dedup.compute_hash`, `app.services.orcamento_sync.
+sincronizar_item_orcamento`, `app.auth.get_user_client` (o mesmo client
+autenticado que `get_db` usa por trás de cada request) — grava o
+cabeçalho em `compras_parceladas` e cada parcela com o valor e a data
+reais do CSV, reaproveitando a mesma lógica de fatura/hash do endpoint
+principal, só pulando a parte (divisão uniforme) que não se aplica.
+
+**Ordem de criação:** Contas → Categorias/Subcategorias → Caixinhas →
+Transações (avista, parceladas e reserva juntas, processadas em ordem
+cronológica pra formar os grupos de parcela corretamente).
+
+**Contas (mapeamento fixo, 6 contas):**
+
+| Nome | `tipo_conta` | Regra de roteamento |
+|---|---|---|
+| BTG Corrente | corrente | Banco=BTG + Meio de Pagamento ≠ Cartão de Crédito |
+| BTG Cartão | cartao_credito (fechamento 8, vencimento 11) | Banco=BTG + Meio de Pagamento = Cartão de Crédito |
+| Mercado Pago Wagner | corrente | Banco=Mercado Pago |
+| Mercado Pago Josi | corrente | Banco=Mercado Pago Josi |
+| Banco do Brasil | corrente | Banco=Banco do Brasil |
+| Pluxee | carteira | Banco=Pluxee |
+
+**Categorias/Subcategorias:** geradas a partir de `Categorias.csv`,
+excluindo a categoria-pai "Forma de Pagamento" (é a lista de meios de
+pagamento do app antigo disfarçada de categoria — nenhum lançamento a usa
+de verdade). "Receitas" vira `tipo='receita'`, todas as demais
+`tipo='despesa'` (não existe categoria-pai de investimento no CSV — os
+movimentos de aplicação/retirada não usam `categoria_id`, só
+`caixinha_id`, e isso já bate 100% nos dados). Cada subcategoria recebe
+`estrutura_custo_padrao` a partir do valor aprendido (ver abaixo), quando
+existir um único valor consistente.
+
+**Mapeamento de `meio_pagamento`:** Pix→`pix`, Cartão de Débito→
+`cartao_debito`, Cartão de Crédito→`cartao_credito`, Boleto→`boleto`,
+Débito Automático→`debito_automatico`, Crédito em Conta→`null` (só
+ocorre em Receita, que não exige esse campo — decidido com o usuário,
+sem impacto).
+
+**Mapeamento de `tipo_movimento`** (`Movimentação` + `Tipo do Pag /
+Movimento` do CSV → enum do app): Despesa+(Compra à vista|Parcela sem
+juros|Compra internacional)→`despesa`; Despesa+Estorno→`estorno` (valor
+gravado como `abs(valor do CSV)` — o CSV usa sinal negativo só como
+convenção própria do usuário pra diferenciar de ressarcimento, decidido
+que não há problema em normalizar); Despesa+Ressarcimento→
+`ressarcimento`; Receita+Recebimento→`receita`; Reserva+Aplicação→
+`aplicacao`; Reserva+Retirada→`retirada`. `ajuste_de_transacao_id` fica
+`null` em todos os casos — o CSV não tem uma referência de ID à despesa
+original (só texto livre), então o abatimento de estorno/ressarcimento
+acontece no total da categoria/estrutura de custo (`ResumoLancamentos.
+ajustes_vinculados`), não linha a linha — confirmado com o usuário que
+isso atende.
+
+**`estrutura_custo` — ordem de resolução por linha:**
+1. Valor literal do CSV, quando presente (maioria das linhas).
+2. Valor aprendido: se todas as linhas já preenchidas de uma subcategoria
+   concordam num único valor, os vazios dessa subcategoria usam esse
+   valor (calculado no início do dry-run, cobre a maior parte dos casos).
+3. Caso reste ambíguo (subcategoria sem nenhum dado, ou com valores
+   diferentes entre linhas — sem consenso possível), pergunta interativa
+   no dry-run (abaixo).
+
+**Fluxo interativo do dry-run:** a 1ª passada do dry-run carrega todas as
+linhas pendentes (hoje: 66) e, pra cada uma, mostra data/descrição/
+valor/categoria/subcategoria e pergunta `[F]ixo / [V]ariável / [S]azonal
+/ [P]ular`. Cada resposta é salva em `backend/scripts/
+migracao_overrides.json` (fora do git — é dado financeiro pessoal),
+indexado por um hash estável da linha (mesmos campos do `hash_dedup`,
+sem `user_id`). Reexecuções do dry-run pulam o que já foi respondido —
+só pergunta o que falta. O dry-run só "fecha verde" (pronto pra rodar de
+verdade) quando 0 linhas ficarem pendentes ou todas forem explicitamente
+puladas.
+
+**Parcelas — agrupamento cronológico:** regex `^(.*?)\s*\((\d+)/(\d+)\)
+(.*)$` extrai base/N/total/resto de cada `Descrição`. Agrupa por (base,
+total, resto, categoria, subcategoria, banco), ordena por data, e só
+mantém o mesmo grupo enquanto o próximo N for exatamente o anterior + 1
+— reinício (N volta a 1) ou salto quebra o grupo e começa um novo. Essa
+checagem cronológica foi um achado desta análise: sem ela, duas compras
+diferentes de "Flamengo Nação" (mesma descrição, mesmo total de 12
+parcelas, uma terminando e outra começando no mesmo mês) seriam unidas
+numa só, porque os números 1-12 apareciam completos ao juntar as duas.
+Cada grupo final gera 1 linha em `compras_parceladas` (`valor_total` =
+soma dos valores reais presentes, `parcela_total` = M do texto) + N
+transações com o valor e a data reais de cada linha do CSV — nunca
+recalculados. Grupos truncados (não começam em 1, ou não terminam em M)
+são esperados — a parte que falta ficou fora da janela do arquivo (antes
+de dez/2025) ou ainda não venceu, e **não** é gerada por projeção.
+
+**Duplicatas:** todas mantidas como estão — nenhuma é remoção
+automática. Uma única linha (21/01/2026, "pix josi", R$ 14,35) foi
+confirmada pelo usuário como duplicata de digitação e é removida do CSV
+antes de rodar (não pelo script).
+
+**Reconciliação pós-migração:** soma de receita/despesa por mês no banco
+(via `GET /transacoes/resumo` por período, ou query direta) comparada
+com a soma equivalente calculada a partir do CSV — o relatório final
+aponta qualquer diferença, mês a mês.
+
+**Idempotência:** `hash_dedup` garante que rodar o script de novo não
+duplica nada — uma 2ª execução (ex: depois de resolver uma pendência)
+insere só o que ainda não existe.
 
 **Depois da migração:** importação de CSV vira opcional (import assistido
 de extrato bancário, mapeando pras categorias já existentes) — não é mais
 o único caminho de entrada, já que o formulário guiado já cobre o uso do
 dia a dia.
 
-**Status:** registrado 2026-09-24, alta prioridade — nenhum trabalho
-iniciado ainda.
+**Status:** desenho técnico registrado 2026-09-25, em revisão pelo
+usuário antes de qualquer código ser escrito. Implementação ainda não
+iniciada. Não dá pra rodar a migração de verdade nesta sessão remota (sem
+`backend/.env` com credenciais reais) — só o usuário, localmente.
 
 ### Lançamento com mais de 1 categoria
 
