@@ -207,6 +207,9 @@ sequenciado pra depois do MVP. Nenhum destes 4 está em andamento:
   texto em Conta, sem perda funcional real. *(2026-09-15, renumerado de
   24 pra 28 em 2026-09-24 nesta reorganização — colidia com o item 24
   de média prioridade acima)*
+- **34.** **Fluxo de criação de usuário (cadastro)** (detalhe abaixo) —
+  hoje só existe login; criar usuário é feito manualmente pelo painel
+  do Supabase, sem tela/endpoint no app. *(2026-09-25)*
 
 Este arquivo não substitui o `README.md` da raiz (que descreve o que
 existe) nem o `/status-projeto` (relatório de andamento) — é o registro do
@@ -1241,6 +1244,36 @@ baseline).
       sessões.
 - [ ] Aba anônima/privada (ou `localStorage` bloqueado): app não quebra,
       menu funciona normalmente, só sem o atalho de destaque.
+
+---
+
+### Fluxo de criação de usuário (cadastro)
+
+**Contexto:** surgiu na hora de rodar a migração de dados (item 9,
+2026-09-25) — o usuário perguntou como criar o usuário/senha da conta
+real e descobriu que o app nunca teve tela nem endpoint de cadastro,
+só login (`AuthContext.signIn`, que chama `supabase.auth.
+signInWithPassword`). Pra essa migração, criou o usuário manualmente
+pelo painel do Supabase (Authentication → Users → Add user), que
+resolve bem pra um usuário só.
+
+**Por que não é urgente:** o app é de uso pessoal, o usuário já tem a
+conta criada pelo painel — nenhum fluxo de auto-cadastro é necessário
+pro uso do dia a dia. Só passaria a importar se o app ganhasse mais de
+um usuário (ex: esposa, outro membro da família com conta separada) ou
+se o processo manual pelo painel se tornasse repetitivo.
+
+**O que envolveria, quando for priorizado:**
+- Tela de cadastro no frontend (nome/e-mail/senha) + `supabase.auth.
+  signUp` no `AuthContext`.
+- Decisão de confirmação de e-mail (Supabase manda e-mail de
+  confirmação por padrão — decidir se mantém isso ou usa auto-confirm,
+  como foi feito manualmente agora).
+- Nenhuma mudança de schema — RLS já isola dados por `user_id`
+  automaticamente pra qualquer novo usuário.
+
+**Status:** registrado 2026-09-25, baixa prioridade — sem previsão,
+processo manual atual resolve.
 
 ---
 
