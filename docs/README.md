@@ -90,6 +90,11 @@ inline na seção da rodada correspondente:
 - `rodada26-meses-pulados-*.png` (2 arquivos) — as 2 opções comparadas
   pra agrupar a lista de meses pulados (Rodada 26); `opcaoA-acordeao-
   escolhida` foi a decisão do usuário.
+- `rodada28-opcao*.png` (5 arquivos) — as 3 alternativas da barra de
+  navegação mobile (Rodada 28, item 21): `opcaoA-icones-maiores`,
+  `opcaoB-menu-mais`, e 3 estados da opção escolhida (mesclagem das
+  duas a pedido do usuário) — `opcaoC-mesclada-fechado`,
+  `-menu-aberto`, `-indicador-ativo`.
 
 ## Como manter isso confiável
 

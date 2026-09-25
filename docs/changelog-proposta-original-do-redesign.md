@@ -2822,6 +2822,15 @@ quando o painel está aberto; a sheet nasce colada acima da barra (não por
 cima dela), então os 4 ícones diretos continuam visíveis e clicáveis com
 o menu aberto.
 
+**Mockups (histórico, `docs/mockups/`):** Artifact Design, canvas
+`https://claude.ai/artifact/Px2ZERDHXK3ZGy1uyc5v5S` — 1ª rodada comparou
+[opção A: ícones maiores](mockups/rodada28-opcaoA-icones-maiores.png) e
+[opção B: menu "Mais"](mockups/rodada28-opcaoB-menu-mais.png); usuário
+pediu pra mesclar as duas, viraram a opção C escolhida, com 3 estados —
+[fechado](mockups/rodada28-opcaoC-mesclada-fechado.png),
+[menu aberto](mockups/rodada28-opcaoC-mesclada-menu-aberto.png),
+[indicador de ativo](mockups/rodada28-opcaoC-mesclada-indicador-ativo.png).
+
 **`frontend/src/components/AppShell.tsx`:**
 - `SECOES` (desktop, inalterada) separada de `SECOES_BARRA_MOBILE` (4
   itens) e `SECOES_MENU_MOBILE` (Planejamento/Configurações, com campo
