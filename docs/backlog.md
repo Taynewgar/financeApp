@@ -22,61 +22,78 @@ qualquer lugar que o referencie; só a ordem/agrupamento na lista muda,
 pra separar o que ainda está pendente do que já foi entregue e não ficar
 perdido em volta de itens concluídos).
 
+> **Nota de formatação (2026-09-25):** os itens abaixo usam `- **N.**`
+> (marcador de lista solto + número em negrito), não `N.` como item de
+> lista numerada nativa do Markdown. Motivo: como a numeração aqui não é
+> sequencial dentro de cada bloco (ex.: Pendente de Alta prioridade pula
+> de 10 pra 29), uma lista numerada nativa é renumerada automaticamente
+> pelo renderizador (GitHub etc.) a partir do primeiro item — o "29"
+> apareceria como "11" na tela. Bug real, encontrado pelo usuário
+> revisando o arquivo renderizado depois da reorganização por prioridade.
+> `- **N.**` exibe sempre o número literal do texto-fonte, imune a isso.
+
 ### Alta prioridade
 
 **Pendente:**
 
-9. **Migração de dados do app antigo** (detalhe abaixo) — registrada
-   2026-09-24. Passo do MVP original que ficou de fora do backlog quando
-   ele foi consolidado em arquivo próprio (2026-09-15); ver detalhe
-   abaixo pro porquê.
-10. Exportação de relatório mensal/anual (detalhe abaixo) — próximo passo
-    depois do MVP fechado (itens 1-8 abaixo).
-29. **Menu "mais" da barra de navegação mobile: promover item mais usado
-    por contador de uso** (detalhe abaixo) — sugestão minha (Claude),
-    confirmada como alta prioridade pelo usuário em 2026-09-24, durante a
-    discussão de mockups do item 21.
+- **9.** **Migração de dados do app antigo** (detalhe abaixo) —
+  registrada 2026-09-24. Passo do MVP original que ficou de fora do
+  backlog quando ele foi consolidado em arquivo próprio (2026-09-15);
+  ver detalhe abaixo pro porquê.
+- **10.** Exportação de relatório mensal/anual (detalhe abaixo) —
+  próximo passo depois do MVP fechado (itens 1-8 abaixo).
+- **29.** **Menu "mais" da barra de navegação mobile: promover item
+  mais usado por contador de uso** (detalhe abaixo) — sugestão minha
+  (Claude), confirmada como alta prioridade pelo usuário em 2026-09-24,
+  durante a discussão de mockups do item 21.
 
 **Concluído:**
 
-1. ~~Delta vs mês anterior nos KPIs do Dashboard~~ **feito 2026-09-13**
-2. ~~Tela de Planejamento~~ **feito 2026-09-14** — só configuração
-3. ~~Tela de Estrutura de Custo~~ **feito 2026-09-15** — tabela hierárquica
-   com expand/collapse (bucket > categoria > subcategoria), fita de KPIs,
-   vereditos de pool de despesas/piso de investimentos e drill-down pra
-   Busca de Lançamentos. Backend não mudou (motor já existia).
-4. ~~Categorias "mais usadas" + criação inline no Novo Lançamento~~ **feito
-   2026-09-15** — chips de atalho (ranking por uso nos últimos 6 meses) +
-   formulário inline de criação, sem sair da tela.
-5. ~~Feature "Gráficos" nova~~ **feita 2026-09-16**, em 3 rodadas (A: tela
-   + migração + sparkline, com 2 ajustes extras 16.1/16.2; B: Pareto de
-   despesas por categoria/subcategoria; C: tendência de Orçado×Realizado
-   em vários meses, linka pra Estrutura de Custo), mais uma Rodada D de
-   refinamento em 2026-09-22 (Base da média sempre visível e com efeito
-   garantido em todo modo, reordenação por tema, curva de % acumulado no
-   Pareto) — ver changelog pra detalhe completo de cada rodada.
-6. ~~Dashboard — 3 KPIs novos~~ **feito 2026-09-16** (ordem invertida com o
-   item 5 a pedido do usuário, entregue antes por não ter dependência real
-   de Gráficos) — "Meses com resultado negativo", "Resultado acumulado"
-   (R$, ao lado da taxa em % que já existia) e "Maior categoria de
-   despesa" (mesmo recorte do gráfico "Despesas por Categoria", sem
-   endpoint novo — os 3 vêm de dados já buscados na tela).
-7. ~~Despesa fixa recorrente — aluguel, assinaturas~~ **feito 2026-09-22**
-   — projeção virtual (decisão discutida e aprovada nesta rodada, ver
-   detalhe abaixo): `lancamentos_recorrentes` (tela em Configurações),
-   `POST /lancamentos-recorrentes/{id}/confirmar` materializa a transação
-   real só quando o mês é confirmado, `GET /dashboard/compromissos-futuros`
-   mistura parcelas + ocorrências pendentes.
-8. ~~Edição de compra parcelada~~ **feito 2026-09-24** — níveis 1
-   (metadado) + 3 (exclusão em grupo); nível 2 (recriar o grupo) fica pra
-   decisão futura (detalhe abaixo).
-11. ~~Compromissos futuros no Dashboard~~ **feito por completo
-    2026-09-22** — parcelas futuras (2026-09-13) + despesa fixa
-    recorrente (item 7, 2026-09-22).
-12. ~~Indicador visual de tooltip~~ **feito 2026-09-24** — componente
-    `InfoIcon` único pro app inteiro (Dashboard, Lançamentos, Base da
-    média), clicável (não depende de hover — não existe em touchscreen,
-    corrigido na Rodada 22.1). Ver changelog Rodadas 22/22.1.
+- **1.** ~~Delta vs mês anterior nos KPIs do Dashboard~~ **feito
+  2026-09-13**
+- **2.** ~~Tela de Planejamento~~ **feito 2026-09-14** — só configuração
+- **3.** ~~Tela de Estrutura de Custo~~ **feito 2026-09-15** — tabela
+  hierárquica com expand/collapse (bucket > categoria > subcategoria),
+  fita de KPIs, vereditos de pool de despesas/piso de investimentos e
+  drill-down pra Busca de Lançamentos. Backend não mudou (motor já
+  existia).
+- **4.** ~~Categorias "mais usadas" + criação inline no Novo
+  Lançamento~~ **feito 2026-09-15** — chips de atalho (ranking por uso
+  nos últimos 6 meses) + formulário inline de criação, sem sair da
+  tela.
+- **5.** ~~Feature "Gráficos" nova~~ **feita 2026-09-16**, em 3 rodadas
+  (A: tela + migração + sparkline, com 2 ajustes extras 16.1/16.2; B:
+  Pareto de despesas por categoria/subcategoria; C: tendência de
+  Orçado×Realizado em vários meses, linka pra Estrutura de Custo), mais
+  uma Rodada D de refinamento em 2026-09-22 (Base da média sempre
+  visível e com efeito garantido em todo modo, reordenação por tema,
+  curva de % acumulado no Pareto) — ver changelog pra detalhe completo
+  de cada rodada.
+- **6.** ~~Dashboard — 3 KPIs novos~~ **feito 2026-09-16** (ordem
+  invertida com o item 5 a pedido do usuário, entregue antes por não
+  ter dependência real de Gráficos) — "Meses com resultado negativo",
+  "Resultado acumulado" (R$, ao lado da taxa em % que já existia) e
+  "Maior categoria de despesa" (mesmo recorte do gráfico "Despesas por
+  Categoria", sem endpoint novo — os 3 vêm de dados já buscados na
+  tela).
+- **7.** ~~Despesa fixa recorrente — aluguel, assinaturas~~ **feito
+  2026-09-22** — projeção virtual (decisão discutida e aprovada nesta
+  rodada, ver detalhe abaixo): `lancamentos_recorrentes` (tela em
+  Configurações), `POST /lancamentos-recorrentes/{id}/confirmar`
+  materializa a transação real só quando o mês é confirmado, `GET
+  /dashboard/compromissos-futuros` mistura parcelas + ocorrências
+  pendentes.
+- **8.** ~~Edição de compra parcelada~~ **feito 2026-09-24** — níveis 1
+  (metadado) + 3 (exclusão em grupo); nível 2 (recriar o grupo) fica
+  pra decisão futura (detalhe abaixo).
+- **11.** ~~Compromissos futuros no Dashboard~~ **feito por completo
+  2026-09-22** — parcelas futuras (2026-09-13) + despesa fixa
+  recorrente (item 7, 2026-09-22).
+- **12.** ~~Indicador visual de tooltip~~ **feito 2026-09-24** —
+  componente `InfoIcon` único pro app inteiro (Dashboard, Lançamentos,
+  Base da média), clicável (não depende de hover — não existe em
+  touchscreen, corrigido na Rodada 22.1). Ver changelog Rodadas
+  22/22.1.
 
 ### Média prioridade confirmada pelo usuário
 
@@ -86,84 +103,89 @@ prioridade abaixo:
 
 **Pendente:**
 
-18. **Janela de meses pra trás × ano civil (jan-dez) nos gráficos** —
-    hoje o modo "Mês" em `/graficos` mostra N meses pra trás contando do
-    mês selecionado (12, ver Rodada 16.2). Repensar se um ano civil fixo
-    (janeiro-dezembro) seria mais legível.
-23. **Lançamentos recorrentes: aplicação/retirada com caixinha (reserva)**
-    — registrado 2026-09-24. Escopo confirmado com o usuário depois da
-    Rodada 25 (que estendeu recorrentes pra receita/despesa/aplicação/
-    retirada, mas deixou caixinha de fora por decisão minha, não pedida —
-    limitação de análise, o usuário esclareceu depois que aplicação/
-    retirada recorrente PODE ser vinculada a caixinha, igual em Novo
-    Lançamento). Ordem confirmada: item 22 (lentidão de Estrutura de
-    Custo) vem imediatamente antes deste na fila.
+- **18.** **Janela de meses pra trás × ano civil (jan-dez) nos
+  gráficos** — hoje o modo "Mês" em `/graficos` mostra N meses pra
+  trás contando do mês selecionado (12, ver Rodada 16.2). Repensar se
+  um ano civil fixo (janeiro-dezembro) seria mais legível.
+- **23.** **Lançamentos recorrentes: aplicação/retirada com caixinha
+  (reserva)** — registrado 2026-09-24. Escopo confirmado com o usuário
+  depois da Rodada 25 (que estendeu recorrentes pra receita/despesa/
+  aplicação/retirada, mas deixou caixinha de fora por decisão minha,
+  não pedida — limitação de análise, o usuário esclareceu depois que
+  aplicação/retirada recorrente PODE ser vinculada a caixinha, igual em
+  Novo Lançamento). Ordem confirmada: item 22 (lentidão de Estrutura de
+  Custo) vem imediatamente antes deste na fila.
 
 **Concluído:**
 
-13. ~~Persistir estado de filtros ao navegar entre features~~ **feito
-    2026-09-24** — Detalhe na subseção própria abaixo, ver changelog
-    Rodada 24.
-14. ~~Filtro específico pra recorrentes~~ **feito 2026-09-24** — Detalhe
-    na subseção própria abaixo, ver changelog Rodada 25.
-15. ~~Lista de "meses pulados" muito grande~~ **feito 2026-09-24** —
-    acordeão por ano, escolhido pelo usuário entre 2 mockups. Detalhe na
-    subseção própria abaixo, ver changelog Rodada 26.
-16. ~~Cabeçalho fixo/controles fixos por feature~~ **feito 2026-09-24** —
-    decidido via mockups (Lançamentos, Gráficos, Estrutura de Custo,
-    Planejamento, Dashboard). Ver changelog Rodada 23.
-17. ~~Barra lateral não deve sumir ao rolar~~ **feito 2026-09-24** — Ver
-    changelog Rodada 23.
-21. ~~Botões inferiores (barra de navegação mobile) pequenos e colados~~
-    **feito 2026-09-25** — decidido via 3 rodadas de mockups (Opção A/B/C,
-    Opção C mesclada escolhida e refinada pelo usuário). Detalhe na
-    subseção própria abaixo, ver changelog Rodada 28.
-22. ~~Estrutura de Custo carregando devagar~~ **feito 2026-09-24** —
-    causa raiz era a mesma classe de bug já corrigida em Gráficos (Rodada
-    19.2/19.3), só que ainda não tinha sido aplicada em `obter()` (a
-    tela de 1 mês). Detalhe na subseção própria abaixo, ver changelog
-    Rodada 27.
-24. ~~Planejamento com o mesmo padrão de lentidão de Estrutura de Custo~~
-    **feito 2026-09-25** — mesmo fix portado pra `routers/orcamentos.py`.
-    Detalhe na subseção própria abaixo, ver changelog Rodada 29.
-19. ~~Tooltip: balão abre perto da borda/canto no mobile aumentando a
-    área que precisa ser rolada~~ **feito 2026-09-25** — `InfoIcon` passou
-    a `position:fixed` com coordenadas calculadas via
-    `getBoundingClientRect`, clampadas dentro do viewport. Detalhe na
-    subseção própria abaixo, ver changelog Rodada 30.
-20. ~~Lançamentos: cards quebrando no layout mobile~~ **feito 2026-09-25**
-    — causa era compartilhada com Contas/Categorias/Caixinhas/Recorrentes
-    (mesmo componente de lista, `crud.css`), não só Lançamentos. Detalhe
-    na subseção própria abaixo, ver changelog Rodada 30.
+- **13.** ~~Persistir estado de filtros ao navegar entre features~~
+  **feito 2026-09-24** — Detalhe na subseção própria abaixo, ver
+  changelog Rodada 24.
+- **14.** ~~Filtro específico pra recorrentes~~ **feito 2026-09-24** —
+  Detalhe na subseção própria abaixo, ver changelog Rodada 25.
+- **15.** ~~Lista de "meses pulados" muito grande~~ **feito
+  2026-09-24** — acordeão por ano, escolhido pelo usuário entre 2
+  mockups. Detalhe na subseção própria abaixo, ver changelog Rodada 26.
+- **16.** ~~Cabeçalho fixo/controles fixos por feature~~ **feito
+  2026-09-24** — decidido via mockups (Lançamentos, Gráficos, Estrutura
+  de Custo, Planejamento, Dashboard). Ver changelog Rodada 23.
+- **17.** ~~Barra lateral não deve sumir ao rolar~~ **feito
+  2026-09-24** — Ver changelog Rodada 23.
+- **19.** ~~Tooltip: balão abre perto da borda/canto no mobile
+  aumentando a área que precisa ser rolada~~ **feito 2026-09-25** —
+  `InfoIcon` passou a `position:fixed` com coordenadas calculadas via
+  `getBoundingClientRect`, clampadas dentro do viewport. Detalhe na
+  subseção própria abaixo, ver changelog Rodada 30.
+- **20.** ~~Lançamentos: cards quebrando no layout mobile~~ **feito
+  2026-09-25** — causa era compartilhada com Contas/Categorias/
+  Caixinhas/Recorrentes (mesmo componente de lista, `crud.css`), não só
+  Lançamentos. Detalhe na subseção própria abaixo, ver changelog Rodada
+  30.
+- **21.** ~~Botões inferiores (barra de navegação mobile) pequenos e
+  colados~~ **feito 2026-09-25** — decidido via 3 rodadas de mockups
+  (Opção A/B/C, Opção C mesclada escolhida e refinada pelo usuário).
+  Detalhe na subseção própria abaixo, ver changelog Rodada 28. Ajuste
+  pendente reportado pelo usuário: o FAB ("+") ficou muito colado no
+  menu inferior — aguardando a próxima rodada de trabalho na barra pra
+  corrigir junto.
+- **22.** ~~Estrutura de Custo carregando devagar~~ **feito
+  2026-09-24** — causa raiz era a mesma classe de bug já corrigida em
+  Gráficos (Rodada 19.2/19.3), só que ainda não tinha sido aplicada em
+  `obter()` (a tela de 1 mês). Detalhe na subseção própria abaixo, ver
+  changelog Rodada 27.
+- **24.** ~~Planejamento com o mesmo padrão de lentidão de Estrutura de
+  Custo~~ **feito 2026-09-25** — mesmo fix portado pra
+  `routers/orcamentos.py`. Detalhe na subseção própria abaixo, ver
+  changelog Rodada 29.
 
 ### Baixa prioridade confirmada pelo usuário
 
 Todo o resto acima é alta ou média prioridade, mesmo o que está
 sequenciado pra depois do MVP. Nenhum destes 4 está em andamento:
 
-25. Saldo atual de contas — hoje só caixinhas têm saldo calculado
-    (`GET /dashboard/patrimonio/{mes}`); dar saldo a `contas` também seria
-    a extensão natural, mas não é urgente. *(2026-09-15)*
-26. **Changelog estruturado** — trocar a prosa narrativa de
-    `changelog-proposta-original-do-redesign.md` pelo formato [Keep a
-    Changelog](https://keepachangelog.com) (seções `Added/Changed/Fixed/
-    Removed` por versão datada, amarrada a tag git). Ganho: escaneável e
-    diffável, pronto pra virar release notes se o app for a público. Custo:
-    perde o espaço pro "porquê" narrativo que o formato atual dá — por
-    isso fica de baixa prioridade enquanto o projeto for de um usuário só.
-    Sugestão minha (Claude), confirmada como baixa prioridade pelo usuário.
-    *(2026-09-16)*
-27. **ADRs (Architecture Decision Records)** — trocar o Q&A único de
-    `sugestoes-e-decisoes-do-redesign.md` por um arquivo curto e imutável
-    por decisão relevante (formato Nygard: contexto/decisão/consequências).
-    Decisão revista vira um ADR novo que supersede o antigo, em vez de
-    editar o `> Status:` por cima como hoje — histórico fica honesto, mas
-    com mais arquivos pra navegar. Mesma origem e confirmação do item 26.
-    *(2026-09-16)*
-28. Aba Bancos em Configurações — hoje resolvido como campo de texto em
-    Conta, sem perda funcional real. *(2026-09-15, renumerado de 24 pra 28
-    em 2026-09-24 nesta reorganização — colidia com o item 24 de média
-    prioridade acima)*
+- **25.** Saldo atual de contas — hoje só caixinhas têm saldo calculado
+  (`GET /dashboard/patrimonio/{mes}`); dar saldo a `contas` também
+  seria a extensão natural, mas não é urgente. *(2026-09-15)*
+- **26.** **Changelog estruturado** — trocar a prosa narrativa de
+  `changelog-proposta-original-do-redesign.md` pelo formato [Keep a
+  Changelog](https://keepachangelog.com) (seções `Added/Changed/Fixed/
+  Removed` por versão datada, amarrada a tag git). Ganho: escaneável e
+  diffável, pronto pra virar release notes se o app for a público.
+  Custo: perde o espaço pro "porquê" narrativo que o formato atual dá
+  — por isso fica de baixa prioridade enquanto o projeto for de um
+  usuário só. Sugestão minha (Claude), confirmada como baixa prioridade
+  pelo usuário. *(2026-09-16)*
+- **27.** **ADRs (Architecture Decision Records)** — trocar o Q&A único
+  de `sugestoes-e-decisoes-do-redesign.md` por um arquivo curto e
+  imutável por decisão relevante (formato Nygard: contexto/decisão/
+  consequências). Decisão revista vira um ADR novo que supersede o
+  antigo, em vez de editar o `> Status:` por cima como hoje — histórico
+  fica honesto, mas com mais arquivos pra navegar. Mesma origem e
+  confirmação do item 26. *(2026-09-16)*
+- **28.** Aba Bancos em Configurações — hoje resolvido como campo de
+  texto em Conta, sem perda funcional real. *(2026-09-15, renumerado de
+  24 pra 28 em 2026-09-24 nesta reorganização — colidia com o item 24
+  de média prioridade acima)*
 
 Este arquivo não substitui o `README.md` da raiz (que descreve o que
 existe) nem o `/status-projeto` (relatório de andamento) — é o registro do
