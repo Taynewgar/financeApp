@@ -99,13 +99,6 @@ prioridade abaixo:
     `getBoundingClientRect`).
 20. **Lançamentos: cards quebrando no layout mobile** — reportado
     2026-09-24.
-21. **Botões inferiores (barra de navegação mobile) pequenos e colados**
-    — reportado 2026-09-24. Em andamento: 3 rodadas de mockups (Artifact
-    Design) — Opção A (ícones maiores, mantém 6 itens), Opção B (4 +
-    "Mais"), Opção C (mesclada, escolhida pelo usuário pra continuar
-    iterando: 4 itens diretos + botão "•••" abrindo uma sheet agrupada
-    por seção). v3 em revisão — falta aprovação final antes de implementar
-    de verdade em `AppShell.tsx`/`AppShell.css`.
 23. **Lançamentos recorrentes: aplicação/retirada com caixinha (reserva)**
     — registrado 2026-09-24. Escopo confirmado com o usuário depois da
     Rodada 25 (que estendeu recorrentes pra receita/despesa/aplicação/
@@ -140,6 +133,10 @@ prioridade abaixo:
     Planejamento, Dashboard). Ver changelog Rodada 23.
 17. ~~Barra lateral não deve sumir ao rolar~~ **feito 2026-09-24** — Ver
     changelog Rodada 23.
+21. ~~Botões inferiores (barra de navegação mobile) pequenos e colados~~
+    **feito 2026-09-25** — decidido via 3 rodadas de mockups (Opção A/B/C,
+    Opção C mesclada escolhida e refinada pelo usuário). Detalhe na
+    subseção própria abaixo, ver changelog Rodada 28.
 22. ~~Estrutura de Custo carregando devagar~~ **feito 2026-09-24** —
     causa raiz era a mesma classe de bug já corrigida em Gráficos (Rodada
     19.2/19.3), só que ainda não tinha sido aplicada em `obter()` (a
@@ -704,6 +701,68 @@ ganha sua própria versão.
 
 **Status:** registrado 2026-09-24, achado técnico (não relatado pelo
 usuário), sem decisão de prioridade ainda.
+
+### Botões inferiores (barra de navegação mobile) pequenos e colados
+
+**Contexto:** reportado pelo usuário testando a barra inferior mobile — os
+6 itens dividiam o mesmo `font-size: 10px` entre ícone e rótulo, com
+`padding: 4px 2px` e sem `gap` entre eles, o que apertava o toque.
+
+**Processo:** usuário pediu mockups pra escolher a abordagem (Artifact
+Design). 1ª rodada comparou Opção A (ícone maior, mantém os 6 itens) e
+Opção B (4 itens diretos + botão "Mais" abrindo um cartão pequeno com os
+outros 2). Usuário pediu pra mesclar as duas: 4 itens diretos + botão de
+menu à direita, no máximo 5 slots — viraram Opção C. 3 rodadas de
+refinamento sobre a Opção C, a partir de feedback do usuário a cada
+volta:
+- ícone do botão trocado de hambúrguer (`☰`) pra pontos (`•••`, mesmo
+  símbolo do `⋯`/"more" já convencional em iOS/Android);
+- indicador de ativo no botão "Menu" quando a tela atual é uma das
+  escondidas (não só quando o menu está aberto) — senão o usuário perderia
+  a noção de onde está ao navegar pra Planejamento ou Configurações;
+- pergunta do usuário sobre mover o FAB ("+") pra esquerda, respondida com
+  recomendação contrária (FAB e barra ocupam zonas verticais diferentes,
+  não colidem de fato; mover quebra a convenção forte de FAB no canto
+  inferior direito por um ganho só estético) — em vez disso, o FAB
+  desaparece (fade) enquanto o menu está aberto;
+- o cartão pequeno ancorado (`210px`, 2 linhas soltas) virou uma **sheet**
+  de largura total, agrupada por seção com rótulo (ex: "Planejamento"),
+  pensada pra crescer bem conforme mais telas entrarem no menu no futuro
+  — ver item 29, sugestão de promover o item mais usado dentro dela;
+- última ressalva do usuário: a sheet cobria a barra de navegação ao
+  abrir — ajustada pra nascer colada **acima** da barra (`bottom` do
+  tamanho da barra, não `0`), assim os 4 ícones diretos continuam visíveis
+  e clicáveis com o menu aberto, só o conteúdo acima escurece.
+
+**O que entrou na implementação real** (`AppShell.tsx`/`AppShell.css`):
+- Barra mobile reduzida a 4 itens diretos (Dashboard, Lançamentos,
+  Estruturas de Custo, Gráficos) + divisor + botão "Menu" (`•••`/`✕`),
+  ícone (22px) desacoplado do rótulo (11px), pílula de fundo
+  (`color-mix` com `--cor-acento`, mesmo padrão já usado em
+  `estruturaCusto.css`/`pareto.css`) no item ativo.
+- Planejamento e Configurações saíram da barra e foram pro menu, cada um
+  na sua seção ("Planejamento"/"Conta") — únicos 2 itens reais hoje;
+  estrutura já pronta pra crescer sem redesenho quando mais telas
+  entrarem (ex: item 10, Exportação de relatório).
+- `menuMobileAberto` fecha sozinho a cada troca de rota (`useEffect` em
+  `location.pathname`) — `AppShell` não desmonta ao navegar (só o
+  `<Outlet/>` troca), então sem isso o menu ficaria aberto por cima da
+  tela seguinte.
+- Indicador de ativo do botão "Menu": `menuMobileAtivo` é `true` se o
+  menu está aberto OU se a rota atual começa com `/planejamento` ou
+  `/configuracoes`.
+- FAB ganhou `transition: opacity` e a classe `.escondido`
+  (`opacity: 0; pointer-events: none`) aplicada enquanto o menu está
+  aberto.
+
+**Status:** implementado 2026-09-25 — aprovado pelo usuário depois de 3
+rodadas de mockup (Artifact Design, canvas
+`https://claude.ai/artifact/Px2ZERDHXK3ZGy1uyc5v5S`). Verificado com
+`tsc`/`vite build`, `oxlint`, e QA visual via Playwright (mobile light e
+dark, indicador de ativo em `/configuracoes`, menu aberto/fechado,
+desktop sem regressão na sidebar) — sem Supabase real nesta sessão, então
+sem teste de navegação de ponta a ponta contra dados reais. Ver checklist
+de teste manual no changelog.
 
 ### Menu "mais" da barra de navegação mobile: promover item mais usado
 

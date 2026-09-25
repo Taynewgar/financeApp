@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import { Link, NavLink, Outlet } from 'react-router-dom'
+import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { checkHealth } from '../lib/api'
 import { DashboardPeriodoProvider } from '../lib/DashboardPeriodoContext'
@@ -21,16 +21,42 @@ const SECOES = [
   { to: '/configuracoes', label: 'Configurações', icone: '⚙' },
 ]
 
+// barra inferior mobile: só as 4 mais usadas ficam diretas (decisão do
+// usuário, item 21 do backlog) — o resto mora no menu "•••", agrupado por
+// seção pra crescer bem conforme mais telas entrarem aqui.
+const SECOES_BARRA_MOBILE = [
+  { to: '/dashboard', label: 'Dashboard', icone: '◧' },
+  { to: '/lancamentos', label: 'Lançamentos', icone: '⌕' },
+  { to: '/estruturas-de-custo', label: 'Estruturas', icone: '≣' },
+  { to: '/graficos', label: 'Gráficos', icone: '◔' },
+]
+
+const SECOES_MENU_MOBILE = [
+  { grupo: 'Planejamento', to: '/planejamento', label: 'Planejamento', icone: '▤' },
+  { grupo: 'Conta', to: '/configuracoes', label: 'Configurações', icone: '⚙' },
+]
+
 function linkClasse(base: string) {
   return ({ isActive }: { isActive: boolean }) => `${base}${isActive ? ' ativo' : ''}`
 }
 
 export function AppShell({ children }: { children?: ReactNode }) {
   const { session, signOut } = useAuth()
+  const location = useLocation()
 
   const [statusBackend, setStatusBackend] = useState<StatusBackend>('ocioso')
   const [segundosEspera, setSegundosEspera] = useState(0)
   const [tentativa, setTentativa] = useState(0)
+  const [menuMobileAberto, setMenuMobileAberto] = useState(false)
+
+  // AppShell não desmonta ao navegar (só o <Outlet/> troca) — sem isso o
+  // menu ficaria aberto por cima da tela seguinte depois de tocar num item.
+  useEffect(() => {
+    setMenuMobileAberto(false)
+  }, [location.pathname])
+
+  const menuMobileAtivo =
+    menuMobileAberto || SECOES_MENU_MOBILE.some((secao) => location.pathname.startsWith(secao.to))
 
   // dispara assim que o usuário entra no app — se o backend estiver
   // "dormindo" (plano free do Render hiberna após inatividade), começa a
@@ -128,17 +154,58 @@ export function AppShell({ children }: { children?: ReactNode }) {
           </DashboardPeriodoProvider>
         </main>
 
-        <Link to="/lancamentos/novo" className="shell-fab" aria-label="Novo lançamento" title="Novo lançamento">
+        <Link
+          to="/lancamentos/novo"
+          className={`shell-fab${menuMobileAberto ? ' escondido' : ''}`}
+          aria-label="Novo lançamento"
+          title="Novo lançamento"
+        >
           +
         </Link>
 
+        {menuMobileAberto && <div className="shell-menu-backdrop" onClick={() => setMenuMobileAberto(false)} />}
+
+        {menuMobileAberto && (
+          <div className="shell-menu-sheet" role="dialog" aria-label="Menu">
+            <div className="shell-menu-sheet-handle" />
+            <div className="shell-menu-sheet-header">
+              <span>Menu</span>
+              <button type="button" onClick={() => setMenuMobileAberto(false)} aria-label="Fechar menu">
+                ✕
+              </button>
+            </div>
+            <div className="shell-menu-sheet-lista">
+              {SECOES_MENU_MOBILE.map((secao) => (
+                <div key={secao.to} className="shell-menu-sheet-grupo">
+                  <div className="shell-menu-sheet-grupo-titulo">{secao.grupo}</div>
+                  <Link to={secao.to} className="shell-menu-sheet-item">
+                    <span aria-hidden="true">{secao.icone}</span>
+                    {secao.label}
+                  </Link>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         <nav className="shell-bottom-nav" aria-label="Navegação principal (mobile)">
-          {SECOES.map((secao) => (
+          {SECOES_BARRA_MOBILE.map((secao) => (
             <NavLink key={secao.to} to={secao.to} className={linkClasse('shell-bottom-nav-link')}>
               <span aria-hidden="true">{secao.icone}</span>
               {secao.label}
             </NavLink>
           ))}
+          <div className="shell-bottom-nav-divisor" aria-hidden="true" />
+          <button
+            type="button"
+            onClick={() => setMenuMobileAberto((aberto) => !aberto)}
+            className={`shell-bottom-nav-link shell-bottom-nav-menu${menuMobileAtivo ? ' ativo' : ''}`}
+            aria-expanded={menuMobileAberto}
+            aria-haspopup="true"
+          >
+            <span aria-hidden="true">{menuMobileAberto ? '✕' : '•••'}</span>
+            Menu
+          </button>
         </nav>
       </div>
     </div>

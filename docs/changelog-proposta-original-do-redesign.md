@@ -2700,3 +2700,79 @@ que fazia a versão item-a-item direto no banco, foi removida.
 - [ ] Os números continuam batendo — Orçado/Realizado/saldo_anterior de
       cada item, mesmos valores de antes do fix (o resultado não muda,
       só como é calculado).
+
+### Rodada 28 (2026-09-25) — barra de navegação mobile: 4 itens + menu
+
+Item 21 do backlog. Processo completo (3 rodadas de mockup, decisões e
+o porquê de cada uma) documentado em detalhe em `docs/backlog.md`, seção
+"Botões inferiores (barra de navegação mobile) pequenos e colados" — aqui
+só o resumo técnico da implementação real.
+
+**Decisão final (Opção C, aprovada pelo usuário):** barra mobile reduzida
+a 4 itens diretos (Dashboard, Lançamentos, Estruturas de Custo, Gráficos)
++ um botão "Menu" (ícone `•••`/`✕`) que abre uma sheet de largura total
+agrupada por seção, com Planejamento e Configurações — os 2 itens que
+saíram da barra. FAB desaparece (fade) enquanto o menu está aberto; o
+botão "Menu" acende quando a tela atual é uma das escondidas, não só
+quando o painel está aberto; a sheet nasce colada acima da barra (não por
+cima dela), então os 4 ícones diretos continuam visíveis e clicáveis com
+o menu aberto.
+
+**`frontend/src/components/AppShell.tsx`:**
+- `SECOES` (desktop, inalterada) separada de `SECOES_BARRA_MOBILE` (4
+  itens) e `SECOES_MENU_MOBILE` (Planejamento/Configurações, com campo
+  `grupo` pro rótulo de seção na sheet).
+- `menuMobileAberto` (estado) + `useEffect` que fecha o menu a cada troca
+  de `location.pathname` — `AppShell` não desmonta ao navegar (só o
+  `<Outlet/>` troca), então sem isso o menu ficaria aberto por cima da
+  tela seguinte depois de tocar num item dele.
+- `menuMobileAtivo` deriva de `menuMobileAberto` OU da rota atual
+  começar com `/planejamento`/`/configuracoes` — alimenta a classe
+  `.ativo` do botão "Menu" mesmo com o painel fechado.
+- Backdrop + sheet renderizados condicionalmente; FAB ganha classe
+  `escondido` no mesmo estado.
+
+**`frontend/src/components/AppShell.css`** (bloco `@media (max-width:
+720px)`):
+- `--shell-altura-barra-mobile: 64px` — usada tanto pelo `bottom` do
+  backdrop/sheet (nascem colados acima da barra) quanto pelo `bottom` do
+  FAB (`calc(var(...) + 8px)`, mesmo valor de antes — 72px — só que
+  derivado em vez de mágico).
+- `.shell-bottom-nav-link`: ícone (`span`, 22px) desacoplado do rótulo
+  (11px, antes os dois dividiam 10px); `padding: 8px 2px`; estado
+  `.ativo` ganha fundo em pílula via `color-mix(in srgb, var(--cor-acento)
+  14%, transparent)` — mesmo padrão já usado em `estruturaCusto.css`/
+  `pareto.css`, não introduz mecanismo novo.
+- `.shell-menu-backdrop`/`.shell-menu-sheet`: `position: fixed`,
+  `bottom: var(--shell-altura-barra-mobile)`; sheet com `max-height: 54vh`,
+  handle, header, lista com `overflow-y: auto` e grupos por seção
+  (`.shell-menu-sheet-grupo-titulo`).
+- `.shell-fab.escondido { opacity: 0; pointer-events: none; }` +
+  `transition: opacity` na regra base.
+
+**Testes:** `tsc -b && vite build` limpo; `oxlint` sem warning novo (o
+único warning introduzido, `set-state-in-effect` no `useEffect` de fechar
+o menu, é o mesmo padrão já presente e tolerado em `Dashboard.tsx`,
+`Graficos.tsx`, `Planejamento.tsx`, `EstruturaCusto.tsx` e
+`NovoLancamento.tsx`). QA visual via Playwright com sessão Supabase
+mockada (sem `.env`/credenciais reais nesta sessão remota — harness
+descartado ao final): `/configuracoes` mobile claro e escuro (indicador
+de ativo do botão "Menu" ligado sem abrir o painel, já que é uma rota do
+menu), menu aberto (sheet acima da barra, ícones ainda visíveis, FAB
+sumido), e desktop (`/configuracoes`, 1280px) confirmando que a sidebar
+não mudou.
+
+**Checklist de teste manual:**
+- [ ] Mobile: tocar nos 4 itens diretos da barra (Dashboard, Lançamentos,
+      Estruturas de Custo, Gráficos) navega normalmente, item ativo com
+      pílula de fundo.
+- [ ] Tocar em "Menu" abre a sheet com Planejamento e Configurações
+      agrupados; tocar num item navega e a sheet fecha sozinha.
+- [ ] Tocar no fundo escurecido (fora da sheet) ou no "✕" fecha o menu
+      sem navegar.
+- [ ] Navegar direto pra Planejamento ou Configurações (ex: link
+      direto/recarregar a página) mostra o botão "Menu" já aceso, mesmo
+      com a sheet fechada.
+- [ ] Abrir o menu esconde o "+" (FAB); fechar o menu traz ele de volta.
+- [ ] Rotacionar/redimensionar pra desktop (>720px) volta pro layout de
+      sidebar de sempre, sem barra inferior nem menu.

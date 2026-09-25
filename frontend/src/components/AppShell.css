@@ -132,6 +132,13 @@
   display: grid;
   place-items: center;
   text-decoration: none;
+  opacity: 1;
+  transition: opacity 0.15s ease;
+}
+
+.shell-fab.escondido {
+  opacity: 0;
+  pointer-events: none;
 }
 
 .shell-bottom-nav {
@@ -140,6 +147,10 @@
 
 /* mobile: nav vira barra inferior, sidebar some */
 @media (max-width: 720px) {
+  :root {
+    --shell-altura-barra-mobile: 64px;
+  }
+
   .shell-nav {
     display: none;
   }
@@ -151,13 +162,15 @@
 
   .shell-bottom-nav {
     display: flex;
+    align-items: stretch;
     position: fixed;
     left: 0;
     right: 0;
     bottom: 0;
+    z-index: 5;
     background: var(--cor-superficie);
     border-top: 1px solid var(--cor-borda);
-    padding: 6px 2px;
+    padding: 8px 8px calc(8px + env(safe-area-inset-bottom, 0px));
   }
 
   .shell-bottom-nav-link {
@@ -166,22 +179,132 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 2px;
-    font-size: 10px;
-    line-height: 1.2;
+    justify-content: center;
+    gap: 3px;
+    font-size: 11px;
+    line-height: 1.15;
     text-align: center;
     text-decoration: none;
     color: var(--cor-texto-suave);
-    padding: 4px 2px;
+    padding: 8px 2px;
+    border-radius: 10px;
+    border: none;
+    background: none;
+    font-family: inherit;
+    cursor: pointer;
+  }
+
+  .shell-bottom-nav-link span {
+    font-size: 22px;
+    line-height: 1;
   }
 
   .shell-bottom-nav-link.ativo {
     color: var(--cor-acento);
+    background: color-mix(in srgb, var(--cor-acento) 14%, transparent);
+    font-weight: 600;
+  }
+
+  .shell-bottom-nav-divisor {
+    width: 1px;
+    align-self: center;
+    height: 32px;
+    background: var(--cor-borda);
+    margin: 0 2px;
+  }
+
+  .shell-bottom-nav-menu {
+    flex: 0 0 58px;
+  }
+
+  .shell-menu-backdrop {
+    position: fixed;
+    left: 0;
+    right: 0;
+    top: 0;
+    bottom: var(--shell-altura-barra-mobile);
+    background: rgba(0, 0, 0, 0.45);
+    z-index: 3;
+  }
+
+  .shell-menu-sheet {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: var(--shell-altura-barra-mobile);
+    max-height: 54vh;
+    display: flex;
+    flex-direction: column;
+    background: var(--cor-superficie);
+    border-top: 1px solid var(--cor-borda);
+    border-radius: 16px 16px 0 0;
+    box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.25);
+    z-index: 4;
+  }
+
+  .shell-menu-sheet-handle {
+    width: 36px;
+    height: 4px;
+    border-radius: 999px;
+    background: var(--cor-borda);
+    margin: 8px auto 2px;
+  }
+
+  .shell-menu-sheet-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 4px 16px 6px;
+    font-weight: 700;
+    font-size: 14px;
+  }
+
+  .shell-menu-sheet-header button {
+    background: none;
+    border: none;
+    color: var(--cor-texto-suave);
+    font-size: 18px;
+    padding: 4px;
+    cursor: pointer;
+  }
+
+  .shell-menu-sheet-lista {
+    overflow-y: auto;
+    padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .shell-menu-sheet-grupo-titulo {
+    font-size: 10px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--cor-texto-suave);
+    font-weight: 700;
+    padding: 12px 16px 4px;
+  }
+
+  .shell-menu-sheet-item {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 12px 16px;
+    color: var(--cor-texto);
+    text-decoration: none;
+    font-size: 14px;
+  }
+
+  .shell-menu-sheet-item:active {
+    background: var(--cor-fundo);
+  }
+
+  .shell-menu-sheet-item span {
+    font-size: 20px;
+    width: 22px;
+    text-align: center;
   }
 
   .shell-fab {
     right: 16px;
-    bottom: 72px;
+    bottom: calc(var(--shell-altura-barra-mobile) + 8px);
   }
 
   .shell-topo-mobile {
