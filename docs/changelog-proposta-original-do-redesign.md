@@ -840,6 +840,19 @@ nova à tabela.
 - 1 teste novo (extensão de `test_pool_despesas_considera_saldo_anterior_do_envelope`)
   cobrindo os 2 campos novos no item. Suíte offline: 206 passed.
 
+**Checklist de teste manual:**
+- [ ] Estrutura de Custo e Planejamento: setas ←/→ trocam de mês; há
+      respiro visível entre o subtítulo do cabeçalho e o bloco seguinte
+      (KPIs/resumo).
+- [ ] Rolar uma lista comprida (ex: itens de um bucket): a scrollbar não
+      mostra os botões ▲▼ clássicos, mas rolar com a roda do
+      mouse/trackpad e arrastar o thumb continuam funcionando normal.
+- [ ] KPI "Orçado no mês" (topo de Estrutura de Custo) não inclui
+      Investimentos na soma — bate com Fixos+Variáveis+Sazonalidades só.
+- [ ] Um item com sobra/furo do mês anterior mostra uma 2ª linha pequena
+      com o detalhamento ("R$X + R$Y sobra"/"− R$Y furo"), sem virar
+      coluna nova na tabela.
+
 ## Rodada 14 (2026-09-15) — Categorias "mais usadas" + criação inline no Novo Lançamento
 
 Item 4 do backlog: categoria e subcategoria eram um `<select>` puro no
@@ -872,6 +885,17 @@ seleciona a categoria/subcategoria nova sem sair da tela.
   por usuário, filtro de subcategoria por categoria pai. Suíte offline:
   213 passed.
 
+**Checklist de teste manual:**
+- [ ] Novo Lançamento: chips de categorias "mais usadas" aparecem acima
+      do select, na ordem certa (a mais frequente primeiro); clicar num
+      chip seleciona a categoria sem abrir o select.
+- [ ] Escolher uma categoria muda os chips de subcategoria "mais usada"
+      pra refletir só as daquela categoria.
+- [ ] "+ Nova categoria"/"+ Nova subcategoria": formulário inline abre,
+      cria e já seleciona o item novo, sem sair da tela.
+- [ ] Uma categoria/subcategoria desativada não aparece nos chips de
+      "mais usadas".
+
 ### Rodada 14.1 (2026-09-16) — feedback de teste: estrutura de custo padrão no "+ Nova subcategoria"
 
 Usuário testou o item 4 e apontou uma lacuna: o "+ Nova subcategoria"
@@ -898,6 +922,18 @@ extra necessária.
   de `.chip-form input`.
 - Sem mudança de backend (schema já aceitava o campo desde sempre).
   tsc + build limpos; suíte offline: 213 passed (inalterada).
+
+**Checklist de teste manual:**
+- [ ] Novo Lançamento → Despesa → "+ Nova subcategoria": o select
+      "Estrutura padrão (opcional)" aparece no formulário inline.
+- [ ] Criar uma subcategoria nova escolhendo uma estrutura padrão (ex:
+      "Fixo"), depois selecioná-la num lançamento novo: a estrutura de
+      custo do lançamento já vem pré-marcada sozinha.
+- [ ] Trocar o tipo pra Receita ou Investimento: o select de estrutura
+      padrão some do formulário inline (não se aplica a esses tipos).
+- [ ] Criar uma subcategoria a partir de um Estorno/Ressarcimento
+      (tipo "ajuste"): o select de estrutura padrão aparece igual a uma
+      despesa comum.
 
 ## Rodada 15 (2026-09-16) — Dashboard: 3 KPIs novos (item 6, entregue antes do item 5)
 
@@ -926,6 +962,15 @@ Os 3 vêm de dados que a tela já buscava, sem endpoint novo:
   (`EXPLICACAO.meses_negativos`/`maior_categoria_despesa`).
 - Sem mudança de backend, sem teste novo (nada de lógica de servidor).
   tsc + build limpos; suíte offline: 213 passed (inalterada).
+
+**Checklist de teste manual:**
+- [ ] Dashboard: card "Meses com resultado negativo" mostra a contagem
+      certa (de janeiro até o mês de referência, leitura de saúde).
+- [ ] Card "Taxa de poupança" ganhou uma linha extra "Resultado
+      acumulado (R$)" abaixo do %, mesma janela.
+- [ ] Card "Maior categoria de despesa" bate com a categoria no topo do
+      gráfico "Despesas por Categoria" do mesmo mês.
+- [ ] Tooltips (ícone "?") dos 3 KPIs novos abrem com texto explicativo.
 
 ## Rodada 16 (2026-09-16) — Feature Gráficos, Rodada A: tela nova + migração + sparkline
 
@@ -980,6 +1025,18 @@ acumulada), sem violar a regra "one axis".
 deu pra fazer QA visual de login (ver nota já registrada nas rodadas
 anteriores) — validação é só estática (tsc/build/lint) até o usuário
 testar na tela de verdade.
+
+**Checklist de teste manual:**
+- [ ] Item "Gráficos" aparece na navegação; a tela mostra Evolução
+      Mensal, Taxa de Poupança Mensal e Despesas por Categoria, usando o
+      mesmo seletor de período (Mês/Intervalo/Todos) do Dashboard.
+- [ ] Dashboard não mostra mais os gráficos completos — só o sparkline
+      compacto ao lado do resultado principal, e um link "Ver gráficos
+      completos →" que leva pra `/graficos`.
+- [ ] O sparkline do Dashboard acompanha o toggle Leitura de Caixa/
+      Saúde (muda a série mostrada).
+- [ ] Trocar o período em Gráficos (Mês/Intervalo/Todos) atualiza os 3
+      gráficos juntos, sem precisar recarregar a página.
 
 ### Rodada 16.1 (2026-09-16) — feedback de teste da Rodada A: 2 bugs + 3 melhorias
 
@@ -1043,6 +1100,23 @@ compartilhada com Lançamentos, que não pode crescer sem necessidade).
 - 4 testes novos (`test_despesas_por_categoria_periodo_*`) cobrindo soma
   multi-mês, exclusão de mês fora do intervalo, `fim < inicio` → 422 e
   lista vazia. Suíte offline: 217 passed (213 + 4). tsc + build limpos.
+
+**Checklist de teste manual:**
+- [ ] Gráficos, modo claro e escuro: "Taxa de Poupança Mensal" mostra
+      grade e eixo (não fica "apagado"/sem referência visual).
+- [ ] Gráficos → "Despesas por Categoria" em modo Intervalo ou Todos os
+      meses: o valor soma o período inteiro (não só o último mês), e o
+      título mostra o período completo (ex: "julho de 2026 a setembro
+      de 2026").
+- [ ] "Evolução Mensal" e "Taxa de poupança mensal" aparecem na mesma
+      seção, um como sub-título do outro (não 2 seções separadas).
+- [ ] `EvolucaoChart` (Receitas/Despesas): linhas tracejadas de média
+      aparecem, com o valor na legenda ("Média receitas (R$X)"); somem/
+      viram "···" no modo privacidade.
+- [ ] Dashboard: sparkline aparece nos cards de Receitas/Despesas (ou
+      Receita ajustada/Despesas líquidas, conforme o toggle Caixa/
+      Saúde), Reservas, Investimentos e Taxa de poupança — acompanhando
+      o toggle Caixa/Saúde quando ele muda o KPI mostrado.
 
 ### Rodada 16.2 (2026-09-16) — "Base da média" ganha efeito real, Intervalo aceita mês futuro, Taxa de Poupança vira coluna
 
@@ -1777,6 +1851,21 @@ não precisa de entrada própria — cascade a partir do recorrente.
 Sem mudança em código de produção — só nos scripts de seed/limpeza, que
 não rodam em CI. Suíte offline sem alteração: 275 passed, 33 skipped.
 
+**Checklist de teste manual** (no terminal do usuário, única forma de
+testar — scripts de seed/limpeza não rodam contra o Supabase real
+nesta sessão):
+- [ ] Rodar `limpar_dados_integracao.py --sim` seguido de
+      `seed_dados_teste.py`: terminam sem erro.
+- [ ] Configurações → Categorias: aparecem as 9 categorias/13
+      subcategorias novas (Moradia, Mercado, Lazer, Transporte, Saúde,
+      Renda Fixa, Ações e Fundos, Salário, Renda Extra).
+- [ ] Lançamentos → Recorrentes: "Internet" aparece com histórico (2
+      meses confirmados + 1 pulado) e "Assinatura Streaming" com o mês
+      atual pendente — dá pra testar a tela de "Meses pulados" sem
+      simular nada manualmente.
+- [ ] Rodar `seed_dados_teste.py --limpar`: os 2 recorrentes de seed
+      também somem (antes só apagava transações).
+
 ### Rodada 20.5 (2026-09-24) — feedback de progresso no seed + limpeza resiliente por tabela
 
 Usuário rodou a sequência limpar→seed→pytest sugerida na Rodada 20.4 e
@@ -1816,6 +1905,21 @@ crash total.
 
 Sem mudança em código de produção. Suíte offline sem alteração: 275
 passed, 33 skipped.
+
+**Checklist de teste manual** (no terminal do usuário):
+- [ ] Rodar `seed_dados_teste.py`: aparece progresso por etapa
+      (autenticação, contas/categorias, `[mês/4] (X%)` por mês, linha
+      própria pra parcelada e pra recorrentes) — não fica "travado" em
+      silêncio durante as ~70 requisições.
+- [ ] Rodar `limpar_dados_integracao.py --sim` num cenário onde alguma
+      tabela falhe (ex: migração de `lancamentos_recorrentes` ainda não
+      aplicada nesse Supabase): o script imprime um aviso pra essa
+      tabela e CONTINUA limpando as seguintes (orçamentos, categorias,
+      contas), em vez de abortar tudo.
+- [ ] Depois de rodar limpar→seed→pytest, colar a saída do
+      `limpar_dados_integracao.py` se a suíte de integração ainda
+      falhar — confirma se as migrações de recorrentes estão mesmo
+      aplicadas nesse projeto Supabase.
 
 ### Rodada 20.6 (2026-09-24) — fix real: nome duplicado em categoria/subcategoria/caixinha quebrava com 500
 
