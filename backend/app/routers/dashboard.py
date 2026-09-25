@@ -14,6 +14,7 @@ from ..schemas.dashboard import (
     ResumoPeriodo,
     SaldoCaixinha,
 )
+from ..services.crud import buscar_todas_paginado
 from ..services.fatura import somar_meses
 from ..services.recorrentes import data_ocorrencia, proxima_ocorrencia_pendente
 from ..services.resumo_financeiro import calcular_resumo
@@ -24,14 +25,15 @@ _MESES_MAXIMO_NA_EVOLUCAO = 60  # 5 anos — limite defensivo contra range gigan
 
 
 def _resumo_entre(db: Client, user_id: str, data_inicio: date, data_fim_exclusiva: date) -> dict:
-    transacoes = (
-        db.table("transacoes")
+    # paginado: usado tanto por /mensal (1 mês, sempre pequeno) quanto por
+    # /resumo-periodo no modo "Todos os meses" (histórico inteiro — já
+    # passou de 1000 transações numa conta real, ver buscar_todas_paginado)
+    transacoes = buscar_todas_paginado(
+        lambda: db.table("transacoes")
         .select("valor,tipo_movimento,ajuste_de_transacao_id,caixinha_id")
         .eq("user_id", user_id)
         .gte("data_compra", data_inicio.isoformat())
         .lt("data_compra", data_fim_exclusiva.isoformat())
-        .execute()
-        .data
     )
     return calcular_resumo(transacoes)
 
@@ -73,14 +75,12 @@ def evolucao_mensal(
     # de agregar cada um com calcular_resumo (já é uma função pura, não
     # depende do banco).
     mes_fim_exclusivo = somar_meses(mes_fim, 1)
-    todas_transacoes = (
-        db.table("transacoes")
+    todas_transacoes = buscar_todas_paginado(
+        lambda: db.table("transacoes")
         .select("valor,tipo_movimento,ajuste_de_transacao_id,caixinha_id,data_compra")
         .eq("user_id", user_id)
         .gte("data_compra", mes_inicio.isoformat())
         .lt("data_compra", mes_fim_exclusivo.isoformat())
-        .execute()
-        .data
     )
     transacoes_por_mes: dict[str, list[dict]] = {}
     for t in todas_transacoes:
@@ -155,15 +155,13 @@ def primeiro_mes(db: Client = Depends(get_db), user_id: str = Depends(get_curren
 def _despesas_por_categoria_entre(
     db: Client, user_id: str, data_inicio: date, data_fim_exclusiva: date
 ) -> list[dict]:
-    despesas = (
-        db.table("transacoes")
+    despesas = buscar_todas_paginado(
+        lambda: db.table("transacoes")
         .select("categoria_id,valor")
         .eq("user_id", user_id)
         .eq("tipo_movimento", "despesa")
         .gte("data_compra", data_inicio.isoformat())
         .lt("data_compra", data_fim_exclusiva.isoformat())
-        .execute()
-        .data
     )
     if not despesas:
         return []
@@ -223,17 +221,20 @@ def despesas_por_categoria_periodo(
 def _despesas_por_subcategoria_entre(
     db: Client, user_id: str, data_inicio: date, data_fim_exclusiva: date, categoria_id: str | None
 ) -> list[dict]:
-    query = (
-        db.table("transacoes")
-        .select("subcategoria_id,categoria_id,valor")
-        .eq("user_id", user_id)
-        .eq("tipo_movimento", "despesa")
-        .gte("data_compra", data_inicio.isoformat())
-        .lt("data_compra", data_fim_exclusiva.isoformat())
-    )
-    if categoria_id:
-        query = query.eq("categoria_id", categoria_id)
-    despesas = query.execute().data
+    def construir_query():
+        query = (
+            db.table("transacoes")
+            .select("subcategoria_id,categoria_id,valor")
+            .eq("user_id", user_id)
+            .eq("tipo_movimento", "despesa")
+            .gte("data_compra", data_inicio.isoformat())
+            .lt("data_compra", data_fim_exclusiva.isoformat())
+        )
+        if categoria_id:
+            query = query.eq("categoria_id", categoria_id)
+        return query
+
+    despesas = buscar_todas_paginado(construir_query)
     if not despesas:
         return []
 
@@ -316,13 +317,15 @@ def patrimonio_caixinhas(
     if not caixinhas:
         return []
 
-    movimentos = (
-        db.table("transacoes")
+    # sem filtro de data de início ("desde sempre") nem .order() — o pior
+    # caso pro limite de 1000 linhas do Supabase: sem paginação, perde
+    # linhas de forma imprevisível (achado 2026-09-25, ver
+    # buscar_todas_paginado)
+    movimentos = buscar_todas_paginado(
+        lambda: db.table("transacoes")
         .select("caixinha_id,valor,tipo_movimento")
         .eq("user_id", user_id)
         .lt("data_compra", mes_fim.isoformat())
-        .execute()
-        .data
     )
     saldos = {c["id"]: 0.0 for c in caixinhas}
     for m in movimentos:

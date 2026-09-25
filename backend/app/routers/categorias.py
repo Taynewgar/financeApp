@@ -37,13 +37,8 @@ def mais_usadas(
     inteiro toda vez. Precisa vir antes de /{categoria_id} na declaração de
     rotas, senão "mais-usadas" seria capturado como um categoria_id."""
     desde = (date.today() - timedelta(days=_JANELA_USO_DIAS)).isoformat()
-    transacoes = (
-        db.table("transacoes")
-        .select("categoria_id")
-        .eq("user_id", user_id)
-        .gte("data_compra", desde)
-        .execute()
-        .data
+    transacoes = crud.buscar_todas_paginado(
+        lambda: db.table("transacoes").select("categoria_id").eq("user_id", user_id).gte("data_compra", desde)
     )
     contagem: dict[str, int] = {}
     for t in transacoes:

@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Callable
 
 from fastapi import HTTPException
 from supabase import Client
@@ -6,6 +6,31 @@ from supabase import Client
 
 class NotFound(LookupError):
     """Registro não existe ou não pertence ao usuário autenticado."""
+
+
+def buscar_todas_paginado(construir_query: Callable[[], Any], tamanho_pagina: int = 1000) -> list[dict[str, Any]]:
+    """O Supabase (PostgREST) limita a resposta a `tamanho_pagina` linhas
+    quando a query não pede uma página explícita (`db-max-rows`, 1000 por
+    padrão nos projetos hospedados) — sem erro nenhum, só devolve menos
+    do que existe, e sem `.order()` nem garante QUAIS linhas. Passou
+    despercebido enquanto os dados eram poucos (seed/teste); virou bug de
+    cálculo real assim que uma conta de uso real passou de 1000
+    transações (achado em 2026-09-25, ver docs/backlog.md — a tela de
+    Caixinhas ficava com saldo errado, silenciosamente, pra caixinhas
+    cujas transações caíam fora das 1000 primeiras linhas devolvidas).
+
+    `construir_query` monta a query do zero a cada chamada, sem
+    `.execute()` — o query builder do supabase-py não é reutilizável
+    depois de executado, então não dá pra só guardar a query e paginar
+    por cima dela."""
+    linhas: list[dict[str, Any]] = []
+    offset = 0
+    while True:
+        pagina = construir_query().range(offset, offset + tamanho_pagina - 1).execute().data
+        linhas.extend(pagina)
+        if len(pagina) < tamanho_pagina:
+            return linhas
+        offset += tamanho_pagina
 
 
 def list_all(db: Client, table: str, user_id: str, order: str = "nome") -> list[dict[str, Any]]:

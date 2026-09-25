@@ -3287,3 +3287,64 @@ banco real, e conferir que a reconciliação fecha sem diferença.
 - [ ] No app, conferir um dos casos específicos (ex: Comunicação/
       Serviços Digitais em março/2026) e contar se as 2 cobranças de
       "Armazenamento Google. Apple" aparecem separadas em Lançamentos.
+
+### Rodada 35 (2026-09-25) — Fix: limite de 1000 linhas do Supabase cortando queries sem paginação
+
+Com a migração real feita (Rodada 33/34), o usuário começou a usar a
+aplicação no dia a dia e reportou saldos de Caixinhas incorretos —
+"não são só essas caixinhas que tem problema de cálculo, outras também
+não estão batendo". Detalhe técnico completo em `docs/backlog.md`
+("Caixinhas com saldo errado / limite de 1000 linhas do Supabase") —
+aqui só o resumo.
+
+**Investigação:** antes de suspeitar de paginação, foi preciso
+descartar dado migrado errado — recalculando `aplicação - retirada`
+por caixinha direto do CSV final, o resultado bate exatamente com a
+coluna "Guardado" da planilha do usuário. O usuário também confirmou
+por print que as caixinhas e suas transações existem corretamente em
+Lançamentos, isolando o problema pro caminho de leitura, não de
+migração.
+
+**Causa raiz:** o Supabase/PostgREST tem um limite padrão de 1000
+linhas por `.execute()` (`db-max-rows`) que corta o resultado **sem
+lançar erro nenhum**. Qualquer query em `transacoes` sem paginação
+explícita (`.range()`) trunca silenciosamente acima de 1000 linhas — e
+a conta do usuário, pós-migração, já tem ~1862. `patrimonio_caixinhas`
+era o pior caso possível: sem filtro de data de início e sem
+`.order()`, então quais 1000 linhas voltavam nem era estável entre
+chamadas. Auditoria do código achou o mesmo padrão em mais 6 pontos:
+`GET /dashboard/resumo-periodo` (modos "Todos os meses"/Intervalo),
+gráfico de Evolução, despesas por categoria/subcategoria do Dashboard,
+saldo/realizado de Estrutura de Custo e Planejamento
+(`orcamento_saldo.carregar_dados_periodo`), `GET /transacoes` e
+`/transacoes/resumo` sem filtro de data, e o ranking "mais usadas" de
+categoria/subcategoria.
+
+**Fix:** `buscar_todas_paginado()`, novo helper em
+`app/services/crud.py` — itera `.range(offset, offset+999)` acumulando
+páginas até uma vir com menos de 1000 linhas, aplicado em todos os
+pontos acima. `tests/fakes.py` ganhou suporte a `.range()` no
+`FakeQuery` pra poder testar a paginação offline.
+
+**Testes:** suíte completa passando (348 passed, 33 skipped) — sem
+teste novo dedicado à paginação em si (o comportamento só se manifesta
+acima de 1000 linhas, volume que a suíte de fakes não reproduz), mas
+todos os pontos alterados continuam cobertos pelos testes existentes
+de cada endpoint.
+
+**Status:** implementado e testado (offline) nesta sessão. Conserta só
+o caminho de leitura — os dados no banco sempre estiveram corretos, não
+precisa rodar a migração de novo.
+
+**Checklist de teste manual (usuário, localmente):**
+- [ ] Recarregar o Dashboard e conferir que todas as caixinhas em
+      Caixinhas/Patrimônio batem com a coluna "Guardado" da planilha
+      (não a "Real", que inclui rendimento de banco — divergência
+      esperada).
+- [ ] Conferir Dashboard no modo "Todos os meses" e no modo Intervalo —
+      totais de receita/despesa e o gráfico de Evolução.
+- [ ] Conferir Estrutura de Custo e Planejamento — saldo/realizado de
+      pelo menos um bucket num mês qualquer.
+- [ ] Em Lançamentos, limpar todos os filtros e confirmar que a lista/
+      resumo mostram o total real de transações (não truncado em
+      1000).

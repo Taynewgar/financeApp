@@ -39,6 +39,7 @@ class FakeQuery:
         self._order_desc = False
         self._op: str | None = None
         self._payload: dict[str, Any] | None = None
+        self._range: tuple[int, int] | None = None
 
     def select(self, _columns: str = "*") -> "FakeQuery":
         self._op = "select"
@@ -97,6 +98,12 @@ class FakeQuery:
         self._order_desc = desc
         return self
 
+    def range(self, start: int, end: int) -> "FakeQuery":
+        # mesma semântica do PostgREST: intervalo fechado, ambas as
+        # pontas inclusive (.range(0, 999) = as primeiras 1000 linhas)
+        self._range = (start, end)
+        return self
+
     def _matches(self, row: dict[str, Any]) -> bool:
         for op, key, value in self._filters:
             atual = row.get(key)
@@ -123,6 +130,9 @@ class FakeQuery:
             matched = [dict(r) for r in self._rows if self._matches(r)]
             if self._order_key:
                 matched.sort(key=lambda r: r.get(self._order_key), reverse=self._order_desc)
+            if self._range:
+                start, end = self._range
+                matched = matched[start : end + 1]
             return FakeResult(matched)
 
         if self._op == "insert":

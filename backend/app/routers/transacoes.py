@@ -179,21 +179,24 @@ def listar(
     data_fim: date | None = None,
     descricao: str | None = None,
 ):
-    query = _query_filtrada(
-        db,
-        user_id,
-        categoria_id,
-        subcategoria_id,
-        conta_id,
-        caixinha_id,
-        tipo_movimento,
-        estrutura_custo,
-        meio_pagamento,
-        data_inicio,
-        data_fim,
-        descricao,
+    # paginado: sem filtro de data (ex: limpar filtros em Lançamentos) já
+    # passa de 1000 linhas numa conta real — ver buscar_todas_paginado
+    return crud.buscar_todas_paginado(
+        lambda: _query_filtrada(
+            db,
+            user_id,
+            categoria_id,
+            subcategoria_id,
+            conta_id,
+            caixinha_id,
+            tipo_movimento,
+            estrutura_custo,
+            meio_pagamento,
+            data_inicio,
+            data_fim,
+            descricao,
+        ).order("data_compra", desc=True)
     )
-    return query.order("data_compra", desc=True).execute().data
 
 
 # precisa vir antes de GET /{transacao_id} — senão "/transacoes/resumo"
@@ -216,21 +219,22 @@ def resumo(
     """Os mesmos cartões de resumo da aba Busca de Lançamentos do app
     original, calculados sobre exatamente o mesmo conjunto de lançamentos
     que os filtros acima retornariam."""
-    query = _query_filtrada(
-        db,
-        user_id,
-        categoria_id,
-        subcategoria_id,
-        conta_id,
-        caixinha_id,
-        tipo_movimento,
-        estrutura_custo,
-        meio_pagamento,
-        data_inicio,
-        data_fim,
-        descricao,
+    dados = crud.buscar_todas_paginado(
+        lambda: _query_filtrada(
+            db,
+            user_id,
+            categoria_id,
+            subcategoria_id,
+            conta_id,
+            caixinha_id,
+            tipo_movimento,
+            estrutura_custo,
+            meio_pagamento,
+            data_inicio,
+            data_fim,
+            descricao,
+        )
     )
-    dados = query.execute().data
     resultado = calcular_resumo(dados)
     resultado.pop("_receita_ajustada")
     resultado["total_lancamentos"] = len(dados)

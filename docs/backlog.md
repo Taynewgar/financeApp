@@ -133,6 +133,10 @@ prioridade abaixo:
   Sem causa raiz investigada ainda.
 - **33.** **Lançamento com mais de 1 categoria** (detalhe abaixo) —
   surgiu durante a análise do item 9 (migração de dados).
+- **37.** **Compromissos Futuros: mostrar todas as parcelas, não só 5**
+  (detalhe abaixo) — reportado pelo usuário dogfooding a aplicação em uso
+  real. Direção já decidida pelo usuário (botão "ver mais" + card mais
+  compacto), falta implementar.
 
 **Concluído:**
 
@@ -178,6 +182,12 @@ prioridade abaixo:
   à do item 20 (colunas de largura fixa que não cabem em tela estreita),
   só que numa tela ainda não coberta por aquele fix. Detalhe na
   subseção própria abaixo, ver changelog Rodada 31.
+- **36.** ~~Caixinhas com saldo errado / "outras também não estão
+  batendo"~~ **feito 2026-09-25** — causa raiz era o limite padrão de
+  1000 linhas do Supabase/PostgREST, silencioso (sem erro), acertando em
+  cheio todo query sem paginação sobre `transacoes` — a conta real já
+  passa de 1862 linhas. Detalhe na subseção própria abaixo, ver
+  changelog Rodada 35.
 
 ### Baixa prioridade confirmada pelo usuário
 
@@ -581,6 +591,90 @@ antes de virar trabalho de implementação.
 **Status:** registrado 2026-09-25, prioridade média — nenhuma decisão de
 modelo tomada ainda; o workaround atual (2 lançamentos separados) atende
 o usuário no dia a dia.
+
+### Caixinhas com saldo errado / limite de 1000 linhas do Supabase
+
+**Contexto:** depois de rodar a migração real e começar a usar a
+aplicação no dia a dia, o usuário reportou (com prints comparando a
+tela de Caixinhas contra o acumulado calculado à mão a partir do CSV
+original) que os saldos de várias caixinhas não batiam — e, quando
+questionado se era só as duas do print, confirmou que "não são só essas
+caixinhas que tem problema de cálculo, outras também não estão
+batendo".
+
+**Investigação:** antes de suspeitar de paginação, foi preciso eliminar
+a hipótese óbvia — dado migrado errado. Recalculando `aplicação -
+retirada` por caixinha direto do CSV final migrado, o resultado bate
+exatamente com a coluna "Guardado" da planilha do usuário (a coluna
+"Real", que diverge, inclui rendimento de banco que o app nunca
+rastreou — divergência esperada, não bug). O usuário também confirmou
+por print que as caixinhas e as transações de cada uma existem
+corretamente na tela de Lançamentos filtrada por caixinha — isolando o
+problema pro caminho de leitura/agregação, não pra migração/escrita.
+
+**Causa raiz:** o Supabase (PostgREST) tem um limite padrão de 1000
+linhas por `.execute()` — `db-max-rows` — que corta o resultado **sem
+lançar nenhum erro**. Qualquer query em `transacoes` sem paginação
+explícita (`.range()`) simplesmente devolve até 1000 linhas e trunca o
+resto, silenciosamente. A conta do usuário, pós-migração, tem ~1862
+transações — bem acima do limite. `patrimonio_caixinhas` era o pior
+caso: nenhum filtro de data de início ("desde sempre") e nenhum
+`.order()`, então quais 1000 linhas voltam nem é estável entre chamadas.
+Auditoria do código achou o mesmo padrão (query "todas as transações
+do período", sem paginação) em vários outros lugares — não afetava só
+Caixinhas:
+
+- `GET /dashboard/resumo-periodo` nos modos "Todos os meses"/Intervalo
+  (`_resumo_entre`).
+- Gráfico de Evolução (`evolucao_mensal`).
+- Despesas por categoria/subcategoria do Dashboard.
+- Cálculo de saldo/realizado de Estrutura de Custo e Planejamento
+  (`orcamento_saldo.carregar_dados_periodo`).
+- `GET /transacoes` e `/transacoes/resumo` sem filtro de data (ex: tela
+  de Lançamentos com filtros limpos).
+- Ranking de categoria/subcategoria "mais usadas" (janela de 180 dias —
+  perto do limite com o volume real de dados).
+
+**Fix:** `buscar_todas_paginado()` (novo, em `app/services/crud.py`) —
+helper genérico que itera `.range(offset, offset + 999)` acumulando
+páginas até uma página vir com menos de 1000 linhas, substituindo
+`.execute().data` direto em todo ponto acima. `tests/fakes.py` ganhou
+suporte a `.range()` no `FakeQuery` fake pra poder testar a paginação
+offline.
+
+**Status:** implementado 2026-09-25 — sem migração nova, sem endpoint
+novo; conserta só o caminho de leitura (os dados no banco sempre
+estiveram certos). 348 testes offline passando. Ver changelog Rodada
+35 pro detalhe técnico completo e o checklist de teste manual.
+
+### Compromissos Futuros: mostrar todas as parcelas, não só 5
+
+**Contexto:** reportado junto com o bug de Caixinhas acima, na mesma
+rodada de dogfooding — "compromissos futuros não são todos mostrados,
+cadê o restante das parcelas?"
+
+**Causa raiz:** dois fatores, não um só. `GET
+/dashboard/compromissos-futuros` tem `limite: int = Query(5, ge=1,
+le=20)` e o frontend (`Dashboard.tsx`) chama sem passar `limite` — cai
+sempre em 5. Além disso, por design, o endpoint mostra só a **próxima**
+parcela pendente de cada `compra_parcelada_id` ativa (dedup via um
+`set`), nunca a lista completa das parcelas restantes de uma mesma
+compra — esse segundo comportamento é intencional, não bug.
+
+**Opções discutidas:** aumentar o limite fixo (simples, mas qualquer
+número fixo volta a cortar em algum momento) vs. um "ver mais"
+expansível.
+
+**Decisão do usuário:** "ver mais" em vez de limite fixo maior —
+"[um número fixo] é sempre provável de cortar e não ficar na cara o
+tempo todo tb é mais confortável. Se quero ver as próximas todas vou lá
+e expando." Junto, pediu pra deixar o card mais compacto/enxuto (menor
+altura) sem perder informação, já que ele fica sempre visível no
+Dashboard.
+
+**Status:** decidido 2026-09-25, implementação pendente — é trabalho
+de frontend (`Dashboard.tsx` + CSS do card de Compromissos Futuros),
+ainda não iniciado.
 
 ### Pareto de despesas por categoria/subcategoria
 

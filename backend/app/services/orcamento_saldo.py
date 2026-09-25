@@ -27,6 +27,7 @@ from datetime import date
 
 from supabase import Client
 
+from .crud import buscar_todas_paginado
 from .fatura import somar_meses
 
 ITENS_TABLE = "orcamento_itens"
@@ -233,14 +234,12 @@ def carregar_dados_periodo(
         mes_orcamento_mais_antigo = min(date.fromisoformat(o["vigencia_mes"]) for o in todos_orcamentos)
         transacoes_inicio = min(transacoes_inicio, mes_orcamento_mais_antigo)
     mes_fim_exclusivo = somar_meses(mes_fim, 1)
-    todas_transacoes = (
-        db.table("transacoes")
+    todas_transacoes = buscar_todas_paginado(
+        lambda: db.table("transacoes")
         .select("valor,tipo_movimento,estrutura_custo,categoria_id,subcategoria_id,conta_id,caixinha_id,data_compra")
         .eq("user_id", user_id)
         .gte("data_compra", transacoes_inicio.isoformat())
         .lt("data_compra", mes_fim_exclusivo.isoformat())
-        .execute()
-        .data
     )
     transacoes_por_mes: dict[str, list[dict]] = {}
     for t in todas_transacoes:
