@@ -3226,3 +3226,64 @@ de custo interativamente, e então `--executar`.
       (idempotência) — checar em especial um grupo de compra parcelada.
 - [ ] Conferir o relatório de reconciliação ao final — não deve apontar
       divergência nenhuma entre a soma do CSV e a soma no banco.
+
+### Rodada 34 (2026-09-25) — Fix: transações reais idênticas descartadas na migração
+
+O usuário rodou a migração de verdade (item 9): 1.862 lançamentos, dry-run
+limpo. A **reconciliação pós-migração** apontou divergência em 9 meses —
+banco sempre com um pouco menos de despesa que o CSV (R$14,99 a
+R$156,84 por mês). Investigação e fix no mesmo dia. Detalhe técnico
+completo em `docs/backlog.md` ("Migração de dados do app antigo") —
+aqui só o resumo.
+
+**Causa raiz:** `hash_dedup` do `POST /transacoes` usa só (data, valor,
+descrição, conta, tipo_movimento) — não inclui categoria. Duas
+transações **reais e diferentes** que só coincidem nesses 5 campos (ex:
+uma assinatura de R$14,99 cobrada todo dia 13, um Pix de R$10 repetido
+no mesmo dia — casos que o próprio usuário já tinha revisado e
+confirmado como reais durante a análise do CSV, não duplicata de
+digitação) colidem na mesma constraint UNIQUE que existe pra impedir
+duplicação. O script tratava qualquer 409 do endpoint como "já existe,
+idempotente" sem diferenciar os dois casos — perdendo a 2ª ocorrência
+em silêncio. As 9 diferenças bateram, centavo a centavo, com a soma das
+linhas confirmadas como reais em cada mês.
+
+**Fix:** `agrupar_por_chave_hash` (os mesmos 5 campos do `hash_dedup`)
+agrupa os lançamentos avista antes de criar. A 1ª ocorrência de cada
+grupo segue usando `POST /transacoes` normalmente; a 2ª em diante grava
+direto via `inserir_transacao`, somando um índice de ocorrência só ao
+cálculo do hash (nunca gravado na linha — o dado salvo fica idêntico ao
+que o endpoint criaria). Determinístico: numa 2ª execução, o mesmo
+lançamento sempre recebe o mesmo índice, então continua idempotente.
+
+O dry-run agora também avisa quantas transações caem nesse caso, antes
+de qualquer gravação.
+
+**Limitação que sobra, fora do escopo da migração:** o mesmo hash raso
+vale pro uso manual do dia a dia — 2 despesas reais idênticas nesses 5
+campos no mesmo dia esbarram no mesmo 409 (raro, mas o frontend não
+trata esse erro hoje). Registrado como item 35 do backlog.
+
+**Testes:** 3 testes novos (`tests/test_migracao.py`) — agrupamento
+correto de lançamentos idênticos, não-agrupamento quando o valor
+difere, e o caso descoberto na análise do CSV real
+("Armazenamento Google. Apple" repetido). Suíte completa: 346 passed,
+33 skipped.
+
+**Status:** fix implementado e testado (offline) nesta sessão. O
+usuário ainda precisa rodar a migração de novo (idempotente — só as
+transações que faltam entram) pra corrigir os 9 meses já divergentes no
+banco real, e conferir que a reconciliação fecha sem diferença.
+
+**Checklist de teste manual (usuário, localmente):**
+- [ ] Rodar o dry-run de novo com os mesmos 3 CSVs — o relatório deve
+      mostrar a contagem de "transações com mesma data/valor/descrição/
+      conta/tipo de outra".
+- [ ] Rodar com `--executar` de novo — as transações que já existiam
+      são puladas (idempotente), só as que faltavam (as descartadas
+      antes) entram.
+- [ ] Conferir o relatório de reconciliação final — os 9 meses que
+      antes divergiam devem bater exatamente agora.
+- [ ] No app, conferir um dos casos específicos (ex: Comunicação/
+      Serviços Digitais em março/2026) e contar se as 2 cobranças de
+      "Armazenamento Google. Apple" aparecem separadas em Lançamentos.

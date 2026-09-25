@@ -210,6 +210,11 @@ sequenciado pra depois do MVP. Nenhum destes 4 está em andamento:
 - **34.** **Fluxo de criação de usuário (cadastro)** (detalhe abaixo) —
   hoje só existe login; criar usuário é feito manualmente pelo painel
   do Supabase, sem tela/endpoint no app. *(2026-09-25)*
+- **35.** **`hash_dedup` não distingue 2 despesas reais idênticas no
+  mesmo dia** (detalhe na seção "Migração de dados do app antigo",
+  achado rodando a migração pra valer) — lançar manualmente 2 despesas
+  com mesma data/valor/descrição/conta/tipo esbarra num 409 que o
+  frontend não trata hoje. Raro no uso manual do dia a dia. *(2026-09-25)*
 
 Este arquivo não substitui o `README.md` da raiz (que descreve o que
 existe) nem o `/status-projeto` (relatório de andamento) — é o registro do
@@ -505,6 +510,37 @@ idênticos. Pra esse caminho o script checa antes se a 1ª parcela do
 grupo já existe (mesma descrição/parcela_atual/parcela_total/data) e
 pula o grupo inteiro se sim.
 
+**Bug real achado rodando a migração pra valer (2026-09-25):** a
+reconciliação pós-migração apontou divergência em 9 meses — a soma de
+despesa no banco ficava sempre um pouco menor que a do CSV (de R$14,99
+a R$156,84 por mês). Causa: `hash_dedup` do `POST /transacoes` usa só
+(data, valor, descrição, conta, tipo) — **não** categoria. Duas
+transações reais e diferentes que coincidem nesses 5 campos (ex: a
+mesma assinatura de R$14,99 cobrada todo dia 13, ou um Pix de R$10 pra
+"pix josi" duas vezes no mesmo dia — casos que o próprio usuário já
+tinha revisado e confirmado como reais, não duplicata de digitação)
+colidem na mesma constraint UNIQUE que existe pra evitar duplicar. O
+script tratava qualquer 409 como "já existe, idempotente" sem
+distinguir os dois casos — perdendo silenciosamente a 2ª ocorrência.
+Cada uma das 9 diferenças bateu, centavo a centavo, com a soma das
+linhas confirmadas como reais daquele mês.
+
+**Fix:** `agrupar_por_chave_hash` (mesmos 5 campos do `hash_dedup` do
+endpoint) agrupa os lançamentos avista antes de criar; a 1ª ocorrência
+de cada grupo usa `POST /transacoes` normalmente, a 2ª+ grava direto
+via `inserir_transacao` com um índice de ocorrência somado só ao
+cálculo do hash (nunca gravado na linha) — evita a colisão sem alterar
+o dado salvo. Continua idempotente numa 2ª execução (mesmo índice,
+mesmo resultado). Coberto por teste de regressão.
+
+**Limitação de design que sobra, fora do escopo da migração:** esse
+mesmo hash raso existe pro uso normal do app, não só pra migração — se
+o usuário um dia lançar manualmente 2 despesas reais idênticas nesses 5
+campos no mesmo dia, a 2ª esbarra no mesmo 409 (a API responde com
+"Já existe um lançamento idêntico", o frontend não trata esse caso
+hoje). É raro no dia a dia manual, mas vale registrar — ver item 35
+abaixo.
+
 **Depois da migração:** importação de CSV vira opcional (import assistido
 de extrato bancário, mapeando pras categorias já existentes) — não é mais
 o único caminho de entrada, já que o formulário guiado já cobre o uso do
@@ -512,13 +548,13 @@ dia a dia.
 
 **Status:** implementado 2026-09-25 — `backend/scripts/migrar_dados_antigos.py`
 + módulos em `backend/scripts/migracao/` (parsing, contas, mapeamento,
-parcelas, overrides), 44 testes offline cobrindo toda a lógica pura
-(inclui o caso do "Flamengo Nação" como teste de regressão). Validado
-com dry-run sintético ponta a ponta nesta sessão (CSV pequeno, sem
-tocar nos dados reais do usuário). **Não executado contra os dados
-reais** — precisa rodar localmente, com `backend/.env` preenchido (não
-roda nesta sessão remota, mesma limitação dos testes de integração).
-Ver changelog Rodada 33 pro detalhe técnico da entrega.
+parcelas, overrides), 47 testes offline cobrindo toda a lógica pura
+(inclui o caso do "Flamengo Nação" e o do `hash_dedup` colidindo em
+transações reais idênticas como testes de regressão). **Executado pelo
+usuário contra os dados reais em 2026-09-25** — 1.862 lançamentos
+migrados; a reconciliação apontou 9 meses com divergência (bug do
+`hash_dedup`, descrito acima), corrigido no mesmo dia. Ver changelog
+Rodadas 33 (entrega original) e 34 (esse fix) pro detalhe técnico.
 
 ### Lançamento com mais de 1 categoria
 

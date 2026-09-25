@@ -48,6 +48,7 @@ from dataclasses import dataclass
 from datetime import date
 
 import httpx
+from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
 sys.path.insert(0, ".")
@@ -126,6 +127,62 @@ def montar_payload_avista(lancamento: Lancamento, contexto: Contexto) -> dict:
         if estrutura:
             payload["estrutura_custo"] = estrutura
     return payload
+
+
+def chave_hash_avista(lancamento: Lancamento, contexto: Contexto) -> tuple:
+    """Os mesmos campos que `POST /transacoes` usa pro `hash_dedup`
+    (ver `criar()` em app/routers/transacoes.py: user_id, data_compra,
+    valor, descricao, conta_id, tipo_movimento — categoria/subcategoria
+    não entram). 2 lançamentos com essa chave igual colidem na
+    constraint UNIQUE do banco, mesmo sendo 2 transações reais
+    diferentes (ex: 2 assinaturas de mesmo valor cobradas no mesmo
+    dia) — achado rodando a migração de verdade (ver docs/backlog.md)."""
+    tipo_mov = resolver_tipo_movimento(lancamento.movimentacao, lancamento.tipo_pag_movimento)
+    conta_id = contexto.contas[resolver_conta(lancamento.banco, lancamento.meio_pagamento)]
+    return (lancamento.data.isoformat(), resolver_valor(lancamento.valor), lancamento.descricao or None, conta_id, tipo_mov)
+
+
+def agrupar_por_chave_hash(lancamentos: list[Lancamento], contexto: Contexto) -> dict[tuple, list[Lancamento]]:
+    grupos: dict[tuple, list[Lancamento]] = defaultdict(list)
+    for l in lancamentos:
+        grupos[chave_hash_avista(l, contexto)].append(l)
+    return grupos
+
+
+def gravar_avista_duplicado(db, user_id: str, lancamento: Lancamento, contexto: Contexto, ocorrencia: int) -> dict:
+    """Grava a 2ª+ ocorrência de um grupo com `chave_hash_avista` igual
+    — não dá pra usar POST /transacoes (o hash padrão colidiria com a
+    1ª ocorrência mesmo sendo uma transação real diferente). Grava
+    direto, reaproveitando a mesma lógica de fatura/hash do endpoint,
+    somando `ocorrencia` ao hash só pra desempatar — nunca é gravado na
+    linha, o dado salvo fica idêntico ao que o endpoint criaria."""
+    payload = montar_payload_avista(lancamento, contexto)
+    conta_id = payload["conta_id"]
+    row = {
+        "user_id": user_id,
+        **payload,
+        "pagamento": "avista",
+        "parcela_atual": None,
+        "parcela_total": None,
+        "compra_parcelada_id": None,
+        "fatura_referencia": fatura_referencia_para(db, user_id, conta_id, lancamento.data),
+        "fatura_override": False,
+    }
+    row["hash_dedup"] = compute_hash(
+        user_id=user_id,
+        data_compra=row["data_compra"],
+        valor=row["valor"],
+        descricao=row["descricao"],
+        conta_id=row["conta_id"],
+        tipo_movimento=row["tipo_movimento"],
+        parcela_atual=None,
+        parcela_total=None,
+        compra_parcelada_id=None,
+        ocorrencia=ocorrencia,
+    )
+    criada = inserir_transacao(db, row)
+    sincronizar_item_orcamento(db, user_id, criada)
+    return criada
 
 
 def validar_localmente(lancamentos_avista: list[Lancamento], grupos: list[GrupoParcela], contexto: Contexto) -> list[str]:
@@ -370,6 +427,8 @@ def main() -> None:
 
     contexto = contexto_local(categorias_csv, caixinhas_csv, aprendido, overrides)
     erros = validar_localmente(lancamentos_avista, grupos_parcela, contexto)
+    grupos_hash = agrupar_por_chave_hash(lancamentos_avista, contexto)
+    duplicatas_reais = sum(len(itens) - 1 for itens in grupos_hash.values() if len(itens) > 1)
 
     bloqueantes = []
     for l in candidatos_despesa:
@@ -389,6 +448,11 @@ def main() -> None:
     print(f"  Transações em grupos de parcela: {total_parcelas}")
     print(f"  Transações avista/receita/reserva: {len(lancamentos_avista)}")
     print(f"  Total de transações a criar: {len(lancamentos_avista) + total_parcelas}")
+    if duplicatas_reais:
+        print(
+            f"  Transações com mesma data/valor/descrição/conta/tipo de outra (ex: 2 assinaturas "
+            f"cobradas no mesmo dia) — gravadas com desambiguador pra não colidir no hash_dedup: {duplicatas_reais}"
+        )
     if linhas_puladas:
         print(f"  Linhas do CSV ignoradas: {len(linhas_puladas)} (sem a coluna Data preenchida — sobra de template da planilha, não é lançamento)")
         exemplos = linhas_puladas[:5]
@@ -439,14 +503,31 @@ def main() -> None:
 
     print(f"\nCriando {len(lancamentos_avista)} transações avista/receita/reserva...")
     criadas, puladas = 0, 0
-    for l in lancamentos_avista:
-        payload = montar_payload_avista(l, contexto)
-        resposta = client.post("/transacoes", json=payload, headers=headers)
-        if resposta.status_code == 409:
-            puladas += 1
-            continue
-        resposta.raise_for_status()
-        criadas += 1
+    # grupos_hash já foi calculado antes (contexto placeholder do dry-run) —
+    # o agrupamento em si (quais lançamentos colidem) não muda com o
+    # contexto, só os ids; reaproveita em vez de recalcular
+    for itens in grupos_hash.values():
+        for ocorrencia, l in enumerate(itens):
+            if ocorrencia == 0:
+                payload = montar_payload_avista(l, contexto)
+                resposta = client.post("/transacoes", json=payload, headers=headers)
+                if resposta.status_code == 409:
+                    puladas += 1
+                    continue
+                resposta.raise_for_status()
+                criadas += 1
+            else:
+                # 2ª+ ocorrência de uma transação real repetida (mesma
+                # data/valor/descrição/conta/tipo) — POST /transacoes
+                # colidiria com a 1ª no hash_dedup padrão, ver
+                # gravar_avista_duplicado
+                try:
+                    gravar_avista_duplicado(db, user_id, l, contexto, ocorrencia)
+                    criadas += 1
+                except HTTPException as exc:
+                    if exc.status_code != 409:
+                        raise
+                    puladas += 1
     print(f"  {criadas} criadas, {puladas} já existiam (puladas — idempotente)")
 
     print(f"\nCriando {len(grupos_parcela)} grupos de compra parcelada...")

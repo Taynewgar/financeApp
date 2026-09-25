@@ -304,3 +304,41 @@ class TestCarregarLancamentos:
         assert len(lancamentos) == 1
         assert len(puladas) == 1
         assert puladas[0].motivo == "sem Data preenchida"
+
+
+class TestAgruparPorChaveHash:
+    """Regressão: achada rodando a migração de verdade (2026-09-25) —
+    9 meses de reconciliação com divergência, o valor de cada um batia
+    exatamente com a soma das linhas 100% idênticas daquele mês. Causa:
+    POST /transacoes calcula hash_dedup só com (data, valor, descrição,
+    conta, tipo) — 2 transações reais que só coincidem nesses campos
+    (ex: mesma assinatura de streaming cobrada 2x no mesmo dia por 2
+    contas diferentes... não, pela mesma conta mesmo, tipo compra
+    duplicada de propósito) colidem na constraint UNIQUE, e a 2ª vira
+    'já existe' — silenciosamente descartada."""
+
+    def test_lancamentos_identicos_formam_grupo_de_2(self):
+        from scripts.migrar_dados_antigos import agrupar_por_chave_hash, contexto_local
+
+        contexto = contexto_local({"Comunicação": ["Serviços Digitais"]}, {}, {}, {})
+        l1 = _lancamento(
+            data=date(2026, 3, 13), valor=14.99, descricao="Armazenamento Google. Apple",
+            categoria="Comunicação", subcategoria="Serviços Digitais", banco="BTG",
+        )
+        l2 = _lancamento(
+            data=date(2026, 3, 13), valor=14.99, descricao="Armazenamento Google. Apple",
+            categoria="Comunicação", subcategoria="Serviços Digitais", banco="BTG",
+        )
+        grupos = agrupar_por_chave_hash([l1, l2], contexto)
+        assert len(grupos) == 1
+        (itens,) = grupos.values()
+        assert len(itens) == 2
+
+    def test_lancamentos_com_valor_diferente_nao_agrupam(self):
+        from scripts.migrar_dados_antigos import agrupar_por_chave_hash, contexto_local
+
+        contexto = contexto_local({"Comunicação": ["Serviços Digitais"]}, {}, {}, {})
+        l1 = _lancamento(data=date(2026, 3, 13), valor=14.99, banco="BTG")
+        l2 = _lancamento(data=date(2026, 3, 13), valor=15.00, banco="BTG")
+        grupos = agrupar_por_chave_hash([l1, l2], contexto)
+        assert len(grupos) == 2
