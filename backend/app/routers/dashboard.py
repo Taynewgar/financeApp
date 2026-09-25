@@ -25,17 +25,34 @@ _MESES_MAXIMO_NA_EVOLUCAO = 60  # 5 anos — limite defensivo contra range gigan
 
 
 def _resumo_entre(db: Client, user_id: str, data_inicio: date, data_fim_exclusiva: date) -> dict:
-    # paginado: usado tanto por /mensal (1 mês, sempre pequeno) quanto por
-    # /resumo-periodo no modo "Todos os meses" (histórico inteiro — já
-    # passou de 1000 transações numa conta real, ver buscar_todas_paginado)
-    transacoes = buscar_todas_paginado(
-        lambda: db.table("transacoes")
-        .select("valor,tipo_movimento,ajuste_de_transacao_id,caixinha_id")
-        .eq("user_id", user_id)
-        .gte("data_compra", data_inicio.isoformat())
-        .lt("data_compra", data_fim_exclusiva.isoformat())
+    # agregado no Postgres (RPC) em vez de trazer 1 linha por transação pra
+    # somar em Python — usado tanto por /mensal (1 mês) quanto por
+    # /resumo-periodo no modo "Todos os meses" (histórico inteiro, que só
+    # cresce com o tempo de uso — ver docs/backlog.md "RPCs de agregação").
+    # O resultado já vem agrupado (no máximo ~6 tipos × 2 × 2 linhas), não
+    # cresce com o volume de transações. calcular_resumo continua a mesma
+    # função pura de sempre — só recebe "transações sintéticas" 1 por grupo
+    # já somadas, em vez de 1 por lançamento real (soma de sinal×valor por
+    # grupo é idêntica à soma lançamento a lançamento, já que o sinal só
+    # depende dos 3 campos usados no agrupamento).
+    linhas = (
+        db.rpc(
+            "resumo_agregado_transacoes",
+            {"p_user_id": user_id, "p_desde": data_inicio.isoformat(), "p_ate": data_fim_exclusiva.isoformat()},
+        )
+        .execute()
+        .data
     )
-    return calcular_resumo(transacoes)
+    transacoes_sinteticas = [
+        {
+            "valor": linha["total"],
+            "tipo_movimento": linha["tipo_movimento"],
+            "ajuste_de_transacao_id": "x" if linha["tem_ajuste"] else None,
+            "caixinha_id": "x" if linha["tem_caixinha"] else None,
+        }
+        for linha in linhas
+    ]
+    return calcular_resumo(transacoes_sinteticas)
 
 
 def _resumo_do_mes(db: Client, user_id: str, mes_inicio: date) -> dict:
@@ -317,24 +334,18 @@ def patrimonio_caixinhas(
     if not caixinhas:
         return []
 
-    # sem filtro de data de início ("desde sempre") nem .order() — o pior
-    # caso pro limite de 1000 linhas do Supabase: sem paginação, perde
-    # linhas de forma imprevisível (achado 2026-09-25, ver
-    # buscar_todas_paginado)
-    movimentos = buscar_todas_paginado(
-        lambda: db.table("transacoes")
-        .select("caixinha_id,valor,tipo_movimento")
-        .eq("user_id", user_id)
-        .lt("data_compra", mes_fim.isoformat())
-    )
-    saldos = {c["id"]: 0.0 for c in caixinhas}
-    for m in movimentos:
-        caixinha_id = m.get("caixinha_id")
-        if caixinha_id not in saldos:
-            continue
-        saldos[caixinha_id] += m["valor"] if m["tipo_movimento"] == "aplicacao" else -m["valor"]
+    # agregação feita no Postgres (RPC saldo_caixinhas) — "desde sempre"
+    # sem limite de data era o pior caso pro limite de 1000 linhas do
+    # Supabase (achado 2026-09-25) e, mesmo paginado, cresceria pra sempre
+    # com o histórico. O RPC devolve 1 linha por caixinha já somada, então
+    # o custo não depende mais do volume de transações.
+    linhas = db.rpc("saldo_caixinhas", {"p_user_id": user_id, "p_ate": mes_fim.isoformat()}).execute().data
+    saldos_por_caixinha = {linha["caixinha_id"]: linha["saldo"] for linha in linhas}
 
-    return [{"id": c["id"], "nome": c["nome"], "saldo": round(saldos[c["id"]], 2)} for c in caixinhas]
+    return [
+        {"id": c["id"], "nome": c["nome"], "saldo": round(saldos_por_caixinha.get(c["id"], 0.0), 2)}
+        for c in caixinhas
+    ]
 
 
 @router.get("/compromissos-futuros", response_model=list[CompromissoFuturo])

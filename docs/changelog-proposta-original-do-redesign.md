@@ -3400,3 +3400,87 @@ tipo/build; o usuário precisa confirmar visualmente.
 - [ ] Testar "Confirmar"/"Pular este mês" de um recorrente com a lista
       expandida e com a lista colapsada — os botões continuam
       funcionando nos dois estados.
+
+### Rodada 37 (2026-09-25) — Agregações que crescem pra sempre com o histórico movidas pra RPC
+
+Depois dos fixes de Caixinhas/Compromissos Futuros (Rodadas 35-36), o
+usuário perguntou pela robustez de longo prazo: com ~2,5k
+transações/ano, em 6-7 anos a conta chega a 15-20k linhas — o
+`buscar_todas_paginado` (Rodada 35) já garante que isso nunca mais gera
+corte silencioso, mas ainda soma em Python sobre linhas cruas trazidas
+pela rede. Detalhe técnico completo em `docs/backlog.md` ("Agregações
+que crescem pra sempre com o histórico — RPCs no Postgres") — aqui só o
+resumo.
+
+**Diagnóstico:** corretude e performance são problemas independentes.
+A maioria das queries é limitada pela largura do período pedido, não
+pela idade da conta — só 3 pontos não têm limite de data (ou o limite é
+"desde o início da conta") e por isso crescem pra sempre: `patrimonio_
+caixinhas` (aplicações/retiradas desde sempre), o Dashboard no modo
+"Todos os meses" (`_resumo_entre`), e a cadeia de `saldo_anterior` do
+orçamento (`orcamento_saldo.carregar_dados_periodo`).
+
+**Decisão:** mover a soma desses 3 pontos pro Postgres via RPC, em vez
+de trazer linha por linha pra somar em Python — o resultado que volta
+já é agregado, então o custo passa a depender da complexidade da conta
+(categorias × contas × caixinhas × meses), não do volume de
+lançamentos. Alternativa descartada de propósito: cache incremental de
+saldo (atualizar a cada insert/delete) — é exatamente o padrão que o
+próprio código já evita (`orcamento_saldo.py` nunca confia num
+`saldo_anterior` gravado, porque edição/backfill dessincroniza
+silenciosamente); RPC recalcula do zero a cada leitura, só que dentro
+do banco, sem reabrir esse risco.
+
+**Fix:**
+- 3 funções SQL novas em `db/schema.sql` — `saldo_caixinhas(p_user_id,
+  p_ate)`, `resumo_agregado_transacoes(p_user_id, p_desde, p_ate)` e
+  `saldo_transacoes_agregado(p_user_id, p_desde, p_ate)`, todas
+  `security invoker` (RLS de `transacoes` continua valendo por trás do
+  parâmetro, mesma dupla camada do resto do app).
+- `dashboard.py`: `_resumo_entre` e `patrimonio_caixinhas` chamam as 2
+  primeiras via `db.rpc(...)`.
+- `orcamento_saldo.carregar_dados_periodo`: chama a terceira, agrupando
+  por (mês, categoria, subcategoria, conta, caixinha, estrutura_custo,
+  tipo_movimento) — exatamente os campos que `calcular_realizado_item_
+  em_lote` e `_agregar_estrutura_custo` já usavam pra filtrar/somar, só
+  que agora numa linha por grupo em vez de 1 por lançamento real.
+- Nenhuma das funções puras que consomem o resultado
+  (`calcular_resumo`, `calcular_realizado_item_em_lote`,
+  `_agregar_estrutura_custo`) precisou mudar — só passam a receber
+  "linhas sintéticas" já somadas por grupo.
+- `tests/fakes.py` ganhou `.rpc(nome, params)`, com uma implementação
+  Python de cada função SQL operando sobre o mesmo `store["transacoes"]`
+  que os testes já povoam — nenhum teste precisou mudar como monta seus
+  dados.
+- `README.md`: nova seção "Migração pendente no seu Supabase" com o SQL
+  das 3 funções, pro usuário rodar uma vez no *SQL Editor* (mesmo padrão
+  já usado pras migrações anteriores).
+
+**Testes:** 350 passed, 33 skipped (2 testes novos de regressão —
+`test_duas_despesas_no_mesmo_mes_somam_no_resumo` e `test_duas_despesas_
+da_mesma_subcategoria_no_mes_somam_no_realizado` — provam que 2
+lançamentos que caem no mesmo grupo de agregação são somados pelo
+Postgres, não sobrescritos/duplicados). Os testes existentes de
+contagem de chamadas (`_ContadorClient`, Rodadas 27/29) foram ajustados
+pra contar `.rpc(...)` no lugar de `.table("transacoes")` — o número
+total de chamadas ao "banco" por requisição não mudou.
+
+**Status:** implementado e testado (offline) nesta sessão. O usuário
+precisa rodar o SQL das 3 funções no Supabase real (seção "Migração
+pendente" do `README.md`) antes de recarregar — sem isso, `GET
+/dashboard/patrimonio/*`, `/dashboard/resumo-periodo` e telas de
+Planejamento/Estrutura de Custo respondem 404 do PostgREST (função RPC
+inexistente).
+
+**Checklist de teste manual (usuário, localmente):**
+- [ ] Rodar o SQL das 3 funções no *SQL Editor* do Supabase (seção
+      "Migração pendente" do `README.md`) antes de qualquer teste
+      abaixo.
+- [ ] Recarregar Caixinhas/Patrimônio e confirmar que os saldos
+      continuam batendo com a coluna "Guardado" da planilha (mesmo
+      resultado da Rodada 35, agora vindo do RPC).
+- [ ] Dashboard no modo "Todos os meses" e Intervalo — confirmar que os
+      totais de receita/despesa/resultado continuam os mesmos de antes.
+- [ ] Estrutura de Custo e Planejamento — confirmar saldo/realizado de
+      um bucket com histórico de vários meses (a cadeia de
+      `saldo_anterior`).

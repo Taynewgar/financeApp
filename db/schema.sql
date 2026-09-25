@@ -188,6 +188,80 @@ create index idx_transacoes_fatura on transacoes (conta_id, fatura_referencia);
 create index idx_transacoes_compra_parcelada on transacoes (compra_parcelada_id);
 create index idx_transacoes_lancamento_recorrente on transacoes (lancamento_recorrente_id);
 
+-- ── AGREGAÇÕES EM RPC (não escalar com o histórico total) ───────────────
+-- Caixinhas ("desde sempre"), Dashboard no modo "Todos os meses" e a
+-- cadeia de saldo_anterior do orçamento somam transações sem limite de
+-- data — sem isso, cada leitura traria 1 linha por transação pra somar em
+-- Python, e esse volume só cresce com o tempo de uso da conta. As 3
+-- funções abaixo fazem a soma dentro do Postgres: o resultado é 1 linha
+-- por caixinha/grupo, não 1 linha por transação, então o custo de rede e
+-- de Python passa a depender da complexidade da conta (nº de categorias/
+-- contas/caixinhas × meses), não do volume de lançamentos. Ver
+-- docs/backlog.md ("RPCs de agregação: caixinhas, resumo, orçamento",
+-- 2026-09-25) pro racional completo.
+--
+-- `language sql` sem `security definer` = security invoker (padrão): a
+-- função roda com o papel de quem chama, então a RLS de "transacoes"
+-- (auth.uid() = user_id) continua valendo por trás do parâmetro
+-- p_user_id — mesma dupla camada (filtro explícito + RLS) já usada em
+-- todo o resto do app.
+
+create or replace function saldo_caixinhas(p_user_id uuid, p_ate date)
+returns table(caixinha_id uuid, saldo numeric) as $$
+    select caixinha_id,
+           sum(case when tipo_movimento = 'aplicacao' then valor else -valor end) as saldo
+    from transacoes
+    where user_id = p_user_id
+      and caixinha_id is not null
+      and data_compra < p_ate
+    group by caixinha_id
+$$ language sql stable;
+
+grant execute on function saldo_caixinhas(uuid, date) to authenticated;
+
+create or replace function resumo_agregado_transacoes(p_user_id uuid, p_desde date, p_ate date)
+returns table(
+    tipo_movimento text,
+    tem_ajuste boolean,
+    tem_caixinha boolean,
+    total numeric
+) as $$
+    select tipo_movimento,
+           (ajuste_de_transacao_id is not null) as tem_ajuste,
+           (caixinha_id is not null) as tem_caixinha,
+           sum(valor) as total
+    from transacoes
+    where user_id = p_user_id
+      and data_compra >= p_desde
+      and data_compra < p_ate
+    group by 1, 2, 3
+$$ language sql stable;
+
+grant execute on function resumo_agregado_transacoes(uuid, date, date) to authenticated;
+
+create or replace function saldo_transacoes_agregado(p_user_id uuid, p_desde date, p_ate date)
+returns table(
+    mes date,
+    categoria_id uuid,
+    subcategoria_id uuid,
+    conta_id uuid,
+    caixinha_id uuid,
+    estrutura_custo text,
+    tipo_movimento text,
+    total numeric
+) as $$
+    select date_trunc('month', data_compra)::date as mes,
+           categoria_id, subcategoria_id, conta_id, caixinha_id, estrutura_custo, tipo_movimento,
+           sum(valor) as total
+    from transacoes
+    where user_id = p_user_id
+      and data_compra >= p_desde
+      and data_compra < p_ate
+    group by 1, 2, 3, 4, 5, 6, 7
+$$ language sql stable;
+
+grant execute on function saldo_transacoes_agregado(uuid, date, date) to authenticated;
+
 -- ── ORÇAMENTO (versionado por mês de vigência) ──────────────────────────
 create table orcamentos (
     id uuid primary key default gen_random_uuid(),

@@ -385,6 +385,78 @@ precisa desse passo — tabela já nasce criada.
 Um projeto novo, criado rodando `db/schema.sql` já com esta versão, não
 precisa desse passo — tabela e coluna já nascem criadas.
 
+### Migração pendente no seu Supabase: RPCs de agregação (`saldo_caixinhas`, `resumo_agregado_transacoes`, `saldo_transacoes_agregado`)
+
+Caixinhas, o Dashboard no modo "Todos os meses" e a cadeia de
+`saldo_anterior` do orçamento somavam transações inteiras em Python — sem
+limite de data em pelo menos um caso (Caixinhas), então esse custo só
+cresce com o tempo de uso da conta (ver `docs/backlog.md`, "RPCs de
+agregação: caixinhas, resumo, orçamento"). As 3 funções abaixo movem essa
+soma pro Postgres: o resultado que volta já é 1 linha por caixinha/grupo,
+não 1 linha por transação. Se o seu projeto já existia antes desta
+entrega, rode uma vez no *SQL Editor*:
+
+```sql
+create or replace function saldo_caixinhas(p_user_id uuid, p_ate date)
+returns table(caixinha_id uuid, saldo numeric) as $$
+    select caixinha_id,
+           sum(case when tipo_movimento = 'aplicacao' then valor else -valor end) as saldo
+    from transacoes
+    where user_id = p_user_id
+      and caixinha_id is not null
+      and data_compra < p_ate
+    group by caixinha_id
+$$ language sql stable;
+
+grant execute on function saldo_caixinhas(uuid, date) to authenticated;
+
+create or replace function resumo_agregado_transacoes(p_user_id uuid, p_desde date, p_ate date)
+returns table(
+    tipo_movimento text,
+    tem_ajuste boolean,
+    tem_caixinha boolean,
+    total numeric
+) as $$
+    select tipo_movimento,
+           (ajuste_de_transacao_id is not null) as tem_ajuste,
+           (caixinha_id is not null) as tem_caixinha,
+           sum(valor) as total
+    from transacoes
+    where user_id = p_user_id
+      and data_compra >= p_desde
+      and data_compra < p_ate
+    group by 1, 2, 3
+$$ language sql stable;
+
+grant execute on function resumo_agregado_transacoes(uuid, date, date) to authenticated;
+
+create or replace function saldo_transacoes_agregado(p_user_id uuid, p_desde date, p_ate date)
+returns table(
+    mes date,
+    categoria_id uuid,
+    subcategoria_id uuid,
+    conta_id uuid,
+    caixinha_id uuid,
+    estrutura_custo text,
+    tipo_movimento text,
+    total numeric
+) as $$
+    select date_trunc('month', data_compra)::date as mes,
+           categoria_id, subcategoria_id, conta_id, caixinha_id, estrutura_custo, tipo_movimento,
+           sum(valor) as total
+    from transacoes
+    where user_id = p_user_id
+      and data_compra >= p_desde
+      and data_compra < p_ate
+    group by 1, 2, 3, 4, 5, 6, 7
+$$ language sql stable;
+
+grant execute on function saldo_transacoes_agregado(uuid, date, date) to authenticated;
+```
+
+Um projeto novo, criado rodando `db/schema.sql` já com esta versão, não
+precisa desse passo — as 3 funções já nascem criadas.
+
 ## Desenvolvimento local
 
 ```bash

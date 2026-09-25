@@ -187,6 +187,11 @@ prioridade abaixo:
 - **37.** ~~Compromissos Futuros: mostrar todas as parcelas, não só 5~~
   **feito 2026-09-25** — "ver mais" + card mais compacto, decisão do
   usuário. Detalhe na subseção própria abaixo, ver changelog Rodada 36.
+- **38.** ~~Agregações que crescem pra sempre com o histórico (caixinhas,
+  "Todos os meses", cadeia de orçamento) movidas pra RPC no Postgres~~
+  **feito 2026-09-25** — decisão de arquitetura de longo prazo, a pedido
+  do usuário (volume projetado de ~15-20k transações em 6-7 anos).
+  Detalhe na subseção própria abaixo, ver changelog Rodada 37.
 
 ### Baixa prioridade confirmada pelo usuário
 
@@ -1411,6 +1416,68 @@ se o processo manual pelo painel se tornasse repetitivo.
 
 **Status:** registrado 2026-09-25, baixa prioridade — sem previsão,
 processo manual atual resolve.
+
+### Agregações que crescem pra sempre com o histórico — RPCs no Postgres
+
+**Contexto:** depois dos fixes de Caixinhas/Compromissos Futuros (itens
+36-37), o usuário levantou a pergunta de fundo: com ~2,5k transações por
+ano, em 6-7 anos a conta chega a 15-20k linhas — o `buscar_todas_paginado`
+corrige o corte silencioso do Supabase pra qualquer volume, mas ainda
+traz 1 linha por transação pra somar em Python. Existe risco real de
+latência crescente ao longo dos anos, mesmo sem bug de corretude?
+
+**Diagnóstico:** a resposta divide em duas partes independentes.
+Corretude já está resolvida pra qualquer volume (paginação nunca mais
+trunca, seja com 2k ou 200k linhas). Performance é o ponto real: nem
+toda query cresce com a idade da conta — a maioria é limitada pela
+largura do período pedido (resumo mensal, "mais usadas" com janela de
+180 dias), então não piora sozinha com o tempo. Só 3 pontos realmente
+crescem pra sempre, porque não têm limite de data (ou o limite é "desde
+o início da conta"):
+
+1. `patrimonio_caixinhas` — soma aplicações/retiradas desde sempre.
+2. Dashboard no modo "Todos os meses" (`_resumo_entre` via
+   `/resumo-periodo`).
+3. `orcamento_saldo.carregar_dados_periodo` — sobe a cadeia de
+   `saldo_anterior` até o orçamento mais antigo.
+
+**Decisão (aprovada pelo usuário):** mover a agregação desses 3 pontos
+pro Postgres via função RPC (`db.rpc(...)`), em vez de trazer as linhas
+cruas pra somar em Python. O resultado que volta já é agregado (1 linha
+por caixinha, ou por grupo de mês/categoria/subcategoria/conta/tipo) —
+o custo de rede e de Python passa a depender da complexidade da conta
+(nº de categorias/contas/caixinhas × meses), não do volume de
+lançamentos.
+
+**Alternativa descartada:** manter um saldo pré-calculado, incrementado
+a cada insert/delete de transação (cache de saldo). Rejeitada de
+propósito — é exatamente o padrão que o próprio código já evita (ver
+docstring de `orcamento_saldo.py`: `saldo_anterior` nunca confia num
+valor gravado, porque edição/backfill dessincroniza silenciosamente).
+RPC recalcula do zero a cada leitura (fonte única de verdade), só que
+dentro do banco.
+
+**Fix:** 3 funções SQL novas em `db/schema.sql` (`saldo_caixinhas`,
+`resumo_agregado_transacoes`, `saldo_transacoes_agregado`), chamadas via
+`db.rpc(...)` em `dashboard.py` (`_resumo_entre`, `patrimonio_caixinhas`)
+e `orcamento_saldo.carregar_dados_periodo`. As funções puras que
+consomem o resultado (`calcular_resumo`, `calcular_realizado_item_em_lote`,
+`_agregar_estrutura_custo`) não mudaram — só passam a receber "linhas
+sintéticas" já somadas por grupo em vez de 1 por lançamento real (a soma
+de sinal×valor por grupo é idêntica à soma lançamento a lançamento,
+já que o agrupamento usa exatamente os mesmos campos que essas funções
+já filtravam). `tests/fakes.py` ganhou suporte a `.rpc(...)`, espelhando
+cada função SQL sobre o mesmo `store["transacoes"]` que os testes já
+povoam — nenhum teste existente precisou mudar como monta seus dados.
+
+**Migração pendente no Supabase real:** as 3 funções não existiam antes
+desta entrega — precisam ser criadas uma vez no *SQL Editor* do projeto
+(ver seção própria no `README.md` raiz) antes de usar em produção.
+
+**Status:** implementado 2026-09-25 — 350 testes offline passando
+(2 novos, de regressão: múltiplas transações no mesmo grupo de
+agregação precisam somar, não sobrescrever/duplicar). Ver changelog
+Rodada 37 pro detalhe técnico completo.
 
 ---
 

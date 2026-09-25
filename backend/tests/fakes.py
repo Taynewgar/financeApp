@@ -11,6 +11,7 @@ contra o banco real.
 from __future__ import annotations
 
 import uuid
+from collections.abc import Callable
 from typing import Any
 
 
@@ -175,6 +176,90 @@ class FakeQuery:
         raise RuntimeError("nenhuma operação (select/insert/update/delete) foi chamada antes de execute()")
 
 
+def _fake_saldo_caixinhas(transacoes: list[dict[str, Any]], params: dict[str, Any]) -> list[dict[str, Any]]:
+    saldos: dict[str, float] = {}
+    for t in transacoes:
+        if t.get("user_id") != params["p_user_id"] or not t.get("caixinha_id"):
+            continue
+        if t["data_compra"] >= params["p_ate"]:
+            continue
+        sinal = 1 if t["tipo_movimento"] == "aplicacao" else -1
+        saldos[t["caixinha_id"]] = saldos.get(t["caixinha_id"], 0.0) + sinal * t["valor"]
+    return [{"caixinha_id": caixinha_id, "saldo": saldo} for caixinha_id, saldo in saldos.items()]
+
+
+def _fake_resumo_agregado_transacoes(
+    transacoes: list[dict[str, Any]], params: dict[str, Any]
+) -> list[dict[str, Any]]:
+    grupos: dict[tuple, float] = {}
+    for t in transacoes:
+        if t.get("user_id") != params["p_user_id"]:
+            continue
+        if not (params["p_desde"] <= t["data_compra"] < params["p_ate"]):
+            continue
+        chave = (t["tipo_movimento"], bool(t.get("ajuste_de_transacao_id")), bool(t.get("caixinha_id")))
+        grupos[chave] = grupos.get(chave, 0.0) + t["valor"]
+    return [
+        {"tipo_movimento": tipo, "tem_ajuste": tem_ajuste, "tem_caixinha": tem_caixinha, "total": total}
+        for (tipo, tem_ajuste, tem_caixinha), total in grupos.items()
+    ]
+
+
+def _fake_saldo_transacoes_agregado(
+    transacoes: list[dict[str, Any]], params: dict[str, Any]
+) -> list[dict[str, Any]]:
+    grupos: dict[tuple, float] = {}
+    for t in transacoes:
+        if t.get("user_id") != params["p_user_id"]:
+            continue
+        if not (params["p_desde"] <= t["data_compra"] < params["p_ate"]):
+            continue
+        chave = (
+            f"{t['data_compra'][:7]}-01",
+            t.get("categoria_id"),
+            t.get("subcategoria_id"),
+            t.get("conta_id"),
+            t.get("caixinha_id"),
+            t.get("estrutura_custo"),
+            t["tipo_movimento"],
+        )
+        grupos[chave] = grupos.get(chave, 0.0) + t["valor"]
+    return [
+        {
+            "mes": mes,
+            "categoria_id": categoria_id,
+            "subcategoria_id": subcategoria_id,
+            "conta_id": conta_id,
+            "caixinha_id": caixinha_id,
+            "estrutura_custo": estrutura_custo,
+            "tipo_movimento": tipo_movimento,
+            "total": total,
+        }
+        for (mes, categoria_id, subcategoria_id, conta_id, caixinha_id, estrutura_custo, tipo_movimento), total in (
+            grupos.items()
+        )
+    ]
+
+
+# espelha as funções RPC de db/schema.sql (agregação no banco — ver
+# comentário lá "AGREGAÇÕES EM RPC"). Cada fake opera sobre o mesmo
+# `store["transacoes"]` que os testes já povoam via `.table(...)`/POST
+# real, então nenhum teste precisa mudar como monta seus dados.
+_FAKE_RPCS: dict[str, Callable[[list[dict[str, Any]], dict[str, Any]], list[dict[str, Any]]]] = {
+    "saldo_caixinhas": _fake_saldo_caixinhas,
+    "resumo_agregado_transacoes": _fake_resumo_agregado_transacoes,
+    "saldo_transacoes_agregado": _fake_saldo_transacoes_agregado,
+}
+
+
+class FakeRpc:
+    def __init__(self, data: list[dict[str, Any]]):
+        self._data = data
+
+    def execute(self) -> FakeResult:
+        return FakeResult(self._data)
+
+
 class FakeSupabaseClient:
     """Substitui supabase.Client nos testes. `store` é compartilhado entre
     chamadas dentro de um mesmo teste para simular um banco persistente."""
@@ -185,3 +270,9 @@ class FakeSupabaseClient:
     def table(self, name: str) -> FakeQuery:
         self._store.setdefault(name, [])
         return FakeQuery(self._store[name], table=name)
+
+    def rpc(self, name: str, params: dict[str, Any]) -> FakeRpc:
+        handler = _FAKE_RPCS.get(name)
+        if handler is None:
+            raise RuntimeError(f"RPC fake não implementada: {name!r}")
+        return FakeRpc(handler(self._store.get("transacoes", []), params))

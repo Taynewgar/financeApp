@@ -62,6 +62,39 @@ def test_despesa_com_estrutura_fixo_aparece_em_custos_fixos(client):
     assert fixos["itens"][0]["categoria_id"] == categoria["id"]
 
 
+def test_duas_despesas_da_mesma_subcategoria_no_mes_somam_no_realizado(client):
+    """Regressão da migração pra RPC de agregação (2026-09-25,
+    saldo_transacoes_agregado): 2 lançamentos que caem no mesmo grupo
+    (mesma categoria/subcategoria/conta/estrutura_custo/tipo_movimento no
+    mesmo mês) precisam ser SOMADOS pelo Postgres antes de chegar em
+    Python — não podem aparecer como 2 linhas concorrentes nem sobrescrever
+    uma a outra."""
+    conta = client.post("/contas", json={"nome": "Conta", "tipo_conta": "corrente"}).json()
+    categoria = client.post("/categorias", json={"nome": "Moradia"}).json()
+    subcategoria = client.post(
+        "/subcategorias", json={"nome": "Aluguel", "categoria_id": categoria["id"]}
+    ).json()
+    for valor in (1200, 300):
+        client.post(
+            "/transacoes",
+            json={
+                "data_compra": "2026-09-05",
+                "valor": valor,
+                "tipo_movimento": "despesa",
+                "conta_id": conta["id"],
+                "categoria_id": categoria["id"],
+                "subcategoria_id": subcategoria["id"],
+                "estrutura_custo": "fixo",
+                "meio_pagamento": "pix",
+            },
+        )
+
+    resposta = client.get("/estrutura-custo/2026-09-01")
+    fixos = _bucket(resposta, "custos_fixos")
+    assert fixos["realizado"] == 1500
+    assert fixos["itens"][0]["realizado"] == 1500
+
+
 # test_despesa_sem_estrutura_custo_cai_em_sem_estrutura removido: seu
 # premissa (despesa sem estrutura_custo) não é mais alcançável pela API —
 # categoria_id/estrutura_custo/meio_pagamento agora são obrigatórios para
@@ -580,6 +613,10 @@ def test_evolucao_orcamento_busca_dados_do_periodo_em_lote_nao_por_mes(client, d
             self.chamadas.append(nome)
             return self._inner.table(nome)
 
+        def rpc(self, nome, params):
+            self.chamadas.append(nome)
+            return self._inner.rpc(nome, params)
+
     contador = _ContadorClient(db_store)
     app.dependency_overrides[get_db] = lambda: contador
     try:
@@ -594,7 +631,7 @@ def test_evolucao_orcamento_busca_dados_do_periodo_em_lote_nao_por_mes(client, d
     # dessas por mês — sem o fix seriam pelo menos 18 (3 × 6 meses)
     assert contador.chamadas.count("orcamentos") == 1
     assert contador.chamadas.count("orcamento_itens") == 1
-    assert contador.chamadas.count("transacoes") == 1
+    assert contador.chamadas.count("saldo_transacoes_agregado") == 1
     assert len(contador.chamadas) == 3
 
 
@@ -656,6 +693,10 @@ def test_obter_um_mes_busca_dados_em_lote_nao_recalcula_cadeia_item_a_item(clien
             self.chamadas.append(nome)
             return self._inner.table(nome)
 
+        def rpc(self, nome, params):
+            self.chamadas.append(nome)
+            return self._inner.rpc(nome, params)
+
     # pede só o ÚLTIMO mês da cadeia — é o pior caso pra recursão item a
     # item (precisa subir os 5 meses anteriores pra cada um dos 2 itens)
     contador = _ContadorClient(db_store)
@@ -674,7 +715,7 @@ def test_obter_um_mes_busca_dados_em_lote_nao_recalcula_cadeia_item_a_item(clien
     # seriam dezenas de chamadas (2 itens × ~5 meses de cadeia × 3 queries)
     assert contador.chamadas.count("orcamentos") == 1
     assert contador.chamadas.count("orcamento_itens") == 1
-    assert contador.chamadas.count("transacoes") == 1
+    assert contador.chamadas.count("saldo_transacoes_agregado") == 1
     assert len(contador.chamadas) == 3
 
 

@@ -55,6 +55,32 @@ def test_receita_e_despesa_simples_calculam_resultado(client):
     assert resposta["taxa_poupanca"] == 40.0  # 2000 / 5000 * 100
 
 
+def test_duas_despesas_no_mesmo_mes_somam_no_resumo(client):
+    """Regressão da migração pra RPC de agregação (2026-09-25,
+    resumo_agregado_transacoes): 2 despesas caem no mesmo grupo
+    (tipo_movimento=despesa, sem ajuste, sem caixinha) e precisam ser
+    somadas pelo Postgres antes de calcular_resumo — não podem virar 2
+    linhas concorrentes nem se sobrescrever."""
+    conta = _conta(client)
+    categoria_id = _categoria(client)
+    for valor in (3000, 450.50):
+        client.post(
+            "/transacoes",
+            json={
+                "data_compra": "2026-09-05",
+                "valor": valor,
+                "tipo_movimento": "despesa",
+                "conta_id": conta["id"],
+                "categoria_id": categoria_id,
+                "estrutura_custo": "variavel",
+                "meio_pagamento": "pix",
+            },
+        )
+
+    resposta = client.get("/dashboard/mensal/2026-09-01").json()
+    assert resposta["despesas_brutas"] == 3450.50
+
+
 def test_estorno_vinculado_reduz_despesa_liquida_mas_nao_conta_como_receita(client):
     conta = _conta(client)
     categoria_id = _categoria(client)

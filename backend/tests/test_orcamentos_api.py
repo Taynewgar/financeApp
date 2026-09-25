@@ -828,6 +828,10 @@ def test_listar_itens_busca_dados_em_lote_nao_recalcula_cadeia_item_a_item(clien
             self.chamadas.append(nome)
             return self._inner.table(nome)
 
+        def rpc(self, nome, params):
+            self.chamadas.append(nome)
+            return self._inner.rpc(nome, params)
+
     # pede os itens do ÚLTIMO mês da cadeia — pior caso pra recursão item a
     # item (precisa subir os 5 meses anteriores pra cada um dos 2 itens)
     contador = _ContadorClient(db_store)
@@ -843,8 +847,9 @@ def test_listar_itens_busca_dados_em_lote_nao_recalcula_cadeia_item_a_item(clien
     assert all(item["saldo_anterior"] != 0 for item in itens)  # cadeia foi de fato calculada
     # 5 no total, fixo — não cresce com o histórico (5 meses) nem com o
     # número de itens (2); sem o fix seriam dezenas de chamadas (2 itens ×
-    # ~5 meses de cadeia × 3 queries cada)
+    # ~5 meses de cadeia × 3 queries cada). Transações vêm de 1 RPC
+    # agregada (saldo_transacoes_agregado), não de .table("transacoes").
     assert contador.chamadas.count("orcamentos") == 2
     assert contador.chamadas.count("orcamento_itens") == 2
-    assert contador.chamadas.count("transacoes") == 1
+    assert contador.chamadas.count("saldo_transacoes_agregado") == 1
     assert len(contador.chamadas) == 5

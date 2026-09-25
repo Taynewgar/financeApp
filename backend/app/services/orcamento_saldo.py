@@ -27,7 +27,6 @@ from datetime import date
 
 from supabase import Client
 
-from .crud import buscar_todas_paginado
 from .fatura import somar_meses
 
 ITENS_TABLE = "orcamento_itens"
@@ -234,16 +233,39 @@ def carregar_dados_periodo(
         mes_orcamento_mais_antigo = min(date.fromisoformat(o["vigencia_mes"]) for o in todos_orcamentos)
         transacoes_inicio = min(transacoes_inicio, mes_orcamento_mais_antigo)
     mes_fim_exclusivo = somar_meses(mes_fim, 1)
-    todas_transacoes = buscar_todas_paginado(
-        lambda: db.table("transacoes")
-        .select("valor,tipo_movimento,estrutura_custo,categoria_id,subcategoria_id,conta_id,caixinha_id,data_compra")
-        .eq("user_id", user_id)
-        .gte("data_compra", transacoes_inicio.isoformat())
-        .lt("data_compra", mes_fim_exclusivo.isoformat())
+    # agregado no Postgres (RPC saldo_transacoes_agregado) em vez de trazer
+    # 1 linha por transação: agrupa por (mês, categoria, subcategoria,
+    # conta, caixinha, estrutura_custo, tipo_movimento) — dimensões que
+    # crescem com a complexidade da conta e o nº de meses, não com o
+    # volume de lançamentos (ver docs/backlog.md "RPCs de agregação").
+    # calcular_realizado_item_em_lote / _agregar_estrutura_custo continuam
+    # iguais: só filtram e somam por esses mesmos campos, então uma linha
+    # agregada com valor = soma do grupo dá o mesmo resultado que somar
+    # lançamento a lançamento.
+    linhas = (
+        db.rpc(
+            "saldo_transacoes_agregado",
+            {
+                "p_user_id": user_id,
+                "p_desde": transacoes_inicio.isoformat(),
+                "p_ate": mes_fim_exclusivo.isoformat(),
+            },
+        )
+        .execute()
+        .data
     )
     transacoes_por_mes: dict[str, list[dict]] = {}
-    for t in todas_transacoes:
-        chave_mes = f"{t['data_compra'][:7]}-01"
-        transacoes_por_mes.setdefault(chave_mes, []).append(t)
+    for linha in linhas:
+        transacoes_por_mes.setdefault(linha["mes"], []).append(
+            {
+                "valor": linha["total"],
+                "tipo_movimento": linha["tipo_movimento"],
+                "categoria_id": linha["categoria_id"],
+                "subcategoria_id": linha["subcategoria_id"],
+                "conta_id": linha["conta_id"],
+                "caixinha_id": linha["caixinha_id"],
+                "estrutura_custo": linha["estrutura_custo"],
+            }
+        )
 
     return orcamento_por_mes, itens_por_orcamento_id, transacoes_por_mes
