@@ -131,6 +131,8 @@ prioridade abaixo:
   menor que em retrato) e esconde a lista de lançamentos abaixo, sem
   indicar que há mais conteúdo pra rolar. Print anexado pelo usuário.
   Sem causa raiz investigada ainda.
+- **33.** **Lançamento com mais de 1 categoria** (detalhe abaixo) —
+  surgiu durante a análise do item 9 (migração de dados).
 
 **Concluído:**
 
@@ -375,6 +377,32 @@ dia a dia.
 
 **Status:** registrado 2026-09-24, alta prioridade — nenhum trabalho
 iniciado ainda.
+
+### Lançamento com mais de 1 categoria
+
+**Contexto:** surgiu durante a discussão do item 9 (migração de dados,
+2026-09-25) — no CSV histórico apareceu uma compra de materiais
+("materiais casa (1/2)"/"(2/2)", R$ 45,78) que a princípio parecia ser 1
+única compra parcelada dividida entre 2 categorias diferentes
+(`Moradia/Manutenção da casa` e `Outros Gastos/Casa Mauá`). Na conferência
+com o usuário, esse caso específico acabou sendo 2 compras parceladas
+distintas (cada uma já fechando 1/2 + 2/2 dentro da sua própria
+categoria) — não era o cenário real. Mas o usuário levantou a pergunta de
+propósito geral por trás do caso: hoje, se uma compra única precisa ser
+dividida entre categorias (ex: nota de R$ 300 onde R$ 50 é de uma
+categoria e o resto de outra), o único jeito é lançar 2 transações
+separadas no mesmo dia — o que já atende, mas é manual.
+
+**Proposta a decidir no futuro:** permitir que 1 lançamento carregue mais
+de 1 categoria/valor (ex: um "split" dentro do próprio formulário de Novo
+Lançamento), em vez de exigir 2 lançamentos separados. Precisa de decisão
+de modelo de dados (linha única com múltiplas categorias vs. tabela de
+"itens" por lançamento, similar ao padrão já usado em `orcamento_itens`)
+antes de virar trabalho de implementação.
+
+**Status:** registrado 2026-09-25, prioridade média — nenhuma decisão de
+modelo tomada ainda; o workaround atual (2 lançamentos separados) atende
+o usuário no dia a dia.
 
 ### Pareto de despesas por categoria/subcategoria
 
