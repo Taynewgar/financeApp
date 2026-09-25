@@ -15,6 +15,12 @@ node_modules/
 dist/
 .vite/
 
+# migração de dados — CSVs e respostas do fluxo interativo são dado
+# financeiro pessoal, nunca commitar (ver docs/backlog.md, "Migração de
+# dados do app antigo")
+backend/scripts/migracao_overrides.json
+backend/scripts/migracao/dados/
+
 # editor/os
 .DS_Store
 .vscode/

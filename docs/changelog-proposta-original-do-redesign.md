@@ -3141,3 +3141,88 @@ link certo; aparência conferida em claro e escuro.
       aparelho, salvo em `localStorage`).
 - [ ] Aba anônima/`localStorage` bloqueado: app não quebra, menu
       funciona normalmente, só sem o atalho.
+
+### Rodada 33 (2026-09-25) — Migração de dados: script + análise dos CSVs reais (item 9)
+
+Item 9 do backlog (alta prioridade), a partir de 5 CSVs reais que o
+usuário forneceu (histórico de lançamentos, categorias, caixinhas,
+orçamento e estrutura de custo calculados). Trabalho em 3 partes:
+diagnóstico, desenho técnico e implementação — as 3 discutidas e
+aprovadas com o usuário antes de cada passo seguinte. Detalhe técnico
+completo em `docs/backlog.md`, "Migração de dados do app antigo" — aqui
+só o resumo.
+
+**Diagnóstico:** cruzamento linha a linha do CSV principal (1.862
+lançamentos válidos, dez/2025–mai/2027) contra `Categorias.csv` e
+`Caixinhas.csv` — hierarquia categoria→subcategoria e caixinhas batem
+100%, sem nenhum typo. Os pontos reais de atenção, resolvidos em
+conversa com o usuário: ~4% das despesas sem estrutura de custo
+(resolvido em 3 níveis: literal → aprendido por subcategoria → decisão
+interativa), reconstrução do vínculo de compra parcelada que o app
+antigo nunca guardou (cada parcela era uma linha solta), contas BTG
+misturando corrente e cartão de crédito numa coluna só, e sinal negativo
+usado pelo usuário como convenção própria pra Estorno.
+
+**Achado durante a análise (bug de agrupamento):** o agrupamento inicial
+de parcelas (por descrição-base + total) juntava incorretamente 2
+compras diferentes do "Flamengo Nação" (uma assinatura de 12x renovada
+todo ano) — os números das 2 compras, embora de compras diferentes, se
+completavam 1-12 quando somados. Corrigido acrescentando checagem
+cronológica: só continua o mesmo grupo se a parcela seguinte vier
+exatamente 1 mês depois. Virou teste de regressão dedicado.
+
+**Implementação:**
+- `backend/scripts/migracao/` — módulos de lógica pura: `parsing.py`
+  (leitura dos 3 CSVs), `contas.py` (mapeamento fixo, split BTG
+  corrente/cartão), `mapeamento.py` (tipo_movimento/meio_pagamento/
+  estrutura de custo), `parcelas.py` (agrupamento cronológico),
+  `overrides.py` (persistência das respostas interativas).
+- `backend/scripts/migrar_dados_antigos.py` — orquestrador, segue o
+  padrão de `tests/seed_dados_teste.py` (`TestClient` + login real via
+  Supabase). Modo dry-run (padrão, não grava nada) e `--executar`.
+- Compras parceladas não usam `POST /transacoes/parceladas` (ele
+  sempre cria todas as N parcelas com valor dividido igualmente — não
+  serve pra histórico truncado com valor real por parcela). O script
+  importa direto os serviços que o endpoint usa por baixo
+  (`inserir_transacao`, `fatura_referencia_para`, `compute_hash`,
+  `sincronizar_item_orcamento`) e grava cada parcela com o valor/data
+  reais do CSV.
+- **Achado durante a implementação:** o `hash_dedup` sozinho não
+  protege o caminho de parcelas contra duplicação numa 2ª execução —
+  ele inclui `compra_parcelada_id`, que é gerado de novo a cada
+  cabeçalho criado, então nunca bateria com uma rodada anterior mesmo
+  pra dados idênticos. Adicionada checagem própria (existência da 1ª
+  parcela do grupo) antes de criar qualquer coisa.
+
+**Testes:** 44 testes offline (`tests/test_migracao.py`) cobrindo toda
+a lógica pura — parsing de valor/data, roteamento de conta, mapeamento
+de tipo de movimento/meio de pagamento, resolução de estrutura de
+custo nos 3 níveis, extração e agrupamento de parcelas (incluindo o
+caso do "Flamengo Nação" como regressão), estabilidade do hash de
+override. Suíte completa do backend seguiu passando (343 passed, 33
+skipped). Validação ponta a ponta com um CSV sintético pequeno (dry-run
+completo, sem tocar nos dados reais do usuário nem em rede) — achou e
+corrigiu um bug no próprio fixture de teste (vírgula sem aspas
+quebrando o CSV), não no script.
+
+**Status:** script implementado e testado; **ainda não executado
+contra os dados reais** — precisa rodar localmente (`backend/.env`
+preenchido), não roda nesta sessão remota. Próximo passo é o usuário
+rodar o dry-run com os CSVs reais, resolver as pendências de estrutura
+de custo interativamente, e então `--executar`.
+
+**Checklist de teste manual (usuário, localmente):**
+- [ ] Rodar o dry-run com os 3 CSVs reais — conferir se o relatório
+      bate com os números discutidos na conversa (contas, categorias,
+      caixinhas, grupos de parcela, transações totais).
+- [ ] Responder as perguntas interativas de estrutura de custo até o
+      relatório não apontar mais pendência.
+- [ ] Rodar de novo o dry-run (sem `--executar`) e confirmar que as
+      respostas já dadas não são perguntadas de novo.
+- [ ] Rodar com `--executar` e conferir no app (Configurações,
+      Lançamentos, Planejamento) que contas/categorias/caixinhas/
+      transações apareceram corretamente.
+- [ ] Rodar `--executar` uma 2ª vez e confirmar que nada duplica
+      (idempotência) — checar em especial um grupo de compra parcelada.
+- [ ] Conferir o relatório de reconciliação ao final — não deve apontar
+      divergência nenhuma entre a soma do CSV e a soma no banco.

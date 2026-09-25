@@ -492,19 +492,30 @@ antes de rodar (não pelo script).
 com a soma equivalente calculada a partir do CSV — o relatório final
 aponta qualquer diferença, mês a mês.
 
-**Idempotência:** `hash_dedup` garante que rodar o script de novo não
-duplica nada — uma 2ª execução (ex: depois de resolver uma pendência)
-insere só o que ainda não existe.
+**Idempotência:** `hash_dedup` garante isso pras transações avista
+(passam pelo endpoint normal, que já traduz a constraint em 409 — o
+script trata como "já existe, pula"). Nas parceladas **não** dá pra
+confiar só nisso — achado durante a implementação: o hash do endpoint
+inclui `compra_parcelada_id`, que é gerado de novo a cada cabeçalho
+criado, então rodar 2x geraria hashes diferentes mesmo pra dados
+idênticos. Pra esse caminho o script checa antes se a 1ª parcela do
+grupo já existe (mesma descrição/parcela_atual/parcela_total/data) e
+pula o grupo inteiro se sim.
 
 **Depois da migração:** importação de CSV vira opcional (import assistido
 de extrato bancário, mapeando pras categorias já existentes) — não é mais
 o único caminho de entrada, já que o formulário guiado já cobre o uso do
 dia a dia.
 
-**Status:** desenho técnico registrado 2026-09-25, em revisão pelo
-usuário antes de qualquer código ser escrito. Implementação ainda não
-iniciada. Não dá pra rodar a migração de verdade nesta sessão remota (sem
-`backend/.env` com credenciais reais) — só o usuário, localmente.
+**Status:** implementado 2026-09-25 — `backend/scripts/migrar_dados_antigos.py`
++ módulos em `backend/scripts/migracao/` (parsing, contas, mapeamento,
+parcelas, overrides), 44 testes offline cobrindo toda a lógica pura
+(inclui o caso do "Flamengo Nação" como teste de regressão). Validado
+com dry-run sintético ponta a ponta nesta sessão (CSV pequeno, sem
+tocar nos dados reais do usuário). **Não executado contra os dados
+reais** — precisa rodar localmente, com `backend/.env` preenchido (não
+roda nesta sessão remota, mesma limitação dos testes de integração).
+Ver changelog Rodada 33 pro detalhe técnico da entrega.
 
 ### Lançamento com mais de 1 categoria
 
