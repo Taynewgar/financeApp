@@ -74,6 +74,15 @@ from scripts.migracao.parsing import Lancamento, carregar_caixinhas, carregar_ca
 client = TestClient(app)
 
 
+def log_progresso(atual: int, total: int, cada: int = 50) -> None:
+    """Uma linha de progresso a cada `cada` itens (e sempre no último) —
+    pro terminal não ficar mudo por minutos num CSV de milhares de
+    linhas, sem também virar uma parede de texto (uma linha por
+    lançamento seria demais pra 1800+)."""
+    if atual % cada == 0 or atual == total:
+        print(f"  ... {atual}/{total}")
+
+
 @dataclass
 class Contexto:
     """Mapas nome-do-CSV -> id (real, vindos do Supabase, ou o próprio
@@ -249,6 +258,8 @@ def preparar_categorias(
 ) -> tuple[dict[str, str], dict[tuple[str, str], str]]:
     ids_categoria: dict[str, str] = {}
     ids_subcategoria: dict[tuple[str, str], str] = {}
+    total_subs = sum(len(subs) for subs in categorias_csv.values())
+    feitas = 0
     for pai, subs in categorias_csv.items():
         tipo = "receita" if pai == "Receitas" else "despesa"
         categoria = get_ou_criar(headers, "/categorias", pai, {"tipo": tipo})
@@ -256,6 +267,8 @@ def preparar_categorias(
         for sub in subs:
             subcategoria = get_ou_criar(headers, "/subcategorias", sub, {"categoria_id": categoria["id"]})
             ids_subcategoria[(pai, sub)] = subcategoria["id"]
+            feitas += 1
+            log_progresso(feitas, total_subs)
     return ids_categoria, ids_subcategoria
 
 
@@ -503,19 +516,22 @@ def main() -> None:
 
     print(f"\nCriando {len(lancamentos_avista)} transações avista/receita/reserva...")
     criadas, puladas = 0, 0
+    processadas = 0
     # grupos_hash já foi calculado antes (contexto placeholder do dry-run) —
     # o agrupamento em si (quais lançamentos colidem) não muda com o
     # contexto, só os ids; reaproveita em vez de recalcular
     for itens in grupos_hash.values():
         for ocorrencia, l in enumerate(itens):
+            processadas += 1
             if ocorrencia == 0:
                 payload = montar_payload_avista(l, contexto)
                 resposta = client.post("/transacoes", json=payload, headers=headers)
                 if resposta.status_code == 409:
                     puladas += 1
-                    continue
-                resposta.raise_for_status()
-                criadas += 1
+                    print(f"  [pulada, já existe] {l.data:%d/%m/%Y} R$ {resolver_valor(l.valor):.2f} — {l.descricao}")
+                else:
+                    resposta.raise_for_status()
+                    criadas += 1
             else:
                 # 2ª+ ocorrência de uma transação real repetida (mesma
                 # data/valor/descrição/conta/tipo) — POST /transacoes
@@ -524,19 +540,25 @@ def main() -> None:
                 try:
                     gravar_avista_duplicado(db, user_id, l, contexto, ocorrencia)
                     criadas += 1
+                    print(f"  [ocorrência {ocorrencia + 1}, desambiguada] {l.data:%d/%m/%Y} R$ {resolver_valor(l.valor):.2f} — {l.descricao}")
                 except HTTPException as exc:
                     if exc.status_code != 409:
                         raise
                     puladas += 1
+                    print(f"  [ocorrência {ocorrencia + 1}, pulada — já existe] {l.data:%d/%m/%Y} R$ {resolver_valor(l.valor):.2f} — {l.descricao}")
+            log_progresso(processadas, len(lancamentos_avista))
     print(f"  {criadas} criadas, {puladas} já existiam (puladas — idempotente)")
 
     print(f"\nCriando {len(grupos_parcela)} grupos de compra parcelada...")
     total_parcelas_criadas, grupos_pulados = 0, 0
-    for grupo in grupos_parcela:
+    for i, grupo in enumerate(grupos_parcela, start=1):
         if grupo_ja_migrado(db, user_id, grupo):
             grupos_pulados += 1
+            print(f"  [{i}/{len(grupos_parcela)}] {grupo.descricao!r} — pulado, já existe")
             continue
-        total_parcelas_criadas += len(gravar_grupo_parcela(db, user_id, grupo, contexto))
+        n = len(gravar_grupo_parcela(db, user_id, grupo, contexto))
+        total_parcelas_criadas += n
+        print(f"  [{i}/{len(grupos_parcela)}] {grupo.descricao!r} — {n}/{grupo.parcela_total} parcela(s) criada(s)")
     print(f"  {total_parcelas_criadas} parcelas criadas, {grupos_pulados} grupo(s) já existiam (pulados — idempotente)")
 
     reconciliar(headers, lancamentos)

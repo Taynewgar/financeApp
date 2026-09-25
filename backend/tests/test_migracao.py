@@ -342,3 +342,25 @@ class TestAgruparPorChaveHash:
         l2 = _lancamento(data=date(2026, 3, 13), valor=15.00, banco="BTG")
         grupos = agrupar_por_chave_hash([l1, l2], contexto)
         assert len(grupos) == 2
+
+
+class TestLogProgresso:
+    """Achado ao rodar a migração de verdade: 1862 lançamentos sem
+    nenhum retorno visual por minutos é ruim — log_progresso imprime a
+    cada N itens (e sempre no último), sem virar uma parede de texto."""
+
+    def test_imprime_a_cada_intervalo_e_no_final(self, capsys):
+        from scripts.migrar_dados_antigos import log_progresso
+
+        for i in range(1, 24):
+            log_progresso(i, 23, cada=10)
+        saida = capsys.readouterr().out.splitlines()
+        assert saida == ["  ... 10/23", "  ... 20/23", "  ... 23/23"]
+
+    def test_total_menor_que_intervalo_ainda_imprime_no_final(self, capsys):
+        from scripts.migrar_dados_antigos import log_progresso
+
+        for i in range(1, 4):
+            log_progresso(i, 3, cada=50)
+        saida = capsys.readouterr().out.splitlines()
+        assert saida == ["  ... 3/3"]
