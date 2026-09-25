@@ -2776,3 +2776,71 @@ não mudou.
 - [ ] Abrir o menu esconde o "+" (FAB); fechar o menu traz ele de volta.
 - [ ] Rotacionar/redimensionar pra desktop (>720px) volta pro layout de
       sidebar de sempre, sem barra inferior nem menu.
+
+### Rodada 29 (2026-09-25) — perf: Planejamento com o mesmo padrão de lentidão de Estrutura de Custo
+
+Item 24 do backlog — achado de passagem na Rodada 27 (corrigindo
+Estrutura de Custo), registrado mas fora de escopo na hora. Usuário
+confirmou que ainda não tinha sido feito e pediu pra priorizar antes dos
+itens 19/20.
+
+**Causa raiz:** igual à de Estrutura de Custo antes da Rodada 27.
+`_enriquecer_item()` e `_validar_teto_bucket()` (`routers/orcamentos.py`)
+chamavam `saldo_anterior_ao_vivo()` uma vez por item — função recursiva
+que sobe a cadeia de orçamentos anteriores DIRETO NO BANCO, mês a mês.
+`GET /orcamentos/{id}/itens` (tela de Planejamento) enriquece TODOS os
+itens da lista, então virava N cadeias de idas e voltas sequenciais numa
+única requisição.
+
+**Fix:** `_carregar_dados_periodo` (só existia em `estrutura_custo.py`)
+migrou pra `services/orcamento_saldo.py` como `carregar_dados_periodo`
+(função pública) — agora compartilhada pelos dois routers, sem
+duplicação. Em `orcamentos.py`: `_carregar_contexto_saldo()` novo carrega
+o período em lote 1 vez por requisição; `_enriquecer_item()` e
+`_validar_teto_bucket()` passaram a receber esse contexto já pronto (a
+`saldo_anterior_em_lote()`, que já existia) em vez de consultar o banco.
+`_validar_teto_bucket` também parou de fazer sua própria query pros itens
+do bucket — usa os mesmos itens já carregados no contexto (filtrados
+`ativo=True`, igual antes). `listar_itens()` carrega o contexto 1 vez e
+reaproveita entre todos os itens da lista (era 1 cadeia de banco por
+item, agora 0).
+
+- `backend/app/services/orcamento_saldo.py`: `carregar_dados_periodo()`
+  novo (movido de `estrutura_custo.py`); `saldo_anterior_ao_vivo()` e
+  `_item_equivalente_no_mes()` (a versão que consultava o banco a cada
+  passo da cadeia) removidas — sem nenhum chamador depois da troca, era o
+  último lugar do código ainda com essa classe de bug.
+- `backend/app/routers/estrutura_custo.py`: passou a importar
+  `carregar_dados_periodo` do service em vez de ter sua própria cópia
+  privada (`_carregar_dados_periodo` removida daqui, sem mudança de
+  comportamento).
+- `backend/app/routers/orcamentos.py`: `_carregar_contexto_saldo()`
+  novo; `_enriquecer_item()`/`_validar_teto_bucket()` reescritas pra
+  receber o contexto em vez de `db`/`user_id` + consulta própria;
+  `listar_itens`/`criar_item`/`atualizar_item`/`alternar_item_ativo`
+  carregam o contexto 1 vez e passam adiante.
+- `backend/tests/test_orcamentos_api.py`: teste de regressão de perf,
+  mesmo formato do já existente pra Estrutura de Custo — conta chamadas
+  reais a `db.table(...)` num cenário de 2 itens × 5 meses de cadeia
+  encadeada de verdade, pedindo os itens do último mês (pior caso).
+  Confirmado manualmente que falha contra o código antigo (13 chamadas a
+  `orcamentos`, não 2 — revertido o fix isoladamente via `git stash` pra
+  provar). Fica em 5 chamadas fixas por requisição, não 3 como Estrutura
+  de Custo — `listar_itens` também busca sua própria lista completa de
+  itens (incluindo inativos, que a tela mostra) separada do lote
+  ativos-only usado só pra recalcular a cadeia de saldo — mas o ponto
+  central (não crescer com histórico/nº de itens) está coberto. Suíte
+  offline: **299 passed** (298 + 1), 33 skipped.
+
+**Testes:** mudança 100% backend — tsc/build/lint não se aplicam.
+
+**Checklist de teste manual:**
+- [ ] Planejamento, um orçamento com vários meses gerados via "gerar
+      próximo mês" e vários itens: a tela carrega perceptivelmente mais
+      rápido que antes desta rodada.
+- [ ] Os números continuam batendo — saldo_anterior/disponível/percentual
+      de cada item, mesmos valores de antes do fix (o resultado não
+      muda, só como é calculado).
+- [ ] Criar/editar/reativar um item que estoura o teto do bucket ainda
+      bloqueia com a mensagem de erro esperada (validação de teto
+      continua funcionando com os dados vindos do contexto em lote).

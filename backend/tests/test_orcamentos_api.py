@@ -766,3 +766,85 @@ def test_estrutura_custo_expoe_saldo_anterior_acumulado_por_bucket(client):
     resposta_atualizada = client.get("/estrutura-custo/2026-10-01").json()
     fixos_atualizado = next(b for b in resposta_atualizada["buckets"] if b["bucket"] == "custos_fixos")
     assert fixos_atualizado["saldo_anterior_acumulado"] == -100
+
+
+def test_listar_itens_busca_dados_em_lote_nao_recalcula_cadeia_item_a_item(client, db_store):
+    """Perf (item 24 do backlog, mesma classe de bug já corrigida em
+    Estrutura de Custo — Rodada 27 — e em /graficos — Rodada 2026-09-22).
+    Antes, `_enriquecer_item()` chamava `saldo_anterior_ao_vivo()` por item
+    do orçamento, recursiva, subindo a cadeia de meses anteriores no banco
+    a cada passo: uma lista de N itens virava N cadeias de idas e voltas
+    sequenciais ao Supabase. Agora usa o mesmo helper de carregamento em
+    lote que Estrutura de Custo já usava (`carregar_dados_periodo`): tem
+    que ficar num número FIXO de chamadas por requisição, não crescer com
+    o histórico nem com o número de itens. Não é o mesmo total de 3 de
+    Estrutura de Custo — `listar_itens` também busca sua própria lista
+    completa de itens (incluindo inativos, que a tela precisa mostrar; o
+    lote carregado por `carregar_dados_periodo` só tem os ativos, usado só
+    pra recalcular a cadeia de saldo_anterior) e resolve o orçamento pelo
+    id antes de saber a vigência — daí 2 chamadas a `orcamentos` e 2 a
+    `orcamento_itens` em vez de 1, mas continua fixo, não `O(itens×meses)`."""
+    from app.auth import get_db
+    from app.main import app
+
+    from .fakes import FakeSupabaseClient
+
+    conta = client.post("/contas", json={"nome": "Conta", "tipo_conta": "corrente"}).json()
+    categoria_a = client.post("/categorias", json={"nome": "Aluguel"}).json()
+    categoria_b = client.post("/categorias", json={"nome": "Mercado"}).json()
+    orcamento = _criar_orcamento(client, vigencia_mes="2026-01-01")
+    client.post(
+        f"/orcamentos/{orcamento['id']}/itens",
+        json={"bucket": "custos_fixos", "categoria_id": categoria_a["id"], "orcamento_mensal": 1000},
+    )
+    client.post(
+        f"/orcamentos/{orcamento['id']}/itens",
+        json={"bucket": "custos_variaveis", "categoria_id": categoria_b["id"], "orcamento_mensal": 500},
+    )
+    # encadeia 6 meses via "gerar próximo mês" (jan-jun) — é isso que faz a
+    # cadeia de saldo_anterior existir de verdade pros 2 itens
+    for mes in range(1, 6):
+        for categoria, valor in [(categoria_a, 700), (categoria_b, 300)]:
+            client.post(
+                "/transacoes",
+                json={
+                    "data_compra": f"2026-{mes:02d}-05",
+                    "valor": valor,
+                    "tipo_movimento": "despesa",
+                    "conta_id": conta["id"],
+                    "categoria_id": categoria["id"],
+                    "estrutura_custo": "fixo" if categoria is categoria_a else "variavel",
+                    "meio_pagamento": "pix",
+                },
+            )
+        orcamento = client.post(f"/orcamentos/{orcamento['id']}/proximo-mes").json()
+
+    class _ContadorClient:
+        def __init__(self, store):
+            self._inner = FakeSupabaseClient(store)
+            self.chamadas: list[str] = []
+
+        def table(self, nome):
+            self.chamadas.append(nome)
+            return self._inner.table(nome)
+
+    # pede os itens do ÚLTIMO mês da cadeia — pior caso pra recursão item a
+    # item (precisa subir os 5 meses anteriores pra cada um dos 2 itens)
+    contador = _ContadorClient(db_store)
+    app.dependency_overrides[get_db] = lambda: contador
+    try:
+        resposta = client.get(f"/orcamentos/{orcamento['id']}/itens")
+    finally:
+        app.dependency_overrides[get_db] = lambda: FakeSupabaseClient(db_store)
+
+    assert resposta.status_code == 200
+    itens = resposta.json()
+    assert len(itens) == 2
+    assert all(item["saldo_anterior"] != 0 for item in itens)  # cadeia foi de fato calculada
+    # 5 no total, fixo — não cresce com o histórico (5 meses) nem com o
+    # número de itens (2); sem o fix seriam dezenas de chamadas (2 itens ×
+    # ~5 meses de cadeia × 3 queries cada)
+    assert contador.chamadas.count("orcamentos") == 2
+    assert contador.chamadas.count("orcamento_itens") == 2
+    assert contador.chamadas.count("transacoes") == 1
+    assert len(contador.chamadas) == 5

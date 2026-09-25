@@ -1,7 +1,7 @@
-"""Cálculo "ao vivo" de realizado e saldo_anterior de um item de orçamento
-— usado tanto por routers/orcamentos.py (validação de teto, envelope de
-cada item) quanto por routers/estrutura_custo.py (saldo acumulado por
-bucket, teto do pool/piso).
+"""Cálculo de realizado e saldo_anterior de um item de orçamento — usado
+tanto por routers/orcamentos.py (validação de teto, envelope de cada item)
+quanto por routers/estrutura_custo.py (saldo acumulado por bucket, teto do
+pool/piso).
 
 saldo_anterior nunca é confiável direto da coluna gravada: ela só é
 atualizada no momento em que "gerar próximo mês" roda, então editar ou
@@ -11,7 +11,16 @@ continuava com o saldo antigo até alguém clicar "gerar" de novo). Em vez
 de gravar-e-confiar, cada leitura recalcula subindo a cadeia de meses
 anteriores até achar o primeiro mês (sem orçamento anterior) ou um item
 sem vínculo (categoria/subcategoria/conta — aí não tem como achar o
-equivalente do mês anterior, mantém o valor gravado como estava)."""
+equivalente do mês anterior, mantém o valor gravado como estava).
+
+Só existe a versão "em lote" (100% em memória sobre dados pré-carregados
+por `carregar_dados_periodo`) — a versão que consultava o banco a cada
+passo da cadeia (`saldo_anterior_ao_vivo`) foi removida em 2026-09-25
+(Rodada 29): era o último lugar do código ainda com essa classe de bug de
+N+1 requisições (mesma raiz já corrigida em `/graficos`, Rodada
+2026-09-22, e em Estrutura de Custo, Rodada 27) — cada item de orçamento
+em `routers/orcamentos.py` subia sua própria cadeia de meses anteriores
+direto no banco, 3 SELECTs por mês subido."""
 from __future__ import annotations
 
 from datetime import date
@@ -21,6 +30,7 @@ from supabase import Client
 from .fatura import somar_meses
 
 ITENS_TABLE = "orcamento_itens"
+ORCAMENTOS_TABLE = "orcamentos"
 
 # mesmo sinal de orcamentos.py — despesa conta a favor do gasto,
 # estorno/ressarcimento reduz (é dinheiro devolvido); aplicacao/retirada só
@@ -89,86 +99,6 @@ def calcular_realizado_item(db: Client, user_id: str, item: dict, mes_inicio: da
     return round(total, 2)
 
 
-def _item_equivalente_no_mes(db: Client, orcamento_id: str, item: dict) -> dict | None:
-    """Acha, dentro de um orçamento de outro mês, o item do mesmo bucket
-    com a mesma categoria/subcategoria/conta vinculada — o "mesmo envelope"
-    em outro mês. Sem nenhum vínculo (item nome-livre) não há como achar,
-    retorna None."""
-    query = (
-        db.table(ITENS_TABLE)
-        .select("*")
-        .eq("orcamento_id", orcamento_id)
-        .eq("bucket", item["bucket"])
-        .eq("ativo", True)
-    )
-    if item.get("subcategoria_id"):
-        query = query.eq("subcategoria_id", item["subcategoria_id"])
-    elif item.get("categoria_id"):
-        query = query.eq("categoria_id", item["categoria_id"])
-    elif item.get("conta_vinculada_id"):
-        query = query.eq("conta_vinculada_id", item["conta_vinculada_id"])
-    else:
-        return None
-    encontrados = query.execute().data
-    return encontrados[0] if encontrados else None
-
-
-def saldo_anterior_ao_vivo(
-    db: Client,
-    user_id: str,
-    item: dict,
-    vigencia_mes_item: date,
-    cache: dict[tuple, float] | None = None,
-) -> float:
-    """saldo_anterior recalculado na hora, em vez de confiar na coluna
-    gravada (congelada desde o último "gerar próximo mês"). Recursivo: sobe
-    até achar o primeiro mês da cadeia (sem orçamento anterior) ou um item
-    sem categoria/subcategoria/conta vinculada (nome livre — sem como achar
-    o equivalente do mês anterior, mantém o valor gravado nesse caso)."""
-    if cache is None:
-        cache = {}
-
-    sem_vinculo = not (item.get("subcategoria_id") or item.get("categoria_id") or item.get("conta_vinculada_id"))
-    if sem_vinculo:
-        return item.get("saldo_anterior", 0)
-
-    chave_cache = (
-        item.get("bucket"),
-        item.get("categoria_id"),
-        item.get("subcategoria_id"),
-        item.get("conta_vinculada_id"),
-        vigencia_mes_item.isoformat(),
-    )
-    if chave_cache in cache:
-        return cache[chave_cache]
-
-    mes_anterior = somar_meses(vigencia_mes_item, -1)
-    orcamentos_anteriores = (
-        db.table("orcamentos")
-        .select("id")
-        .eq("user_id", user_id)
-        .eq("vigencia_mes", mes_anterior.isoformat())
-        .execute()
-        .data
-    )
-    if not orcamentos_anteriores:
-        cache[chave_cache] = 0.0
-        return 0.0
-
-    item_anterior = _item_equivalente_no_mes(db, orcamentos_anteriores[0]["id"], item)
-    if item_anterior is None:
-        cache[chave_cache] = 0.0
-        return 0.0
-
-    saldo_do_anterior = saldo_anterior_ao_vivo(db, user_id, item_anterior, mes_anterior, cache)
-    disponivel_anterior = round(item_anterior["orcamento_mensal"] + saldo_do_anterior, 2)
-    mes_fim_anterior = somar_meses(mes_anterior, 1)
-    realizado_anterior = calcular_realizado_item(db, user_id, item_anterior, mes_anterior, mes_fim_anterior)
-    resultado = round(disponivel_anterior - realizado_anterior, 2)
-    cache[chave_cache] = resultado
-    return resultado
-
-
 def calcular_realizado_item_em_lote(item: dict, transacoes_do_mes: list[dict]) -> float:
     """Mesma regra de calcular_realizado_item (subcategoria > categoria >
     conta vinculada, excluindo de "só categoria" o que já tem subcategoria
@@ -194,9 +124,10 @@ def calcular_realizado_item_em_lote(item: dict, transacoes_do_mes: list[dict]) -
 
 
 def _item_equivalente_no_mes_em_lote(itens_do_orcamento: list[dict], item: dict) -> dict | None:
-    """Mesma busca de _item_equivalente_no_mes ("mesmo envelope" em outro
-    mês: mesmo bucket + mesmo vínculo), sobre uma lista de itens já
-    carregada em vez de consultar o banco."""
+    """Acha, dentro dos itens de um orçamento de outro mês (já carregados
+    em memória), o item do mesmo bucket com a mesma categoria/subcategoria/
+    conta vinculada — o "mesmo envelope" em outro mês. Sem nenhum vínculo
+    (item nome-livre) não há como achar, retorna None."""
     if item.get("subcategoria_id"):
         chave = ("subcategoria_id", item["subcategoria_id"])
     elif item.get("categoria_id"):
@@ -221,12 +152,14 @@ def saldo_anterior_em_lote(
     transacoes_por_mes: dict[str, list[dict]],
     cache: dict[tuple, float],
 ) -> float:
-    """Mesmo cálculo recursivo de saldo_anterior_ao_vivo (mesma regra,
-    mesmo racional — ver docstring acima), mas 100% em memória sobre dados
-    pré-carregados em lote pra um período inteiro, sem nenhuma consulta ao
-    banco. Usado por /estrutura-custo/evolucao/tendencia: pedir vários
-    meses de uma vez não pode custar 1 ida-e-volta ao Supabase por mês (era
-    o gargalo real de "Gráficos" demorando — ver Rodada 2026-09-22)."""
+    """Cálculo recursivo de saldo_anterior (mesma regra, mesmo racional —
+    ver docstring do módulo), 100% em memória sobre dados pré-carregados em
+    lote pra um período inteiro (`carregar_dados_periodo`), sem nenhuma
+    consulta ao banco aqui dentro. Usada por `routers/estrutura_custo.py`
+    e `routers/orcamentos.py` — pedir vários itens/meses de uma vez não
+    pode custar 1 ida-e-volta ao Supabase por item×mês (era o gargalo real
+    de "Gráficos", depois de Estrutura de Custo, depois de Planejamento —
+    ver Rodadas 2026-09-22, 27 e 29)."""
     sem_vinculo = not (item.get("subcategoria_id") or item.get("categoria_id") or item.get("conta_vinculada_id"))
     if sem_vinculo:
         return item.get("saldo_anterior", 0)
@@ -262,3 +195,56 @@ def saldo_anterior_em_lote(
     resultado = round(disponivel_anterior - realizado_anterior, 2)
     cache[chave_cache] = resultado
     return resultado
+
+
+def carregar_dados_periodo(
+    db: Client, user_id: str, mes_inicio: date, mes_fim: date
+) -> tuple[dict[str, dict], dict[str, list[dict]], dict[str, list[dict]]]:
+    """Busca em lote (3 SELECTs fixos, não 1 grupo de 3 por mês) tudo que
+    `saldo_anterior_em_lote`/`calcular_realizado_item_em_lote` precisam pra
+    montar qualquer mês do intervalo — incluindo a cadeia de
+    `saldo_anterior` recursiva, que pode subir arbitrariamente antes de
+    `mes_inicio`. Compartilhada por `routers/estrutura_custo.py` (`obter()`,
+    1 mês, e `evolucao_orcamento()`, vários) e `routers/orcamentos.py`
+    (`_enriquecer_item`/`_validar_teto_bucket`) — movida pra cá em
+    2026-09-25 (Rodada 29) quando o mesmo fix de perf (Rodada 27, Estrutura
+    de Custo) foi portado pra Planejamento: antes disso, cada leitura de
+    item de orçamento em `orcamentos.py` subia a cadeia de meses anteriores
+    DIRETO NO BANCO (`saldo_anterior_ao_vivo`, removida), 3 SELECTs por mês
+    subido × N itens da lista — `GET /orcamentos/{id}/itens` virava dezenas
+    de idas e voltas sequenciais ao Supabase por requisição."""
+    todos_orcamentos = db.table(ORCAMENTOS_TABLE).select("*").eq("user_id", user_id).execute().data
+    orcamento_por_mes = {o["vigencia_mes"]: o for o in todos_orcamentos}
+
+    itens_por_orcamento_id: dict[str, list[dict]] = {}
+    orcamento_ids = [o["id"] for o in todos_orcamentos]
+    if orcamento_ids:
+        todos_itens = (
+            db.table(ITENS_TABLE).select("*").in_("orcamento_id", orcamento_ids).eq("ativo", True).execute().data
+        )
+        for item in todos_itens:
+            itens_por_orcamento_id.setdefault(item["orcamento_id"], []).append(item)
+
+    # transações: do mais antigo entre `mes_inicio` e o orçamento mais
+    # antigo (a cadeia de saldo_anterior de um mês do período pode
+    # precisar do realizado de um mês ANTES de `mes_inicio`) até `mes_fim`
+    transacoes_inicio = mes_inicio
+    if todos_orcamentos:
+        mes_orcamento_mais_antigo = min(date.fromisoformat(o["vigencia_mes"]) for o in todos_orcamentos)
+        transacoes_inicio = min(transacoes_inicio, mes_orcamento_mais_antigo)
+    mes_fim_exclusivo = somar_meses(mes_fim, 1)
+    todas_transacoes = (
+        db.table("transacoes")
+        .select("valor,tipo_movimento,estrutura_custo,categoria_id,subcategoria_id,conta_id,caixinha_id,data_compra")
+        .eq("user_id", user_id)
+        .gte("data_compra", transacoes_inicio.isoformat())
+        .lt("data_compra", mes_fim_exclusivo.isoformat())
+        .execute()
+        .data
+    )
+    transacoes_por_mes: dict[str, list[dict]] = {}
+    for t in todas_transacoes:
+        chave_mes = f"{t['data_compra'][:7]}-01"
+        transacoes_por_mes.setdefault(chave_mes, []).append(t)
+
+    return orcamento_por_mes, itens_por_orcamento_id, transacoes_por_mes

@@ -107,16 +107,6 @@ prioridade abaixo:
     retirada recorrente PODE ser vinculada a caixinha, igual em Novo
     Lançamento). Ordem confirmada: item 22 (lentidão de Estrutura de
     Custo) vem imediatamente antes deste na fila.
-24. **Planejamento com o mesmo padrão de lentidão de Estrutura de Custo**
-    — achado de passagem corrigindo o item 22 (Rodada 27), não reportado
-    pelo usuário ainda: `GET /orcamentos/{id}/itens` (tela de
-    Planejamento) chama `_enriquecer_item()` por item da lista, que
-    recalcula `saldo_anterior` subindo a cadeia de meses anteriores
-    direto no banco (`saldo_anterior_ao_vivo`, `routers/orcamentos.py`)
-    — mesma classe de bug de N+1 requisições, mesmo mecanismo que
-    `_carregar_dados_periodo`/`saldo_anterior_em_lote` já resolvem em
-    Estrutura de Custo, só que ainda não portado pra cá. Registrado como
-    achado, não corrigido nesta rodada (fora do escopo pedido).
 
 **Concluído:**
 
@@ -142,6 +132,9 @@ prioridade abaixo:
     19.2/19.3), só que ainda não tinha sido aplicada em `obter()` (a
     tela de 1 mês). Detalhe na subseção própria abaixo, ver changelog
     Rodada 27.
+24. ~~Planejamento com o mesmo padrão de lentidão de Estrutura de Custo~~
+    **feito 2026-09-25** — mesmo fix portado pra `routers/orcamentos.py`.
+    Detalhe na subseção própria abaixo, ver changelog Rodada 29.
 
 ### Baixa prioridade confirmada pelo usuário
 
@@ -699,8 +692,35 @@ trabalho principal é decidir se `_carregar_dados_periodo` migra pra
 `services/` (compartilhada entre os dois routers) ou se `orcamentos.py`
 ganha sua própria versão.
 
-**Status:** registrado 2026-09-24, achado técnico (não relatado pelo
-usuário), sem decisão de prioridade ainda.
+**Fix:** `_carregar_dados_periodo` migrou pra `services/orcamento_saldo.py`
+como `carregar_dados_periodo` (função pública, sem `_`) — compartilhada
+por `estrutura_custo.py` (que passou a importá-la de lá, sem duplicar) e
+`orcamentos.py`. `_enriquecer_item()`/`_validar_teto_bucket()` passaram a
+receber um `contexto_saldo` (tupla `orcamento_por_mes`/
+`itens_por_orcamento_id`/`transacoes_por_mes`/`cache`) carregado 1 vez por
+requisição (`_carregar_contexto_saldo`) e reaproveitado entre a validação
+de teto e o enriquecimento do item, e entre todos os itens de
+`listar_itens` — a lista inteira agora recalcula a cadeia de
+`saldo_anterior` de todo item em memória, sem voltar ao banco por item.
+`_validar_teto_bucket` também parou de fazer sua própria consulta de
+itens do bucket — já vêm prontos (filtrados por `ativo=True`) do mesmo
+lote. `saldo_anterior_ao_vivo`/`_item_equivalente_no_mes` (a versão que
+consultava o banco a cada passo da cadeia) foram removidas de
+`services/orcamento_saldo.py` — ficaram sem nenhum chamador depois da
+troca, único lugar do código que ainda tinha essa classe de bug.
+
+**Status:** implementado 2026-09-25 (Rodada 29). Teste de regressão
+(`test_listar_itens_busca_dados_em_lote_nao_recalcula_cadeia_item_a_item`)
+conta as chamadas reais a `db.table(...)` num cenário de 2 itens × 5
+meses de cadeia encadeada de verdade, pedindo os itens do último mês —
+confirmado manualmente que falha contra o código antigo (13 chamadas a
+`orcamentos`, não 2 — revertido o fix isoladamente via `git stash` pra
+provar). `GET /orcamentos/{id}/itens` fica em 5 chamadas fixas por
+requisição (não 3 como Estrutura de Custo — a tela também precisa da
+lista completa de itens, incluindo inativos, separada do lote
+ativos-only usado pra recalcular a cadeia; ver docstring do teste), mas
+não cresce mais com o histórico nem com o número de itens. Suíte
+offline: **299 passed** (298 + 1), 33 skipped.
 
 ### Botões inferiores (barra de navegação mobile) pequenos e colados
 
