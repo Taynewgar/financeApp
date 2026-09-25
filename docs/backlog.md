@@ -46,6 +46,13 @@ perdido em volta de itens concluídos).
   mais usado por contador de uso** (detalhe abaixo) — sugestão minha
   (Claude), confirmada como alta prioridade pelo usuário em 2026-09-24,
   durante a discussão de mockups do item 21.
+- **32.** **Melhoria geral de layout da aplicação (V2, pós-MVP)** —
+  reportado pelo usuário testando a Rodada 28-31: alguns elementos
+  fora de escala, cabeçalho fixo um pouco desproporcional em algumas
+  telas. Pedido explícito do usuário: não é pra corrigir ponto a ponto
+  agora — é uma passada de revisão geral de layout depois do MVP
+  fechado, numa V2. Sem escopo detalhado ainda (quais telas, quais
+  elementos específicos) — a definir quando for priorizado.
 
 **Concluído:**
 
@@ -115,6 +122,15 @@ prioridade abaixo:
   aplicação/retirada recorrente PODE ser vinculada a caixinha, igual em
   Novo Lançamento). Ordem confirmada: item 22 (lentidão de Estrutura de
   Custo) vem imediatamente antes deste na fila.
+- **31.** **Lançamentos: painel de filtros muito alto no mobile em
+  paisagem** — reportado pelo usuário testando a Rodada 28 num celular
+  real girado pra paisagem: o painel de filtros expandido (`Tipo`,
+  `Descrição`, `Mês`, `Ano`, `De`/`Até`, `Conta`, `Caixinha`,
+  `Categoria`, `Subcategoria`, `Estrutura de custo`, `Meio de
+  pagamento`, `Limpar filtros`) ocupa a tela inteira em paisagem (altura
+  menor que em retrato) e esconde a lista de lançamentos abaixo, sem
+  indicar que há mais conteúdo pra rolar. Print anexado pelo usuário.
+  Sem causa raiz investigada ainda.
 
 **Concluído:**
 
