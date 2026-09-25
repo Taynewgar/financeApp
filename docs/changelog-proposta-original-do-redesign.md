@@ -3348,3 +3348,55 @@ precisa rodar a migração de novo.
 - [ ] Em Lançamentos, limpar todos os filtros e confirmar que a lista/
       resumo mostram o total real de transações (não truncado em
       1000).
+
+### Rodada 36 (2026-09-25) — Compromissos Futuros: "ver mais" + card compacto
+
+Reportado na mesma rodada de dogfooding acima — "compromissos futuros
+não são todos mostrados, cadê o restante das parcelas?". Detalhe
+técnico completo em `docs/backlog.md` ("Compromissos Futuros: mostrar
+todas as parcelas, não só 5") — aqui só o resumo.
+
+**Causa raiz:** `GET /dashboard/compromissos-futuros` tem `limite`
+padrão 5 e o frontend nunca passava esse parâmetro. Opções discutidas:
+aumentar o limite fixo, ou trocar por "ver mais". O usuário decidiu
+"ver mais": "[limite fixo] é sempre provável de cortar e não ficar na
+cara o tempo todo — se quero ver as próximas todas vou lá e expando" —
+e pediu, junto, um card mais enxuto (menor altura por item) sem perder
+informação, já que fica sempre visível no Dashboard.
+
+**Implementado:**
+- Frontend busca de uma vez um lote maior (`limite=50`) — o endpoint já
+  dedupe pra 1 item por compra parcelada/recorrente ativa, então isso
+  cobre o caso real quase sempre. Mostra só as 4 primeiras por padrão;
+  botão "Ver mais (N)"/"Ver menos" expande a lista já carregada, sem
+  nova requisição.
+- Backend: teto de `limite` (`Query(..., le=...)`) subiu de 20 para
+  100, pra não recriar o mesmo tipo de corte silencioso caso o usuário
+  acumule mais compromissos ativos no futuro.
+- Card mais enxuto: classe `.lista-compromissos` reduz padding do item
+  e a fonte do detalhe secundário — sem remover nenhum dado exibido.
+
+**Testes:** suíte backend completa passando (348 passed, 33 skipped) —
+sem teste novo dedicado (mudança é só o teto de validação e o valor
+default do parâmetro, comportamento já coberto pelos testes
+existentes). Frontend verificado via `tsc -b && vite build` e
+`oxlint` — sem erro, sem warning novo.
+
+**Status:** implementado nesta sessão. **Sem QA visual via Playwright**
+— exigiria login com credenciais reais do Supabase, que esta sessão
+remota não tem (mesma limitação de `backend/.env` documentada em
+`CLAUDE.md` pros testes de integração). Verificação ficou restrita a
+tipo/build; o usuário precisa confirmar visualmente.
+
+**Checklist de teste manual (usuário, localmente):**
+- [ ] Abrir o Dashboard e confirmar que Compromissos Futuros mostra até
+      4 itens por padrão, com "Ver mais (N)" abaixo quando houver mais.
+- [ ] Clicar em "Ver mais" e confirmar que a lista completa aparece
+      (até 50) sem precisar recarregar a página; "Ver menos" volta a
+      colapsar.
+- [ ] Confirmar que o card ficou visualmente mais compacto (menos
+      espaço por item) mas sem faltar nenhuma informação (descrição,
+      parcela/tipo, data, valor, botões de recorrente).
+- [ ] Testar "Confirmar"/"Pular este mês" de um recorrente com a lista
+      expandida e com a lista colapsada — os botões continuam
+      funcionando nos dois estados.

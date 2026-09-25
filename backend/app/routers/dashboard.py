@@ -339,7 +339,7 @@ def patrimonio_caixinhas(
 
 @router.get("/compromissos-futuros", response_model=list[CompromissoFuturo])
 def compromissos_futuros(
-    limite: int = Query(5, ge=1, le=20),
+    limite: int = Query(5, ge=1, le=100),
     db: Client = Depends(get_db),
     user_id: str = Depends(get_current_user_id),
 ):

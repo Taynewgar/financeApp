@@ -133,10 +133,6 @@ prioridade abaixo:
   Sem causa raiz investigada ainda.
 - **33.** **Lançamento com mais de 1 categoria** (detalhe abaixo) —
   surgiu durante a análise do item 9 (migração de dados).
-- **37.** **Compromissos Futuros: mostrar todas as parcelas, não só 5**
-  (detalhe abaixo) — reportado pelo usuário dogfooding a aplicação em uso
-  real. Direção já decidida pelo usuário (botão "ver mais" + card mais
-  compacto), falta implementar.
 
 **Concluído:**
 
@@ -188,6 +184,9 @@ prioridade abaixo:
   cheio todo query sem paginação sobre `transacoes` — a conta real já
   passa de 1862 linhas. Detalhe na subseção própria abaixo, ver
   changelog Rodada 35.
+- **37.** ~~Compromissos Futuros: mostrar todas as parcelas, não só 5~~
+  **feito 2026-09-25** — "ver mais" + card mais compacto, decisão do
+  usuário. Detalhe na subseção própria abaixo, ver changelog Rodada 36.
 
 ### Baixa prioridade confirmada pelo usuário
 
@@ -672,9 +671,17 @@ e expando." Junto, pediu pra deixar o card mais compacto/enxuto (menor
 altura) sem perder informação, já que ele fica sempre visível no
 Dashboard.
 
-**Status:** decidido 2026-09-25, implementação pendente — é trabalho
-de frontend (`Dashboard.tsx` + CSS do card de Compromissos Futuros),
-ainda não iniciado.
+**Status:** implementado 2026-09-25 — frontend busca um lote maior
+(`limite=50`, backend também teve o teto de `le=20` pra `le=100` pra
+não recriar o mesmo problema de corte silencioso) e mostra só as 4
+primeiras por padrão, com botão "Ver mais (N)"/"Ver menos" pra
+expandir a lista já carregada (sem nova requisição). Card mais enxuto
+via classe `.lista-compromissos` (padding e fonte do detalhe menores),
+sem remover nenhuma informação exibida. Sem QA visual via Playwright
+nesta sessão — exige login real, e esta sessão remota não tem
+`backend/.env` com credenciais do Supabase (mesma limitação já
+registrada em `CLAUDE.md`); verificado só via `tsc`+`vite build` +
+`oxlint`. Ver changelog Rodada 36 e o checklist de teste manual.
 
 ### Pareto de despesas por categoria/subcategoria
 

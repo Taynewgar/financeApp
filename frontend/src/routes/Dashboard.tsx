@@ -77,14 +77,25 @@ export function Dashboard() {
   const [mesesNegativosAno, setMesesNegativosAno] = useState<{ negativos: number; total: number } | null>(null)
   const [caixinhas, setCaixinhas] = useState<SaldoCaixinha[] | null>(null)
   const [compromissos, setCompromissos] = useState<CompromissoFuturo[] | null>(null)
+  const [compromissosExpandido, setCompromissosExpandido] = useState(false)
   const [confirmandoId, setConfirmandoId] = useState<string | null>(null)
   const [pulandoId, setPulandoId] = useState<string | null>(null)
   const [erroConfirmar, setErroConfirmar] = useState<string | null>(null)
   const [despesasCategoria, setDespesasCategoria] = useState<DespesaPorCategoriaT[] | null>(null)
   const [erro, setErro] = useState<string | null>(null)
 
+  // busca de uma vez um lote generoso (o endpoint já dedupe pra 1 item por
+  // compra parcelada/recorrente ativa, então isso cobre o caso real quase
+  // sempre) — a UI decide quantos mostrar por padrão via "ver mais", em vez
+  // de depender de um limite fixo do backend que sempre corre risco de
+  // cortar sem deixar isso visível (bug reportado 2026-09-25)
+  const LIMITE_BUSCA = 50
+  const QUANTIDADE_COLAPSADA = 4
+
   function buscarCompromissos() {
-    return apiFetch<CompromissoFuturo[]>('/dashboard/compromissos-futuros').then(setCompromissos).catch(() => setCompromissos([]))
+    return apiFetch<CompromissoFuturo[]>(`/dashboard/compromissos-futuros?limite=${LIMITE_BUSCA}`)
+      .then(setCompromissos)
+      .catch(() => setCompromissos([]))
   }
 
   // compromissos futuros não dependem do período navegado (é sempre "a partir de hoje")
@@ -468,51 +479,57 @@ export function Dashboard() {
             ) : compromissos.length === 0 ? (
               <p style={{ color: 'var(--cor-texto-suave)' }}>Nenhum compromisso futuro em aberto.</p>
             ) : (
-              <ul className="lista-crud">
-                {compromissos.map((c, i) => (
-                  <li key={i}>
-                    <div className="item-linha">
-                      <div className="item-info">
-                        <span className="item-titulo">{c.descricao ?? 'Sem descrição'}</span>
-                        <span className="item-detalhe">
-                          {c.tipo === 'parcela'
-                            ? `Parcela ${c.parcela_atual} de ${c.parcela_total}`
-                            : `${rotuloTipoMovimento(c.tipo_movimento)} recorrente`}{' '}
-                          · {formatarData(c.data_compra)}
-                        </span>
-                      </div>
-                      <span className={`resumo-card-valor ${classePorTipoMovimento(c.tipo_movimento)}`}>
-                        {formatarMoeda(c.valor, oculto)}
-                      </span>
-                      {c.tipo === 'recorrente' && (
-                        // colunas + gap maior (em vez do .item-acoes padrão lado a lado)
-                        // pra reduzir o risco de clicar em "pular" querendo "confirmar" —
-                        // bug reportado 2026-09-24
-                        <div className="item-acoes" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 4 }}>
-                          <button
-                            type="button"
-                            className="botao-secundario"
-                            disabled={confirmandoId === c.lancamento_recorrente_id || pulandoId === c.lancamento_recorrente_id}
-                            onClick={() => confirmarRecorrente(c)}
-                          >
-                            {confirmandoId === c.lancamento_recorrente_id ? 'Confirmando…' : 'Confirmar'}
-                          </button>
-                          <button
-                            type="button"
-                            className="botao-link"
-                            title="Marcar esse mês como não aplicável (ex: viajou, não teve a despesa)"
-                            style={{ fontSize: 12, color: 'var(--cor-texto-suave)', marginTop: 6 }}
-                            disabled={confirmandoId === c.lancamento_recorrente_id || pulandoId === c.lancamento_recorrente_id}
-                            onClick={() => pularRecorrente(c)}
-                          >
-                            {pulandoId === c.lancamento_recorrente_id ? 'Pulando…' : 'Pular este mês'}
-                          </button>
+              <>
+                <ul className="lista-crud lista-compromissos">
+                  {(compromissosExpandido ? compromissos : compromissos.slice(0, QUANTIDADE_COLAPSADA)).map((c, i) => (
+                    <li key={i}>
+                      <div className="item-linha">
+                        <div className="item-info">
+                          <span className="item-titulo">{c.descricao ?? 'Sem descrição'}</span>
+                          <span className="item-detalhe">
+                            {c.tipo === 'parcela'
+                              ? `Parcela ${c.parcela_atual} de ${c.parcela_total}`
+                              : `${rotuloTipoMovimento(c.tipo_movimento)} recorrente`}{' '}
+                            · {formatarData(c.data_compra)}
+                          </span>
                         </div>
-                      )}
-                    </div>
-                  </li>
-                ))}
-              </ul>
+                        <span className={`resumo-card-valor ${classePorTipoMovimento(c.tipo_movimento)}`}>
+                          {formatarMoeda(c.valor, oculto)}
+                        </span>
+                        {c.tipo === 'recorrente' && (
+                          // colunas (em vez do .item-acoes padrão lado a lado) pra
+                          // reduzir o risco de clicar em "pular" querendo "confirmar"
+                          // — bug reportado 2026-09-24
+                          <div className="item-acoes item-acoes-compromisso">
+                            <button
+                              type="button"
+                              className="botao-secundario"
+                              disabled={confirmandoId === c.lancamento_recorrente_id || pulandoId === c.lancamento_recorrente_id}
+                              onClick={() => confirmarRecorrente(c)}
+                            >
+                              {confirmandoId === c.lancamento_recorrente_id ? 'Confirmando…' : 'Confirmar'}
+                            </button>
+                            <button
+                              type="button"
+                              className="botao-link"
+                              title="Marcar esse mês como não aplicável (ex: viajou, não teve a despesa)"
+                              disabled={confirmandoId === c.lancamento_recorrente_id || pulandoId === c.lancamento_recorrente_id}
+                              onClick={() => pularRecorrente(c)}
+                            >
+                              {pulandoId === c.lancamento_recorrente_id ? 'Pulando…' : 'Pular este mês'}
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+                {compromissos.length > QUANTIDADE_COLAPSADA && (
+                  <button type="button" className="botao-link" onClick={() => setCompromissosExpandido((v) => !v)}>
+                    {compromissosExpandido ? 'Ver menos' : `Ver mais (${compromissos.length - QUANTIDADE_COLAPSADA})`}
+                  </button>
+                )}
+              </>
             )}
           </div>
         </div>

@@ -23,3 +23,26 @@
   border: 1px solid var(--cor-borda);
   border-radius: var(--raio);
 }
+
+/* card de Compromissos Futuros — sempre visível no Dashboard, então o
+ * ganho de altura por item conta: linha mais enxuta que o padrão de
+ * .lista-crud, sem cortar nenhuma informação (decisão do usuário
+ * 2026-09-25: "ver mais" em vez de um limite fixo maior). */
+.lista-compromissos > li {
+  padding: 8px 12px;
+}
+
+.lista-compromissos .item-detalhe {
+  font-size: 12px;
+}
+
+.item-acoes-compromisso {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 2px;
+}
+
+.item-acoes-compromisso .botao-link {
+  font-size: 12px;
+  color: var(--cor-texto-suave);
+}
