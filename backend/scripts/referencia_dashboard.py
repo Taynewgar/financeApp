@@ -217,9 +217,14 @@ def montar_referencia(movimentos: list[Movimento]) -> dict:
 
     meses_saida: dict[str, dict] = {}
     todos_os_meses: list[date] = []
+    # o loop andando desde janeiro do ano (não desde primeiro_mes) é só
+    # pra "total_meses_no_ano_até_aqui" bater com o app real — /dashboard/
+    # evolucao sempre varre de janeiro, então dezembro/2025 (1º mês real
+    # do CSV) mostra "12 meses no ano" mesmo sem ter existido antes disso.
+    # Só NÃO expõe meses anteriores a primeiro_mes como entrada de saída
+    # (não existiram, não faz sentido aparecer no seletor do mock).
     mes_atual = date(primeiro_mes.year, 1, 1)
     while mes_atual <= ultimo_mes:
-        todos_os_meses.append(mes_atual)
         resumo = calcular_resumo(por_mes.get(mes_atual, []))
         receita_ajustada = resumo.pop("_receita_ajustada")
 
@@ -230,20 +235,22 @@ def montar_referencia(movimentos: list[Movimento]) -> dict:
             negativos_ano[ano] += 1
         meses_no_ano_contados[ano] += 1
 
-        despesas_cat = despesas_por_categoria(por_mes.get(mes_atual, []))
-        meses_saida[mes_atual.isoformat()] = {
-            **resumo,
-            "resultado_saude_acumulado_no_ano": resultado_acumulado_ano[ano],
-            "taxa_poupanca_acumulada_no_ano": (
-                round(resultado_acumulado_ano[ano] / receita_ajustada_acumulada_ano[ano] * 100, 2)
-                if receita_ajustada_acumulada_ano[ano]
-                else None
-            ),
-            "meses_negativos_no_ano_até_aqui": negativos_ano[ano],
-            "total_meses_no_ano_até_aqui": meses_no_ano_contados[ano],
-            "despesas_por_categoria": despesas_cat,
-            "maior_categoria_despesa": despesas_cat[0] if despesas_cat else None,
-        }
+        if mes_atual >= primeiro_mes:
+            todos_os_meses.append(mes_atual)
+            despesas_cat = despesas_por_categoria(por_mes.get(mes_atual, []))
+            meses_saida[mes_atual.isoformat()] = {
+                **resumo,
+                "resultado_saude_acumulado_no_ano": resultado_acumulado_ano[ano],
+                "taxa_poupanca_acumulada_no_ano": (
+                    round(resultado_acumulado_ano[ano] / receita_ajustada_acumulada_ano[ano] * 100, 2)
+                    if receita_ajustada_acumulada_ano[ano]
+                    else None
+                ),
+                "meses_negativos_no_ano_até_aqui": negativos_ano[ano],
+                "total_meses_no_ano_até_aqui": meses_no_ano_contados[ano],
+                "despesas_por_categoria": despesas_cat,
+                "maior_categoria_despesa": despesas_cat[0] if despesas_cat else None,
+            }
         mes_atual = _somar_mes(mes_atual, 1)
 
     caixinhas_por_mes = patrimonio_caixinhas_por_mes(movimentos, todos_os_meses)

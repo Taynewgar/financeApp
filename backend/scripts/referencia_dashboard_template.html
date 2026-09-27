@@ -229,19 +229,17 @@
 <script type="application/json" id="ref-data">__DADOS_JSON__</script>
 <script>
 (function () {
+try {
   const dados = JSON.parse(document.getElementById('ref-data').textContent);
   const meses = dados.meses;
   const chavesMeses = Object.keys(meses).sort();
   const hoje = dados.hoje_referencia;
   const mesHojeChave = hoje.slice(0, 7) + '-01';
 
-  document.getElementById('nota-hoje').textContent = formatarMesRotulo(mesHojeChave);
-  document.getElementById('aviso').innerHTML =
-    '<b>Como usar:</b> escolha um mês acima e compare os números desta página com o que o app mostra ' +
-    'pra esse mesmo mês (Dashboard → seletor de período). CSV cobre ' + formatarMesRotulo(chavesMeses[0]) +
-    ' a ' + formatarMesRotulo(chavesMeses[chavesMeses.length - 1]) +
-    ' · ' + dados.total_lancamentos + ' lançamentos · hoje de referência: ' + formatarData(hoje) + '.';
-
+  // helpers precisam vir antes de qualquer uso (const é hoisted mas fica em
+  // "temporal dead zone" até a linha da declaração rodar — chamar
+  // formatarMesRotulo antes disso derrubava a IIFE inteira com
+  // ReferenceError, deixando a página só com os placeholders estáticos)
   const NOMES_MES = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
   function formatarMesRotulo(chave) {
     const [ano, mes] = chave.split('-');
@@ -251,6 +249,14 @@
     const [ano, mes, dia] = iso.split('-');
     return dia + '/' + mes + '/' + ano;
   }
+
+  document.getElementById('nota-hoje').textContent = formatarMesRotulo(mesHojeChave);
+  document.getElementById('aviso').innerHTML =
+    '<b>Como usar:</b> escolha um mês acima e compare os números desta página com o que o app mostra ' +
+    'pra esse mesmo mês (Dashboard → seletor de período). CSV cobre ' + formatarMesRotulo(chavesMeses[0]) +
+    ' a ' + formatarMesRotulo(chavesMeses[chavesMeses.length - 1]) +
+    ' · ' + dados.total_lancamentos + ' lançamentos · hoje de referência: ' + formatarData(hoje) + '.';
+
   function moeda(v) {
     if (v === null || v === undefined) return '—';
     const sinal = v < 0 ? '-' : '';
@@ -429,5 +435,11 @@
   }
 
   render();
+} catch (erro) {
+  document.getElementById('aviso').innerHTML =
+    '<b>Erro ao montar a página:</b> ' + (erro && erro.message ? erro.message : String(erro)) +
+    ' — os dados estão no JSON embutido, mas algo no script falhou antes de exibi-los.';
+  console.error(erro);
+}
 })();
 </script>
