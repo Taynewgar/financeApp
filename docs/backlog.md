@@ -133,6 +133,9 @@ prioridade abaixo:
   Sem causa raiz investigada ainda.
 - **33.** **Lançamento com mais de 1 categoria** (detalhe abaixo) —
   surgiu durante a análise do item 9 (migração de dados).
+- **40.** **Planejamento: layout não alinhado com Estrutura de Custo** —
+  reportado pelo usuário dogfooding a aplicação (detalhe abaixo).
+  Aguardando decisão de direção antes de implementar.
 
 **Concluído:**
 
@@ -192,6 +195,10 @@ prioridade abaixo:
   **feito 2026-09-25** — decisão de arquitetura de longo prazo, a pedido
   do usuário (volume projetado de ~15-20k transações em 6-7 anos).
   Detalhe na subseção própria abaixo, ver changelog Rodada 37.
+- **39.** ~~Planejamento: "Gerar orçamento" travando + form de edição
+  abrindo fora de vista~~ **feito 2026-09-29** — 2 bugs reportados
+  dogfooding a aplicação. Detalhe na subseção própria abaixo, ver
+  changelog Rodada 38.
 
 ### Baixa prioridade confirmada pelo usuário
 
@@ -1478,6 +1485,84 @@ desta entrega — precisam ser criadas uma vez no *SQL Editor* do projeto
 (2 novos, de regressão: múltiplas transações no mesmo grupo de
 agregação precisam somar, não sobrescrever/duplicar). Ver changelog
 Rodada 37 pro detalhe técnico completo.
+
+### Planejamento: "Gerar orçamento" travando + form de edição fora de vista
+
+**Contexto:** usuário começou a usar a aplicação no dia a dia (item 9
+migrado, RPCs aplicadas) e reportou 3 problemas em Planejamento:
+"Gerar orçamento" ficando eternamente em "Gerando…", o form de "Editar
+configuração" parecendo abrir depois dos buckets, e o layout visual não
+bater com Estrutura de Custo. Os 2 primeiros tinham causa raiz
+concreta; o terceiro é uma decisão de design registrada como item 40.
+
+**Bug 1 — "Gerando…" travado:** `POST /orcamentos/{id}/proximo-mes`
+chamava `calcular_realizado_item()` **uma vez por item** do orçamento,
+cada chamada com sua própria busca de transações do mês — N itens
+virava N idas e voltas sequenciais ao Supabase, exatamente a mesma
+classe de N+1 já corrigida em Estrutura de Custo (Rodada 27) e na
+listagem de itens de Planejamento (Rodada 29), só que nunca tinha sido
+portada pra este endpoint de escrita. Com uma conta real (dezenas de
+itens configurados), isso deixava o botão visivelmente travado —
+resolvia eventualmente, mas em segundos ou dezenas de segundos, lido
+pelo usuário como "eternamente carregando".
+
+**Fix 1:** troca `calcular_realizado_item` (1 busca por item) por
+`carregar_dados_periodo` + `calcular_realizado_item_em_lote` (1 busca
+agregada pro mês inteiro, mesmo helper já usado por
+`listar_itens`/Estrutura de Custo desde as Rodadas 27/29). Regressão
+coberta por teste que cria 4 itens em categorias diferentes e confirma
+que a agregação de transações roda 1 vez só, não 4.
+
+**Bug 2 — form de edição "abrindo depois dos buckets":** o form de
+"Editar configuração" e a lista de buckets são mutuamente exclusivos no
+JSX (um substitui o outro, nunca coexistem) — mas nada reposicionava o
+scroll da página quando o form abria. Se o usuário tinha rolado pra ver
+os buckets/itens e clicava em "Editar configuração", os buckets
+desapareciam e a página encolhia; sem scroll para o topo, o navegador
+mantinha a posição de rolagem anterior, jogando o usuário pro fim da
+página (agora bem mais curta) — dava a impressão de que o form "abriu
+depois dos buckets", quando na verdade os buckets já tinham sumido e o
+form estava lá em cima, fora da vista.
+
+**Fix 2:** `window.scrollTo({ top: 0, behavior: 'smooth' })` ao abrir o
+form de configuração (criação ou edição).
+
+**Status:** implementado e testado 2026-09-29 — 351 testes offline
+passando (1 novo, de regressão). Sem QA visual via Playwright nesta
+sessão (mesma limitação de sempre — sem `backend/.env` com credenciais
+reais pra logar). Ver changelog Rodada 38.
+
+### Planejamento: layout não alinhado com Estrutura de Custo
+
+**Contexto:** mesmo relato do item 39 acima — o usuário comparou o
+visual de Planejamento (prints anexados) com Estrutura de Custo e achou
+inconsistente.
+
+**Diagnóstico:** as duas telas já compartilham a mesma ideia de base
+pras linhas de item (grid de colunas fixas, mesmo padrão numérico), mas
+divergem em pontos estruturais:
+
+- Estrutura de Custo: 1 cabeçalho de colunas único no topo da página,
+  buckets como acordeão (expande/recolhe, sem card próprio, sem borda
+  extra), hierarquia bucket → categoria → subcategoria, badge de status
+  (Dentro/Excedido) por linha.
+- Planejamento: cada bucket é um card próprio (borda, fundo, sempre
+  expandido), com cabeçalho de colunas repetido dentro de cada card,
+  itens em lista flat (sem hierarquia categoria/subcategoria — cada
+  item de Planejamento já É a unidade configurável, não uma agregação
+  de lançamentos), sem badge de status, com barra de progresso
+  "alocado/teto" que Estrutura de Custo não tem (métrica própria de
+  Planejamento — quanto do teto já foi destinado, diferente de
+  "realizado vs orçado").
+
+Parte da diferença é proposital (Planejamento configura alvos/aloca
+teto; Estrutura de Custo reporta o que já aconteceu — métricas
+diferentes), mas card-por-bucket vs. acordeão, cabeçalho repetido vs.
+único, e ausência de badge de status são puramente visuais e dá pra
+alinhar sem mudar o que cada tela faz.
+
+**Status:** registrado 2026-09-29, aguardando decisão do usuário sobre
+o escopo do alinhamento antes de implementar.
 
 ---
 

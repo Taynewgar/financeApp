@@ -3484,3 +3484,61 @@ inexistente).
 - [ ] Estrutura de Custo e Planejamento — confirmar saldo/realizado de
       um bucket com histórico de vários meses (a cadeia de
       `saldo_anterior`).
+
+### Rodada 38 (2026-09-29) — Fix: Planejamento travando ao gerar orçamento + form fora de vista
+
+Usuário começou a usar Planejamento no dia a dia (dados reais migrados
++ RPCs já aplicadas) e reportou 2 bugs concretos, mais um pedido de
+alinhamento visual com Estrutura de Custo (registrado como item 40 do
+backlog, aguardando decisão de escopo). Detalhe técnico completo em
+`docs/backlog.md` ("Planejamento: 'Gerar orçamento' travando + form de
+edição fora de vista") — aqui só o resumo.
+
+**Bug 1 — "Gerando…" travado ao criar/avançar orçamento:** `POST
+/orcamentos/{id}/proximo-mes` chamava `calcular_realizado_item()` uma
+vez por item do orçamento — N itens = N buscas sequenciais de transação
+no Supabase. Mesma classe de N+1 já corrigida em Estrutura de Custo
+(Rodada 27) e na listagem de itens de Planejamento (Rodada 29), nunca
+portada pra este endpoint de escrita especificamente. Com dezenas de
+itens numa conta real, o botão ficava visivelmente travado.
+
+**Fix:** troca pra `carregar_dados_periodo` +
+`calcular_realizado_item_em_lote` — 1 busca agregada das transações do
+mês antes do loop, em vez de 1 por item.
+
+**Bug 2 — form de "Editar configuração" parecendo abrir depois dos
+buckets:** o form e a lista de buckets são mutuamente exclusivos (um
+substitui o outro), mas nada reposicionava o scroll quando o form
+abria. Usuário rolado pra ver os buckets + clique em "Editar
+configuração" = buckets somem, página encolhe, scroll não muda —
+navegador mantém a posição antiga, agora no fim de uma página bem mais
+curta. Parecia que o form "abriu depois dos buckets"; na verdade os
+buckets já tinham sumido e o form estava fora da área visível.
+
+**Fix:** `window.scrollTo({ top: 0, behavior: 'smooth' })` ao abrir o
+form de configuração.
+
+**Testes:** 351 passed, 33 skipped (1 teste novo — cria 4 itens em
+categorias diferentes, confirma que a agregação de transações do mês
+roda 1 vez só ao gerar o próximo orçamento, não 1 por item — achado
+real durante a escrita do teste: as 4 transações de teste inicialmente
+usavam a mesma descrição/valor/data/conta, colidindo no `hash_dedup` e
+mascarando o próprio bug que o teste queria provar; corrigido dando
+descrição distinta a cada uma). Frontend verificado via `tsc -b && vite
+build` + `oxlint` — sem erro, sem warning novo.
+
+**Status:** implementado nesta sessão. Sem QA visual via Playwright —
+mesma limitação de sempre (sem `backend/.env` com credenciais reais do
+Supabase nesta sessão remota).
+
+**Checklist de teste manual (usuário, localmente):**
+- [ ] Com um orçamento configurado com vários itens (o suficiente pra
+      antes ter travado), clicar em "Gerar orçamento de [mês seguinte]"
+      e confirmar que responde rápido, sem ficar preso em "Gerando…".
+- [ ] Num mês sem orçamento, "Gerar a partir de [mês anterior]"
+      também deve responder rápido.
+- [ ] Rolar a tela pra baixo (ver os itens dos buckets) e clicar em
+      "Editar configuração" — a página deve rolar suavemente pro topo,
+      mostrando o form imediatamente, sem precisar rolar manualmente
+      pra encontrá-lo.
+- [ ] Mesmo teste ao clicar em "Criar do zero" (mês sem orçamento).

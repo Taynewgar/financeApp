@@ -14,7 +14,7 @@ from ..schemas.orcamentos import (
 )
 from ..services import crud
 from ..services.fatura import somar_meses
-from ..services.orcamento_saldo import calcular_realizado_item, carregar_dados_periodo, saldo_anterior_em_lote
+from ..services.orcamento_saldo import calcular_realizado_item_em_lote, carregar_dados_periodo, saldo_anterior_em_lote
 from ..services.orcamento_sync import sincronizar_item_orcamento
 from ..services.orcamento_teto import calcular_teto_bucket
 
@@ -344,6 +344,13 @@ def gerar_proximo_mes(
     itens_atuais = (
         db.table(ITENS_TABLE).select("*").eq("orcamento_id", orcamento_id).eq("ativo", True).execute().data
     )
+    # em lote (1 busca de transações do mês, não 1 por item) — antes era
+    # calcular_realizado_item por item, N+1 idas e voltas ao Supabase; com
+    # uma conta real (dezenas de itens) isso deixava "Gerar orçamento"
+    # visivelmente travado (achado 2026-09-29, mesma classe de bug já
+    # corrigida em Estrutura de Custo/listagem de itens, Rodadas 27/29)
+    _, _, transacoes_por_mes = carregar_dados_periodo(db, user_id, mes_atual, mes_atual)
+    transacoes_do_mes = transacoes_por_mes.get(mes_atual.isoformat(), [])
     for item in itens_atuais:
         # o valor gravado aqui só importa de verdade pra item "nome livre"
         # (sem categoria/subcategoria/conta) — esse tipo nunca tem como
@@ -351,7 +358,7 @@ def gerar_proximo_mes(
         # nascer certo. Pra item com vínculo, a leitura sempre recalcula por
         # cima (_enriquecer_item/saldo_anterior_em_lote) e ignora isto —
         # gravar aqui não atrapalha, só deixa de ser a fonte da verdade.
-        realizado = calcular_realizado_item(db, user_id, item, mes_atual, mes_seguinte)
+        realizado = calcular_realizado_item_em_lote(item, transacoes_do_mes)
         disponivel_neste_mes = round(item["orcamento_mensal"] + item.get("saldo_anterior", 0), 2)
         db.table(ITENS_TABLE).insert(
             {

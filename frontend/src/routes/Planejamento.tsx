@@ -158,6 +158,11 @@ export function Planejamento() {
   function iniciarCriacaoConfig() {
     setFormConfig(FORM_CONFIG_PADRAO)
     setMostrarFormConfig(true)
+    // o form substitui os buckets (não abre embaixo deles), mas sem isso o
+    // scroll da página fica onde estava — se o usuário tinha rolado pra
+    // ver os buckets, a página encolhe e ele cai no fim dela, parecendo
+    // que o form "abriu depois dos buckets" (bug reportado 2026-09-29)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   function iniciarEdicaoConfig() {
@@ -171,6 +176,7 @@ export function Planejamento() {
       limite_investimentos: String(orcamentoAtual.limite_investimentos),
     })
     setMostrarFormConfig(true)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   async function handleSubmitConfig(event: FormEvent) {

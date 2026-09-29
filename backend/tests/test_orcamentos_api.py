@@ -499,6 +499,75 @@ def test_proximo_mes_item_sem_vinculo_rola_o_valor_cheio(client):
     assert novo_item["disponivel"] == 400
 
 
+def test_proximo_mes_calcula_realizado_em_lote_nao_uma_busca_por_item(client, db_store):
+    """Perf (achado 2026-09-29 — usuário reportou "Gerar orçamento" travando
+    com dados reais): `gerar_proximo_mes` chamava `calcular_realizado_item`
+    por item, cada um com sua própria busca de transações do mês — N itens
+    virava N idas e voltas ao Supabase só pra descobrir o `saldo_anterior`
+    de cada um. Agora usa `carregar_dados_periodo`/`calcular_realizado_item_
+    em_lote` (mesmo helper já usado por `listar_itens`/Estrutura de Custo):
+    busca as transações do mês uma vez só, não por item."""
+    from app.auth import get_db
+    from app.main import app
+
+    from .fakes import FakeSupabaseClient
+
+    conta = client.post("/contas", json={"nome": "Conta", "tipo_conta": "corrente"}).json()
+    categorias = [client.post("/categorias", json={"nome": f"Categoria {i}"}).json() for i in range(4)]
+    orcamento = _criar_orcamento(client, vigencia_mes="2026-09-01")
+    for i, categoria in enumerate(categorias):
+        client.post(
+            f"/orcamentos/{orcamento['id']}/itens",
+            json={"bucket": "custos_variaveis", "categoria_id": categoria["id"], "orcamento_mensal": 100},
+        )
+        # descrição distinta em cada uma — mesma data/valor/conta/tipo pra
+        # todas colidiria no hash_dedup (só categoria não entra na chave,
+        # ver docs/backlog.md "hash_dedup não distingue...") e a 2ª+ nunca
+        # seria criada, mascarando o que este teste quer provar
+        resposta_transacao = client.post(
+            "/transacoes",
+            json={
+                "data_compra": "2026-09-05",
+                "valor": 50,
+                "descricao": f"Despesa {i}",
+                "tipo_movimento": "despesa",
+                "conta_id": conta["id"],
+                "categoria_id": categoria["id"],
+                "estrutura_custo": "variavel",
+                "meio_pagamento": "pix",
+            },
+        )
+        assert resposta_transacao.status_code == 201
+
+    class _ContadorClient:
+        def __init__(self, store):
+            self._inner = FakeSupabaseClient(store)
+            self.chamadas: list[str] = []
+
+        def table(self, nome):
+            self.chamadas.append(nome)
+            return self._inner.table(nome)
+
+        def rpc(self, nome, params):
+            self.chamadas.append(nome)
+            return self._inner.rpc(nome, params)
+
+    contador = _ContadorClient(db_store)
+    app.dependency_overrides[get_db] = lambda: contador
+    try:
+        resposta = client.post(f"/orcamentos/{orcamento['id']}/proximo-mes")
+    finally:
+        app.dependency_overrides[get_db] = lambda: FakeSupabaseClient(db_store)
+
+    assert resposta.status_code == 201
+    itens_novo_mes = client.get(f"/orcamentos/{resposta.json()['id']}/itens").json()
+    assert len(itens_novo_mes) == 4
+    assert all(item["saldo_anterior"] == 50 for item in itens_novo_mes)  # 100 orçado - 50 gasto
+    # a agregação de transações do mês roda 1 vez só, não 1 por item (eram
+    # 4 antes do fix — 1 por item, via calcular_realizado_item)
+    assert contador.chamadas.count("saldo_transacoes_agregado") == 1
+
+
 def test_proximo_mes_alimenta_itens_de_transacoes_ja_lancadas_no_mes_seguinte(client):
     """Lançamento feito no mês seguinte antes de gerar o orçamento dele
     (ex: assinatura já cobrada em outubro enquanto setembro ainda está
