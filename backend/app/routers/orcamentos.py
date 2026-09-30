@@ -15,7 +15,7 @@ from ..schemas.orcamentos import (
 from ..services import crud
 from ..services.fatura import somar_meses
 from ..services.orcamento_saldo import calcular_realizado_item_em_lote, carregar_dados_periodo, saldo_anterior_em_lote
-from ..services.orcamento_sync import sincronizar_item_orcamento
+from ..services.orcamento_sync import classificar_transacao_para_orcamento
 from ..services.orcamento_teto import calcular_teto_bucket
 
 router = APIRouter(prefix="/orcamentos", tags=["orcamentos"])
@@ -104,7 +104,16 @@ def _popular_itens_de_transacoes_existentes(db: Client, user_id: str, orcamento:
     orcamento_mensal=0 pra cada categoria/subcategoria já lançada nesse
     mês. Mesma regra de paridade que sincronizar_item_orcamento já aplica
     de forma reativa daqui pra frente (nova transação chegando); isto aqui
-    cobre o retroativo (transação que já existia antes do orçamento)."""
+    cobre o retroativo (transação que já existia antes do orçamento).
+
+    Em lote — 2 buscas fixas + no máximo 1 insert, nunca 1 ida e volta por
+    transação: chamar `sincronizar_item_orcamento` (que já teria feito 2-3
+    buscas próprias, incluindo reencontrar o orçamento que aqui já temos em
+    mãos) uma vez por transação do mês deixava "Gerar orçamento"/"Criar do
+    zero" visivelmente travados numa conta real (centenas de transações no
+    mês, achado 2026-09-30 — usuário reportou que o fix da Rodada 38, que só
+    cobriu o `calcular_realizado_item_em_lote` deste mesmo endpoint, não
+    resolveu a lentidão; esta era a segunda N+1 do mesmo fluxo)."""
     mes_inicio = date.fromisoformat(orcamento["vigencia_mes"])
     mes_fim = somar_meses(mes_inicio, 1)
     transacoes = (
@@ -116,8 +125,40 @@ def _popular_itens_de_transacoes_existentes(db: Client, user_id: str, orcamento:
         .execute()
         .data
     )
+    if not transacoes:
+        return
+
+    itens_existentes = (
+        db.table(ITENS_TABLE).select("categoria_id,subcategoria_id").eq("orcamento_id", orcamento["id"]).execute().data
+    )
+    chaves_existentes = {
+        (i["subcategoria_id"], None) if i.get("subcategoria_id") else (None, i.get("categoria_id"))
+        for i in itens_existentes
+    }
+
+    chaves_novas: set[tuple[str | None, str | None]] = set()
+    novos_itens = []
     for transacao in transacoes:
-        sincronizar_item_orcamento(db, user_id, transacao)
+        classificacao = classificar_transacao_para_orcamento(transacao)
+        if classificacao is None:
+            continue
+        bucket, subcategoria_id, categoria_id = classificacao
+        chave = (subcategoria_id, None) if subcategoria_id else (None, categoria_id)
+        if chave in chaves_existentes or chave in chaves_novas:
+            continue
+        chaves_novas.add(chave)
+        novos_itens.append(
+            {
+                "orcamento_id": orcamento["id"],
+                "bucket": bucket,
+                "categoria_id": None if subcategoria_id else categoria_id,
+                "subcategoria_id": subcategoria_id,
+                "orcamento_mensal": 0,
+            }
+        )
+
+    if novos_itens:
+        db.table(ITENS_TABLE).insert(novos_itens).execute()
 
 
 def _get_orcamento_ou_404(db: Client, user_id: str, orcamento_id: str) -> dict:
@@ -351,6 +392,10 @@ def gerar_proximo_mes(
     # corrigida em Estrutura de Custo/listagem de itens, Rodadas 27/29)
     _, _, transacoes_por_mes = carregar_dados_periodo(db, user_id, mes_atual, mes_atual)
     transacoes_do_mes = transacoes_por_mes.get(mes_atual.isoformat(), [])
+    # 1 insert em lote com todos os itens copiados, não 1 insert por item —
+    # mesma classe de N+1 do `_popular_itens_de_transacoes_existentes`
+    # abaixo, achado junto (2026-09-30)
+    novos_itens = []
     for item in itens_atuais:
         # o valor gravado aqui só importa de verdade pra item "nome livre"
         # (sem categoria/subcategoria/conta) — esse tipo nunca tem como
@@ -360,7 +405,7 @@ def gerar_proximo_mes(
         # gravar aqui não atrapalha, só deixa de ser a fonte da verdade.
         realizado = calcular_realizado_item_em_lote(item, transacoes_do_mes)
         disponivel_neste_mes = round(item["orcamento_mensal"] + item.get("saldo_anterior", 0), 2)
-        db.table(ITENS_TABLE).insert(
+        novos_itens.append(
             {
                 "orcamento_id": novo_orcamento["id"],
                 "bucket": item["bucket"],
@@ -371,7 +416,9 @@ def gerar_proximo_mes(
                 "orcamento_mensal": item["orcamento_mensal"],
                 "saldo_anterior": round(disponivel_neste_mes - realizado, 2),
             }
-        ).execute()
+        )
+    if novos_itens:
+        db.table(ITENS_TABLE).insert(novos_itens).execute()
 
     _popular_itens_de_transacoes_existentes(db, user_id, novo_orcamento)
     return novo_orcamento

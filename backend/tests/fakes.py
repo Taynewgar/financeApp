@@ -46,9 +46,10 @@ class FakeQuery:
         self._op = "select"
         return self
 
-    def insert(self, payload: dict[str, Any]) -> "FakeQuery":
+    def insert(self, payload: dict[str, Any] | list[dict[str, Any]]) -> "FakeQuery":
         self._op = "insert"
-        self._payload = dict(payload)
+        # espelha supabase-py: aceita 1 linha OU uma lista (insert em lote)
+        self._payload = [dict(p) for p in payload] if isinstance(payload, list) else dict(payload)
         return self
 
     def update(self, payload: dict[str, Any]) -> "FakeQuery":
@@ -137,29 +138,33 @@ class FakeQuery:
             return FakeResult(matched)
 
         if self._op == "insert":
-            row = dict(self._payload or {})
-            row.setdefault("id", str(uuid.uuid4()))
-            # espelha os defaults de coluna do schema.sql (Postgres preenche
-            # isso sozinho; o app nunca envia "ativo" na criação)
-            row.setdefault("ativo", True)
-            if self._table == "orcamento_itens":
-                row.setdefault("saldo_anterior", 0)
-            if "hash_dedup" in row:
-                for existing in self._rows:
-                    if existing.get("hash_dedup") == row["hash_dedup"]:
-                        raise Exception(
-                            "duplicate key value violates unique constraint \"transacoes_hash_dedup_key\""
-                        )
-            colunas_unicas = _UNIQUE_CONSTRAINTS.get(self._table)
-            if colunas_unicas:
-                chave = tuple(row.get(c) for c in colunas_unicas)
-                for existing in self._rows:
-                    if tuple(existing.get(c) for c in colunas_unicas) == chave:
-                        raise Exception(
-                            f"duplicate key value violates unique constraint \"{self._table}_{'_'.join(colunas_unicas)}_key\""
-                        )
-            self._rows.append(row)
-            return FakeResult([dict(row)])
+            payloads = self._payload if isinstance(self._payload, list) else [self._payload or {}]
+            inseridos = []
+            for payload in payloads:
+                row = dict(payload)
+                row.setdefault("id", str(uuid.uuid4()))
+                # espelha os defaults de coluna do schema.sql (Postgres preenche
+                # isso sozinho; o app nunca envia "ativo" na criação)
+                row.setdefault("ativo", True)
+                if self._table == "orcamento_itens":
+                    row.setdefault("saldo_anterior", 0)
+                if "hash_dedup" in row:
+                    for existing in self._rows:
+                        if existing.get("hash_dedup") == row["hash_dedup"]:
+                            raise Exception(
+                                "duplicate key value violates unique constraint \"transacoes_hash_dedup_key\""
+                            )
+                colunas_unicas = _UNIQUE_CONSTRAINTS.get(self._table)
+                if colunas_unicas:
+                    chave = tuple(row.get(c) for c in colunas_unicas)
+                    for existing in self._rows:
+                        if tuple(existing.get(c) for c in colunas_unicas) == chave:
+                            raise Exception(
+                                f"duplicate key value violates unique constraint \"{self._table}_{'_'.join(colunas_unicas)}_key\""
+                            )
+                self._rows.append(row)
+                inseridos.append(dict(row))
+            return FakeResult(inseridos)
 
         if self._op == "update":
             matched = [r for r in self._rows if self._matches(r)]

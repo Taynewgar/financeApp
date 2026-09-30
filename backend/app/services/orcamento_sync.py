@@ -21,23 +21,37 @@ _BUCKET_POR_ESTRUTURA = {
 }
 
 
-def sincronizar_item_orcamento(db: Client, user_id: str, transacao: dict) -> None:
+def classificar_transacao_para_orcamento(transacao: dict) -> tuple[str, str | None, str | None] | None:
+    """(bucket, subcategoria_id, categoria_id) que essa transação
+    alimentaria no orçamento, ou None se ela não deveria virar item —
+    receita, estorno/ressarcimento, reserva (aplicação/retirada COM
+    caixinha) ou sem categoria/subcategoria pra classificar. Extraído de
+    `sincronizar_item_orcamento` pra ser reaproveitado em lote por
+    `orcamentos.py::_popular_itens_de_transacoes_existentes`, que precisa
+    classificar N transações sem repetir a parte cara (busca de orçamento/
+    itens existentes) N vezes."""
     tipo = transacao["tipo_movimento"]
-    # receita, estorno/ressarcimento e reserva (aplicação/retirada COM
-    # caixinha) não alimentam orçamento — só despesa e investimento têm
-    # bucket/teto pra fazer sentido virar item
     eh_investimento_sem_caixinha = tipo in ("aplicacao", "retirada") and not transacao.get("caixinha_id")
     if tipo != "despesa" and not eh_investimento_sem_caixinha:
-        return
+        return None
 
     bucket = _BUCKET_POR_ESTRUTURA.get(transacao.get("estrutura_custo"))
     if not bucket:
-        return
+        return None
 
     subcategoria_id = transacao.get("subcategoria_id")
     categoria_id = transacao.get("categoria_id")
     if not subcategoria_id and not categoria_id:
+        return None
+
+    return bucket, subcategoria_id, categoria_id
+
+
+def sincronizar_item_orcamento(db: Client, user_id: str, transacao: dict) -> None:
+    classificacao = classificar_transacao_para_orcamento(transacao)
+    if classificacao is None:
         return
+    bucket, subcategoria_id, categoria_id = classificacao
 
     mes_inicio = date.fromisoformat(str(transacao["data_compra"])[:10]).replace(day=1)
     orcamentos = (

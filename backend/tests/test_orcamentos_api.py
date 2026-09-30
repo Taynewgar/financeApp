@@ -568,6 +568,116 @@ def test_proximo_mes_calcula_realizado_em_lote_nao_uma_busca_por_item(client, db
     assert contador.chamadas.count("saldo_transacoes_agregado") == 1
 
 
+def test_proximo_mes_copia_itens_em_1_insert_em_lote_nao_1_por_item(client, db_store):
+    """Perf (achado 2026-09-30 — usuário reportou que o fix acima não
+    resolveu a lentidão real): o loop que copia os itens do mês atual pro
+    mês seguinte fazia 1 INSERT por item, N itens = N idas e voltas.
+    Batizado num insert só, com a lista inteira."""
+    from app.auth import get_db
+    from app.main import app
+
+    from .fakes import FakeSupabaseClient
+
+    orcamento = _criar_orcamento(client, vigencia_mes="2026-09-01")
+    for i in range(6):
+        categoria = client.post("/categorias", json={"nome": f"Categoria {i}"}).json()
+        client.post(
+            f"/orcamentos/{orcamento['id']}/itens",
+            json={"bucket": "custos_variaveis", "categoria_id": categoria["id"], "orcamento_mensal": 100},
+        )
+
+    class _ContadorClient:
+        def __init__(self, store):
+            self._inner = FakeSupabaseClient(store)
+            self.chamadas: list[str] = []
+
+        def table(self, nome):
+            self.chamadas.append(nome)
+            return self._inner.table(nome)
+
+        def rpc(self, nome, params):
+            self.chamadas.append(nome)
+            return self._inner.rpc(nome, params)
+
+    contador = _ContadorClient(db_store)
+    app.dependency_overrides[get_db] = lambda: contador
+    try:
+        resposta = client.post(f"/orcamentos/{orcamento['id']}/proximo-mes")
+    finally:
+        app.dependency_overrides[get_db] = lambda: FakeSupabaseClient(db_store)
+
+    assert resposta.status_code == 201
+    itens_novo_mes = client.get(f"/orcamentos/{resposta.json()['id']}/itens").json()
+    assert len(itens_novo_mes) == 6
+    # nº de idas ao "banco" pra orcamento_itens não escala com o nº de itens
+    # copiados (6 itens, mas só 3 chamadas fixas: select dos itens atuais,
+    # select em carregar_dados_periodo, 1 insert em lote dos copiados — sem
+    # transação nenhuma no mês seguinte, _popular_itens_de_transacoes_
+    # existentes nem chega a consultar orcamento_itens)
+    assert contador.chamadas.count("orcamento_itens") == 3
+
+
+def test_proximo_mes_popula_itens_de_transacoes_em_1_busca_nao_1_por_transacao(client, db_store):
+    """Perf (achado 2026-09-30, mesma rodada do teste acima):
+    `_popular_itens_de_transacoes_existentes` chamava `sincronizar_item_
+    orcamento` uma vez por transação do mês, cada chamada refazendo sua
+    própria busca de orçamento/itens existentes — N transações no mês
+    seguinte virava N×2-3 idas e voltas. Agora busca as transações do mês
+    (1 vez) e os itens existentes do orçamento (1 vez), e insere tudo que
+    falta num lote só."""
+    from app.auth import get_db
+    from app.main import app
+
+    from .fakes import FakeSupabaseClient
+
+    conta = client.post("/contas", json={"nome": "Conta", "tipo_conta": "corrente"}).json()
+    orcamento_setembro = _criar_orcamento(client, vigencia_mes="2026-09-01")
+    for i in range(5):
+        categoria = client.post("/categorias", json={"nome": f"Categoria out {i}"}).json()
+        resposta_transacao = client.post(
+            "/transacoes",
+            json={
+                "data_compra": "2026-10-05",
+                "valor": 50,
+                "descricao": f"Despesa out {i}",
+                "tipo_movimento": "despesa",
+                "conta_id": conta["id"],
+                "categoria_id": categoria["id"],
+                "estrutura_custo": "variavel",
+                "meio_pagamento": "pix",
+            },
+        )
+        assert resposta_transacao.status_code == 201
+
+    class _ContadorClient:
+        def __init__(self, store):
+            self._inner = FakeSupabaseClient(store)
+            self.chamadas: list[str] = []
+
+        def table(self, nome):
+            self.chamadas.append(nome)
+            return self._inner.table(nome)
+
+        def rpc(self, nome, params):
+            self.chamadas.append(nome)
+            return self._inner.rpc(nome, params)
+
+    contador = _ContadorClient(db_store)
+    app.dependency_overrides[get_db] = lambda: contador
+    try:
+        resposta = client.post(f"/orcamentos/{orcamento_setembro['id']}/proximo-mes")
+    finally:
+        app.dependency_overrides[get_db] = lambda: FakeSupabaseClient(db_store)
+
+    assert resposta.status_code == 201
+    itens_outubro = client.get(f"/orcamentos/{resposta.json()['id']}/itens").json()
+    assert len(itens_outubro) == 5  # 1 por categoria, retroativo às transações já lançadas
+    assert all(i["bucket"] == "custos_variaveis" and i["orcamento_mensal"] == 0 for i in itens_outubro)
+    # 1 busca de transações do mês só, não 1 por transação (eram 5+ antes,
+    # via sincronizar_item_orcamento chamado em loop)
+    assert contador.chamadas.count("transacoes") == 1
+
+
 def test_proximo_mes_alimenta_itens_de_transacoes_ja_lancadas_no_mes_seguinte(client):
     """Lançamento feito no mês seguinte antes de gerar o orçamento dele
     (ex: assinatura já cobrada em outubro enquanto setembro ainda está

@@ -190,9 +190,11 @@ prioridade abaixo:
   do usuário (volume projetado de ~15-20k transações em 6-7 anos).
   Detalhe na subseção própria abaixo, ver changelog Rodada 37.
 - **39.** ~~Planejamento: "Gerar orçamento" travando + form de edição
-  abrindo fora de vista~~ **feito 2026-09-29** — 2 bugs reportados
-  dogfooding a aplicação. Detalhe na subseção própria abaixo, ver
-  changelog Rodada 38.
+  abrindo fora de vista~~ **feito 2026-09-29, fix de lentidão completo
+  2026-09-30** — 2 bugs reportados dogfooding a aplicação; a correção
+  de lentidão da Rodada 38 era só parcial (havia mais 2 N+1 no mesmo
+  endpoint). Detalhe na subseção própria abaixo, ver changelog Rodadas
+  38 e 41.
 - **40.** ~~Planejamento: layout não alinhado com Estrutura de Custo~~
   **feito 2026-09-30** — 3 mockups apresentados, usuário escolheu
   acordeão de 2 níveis (bucket → categoria pai → subcategoria), igual
@@ -1534,6 +1536,28 @@ agregada pro mês inteiro, mesmo helper já usado por
 `listar_itens`/Estrutura de Custo desde as Rodadas 27/29). Regressão
 coberta por teste que cria 4 itens em categorias diferentes e confirma
 que a agregação de transações roda 1 vez só, não 4.
+
+**Atualização 2026-09-30 — Fix 1 era incompleto:** usuário testou de
+novo com dados reais e reportou que "Gerar orçamento"/"Criar do zero"
+continuavam lentos. Havia uma 2ª e 3ª N+1 no mesmo endpoint, nunca
+percebidas porque o teste da Fix 1 só tinha poucos itens/transações de
+teste (o N+1 existe, mas com N pequeno o tempo extra é imperceptível):
+(a) o loop que copia os itens do mês atual pro seguinte fazia **1
+INSERT por item**; (b) `_popular_itens_de_transacoes_existentes`
+(alimenta itens a partir de transações já lançadas no mês, retroativo)
+chamava `sincronizar_item_orcamento` **uma vez por transação do mês**,
+cada chamada refazendo sua própria busca de orçamento/itens
+existentes — numa conta real, com centenas de transações/mês, isso é
+a lentidão dominante, muito maior que a do Fix 1 original (dezenas de
+itens × 1 busca vs. centenas de transações × 2-3 buscas cada). Fix:
+`(a)` virou 1 insert em lote com a lista inteira; `(b)` virou 1 busca
+de transações + 1 busca de itens existentes + no máximo 1 insert em
+lote, independente de quantas transações o mês tiver (extraído
+`classificar_transacao_para_orcamento()` de
+`orcamento_sync.py::sincronizar_item_orcamento` pra reaproveitar a
+mesma regra sem repetir a parte cara). 2 testes novos de regressão
+provam que o nº de idas ao "banco" não escala com N (nem itens
+copiados, nem transações do mês). Ver changelog Rodada 41.
 
 **Bug 2 — form de edição "abrindo depois dos buckets":** o form de
 "Editar configuração" e a lista de buckets são mutuamente exclusivos no

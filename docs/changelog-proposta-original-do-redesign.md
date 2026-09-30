@@ -3676,3 +3676,78 @@ Supabase nesta sessão remota).
 - [ ] Confirmar que esse mês confirmado **não** aparece em Estrutura de
       Custo/Planejamento como item de investimento (reserva é só
       informativa, sem teto).
+
+### Rodada 41 (2026-09-30) — Fix: "Gerar orçamento"/"Criar do zero" continuavam lentos (2ª e 3ª N+1)
+
+Usuário testou o fix da Rodada 38 (Fix 1, `calcular_realizado_item_em_
+lote`) com dados reais e reportou que "Gerar orçamento", "Criar a
+partir do mês anterior" e "Criar do zero" continuavam muito lentos —
+só o Bug 2 (scroll ao editar configuração) daquela rodada de fato tinha
+sido resolvido. O fix anterior corrigiu uma N+1 real, mas havia mais
+duas no mesmo endpoint (`POST /orcamentos/{id}/proximo-mes`, também
+usado por "Criar do zero" via `criar()`), que dominam o tempo numa
+conta real: dezenas de itens × 1 busca extra é pouco perceptível;
+centenas de transações/mês × 2-3 buscas cada é o que realmente travava.
+
+**N+1 #2 — 1 insert por item copiado:** o loop que copia os itens do
+orçamento atual pro mês seguinte fazia `db.table("orcamento_itens").
+insert({...}).execute()` dentro do `for item in itens_atuais`, uma
+chamada por item.
+
+**Fix:** acumula os itens num `novos_itens: list[dict]` e faz 1 único
+`insert(novos_itens)` depois do loop.
+
+**N+1 #3 — 1 busca de orçamento/itens por transação, não por mês:**
+`_popular_itens_de_transacoes_existentes()` (roda em `criar()` e no
+fim de `gerar_proximo_mes()` — cria itens com `orcamento_mensal=0` pra
+categorias já lançadas antes do orçamento existir) chamava
+`sincronizar_item_orcamento()` uma vez por transação do mês. Essa
+função foi desenhada pra uso reativo (1 transação nova chegando,
+`transacoes.py`/`lancamentos_recorrentes.py`) e sempre refaz sua
+própria busca de "qual orçamento existe pra este mês" + "quais itens
+esse orçamento já tem" — correto pra 1 transação, mas repetido N vezes
+pra N transações do mesmo mês é puro desperdício: o orçamento é o
+mesmo, e a lista de itens existentes muda pouco entre uma transação e
+outra.
+
+**Fix:** extraída `classificar_transacao_para_orcamento()` de dentro de
+`sincronizar_item_orcamento()` (`services/orcamento_sync.py`) — função
+pura, sem I/O, que decide bucket/subcategoria/categoria (ou `None` se a
+transação não deveria virar item) a partir só dos campos da própria
+transação. `_popular_itens_de_transacoes_existentes()` passa a: buscar
+as transações do mês (1 busca, já existia), buscar os itens já
+existentes do orçamento (1 busca, novo — o orçamento já é conhecido, o
+próprio parâmetro da função, nunca precisou de busca própria aqui),
+classificar cada transação em memória, deduplicar contra os itens já
+existentes E contra os que o próprio lote já decidiu criar, e inserir
+tudo que falta num só `insert(lista)`. `sincronizar_item_orcamento()`
+(uso reativo, 1 transação por vez) continua igual por fora, só delega
+a classificação pra função nova.
+
+**Testes:** 362 passed, 33 skipped (2 novos, de regressão, ambos
+provando que o nº de idas ao "banco" fica fixo independente de N):
+`test_proximo_mes_copia_itens_em_1_insert_em_lote_nao_1_por_item` (6
+itens copiados, 3 chamadas a `orcamento_itens` sempre, não 6+) e
+`test_proximo_mes_popula_itens_de_transacoes_em_1_busca_nao_1_por_
+transacao` (5 transações no mês seguinte, 1 chamada a `transacoes`,
+não 5). `tests/fakes.py` ganhou suporte a `insert()` com uma lista de
+linhas (insert em lote), espelhando o comportamento real do
+`supabase-py` — nenhum teste existente precisou mudar.
+
+**Status:** implementado nesta sessão. Sem QA visual via Playwright —
+mesma limitação de sempre (sem `backend/.env` com credenciais reais do
+Supabase nesta sessão remota); esta classe de bug só fica visível com
+volume real de dados, que esta sessão não tem como reproduzir.
+
+**Checklist de teste manual (usuário, localmente):**
+- [ ] Com um orçamento configurado com dezenas de itens E o mês com
+      centenas de transações lançadas, clicar em "Gerar orçamento de
+      [mês seguinte]" e confirmar que agora responde rápido de verdade
+      (não só "menos lento").
+- [ ] "Criar a partir do mês anterior" e "Criar do zero" num mês sem
+      orçamento — mesma confirmação de velocidade.
+- [ ] Depois de gerar, confirmar que os itens do mês novo têm os
+      mesmos valores orçados do mês anterior, e que itens de categorias
+      já lançadas no mês novo (mas sem item configurado ainda)
+      aparecem com orçado R$ 0,00 — mesmo resultado de antes, só mais
+      rápido.
