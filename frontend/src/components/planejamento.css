@@ -91,111 +91,84 @@
 .planejamento-buckets {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 10px;
   margin-bottom: 24px;
 }
 
-.planejamento-bucket {
-  padding: 14px;
-  background: var(--cor-superficie);
-  border: 1px solid var(--cor-borda);
-  border-radius: var(--raio);
-}
-
-.planejamento-bucket-cabecalho {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  margin-bottom: 8px;
-}
-
-.planejamento-bucket-cabecalho h3 {
-  margin: 0;
-  font-size: 15px;
-}
-
-.planejamento-bucket-limite {
-  font-size: 12px;
-  color: var(--cor-texto-suave);
-}
+/* bucket/categoria/seta/vazio/ir-busca reaproveitam as classes de
+ * estruturaCusto.css (importado em Planejamento.tsx) — mesmo acordeão de
+ * 2 níveis (bucket > categoria pai > subcategoria), pedido explícito do
+ * usuário 2026-09-30 ("assim como já acontece em estrutura de custos").
+ * Só o que é específico de Planejamento (barra de progresso, cabeçalho
+ * de colunas com Sobra do envelope/Disponível em vez de Realizado/
+ * Diferença/Status) mora aqui. */
 
 .planejamento-progresso {
-  height: 6px;
-  border-radius: 3px;
+  height: 4px;
+  border-radius: 2px;
   background: var(--cor-borda);
   overflow: hidden;
-  margin-bottom: 4px;
+  margin: 0 14px 12px 44px;
 }
 
 .planejamento-progresso-fill {
   height: 100%;
-  border-radius: 3px;
+  border-radius: 2px;
 }
 
-.planejamento-progresso-texto {
-  font-size: 12px;
-  color: var(--cor-texto-suave);
-  margin-bottom: 10px;
-}
-
-/* Lista de itens em colunas fixas — mesma ideia da tabela de Estrutura de
- * Custo, pra parar de espremer "orçado · sobra do envelope · disponível"
- * num texto só que quebra linha logo depois do sinal de negativo. Cada
- * coluna tem a própria classe (não nth-child/nth-of-type) porque Nome e os
- * valores numéricos são todos <span>, então "enésimo span" não identifica
- * a coluna certa pra esconder no mobile. */
-.planejamento-itens {
-  margin-bottom: 10px;
-}
-
-.planejamento-itens-cabecalho {
+.planejamento-cabecalho-colunas {
   display: grid;
   grid-template-columns: 1fr 85px 100px 85px 140px;
   gap: 8px;
-  padding: 0 4px 6px;
+  padding: 0 14px 6px 48px;
   font-size: 11px;
   color: var(--cor-texto-suave);
   text-transform: uppercase;
   letter-spacing: .03em;
 }
 
-.planejamento-itens-cabecalho > span:not(:first-child) {
+.planejamento-cabecalho-colunas span:not(:first-child) {
   text-align: right;
 }
 
-.planejamento-item-linha {
+.planejamento-cabecalho-colunas span:last-child {
+  text-align: left;
+}
+
+.planejamento-sub-linha {
   display: grid;
   grid-template-columns: 1fr 85px 100px 85px 140px;
   gap: 8px;
   align-items: center;
-  padding: 9px 4px;
+  padding: 10px 14px 10px 50px;
   border-top: 1px solid var(--cor-borda);
   font-size: 13px;
+  background: color-mix(in srgb, var(--cor-fundo) 55%, transparent);
 }
 
-.planejamento-item-linha:first-child {
-  border-top: none;
-}
-
-.planejamento-item-linha.inativo {
+.planejamento-sub-linha.inativo {
   opacity: 0.55;
 }
 
-.planejamento-item-nome {
-  font-weight: 600;
-  min-width: 0;
-  overflow-wrap: break-word;
-}
-
-.planejamento-item-linha .col-orcado,
-.planejamento-item-linha .col-sobra,
-.planejamento-item-linha .col-disponivel {
+.planejamento-sub-linha .col-orcado,
+.planejamento-sub-linha .col-sobra,
+.planejamento-sub-linha .col-disponivel {
   text-align: right;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
 
-.planejamento-item-acoes {
+.planejamento-sub-linha .rotulo-inline {
+  display: none;
+}
+
+.planejamento-sub-linha-nome {
+  font-weight: 600;
+  min-width: 0;
+  overflow-wrap: break-word;
+}
+
+.planejamento-sub-linha-acoes {
   display: flex;
   align-items: center;
   justify-content: flex-end;
@@ -203,25 +176,44 @@
   gap: 2px 6px;
 }
 
-.planejamento-item-ir-busca {
-  color: var(--cor-acento);
-  text-decoration: none;
-  font-size: 14px;
-  padding: 0 2px;
-}
-
-@media (max-width: 480px) {
-  .planejamento-itens-cabecalho,
-  .planejamento-item-linha {
-    grid-template-columns: 1fr 90px 90px;
-  }
-  .col-cabecalho-sobra,
-  .planejamento-item-linha .col-sobra {
+/* mesmo breakpoint/estratégia de estruturaCusto.css: grid de colunas
+ * fixas nunca cabe em tela de celular — vira flex-wrap com o nome numa
+ * linha inteira e os valores (agora rotulados, já que o cabeçalho de
+ * coluna fica escondido) fluindo numa 2ª linha, em vez de vazar. */
+@media (max-width: 720px) {
+  .planejamento-cabecalho-colunas {
     display: none;
   }
-  .planejamento-item-acoes {
-    grid-column: 1 / -1;
+
+  .planejamento-sub-linha {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    row-gap: 6px;
+    column-gap: 14px;
+    padding-left: 30px;
+  }
+
+  .planejamento-sub-linha-nome {
+    flex: 1 1 100%;
+  }
+
+  .planejamento-sub-linha .col-orcado,
+  .planejamento-sub-linha .col-sobra,
+  .planejamento-sub-linha .col-disponivel {
+    text-align: left;
+  }
+
+  .planejamento-sub-linha .rotulo-inline {
+    display: inline;
+  }
+
+  .planejamento-sub-linha-acoes {
+    flex: 1 1 100%;
     justify-content: flex-start;
-    padding-top: 4px;
+  }
+
+  .planejamento-progresso {
+    margin-left: 24px;
   }
 }

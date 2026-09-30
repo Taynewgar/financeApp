@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import '../components/cabecalhoFixo.css'
 import '../components/forms.css'
 import '../components/crud.css'
+import '../components/estruturaCusto.css'
 import '../components/planejamento.css'
 import { ApiError, apiFetch } from '../lib/api'
 import { formatarMoeda, formatarMoedaCompacta } from '../lib/formatar'
@@ -86,11 +87,96 @@ function tetoBucket(
   return Math.round(((baseOrcada * limite) / 100) * 100) / 100
 }
 
-function rotuloItem(item: OrcamentoItem, categorias: Categoria[], subcategorias: Subcategoria[], contas: Conta[]): string {
+/** Chave de agrupamento de 1 item — mesma prioridade de sempre
+ * (subcategoria > categoria > conta vinculada > nome livre), só que aqui
+ * devolve a chave do GRUPO (categoria pai, no caso de subcategoria) em
+ * vez do rótulo do próprio item. Compartilhada entre
+ * `agruparItensPorCategoria` (monta os grupos) e `handleSubmitItem`
+ * (expande automaticamente o grupo do item recém-criado). */
+function chaveGrupoItem(item: OrcamentoItem, subcategorias: Subcategoria[]): string {
+  if (item.subcategoria_id) {
+    const sub = subcategorias.find((s) => s.id === item.subcategoria_id)
+    return sub?.categoria_id ?? `sub-orfa-${item.subcategoria_id}`
+  }
+  if (item.categoria_id) return item.categoria_id
+  if (item.conta_vinculada_id) return `conta-${item.conta_vinculada_id}`
+  return `item-${item.id}`
+}
+
+type FolhaPlanejamento = { chave: string; item: OrcamentoItem }
+
+type GrupoCategoriaPlanejamento = {
+  chave: string
+  nome: string
+  orcamentoMensal: number
+  saldoAnterior: number
+  disponivel: number
+  folhas: FolhaPlanejamento[]
+}
+
+/** Agrupa os itens flat de 1 bucket em categoria pai > subcategoria —
+ * mesma ideia de EstruturaCusto.tsx:agruparPorCategoria (bucket >
+ * categoria pai > subcategoria), adaptada aos campos de OrcamentoItem.
+ * Item de subcategoria agrupa pela categoria pai; item só-categoria vira
+ * a folha "Geral" dentro do mesmo grupo (pode coexistir com itens de
+ * subcategoria da mesma categoria — um item de Planejamento pode ter só
+ * a categoria preenchida, sem subcategoria); item de conta vinculada ou
+ * nome livre vira seu próprio grupo de 1 folha só (mesmo padrão do grupo
+ * "conta" de Estrutura de Custo). */
+function agruparItensPorCategoria(
+  itens: OrcamentoItem[],
+  categorias: Categoria[],
+  subcategorias: Subcategoria[],
+  contas: Conta[],
+): GrupoCategoriaPlanejamento[] {
+  const categoriasPorId = new Map(categorias.map((c) => [c.id, c]))
+  const contasPorId = new Map(contas.map((c) => [c.id, c]))
+  const grupos = new Map<string, GrupoCategoriaPlanejamento>()
+
+  function grupo(chave: string, nome: string): GrupoCategoriaPlanejamento {
+    let g = grupos.get(chave)
+    if (!g) {
+      g = { chave, nome, orcamentoMensal: 0, saldoAnterior: 0, disponivel: 0, folhas: [] }
+      grupos.set(chave, g)
+    }
+    return g
+  }
+
+  for (const item of itens) {
+    const chave = chaveGrupoItem(item, subcategorias)
+    let nome: string
+    if (item.subcategoria_id) {
+      const sub = subcategorias.find((s) => s.id === item.subcategoria_id)
+      nome = (sub && categoriasPorId.get(sub.categoria_id)?.nome) ?? 'Categoria removida'
+    } else if (item.categoria_id) {
+      nome = categoriasPorId.get(item.categoria_id)?.nome ?? 'Categoria removida'
+    } else if (item.conta_vinculada_id) {
+      nome = contasPorId.get(item.conta_vinculada_id)?.nome ?? 'Conta removida'
+    } else {
+      nome = item.nome ?? 'Item sem nome'
+    }
+    const g = grupo(chave, nome)
+    g.orcamentoMensal = Math.round((g.orcamentoMensal + item.orcamento_mensal) * 100) / 100
+    g.saldoAnterior = Math.round((g.saldoAnterior + item.saldo_anterior) * 100) / 100
+    g.disponivel = Math.round((g.disponivel + item.disponivel) * 100) / 100
+    g.folhas.push({ chave: item.id, item })
+  }
+
+  return [...grupos.values()].sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'))
+}
+
+/** Rótulo da folha (nível de subcategoria) dentro de um grupo já aberto —
+ * diferente do nome do grupo (categoria pai): item só-categoria vira
+ * "Geral" pra não repetir o nome do grupo que já está no cabeçalho. */
+function rotuloFolha(item: OrcamentoItem, subcategorias: Subcategoria[], contas: Conta[]): string {
   if (item.subcategoria_id) return subcategorias.find((s) => s.id === item.subcategoria_id)?.nome ?? 'Subcategoria removida'
-  if (item.categoria_id) return categorias.find((c) => c.id === item.categoria_id)?.nome ?? 'Categoria removida'
+  if (item.categoria_id) return 'Geral (sem subcategoria)'
   if (item.conta_vinculada_id) return contas.find((c) => c.id === item.conta_vinculada_id)?.nome ?? 'Conta removida'
   return item.nome ?? 'Item sem nome'
+}
+
+function chaveCategoria(bucket: Bucket, chave: string): string {
+  return `${bucket}|${chave}`
 }
 
 /** Mesmo drill-down de Estrutura de Custo: leva pra Busca de Lançamentos já
@@ -119,6 +205,12 @@ export function Planejamento() {
   const [formItem, setFormItem] = useState<FormItem>(FORM_ITEM_VAZIO)
   const [salvando, setSalvando] = useState(false)
   const [gerandoProximoMes, setGerandoProximoMes] = useState(false)
+  // acordeão de 2 níveis (bucket > categoria pai > subcategoria), mesmo
+  // padrão de Estrutura de Custo — todos os buckets começam abertos
+  // (Planejamento é tela de configuração, diferente do uso de relatório
+  // de Estrutura de Custo, que só abre buckets com lançamento)
+  const [bucketsAbertos, setBucketsAbertos] = useState<Set<Bucket>>(new Set(BUCKETS.map((b) => b.valor)))
+  const [categoriasAbertas, setCategoriasAbertas] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     Promise.all([
@@ -253,6 +345,25 @@ export function Planejamento() {
     setItemFormAberto(bucket)
   }
 
+  function alternarBucket(bucket: Bucket) {
+    setBucketsAbertos((atual) => {
+      const proximo = new Set(atual)
+      if (proximo.has(bucket)) proximo.delete(bucket)
+      else proximo.add(bucket)
+      return proximo
+    })
+  }
+
+  function alternarCategoria(bucket: Bucket, chave: string) {
+    setCategoriasAbertas((atual) => {
+      const proximo = new Set(atual)
+      const chaveCompleta = chaveCategoria(bucket, chave)
+      if (proximo.has(chaveCompleta)) proximo.delete(chaveCompleta)
+      else proximo.add(chaveCompleta)
+      return proximo
+    })
+  }
+
   function iniciarEdicaoItem(item: OrcamentoItem) {
     // item de subcategoria vem com categoria_id nulo (os dois são
     // mutuamente exclusivos, ver orcamento_sync.py) — sem resolver a
@@ -310,6 +421,10 @@ export function Planejamento() {
           body: JSON.stringify(payload),
         })
         setItens((atual) => [...(atual ?? []), criado])
+        // sem isso, o item recém-criado nasce dentro de um grupo de
+        // categoria ainda fechado (categoriasAbertas não sabia dele) —
+        // some da vista até o usuário abrir manualmente
+        setCategoriasAbertas((atual) => new Set(atual).add(chaveCategoria(bucket, chaveGrupoItem(criado, subcategorias))))
       }
       setItemFormAberto(null)
     } catch (e) {
@@ -547,6 +662,13 @@ export function Planejamento() {
           </div>
 
           <div className="planejamento-buckets">
+            <div className="planejamento-cabecalho-colunas">
+              <span>Bucket / categoria / item</span>
+              <span>Orçado</span>
+              <span>Sobra</span>
+              <span>Disponível</span>
+              <span></span>
+            </div>
             {BUCKETS.map((b) => {
               const itensDoBucket = (itens ?? []).filter((i) => i.bucket === b.valor)
               const itensAtivos = itensDoBucket.filter((i) => i.ativo)
@@ -558,152 +680,193 @@ export function Planejamento() {
                 b.valor === 'investimentos' ? c.tipo === 'investimento' : c.tipo === 'despesa',
               )
               const subcategoriasDaCategoria = subcategorias.filter((s) => s.categoria_id === formItem.categoria_id)
+              const aberto = bucketsAbertos.has(b.valor)
+              const grupos = agruparItensPorCategoria(itensDoBucket, categorias, subcategorias, contas)
 
               return (
-                <div key={b.valor} className="planejamento-bucket">
-                  <div className="planejamento-bucket-cabecalho">
-                    <h3>{b.rotulo}</h3>
-                    <span className="planejamento-bucket-limite">limite {orcamentoAtual[b.limiteCampo]}%</span>
-                  </div>
+                <div key={b.valor} className={`estrutura-custo-bucket${aberto ? ' aberto' : ''}`}>
+                  <button
+                    type="button"
+                    className="estrutura-custo-bucket-cabecalho"
+                    onClick={() => alternarBucket(b.valor)}
+                    aria-expanded={aberto}
+                  >
+                    <span className="estrutura-custo-seta" aria-hidden="true">
+                      ▶
+                    </span>
+                    <span className="estrutura-custo-cor" style={{ background: b.cor }} />
+                    <span className="estrutura-custo-bucket-nome">{b.rotulo}</span>
+                    <span className="estrutura-custo-bucket-valores">
+                      <span style={estourou ? { color: 'var(--cor-perigo)' } : undefined}>
+                        {formatarMoeda(somaAlocada, oculto)} de {formatarMoeda(teto, oculto)} · limite{' '}
+                        {orcamentoAtual[b.limiteCampo]}%{estourou && ' — acima do teto'}
+                      </span>
+                    </span>
+                  </button>
                   <div className="planejamento-progresso">
                     <div
                       className="planejamento-progresso-fill"
                       style={{ width: `${percentualUso}%`, background: estourou ? 'var(--cor-perigo)' : b.cor }}
                     />
                   </div>
-                  <p className="planejamento-progresso-texto">
-                    {formatarMoeda(somaAlocada, oculto)} alocado de {formatarMoeda(teto, oculto)} do teto
-                    {estourou && ' — acima do teto'}
-                  </p>
 
-                  {itensDoBucket.length === 0 && (
-                    <p style={{ color: 'var(--cor-texto-suave)', fontSize: 13 }}>Nenhum item ainda.</p>
-                  )}
-                  {itensDoBucket.length > 0 && (
-                    <div className="planejamento-itens">
-                      <div className="planejamento-itens-cabecalho">
-                        <span>Item</span>
-                        <span>Orçado</span>
-                        <span className="col-cabecalho-sobra">Sobra do envelope</span>
-                        <span>Disponível</span>
-                        <span></span>
-                      </div>
-                      {itensDoBucket.map((item) => (
-                        <div key={item.id} className={`planejamento-item-linha${item.ativo ? '' : ' inativo'}`}>
-                          <span className="planejamento-item-nome">
-                            {rotuloItem(item, categorias, subcategorias, contas)}
-                            {!item.ativo && ' — inativo'}
-                          </span>
-                          <span className="col-orcado">{formatarMoeda(item.orcamento_mensal, oculto)}</span>
-                          <span className="col-sobra">{item.saldo_anterior !== 0 ? formatarMoeda(item.saldo_anterior, oculto) : '—'}</span>
-                          <span className="col-disponivel">{item.saldo_anterior !== 0 ? formatarMoeda(item.disponivel, oculto) : '—'}</span>
-                          <span className="planejamento-item-acoes">
-                            {(item.categoria_id || item.subcategoria_id) && (
-                              <Link
-                                className="planejamento-item-ir-busca"
-                                to={linkBusca(vigenciaMes, item.categoria_id, item.subcategoria_id)}
-                                title="Ver em Busca de Lançamentos"
-                              >
-                                →
-                              </Link>
-                            )}
-                            <button type="button" className="botao-link" onClick={() => iniciarEdicaoItem(item)}>
-                              Editar
-                            </button>
-                            <button type="button" className="botao-link" onClick={() => toggleAtivoItem(item)}>
-                              {item.ativo ? 'Desativar' : 'Reativar'}
-                            </button>
-                          </span>
+                  {aberto && (
+                    <>
+                      {grupos.length === 0 && <p className="estrutura-custo-vazio">Nenhum item ainda.</p>}
+                      {grupos.length > 0 && (
+                        <div className="estrutura-custo-categoria-lista">
+                          {grupos.map((g) => {
+                            const categoriaAberta = categoriasAbertas.has(chaveCategoria(b.valor, g.chave))
+                            return (
+                              <div key={g.chave}>
+                                <button
+                                  type="button"
+                                  className="estrutura-custo-categoria-linha"
+                                  onClick={() => alternarCategoria(b.valor, g.chave)}
+                                  aria-expanded={categoriaAberta}
+                                >
+                                  <span className="estrutura-custo-seta" aria-hidden="true">
+                                    ▶
+                                  </span>
+                                  <span className="estrutura-custo-categoria-nome">{g.nome}</span>
+                                  <span className="estrutura-custo-categoria-valores">
+                                    <span>{formatarMoeda(g.orcamentoMensal, oculto)}</span>
+                                    <span>{formatarMoeda(g.disponivel, oculto)}</span>
+                                  </span>
+                                </button>
+                                {categoriaAberta &&
+                                  g.folhas.map((f) => (
+                                    <div key={f.chave} className={`planejamento-sub-linha${f.item.ativo ? '' : ' inativo'}`}>
+                                      <span className="planejamento-sub-linha-nome">
+                                        {rotuloFolha(f.item, subcategorias, contas)}
+                                        {!f.item.ativo && ' — inativo'}
+                                      </span>
+                                      <span className="col-orcado">
+                                        <span className="rotulo-inline">Orçado</span>
+                                        {formatarMoeda(f.item.orcamento_mensal, oculto)}
+                                      </span>
+                                      <span className="col-sobra">
+                                        <span className="rotulo-inline">Sobra</span>
+                                        {f.item.saldo_anterior !== 0 ? formatarMoeda(f.item.saldo_anterior, oculto) : '—'}
+                                      </span>
+                                      <span className="col-disponivel">
+                                        <span className="rotulo-inline">Disponível</span>
+                                        {f.item.saldo_anterior !== 0 ? formatarMoeda(f.item.disponivel, oculto) : '—'}
+                                      </span>
+                                      <span className="planejamento-sub-linha-acoes">
+                                        {(f.item.categoria_id || f.item.subcategoria_id) && (
+                                          <Link
+                                            className="estrutura-custo-ir-busca"
+                                            to={linkBusca(vigenciaMes, f.item.categoria_id, f.item.subcategoria_id)}
+                                            title="Ver em Busca de Lançamentos"
+                                          >
+                                            →
+                                          </Link>
+                                        )}
+                                        <button type="button" className="botao-link" onClick={() => iniciarEdicaoItem(f.item)}>
+                                          Editar
+                                        </button>
+                                        <button type="button" className="botao-link" onClick={() => toggleAtivoItem(f.item)}>
+                                          {f.item.ativo ? 'Desativar' : 'Reativar'}
+                                        </button>
+                                      </span>
+                                    </div>
+                                  ))}
+                              </div>
+                            )
+                          })}
                         </div>
-                      ))}
-                    </div>
-                  )}
+                      )}
 
-                  {itemFormAberto === b.valor ? (
-                    <form className="form" onSubmit={(e) => handleSubmitItem(e, b.valor)} style={{ marginTop: 12 }}>
-                      <div className="campo-linha">
-                        <label className="campo">
-                          Categoria
-                          <select
-                            value={formItem.categoria_id}
-                            onChange={(e) => setFormItem({ ...formItem, categoria_id: e.target.value, subcategoria_id: '' })}
-                          >
-                            <option value="">Nenhuma</option>
-                            {categoriasDoBucket.map((c) => (
-                              <option key={c.id} value={c.id}>
-                                {c.nome}
-                              </option>
-                            ))}
-                          </select>
-                        </label>
-                        {formItem.categoria_id && (
-                          <label className="campo">
-                            Subcategoria
-                            <select
-                              value={formItem.subcategoria_id}
-                              onChange={(e) => setFormItem({ ...formItem, subcategoria_id: e.target.value })}
-                            >
-                              <option value="">Nenhuma</option>
-                              {subcategoriasDaCategoria.map((s) => (
-                                <option key={s.id} value={s.id}>
-                                  {s.nome}
-                                </option>
-                              ))}
-                            </select>
-                          </label>
+                      <div style={{ padding: '12px 14px 14px 30px' }}>
+                        {itemFormAberto === b.valor ? (
+                          <form className="form" onSubmit={(e) => handleSubmitItem(e, b.valor)}>
+                            <div className="campo-linha">
+                              <label className="campo">
+                                Categoria
+                                <select
+                                  value={formItem.categoria_id}
+                                  onChange={(e) => setFormItem({ ...formItem, categoria_id: e.target.value, subcategoria_id: '' })}
+                                >
+                                  <option value="">Nenhuma</option>
+                                  {categoriasDoBucket.map((c) => (
+                                    <option key={c.id} value={c.id}>
+                                      {c.nome}
+                                    </option>
+                                  ))}
+                                </select>
+                              </label>
+                              {formItem.categoria_id && (
+                                <label className="campo">
+                                  Subcategoria
+                                  <select
+                                    value={formItem.subcategoria_id}
+                                    onChange={(e) => setFormItem({ ...formItem, subcategoria_id: e.target.value })}
+                                  >
+                                    <option value="">Nenhuma</option>
+                                    {subcategoriasDaCategoria.map((s) => (
+                                      <option key={s.id} value={s.id}>
+                                        {s.nome}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </label>
+                              )}
+                            </div>
+                            <div className="campo-linha">
+                              <label className="campo">
+                                Nome livre
+                                <input
+                                  type="text"
+                                  placeholder="usado se não tiver categoria"
+                                  value={formItem.nome}
+                                  onChange={(e) => setFormItem({ ...formItem, nome: e.target.value })}
+                                />
+                              </label>
+                              {b.valor === 'investimentos' && (
+                                <label className="campo">
+                                  Conta vinculada
+                                  <select
+                                    value={formItem.conta_vinculada_id}
+                                    onChange={(e) => setFormItem({ ...formItem, conta_vinculada_id: e.target.value })}
+                                  >
+                                    <option value="">Nenhuma</option>
+                                    {contas.map((c) => (
+                                      <option key={c.id} value={c.id}>
+                                        {c.nome}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </label>
+                              )}
+                            </div>
+                            <label className="campo" style={{ maxWidth: 200 }}>
+                              Valor mensal (R$)
+                              <input
+                                type="number"
+                                min={0}
+                                step="0.01"
+                                required
+                                value={formItem.orcamento_mensal}
+                                onChange={(e) => setFormItem({ ...formItem, orcamento_mensal: e.target.value })}
+                              />
+                            </label>
+                            <div className="form-acoes">
+                              <button type="submit" className="botao-primario" disabled={salvando}>
+                                {salvando ? 'Salvando…' : itemEditando ? 'Salvar alterações' : 'Criar item'}
+                              </button>
+                              <button type="button" className="botao-secundario" onClick={() => setItemFormAberto(null)}>
+                                Cancelar
+                              </button>
+                            </div>
+                          </form>
+                        ) : (
+                          <button type="button" className="botao-link" onClick={() => iniciarCriacaoItem(b.valor)}>
+                            + Novo item
+                          </button>
                         )}
                       </div>
-                      <div className="campo-linha">
-                        <label className="campo">
-                          Nome livre
-                          <input
-                            type="text"
-                            placeholder="usado se não tiver categoria"
-                            value={formItem.nome}
-                            onChange={(e) => setFormItem({ ...formItem, nome: e.target.value })}
-                          />
-                        </label>
-                        {b.valor === 'investimentos' && (
-                          <label className="campo">
-                            Conta vinculada
-                            <select
-                              value={formItem.conta_vinculada_id}
-                              onChange={(e) => setFormItem({ ...formItem, conta_vinculada_id: e.target.value })}
-                            >
-                              <option value="">Nenhuma</option>
-                              {contas.map((c) => (
-                                <option key={c.id} value={c.id}>
-                                  {c.nome}
-                                </option>
-                              ))}
-                            </select>
-                          </label>
-                        )}
-                      </div>
-                      <label className="campo" style={{ maxWidth: 200 }}>
-                        Valor mensal (R$)
-                        <input
-                          type="number"
-                          min={0}
-                          step="0.01"
-                          required
-                          value={formItem.orcamento_mensal}
-                          onChange={(e) => setFormItem({ ...formItem, orcamento_mensal: e.target.value })}
-                        />
-                      </label>
-                      <div className="form-acoes">
-                        <button type="submit" className="botao-primario" disabled={salvando}>
-                          {salvando ? 'Salvando…' : itemEditando ? 'Salvar alterações' : 'Criar item'}
-                        </button>
-                        <button type="button" className="botao-secundario" onClick={() => setItemFormAberto(null)}>
-                          Cancelar
-                        </button>
-                      </div>
-                    </form>
-                  ) : (
-                    <button type="button" className="botao-link" onClick={() => iniciarCriacaoItem(b.valor)}>
-                      + Novo item
-                    </button>
+                    </>
                   )}
                 </div>
               )

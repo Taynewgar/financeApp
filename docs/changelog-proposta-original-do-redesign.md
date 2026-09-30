@@ -3542,3 +3542,65 @@ Supabase nesta sessão remota).
       mostrando o form imediatamente, sem precisar rolar manualmente
       pra encontrá-lo.
 - [ ] Mesmo teste ao clicar em "Criar do zero" (mês sem orçamento).
+
+### Rodada 39 (2026-09-30) — Planejamento: acordeão de 2 níveis igual Estrutura de Custo
+
+Usuário reportou o layout de Planejamento inconsistente com Estrutura
+de Custo (item 40 do backlog). Antes de implementar, 3 mockups foram
+apresentados (artifact "Design" com 3 artboards lado a lado, dados
+reais do domínio): alinhamento visual leve, acordeão + cabeçalho único,
+e acordeão + badge de status. Usuário escolheu o acordeão, pedindo
+explicitamente que o 2º nível reflita categoria PAI → subcategoria
+(não só bucket → item flat) — mesma hierarquia de Estrutura de Custo.
+Detalhe técnico completo em `docs/backlog.md` ("Planejamento: layout
+não alinhado com Estrutura de Custo") — aqui só o resumo.
+
+**Implementado:**
+- `agruparItensPorCategoria()`, nova função em `Planejamento.tsx` —
+  mesma lógica de `EstruturaCusto.tsx:agruparPorCategoria`, adaptada
+  aos campos de `OrcamentoItem`. Item de subcategoria agrupa pela
+  categoria pai; item só-categoria vira a folha "Geral (sem
+  subcategoria)" dentro do mesmo grupo; item de conta vinculada ou
+  nome livre vira seu próprio grupo de 1 folha.
+- Buckets viraram acordeão (`estrutura-custo-bucket`/
+  `-bucket-cabecalho`, reaproveitados direto de `estruturaCusto.css`
+  em vez de recriados) — cabeçalho de colunas único no topo da lista
+  em vez de repetido por bucket. Categoria pai também é acordeão
+  (`estrutura-custo-categoria-linha`), subcategoria é a folha final.
+- Todos os 4 buckets nascem abertos por padrão (diferente de Estrutura
+  de Custo, que só abre bucket com lançamento — Planejamento é tela de
+  configurar os 4, não de revisar relatório).
+- Criar um item novo expande automaticamente o grupo de categoria dele
+  — sem isso, sumiria dentro de um grupo ainda fechado.
+- Removidas as classes CSS antigas de card-por-bucket/lista-flat
+  (`planejamento-bucket`, `-item-linha`, etc.) — reaproveitando classes
+  de Estrutura de Custo pra parte estrutural, mantendo em
+  `planejamento.css` só o que é específico de Planejamento (barra de
+  progresso, colunas Orçado/Sobra do envelope/Disponível).
+
+**Testes:** sem teste automatizado novo (mudança é só de frontend/CSS,
+sem lógica de backend nova). Verificado via `tsc -b && vite build` +
+`oxlint` — sem erro, sem warning novo. Suíte backend continua em 351
+passed, 33 skipped (nenhuma mudança de backend nesta rodada).
+
+**Status:** implementado nesta sessão. Sem QA visual via Playwright —
+mesma limitação de sempre (sem `backend/.env` com credenciais reais do
+Supabase nesta sessão remota).
+
+**Checklist de teste manual (usuário, localmente):**
+- [ ] Abrir Planejamento com um mês que já tem itens em mais de 1
+      bucket — os 4 buckets devem nascer abertos (acordeão expandido).
+- [ ] Clicar no cabeçalho de um bucket — deve recolher/expandir,
+      escondendo/mostrando as categorias dele.
+- [ ] Clicar numa linha de categoria pai — deve expandir mostrando as
+      subcategorias (e o item "Geral", se houver um item só-categoria
+      na mesma categoria).
+- [ ] Criar um item novo numa categoria ainda não expandida — confirmar
+      que o grupo dela abre sozinho, mostrando o item recém-criado sem
+      precisar clicar em nada.
+- [ ] Editar/Desativar/Reativar um item, e o link "→" pra Busca de
+      Lançamentos — devem continuar funcionando normalmente dentro do
+      novo layout.
+- [ ] Testar em mobile (≤720px) — nome do item numa linha, valores
+      rotulados (Orçado/Sobra/Disponível) fluindo depois, sem cortar
+      texto.

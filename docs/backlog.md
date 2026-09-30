@@ -133,9 +133,6 @@ prioridade abaixo:
   Sem causa raiz investigada ainda.
 - **33.** **Lançamento com mais de 1 categoria** (detalhe abaixo) —
   surgiu durante a análise do item 9 (migração de dados).
-- **40.** **Planejamento: layout não alinhado com Estrutura de Custo** —
-  reportado pelo usuário dogfooding a aplicação (detalhe abaixo).
-  Aguardando decisão de direção antes de implementar.
 
 **Concluído:**
 
@@ -199,6 +196,11 @@ prioridade abaixo:
   abrindo fora de vista~~ **feito 2026-09-29** — 2 bugs reportados
   dogfooding a aplicação. Detalhe na subseção própria abaixo, ver
   changelog Rodada 38.
+- **40.** ~~Planejamento: layout não alinhado com Estrutura de Custo~~
+  **feito 2026-09-30** — 3 mockups apresentados, usuário escolheu
+  acordeão de 2 níveis (bucket → categoria pai → subcategoria), igual
+  Estrutura de Custo. Detalhe na subseção própria abaixo, ver changelog
+  Rodada 39.
 
 ### Baixa prioridade confirmada pelo usuário
 
@@ -1561,8 +1563,39 @@ diferentes), mas card-por-bucket vs. acordeão, cabeçalho repetido vs.
 único, e ausência de badge de status são puramente visuais e dá pra
 alinhar sem mudar o que cada tela faz.
 
-**Status:** registrado 2026-09-29, aguardando decisão do usuário sobre
-o escopo do alinhamento antes de implementar.
+**Decisão:** apresentados 3 mockups (artifact "Design" — Opção A
+alinhamento leve, Opção B acordeão + cabeçalho único, Opção C acordeão
++ badge de status/coluna Realizado, essa última exigindo mudança de
+backend). Usuário escolheu a Opção B, com um ajuste: o acordeão de
+categoria (2º nível) precisa refletir bucket → categoria PAI →
+subcategoria, igual Estrutura de Custo — não só bucket → item flat.
+
+**Fix:** `agruparItensPorCategoria()` (nova, em Planejamento.tsx) —
+mesma ideia de `EstruturaCusto.tsx:agruparPorCategoria`, adaptada aos
+campos de `OrcamentoItem` (`orcamento_mensal`/`saldo_anterior`/
+`disponivel` em vez de `orcado`/`realizado`): item de subcategoria
+agrupa pela categoria pai; item só-categoria vira a folha "Geral (sem
+subcategoria)" dentro do mesmo grupo (pode coexistir com itens de
+subcategoria da mesma categoria); item de conta vinculada ou nome
+livre vira seu próprio grupo de 1 folha (mesmo padrão do grupo "conta"
+de Estrutura de Custo). Reaproveita as classes CSS de
+`estruturaCusto.css` direto (`estrutura-custo-bucket`,
+`-bucket-cabecalho`, `-categoria-lista`, `-categoria-linha`, `-seta`,
+`-vazio`, `-ir-busca`) em vez de recriar equivalentes em
+`planejamento.css` — garante paridade visual permanente entre as duas
+telas, não só no dia da entrega. Barra de progresso e cabeçalho de
+colunas (Orçado/Sobra do envelope/Disponível, diferente de Orçado/
+Realizado/Diferença/Status de Estrutura de Custo) continuam
+específicos de Planejamento. Todos os 4 buckets nascem abertos por
+padrão (diferente de Estrutura de Custo, que só abre bucket com
+lançamento) — Planejamento é tela de configurar os 4 buckets, não de
+revisar um relatório. Criar um item novo expande automaticamente o
+grupo de categoria dele (sem isso, o item recém-criado nasceria dentro
+de um grupo ainda fechado).
+
+**Status:** implementado 2026-09-30. Sem QA visual via Playwright —
+mesma limitação de sempre (sem `backend/.env` com credenciais reais do
+Supabase nesta sessão remota). Ver changelog Rodada 39.
 
 ---
 
