@@ -12,6 +12,7 @@ import {
   rotuloTipoMovimento,
 } from '../lib/rotulos'
 import type {
+  Caixinha,
   Categoria,
   Conta,
   EstruturaCusto,
@@ -30,6 +31,9 @@ type FormState = {
   conta_id: string
   categoria_id: string
   subcategoria_id: string
+  // só aplicação/retirada usa — aporte/resgate recorrente de uma reserva;
+  // '' = investimento puro (sem caixinha)
+  caixinha_id: string
   estrutura_custo: EstruturaCusto | ''
   meio_pagamento: MeioPagamento | ''
   data_inicio: string
@@ -73,6 +77,7 @@ const FORM_VAZIO: FormState = {
   conta_id: '',
   categoria_id: '',
   subcategoria_id: '',
+  caixinha_id: '',
   estrutura_custo: '',
   meio_pagamento: '',
   data_inicio: '',
@@ -84,6 +89,7 @@ export function RecorrentesSection() {
   const [contas, setContas] = useState<Conta[]>([])
   const [categorias, setCategorias] = useState<Categoria[]>([])
   const [subcategorias, setSubcategorias] = useState<Subcategoria[]>([])
+  const [caixinhas, setCaixinhas] = useState<Caixinha[]>([])
   const [erro, setErro] = useState<string | null>(null)
   const [mostrarForm, setMostrarForm] = useState(false)
   const [editandoId, setEditandoId] = useState<string | null>(null)
@@ -121,12 +127,14 @@ export function RecorrentesSection() {
       apiFetch<Conta[]>('/contas'),
       apiFetch<Categoria[]>('/categorias'),
       apiFetch<Subcategoria[]>('/subcategorias'),
+      apiFetch<Caixinha[]>('/caixinhas'),
     ])
-      .then(([r, c, cat, sub]) => {
+      .then(([r, c, cat, sub, cx]) => {
         setRecorrentes(r)
         setContas(c.filter((x) => x.ativo))
         setCategorias(cat.filter((x) => x.ativo))
         setSubcategorias(sub)
+        setCaixinhas(cx.filter((x) => x.ativo))
       })
       .catch((e) => setErro(e instanceof ApiError ? e.message : 'Falha ao carregar lançamentos recorrentes'))
   }, [])
@@ -142,6 +150,13 @@ export function RecorrentesSection() {
     () => subcategorias.filter((s) => s.categoria_id === form.categoria_id && s.ativo),
     [subcategorias, form.categoria_id],
   )
+
+  const caixinhaSelecionada = useMemo(
+    () => caixinhas.find((c) => c.id === form.caixinha_id),
+    [caixinhas, form.caixinha_id],
+  )
+
+  const ehAplicacaoOuRetirada = form.tipo_movimento === 'aplicacao' || form.tipo_movimento === 'retirada'
 
   const recorrentesFiltrados = useMemo(() => {
     if (!recorrentes) return recorrentes
@@ -159,6 +174,19 @@ export function RecorrentesSection() {
 
   function nomeCategoria(id: string) {
     return categorias.find((c) => c.id === id)?.nome ?? 'categoria removida'
+  }
+
+  function nomeCaixinha(id: string) {
+    return caixinhas.find((c) => c.id === id)?.nome ?? 'caixinha removida'
+  }
+
+  // aplicação/retirada em caixinha (reserva) não tem categoria — mostra a
+  // caixinha no lugar; sem categoria nem caixinha (investimento sem
+  // classificação) mostra "sem categoria" em vez de "categoria removida"
+  function rotuloClassificacao(r: LancamentoRecorrente) {
+    if (r.caixinha_id) return `caixinha ${nomeCaixinha(r.caixinha_id)}`
+    if (r.categoria_id) return nomeCategoria(r.categoria_id)
+    return 'sem categoria'
   }
 
   function fecharCriacaoInline() {
@@ -185,8 +213,9 @@ export function RecorrentesSection() {
       dia_mes: String(r.dia_mes),
       tipo_movimento: r.tipo_movimento,
       conta_id: r.conta_id,
-      categoria_id: r.categoria_id,
+      categoria_id: r.categoria_id ?? '',
       subcategoria_id: r.subcategoria_id ?? '',
+      caixinha_id: r.caixinha_id ?? '',
       estrutura_custo: r.estrutura_custo ?? '',
       meio_pagamento: r.meio_pagamento ?? '',
       data_inicio: r.data_inicio,
@@ -206,6 +235,7 @@ export function RecorrentesSection() {
       tipo_movimento: tipo,
       categoria_id: '',
       subcategoria_id: '',
+      caixinha_id: '',
       estrutura_custo: tipo === 'despesa' ? f.estrutura_custo : '',
       meio_pagamento: tipo === 'despesa' ? f.meio_pagamento : '',
     }))
@@ -215,6 +245,19 @@ export function RecorrentesSection() {
   function escolherCategoria(id: string) {
     setForm((f) => ({ ...f, categoria_id: id, subcategoria_id: '' }))
     setCriandoCategoria(false)
+  }
+
+  // caixinha (reserva) "mora" numa conta — trava a conta do recorrente
+  // na conta vinculada à caixinha, mesmo padrão de NovoLancamento.tsx
+  function escolherCaixinha(id: string) {
+    const caixinha = caixinhas.find((c) => c.id === id)
+    setForm((f) => ({
+      ...f,
+      caixinha_id: id,
+      categoria_id: id ? '' : f.categoria_id,
+      subcategoria_id: id ? '' : f.subcategoria_id,
+      conta_id: id && caixinha?.conta_id ? caixinha.conta_id : f.conta_id,
+    }))
   }
 
   function escolherSubcategoria(id: string) {
@@ -356,8 +399,11 @@ export function RecorrentesSection() {
         dia_mes: Number(form.dia_mes),
         tipo_movimento: form.tipo_movimento,
         conta_id: form.conta_id,
-        categoria_id: form.categoria_id,
+        // caixinha (reserva) não tem categoria — mesma regra de transações
+        // avulsas, ver README.md "Lançamentos Recorrentes"
+        categoria_id: form.categoria_id || null,
         subcategoria_id: form.subcategoria_id || null,
+        caixinha_id: ehAplicacaoOuRetirada ? form.caixinha_id || null : null,
         // servidor força de qualquer forma (ver routers/lancamentos_recorrentes.py
         // _normalizar_e_validar) — mandar já certo aqui evita um round-trip
         // "corrigindo" o que foi mostrado antes de trocar de tipo
@@ -468,6 +514,7 @@ export function RecorrentesSection() {
                 required
                 value={form.conta_id}
                 onChange={(e) => setForm({ ...form, conta_id: e.target.value })}
+                disabled={ehAplicacaoOuRetirada && !!caixinhaSelecionada?.conta_id}
               >
                 <option value="">Selecione…</option>
                 {contas.map((c) => (
@@ -476,140 +523,170 @@ export function RecorrentesSection() {
                   </option>
                 ))}
               </select>
+              {ehAplicacaoOuRetirada && caixinhaSelecionada?.conta_id && (
+                <span style={{ fontSize: 12, color: 'var(--cor-texto-suave)' }}>
+                  Fixo na conta vinculada à caixinha "{caixinhaSelecionada.nome}".
+                </span>
+              )}
             </label>
           </div>
 
-          <div className="campo-linha">
-            <label className="campo">
-              Categoria
-              <select required value={form.categoria_id} onChange={(e) => escolherCategoria(e.target.value)}>
-                <option value="">Selecione…</option>
-                {categoriasElegiveis.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.nome}
-                  </option>
-                ))}
-              </select>
-              <button
-                type="button"
-                className="chip chip-criar chip-solta"
-                onClick={() => setCriandoCategoria((v) => !v)}
-              >
-                + Nova categoria
-              </button>
-              {criandoCategoria && (
-                <div className="chip-form">
-                  <input
-                    type="text"
-                    placeholder={`Nome da categoria de ${TIPO_CATEGORIA_ESPERADO[form.tipo_movimento]}`}
-                    value={novaCategoriaNome}
-                    onChange={(e) => setNovaCategoriaNome(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault()
-                        criarCategoria()
-                      }
-                    }}
-                    autoFocus
-                  />
-                  <button
-                    type="button"
-                    className="botao-secundario"
-                    disabled={salvandoCategoria || !novaCategoriaNome.trim()}
-                    onClick={criarCategoria}
-                  >
-                    {salvandoCategoria ? 'Criando…' : 'Criar'}
-                  </button>
-                  <button
-                    type="button"
-                    className="chip-cancelar"
-                    onClick={() => {
-                      setCriandoCategoria(false)
-                      setNovaCategoriaNome('')
-                      setErroCategoria(null)
-                    }}
-                  >
-                    Cancelar
-                  </button>
-                  {erroCategoria && <p className="mensagem-erro">{erroCategoria}</p>}
-                </div>
-              )}
-            </label>
-            <label className="campo">
-              Subcategoria
-              <select
-                value={form.subcategoria_id}
-                onChange={(e) => escolherSubcategoria(e.target.value)}
-                disabled={!form.categoria_id}
-              >
-                <option value="">Nenhuma</option>
-                {subcategoriasDaCategoria.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.nome}
-                  </option>
-                ))}
-              </select>
-              {form.categoria_id && (
+          {ehAplicacaoOuRetirada && (
+            <div className="campo-linha">
+              <label className="campo">
+                Caixinha (opcional)
+                <select value={form.caixinha_id} onChange={(e) => escolherCaixinha(e.target.value)}>
+                  <option value="">Nenhuma (investimento)</option>
+                  {caixinhas.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.nome}
+                    </option>
+                  ))}
+                </select>
+                <span style={{ fontSize: 12, color: 'var(--cor-texto-suave)' }}>
+                  Aporte/resgate recorrente de uma reserva — sem caixinha, é um investimento normal.
+                </span>
+              </label>
+            </div>
+          )}
+
+          {!form.caixinha_id && (
+            <div className="campo-linha">
+              <label className="campo">
+                Categoria{ehAplicacaoOuRetirada ? ' (opcional)' : ''}
+                <select
+                  required={!ehAplicacaoOuRetirada}
+                  value={form.categoria_id}
+                  onChange={(e) => escolherCategoria(e.target.value)}
+                >
+                  <option value="">Selecione…</option>
+                  {categoriasElegiveis.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.nome}
+                    </option>
+                  ))}
+                </select>
                 <button
                   type="button"
                   className="chip chip-criar chip-solta"
-                  onClick={() => setCriandoSubcategoria((v) => !v)}
+                  onClick={() => setCriandoCategoria((v) => !v)}
                 >
-                  + Nova subcategoria
+                  + Nova categoria
                 </button>
-              )}
-              {criandoSubcategoria && (
-                <div className="chip-form">
-                  <input
-                    type="text"
-                    placeholder="Nome da subcategoria"
-                    value={novaSubcategoriaNome}
-                    onChange={(e) => setNovaSubcategoriaNome(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault()
-                        criarSubcategoria()
-                      }
-                    }}
-                    autoFocus
-                  />
-                  <select
-                    value={novaSubcategoriaEstrutura}
-                    onChange={(e) => setNovaSubcategoriaEstrutura(e.target.value as EstruturaCusto | '')}
-                    title="Estrutura de custo padrão — sugerida sozinha nos próximos recorrentes de despesa com essa subcategoria"
-                  >
-                    <option value="">Estrutura padrão (opcional)</option>
-                    {ESTRUTURAS.filter((e) => e.valor !== 'investimentos').map((e) => (
-                      <option key={e.valor} value={e.valor}>
-                        {e.rotulo}
-                      </option>
-                    ))}
-                  </select>
+                {criandoCategoria && (
+                  <div className="chip-form">
+                    <input
+                      type="text"
+                      placeholder={`Nome da categoria de ${TIPO_CATEGORIA_ESPERADO[form.tipo_movimento]}`}
+                      value={novaCategoriaNome}
+                      onChange={(e) => setNovaCategoriaNome(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault()
+                          criarCategoria()
+                        }
+                      }}
+                      autoFocus
+                    />
+                    <button
+                      type="button"
+                      className="botao-secundario"
+                      disabled={salvandoCategoria || !novaCategoriaNome.trim()}
+                      onClick={criarCategoria}
+                    >
+                      {salvandoCategoria ? 'Criando…' : 'Criar'}
+                    </button>
+                    <button
+                      type="button"
+                      className="chip-cancelar"
+                      onClick={() => {
+                        setCriandoCategoria(false)
+                        setNovaCategoriaNome('')
+                        setErroCategoria(null)
+                      }}
+                    >
+                      Cancelar
+                    </button>
+                    {erroCategoria && <p className="mensagem-erro">{erroCategoria}</p>}
+                  </div>
+                )}
+              </label>
+              <label className="campo">
+                Subcategoria
+                <select
+                  value={form.subcategoria_id}
+                  onChange={(e) => escolherSubcategoria(e.target.value)}
+                  disabled={!form.categoria_id}
+                >
+                  <option value="">Nenhuma</option>
+                  {subcategoriasDaCategoria.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.nome}
+                    </option>
+                  ))}
+                </select>
+                {form.categoria_id && (
                   <button
                     type="button"
-                    className="botao-secundario"
-                    disabled={salvandoSubcategoria || !novaSubcategoriaNome.trim()}
-                    onClick={criarSubcategoria}
+                    className="chip chip-criar chip-solta"
+                    onClick={() => setCriandoSubcategoria((v) => !v)}
                   >
-                    {salvandoSubcategoria ? 'Criando…' : 'Criar'}
+                    + Nova subcategoria
                   </button>
-                  <button
-                    type="button"
-                    className="chip-cancelar"
-                    onClick={() => {
-                      setCriandoSubcategoria(false)
-                      setNovaSubcategoriaNome('')
-                      setNovaSubcategoriaEstrutura('')
-                      setErroSubcategoria(null)
-                    }}
-                  >
-                    Cancelar
-                  </button>
-                  {erroSubcategoria && <p className="mensagem-erro">{erroSubcategoria}</p>}
-                </div>
-              )}
-            </label>
-          </div>
+                )}
+                {criandoSubcategoria && (
+                  <div className="chip-form">
+                    <input
+                      type="text"
+                      placeholder="Nome da subcategoria"
+                      value={novaSubcategoriaNome}
+                      onChange={(e) => setNovaSubcategoriaNome(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault()
+                          criarSubcategoria()
+                        }
+                      }}
+                      autoFocus
+                    />
+                    <select
+                      value={novaSubcategoriaEstrutura}
+                      onChange={(e) => setNovaSubcategoriaEstrutura(e.target.value as EstruturaCusto | '')}
+                      title="Estrutura de custo padrão — sugerida sozinha nos próximos recorrentes de despesa com essa subcategoria"
+                    >
+                      <option value="">Estrutura padrão (opcional)</option>
+                      {ESTRUTURAS.filter((e) => e.valor !== 'investimentos').map((e) => (
+                        <option key={e.valor} value={e.valor}>
+                          {e.rotulo}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      className="botao-secundario"
+                      disabled={salvandoSubcategoria || !novaSubcategoriaNome.trim()}
+                      onClick={criarSubcategoria}
+                    >
+                      {salvandoSubcategoria ? 'Criando…' : 'Criar'}
+                    </button>
+                    <button
+                      type="button"
+                      className="chip-cancelar"
+                      onClick={() => {
+                        setCriandoSubcategoria(false)
+                        setNovaSubcategoriaNome('')
+                        setNovaSubcategoriaEstrutura('')
+                        setErroSubcategoria(null)
+                      }}
+                    >
+                      Cancelar
+                    </button>
+                    {erroSubcategoria && <p className="mensagem-erro">{erroSubcategoria}</p>}
+                  </div>
+                )}
+              </label>
+            </div>
+          )}
 
           {form.tipo_movimento === 'despesa' && (
             <div className="campo-linha">
@@ -749,7 +826,7 @@ export function RecorrentesSection() {
                   <span className="item-titulo">{r.descricao}</span>
                   <span className="item-detalhe">
                     {rotuloTipoMovimento(r.tipo_movimento)} · {formatarMoeda(r.valor)} · dia {r.dia_mes} ·{' '}
-                    {nomeCategoria(r.categoria_id)} · {nomeConta(r.conta_id)}
+                    {rotuloClassificacao(r)} · {nomeConta(r.conta_id)}
                     {!r.ativo && ' — inativo'}
                   </span>
                 </div>

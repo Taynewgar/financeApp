@@ -98,10 +98,18 @@ create table lancamentos_recorrentes (
     -- despesa específica já lançada)
     tipo_movimento text not null default 'despesa' check (tipo_movimento in ('receita', 'despesa', 'aplicacao', 'retirada')),
     conta_id uuid not null references contas(id),
-    categoria_id uuid not null references categorias(id),
+    -- obrigatória só pra despesa (aplicação/retirada em caixinha/reserva não
+    -- tem categoria, mesma regra de transacoes — ver
+    -- _check_campos_obrigatorios em routers/transacoes.py)
+    categoria_id uuid references categorias(id),
     subcategoria_id uuid references subcategorias(id),
+    -- aplicação/retirada em caixinha (reserva, não investimento) — mesmo
+    -- papel de transacoes.caixinha_id; mutuamente informativo com
+    -- categoria_id (nenhum dos dois é exigido do outro)
+    caixinha_id uuid references caixinhas(id),
     -- obrigatório só pra despesa (fixo/variavel/sazonal); aplicação/retirada
-    -- é sempre 'investimentos' (forçado pelo backend); receita não usa
+    -- sem caixinha é sempre 'investimentos' (forçado pelo backend); com
+    -- caixinha (reserva) não usa; receita não usa
     estrutura_custo text check (estrutura_custo in ('fixo', 'variavel', 'sazonal', 'investimentos')),
     -- obrigatório só pra despesa; receita/aplicação/retirada não usam
     meio_pagamento text check (meio_pagamento in (

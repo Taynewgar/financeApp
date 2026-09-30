@@ -126,10 +126,15 @@ export type LancamentoRecorrente = {
   dia_mes: number
   tipo_movimento: TipoMovimentoRecorrente
   conta_id: string
-  categoria_id: string
+  // obrigatória só pra despesa — aplicação/retirada em caixinha (reserva)
+  // não tem categoria, mesma regra de transações avulsas
+  categoria_id: string | null
   subcategoria_id: string | null
+  // só aplicação/retirada usa — aporte/resgate recorrente de uma reserva
+  caixinha_id: string | null
   // obrigatório só pra despesa (fixo/variavel/sazonal); aplicação/retirada
-  // é sempre 'investimentos' (forçado pelo backend); receita não usa
+  // sem caixinha é sempre 'investimentos' (forçado pelo backend); com
+  // caixinha não usa; receita não usa
   estrutura_custo: EstruturaCusto | null
   // obrigatório só pra despesa
   meio_pagamento: MeioPagamento | null

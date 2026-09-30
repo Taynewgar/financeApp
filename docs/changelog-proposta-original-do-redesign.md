@@ -3604,3 +3604,75 @@ Supabase nesta sessão remota).
 - [ ] Testar em mobile (≤720px) — nome do item numa linha, valores
       rotulados (Orçado/Sobra/Disponível) fluindo depois, sem cortar
       texto.
+
+### Rodada 40 (2026-09-30) — Fix: recorrente de aplicação/retirada em caixinha não salvava
+
+Usuário reportou: ao tentar lançar uma transação recorrente de aplicação
+ou retirada vinculada a uma caixinha, o salvamento falhava exigindo
+categoria — caixinha (reserva) não tem categoria, mesma regra já válida
+pra transações avulsas (`transacoes.py`). `lancamentos_recorrentes`
+nunca teve suporte a caixinha (gap documentado desde a Rodada 25:
+"aplicacao/retirada é sempre 'investimentos', sem suporte a caixinha/
+reserva recorrente por enquanto") — só ficou aparente quando o usuário
+tentou de fato cadastrar um aporte/resgate recorrente de reserva.
+
+**Fix:**
+- `db/schema.sql` + `README.md`: `categoria_id` deixou de ser `not null`
+  em `lancamentos_recorrentes`, nova coluna `caixinha_id` (mesmo papel
+  de `transacoes.caixinha_id`). Migração pendente documentada pro
+  Supabase real do usuário.
+- `schemas/lancamentos_recorrentes.py`: `categoria_id: str | None`,
+  novo campo `caixinha_id: str | None`.
+- `routers/lancamentos_recorrentes.py`: `_check_refs`/
+  `_check_categoria_tipo` passam a tratar categoria como opcional; nova
+  `_check_regras_caixinha` espelha `transacoes.py::
+  _check_regras_tipo_movimento` (caixinha só em aplicação/retirada;
+  conta do recorrente precisa bater com a conta vinculada à caixinha,
+  quando ela tiver uma). `_normalizar_e_validar`: aplicação/retirada
+  **com** caixinha zera `estrutura_custo`/`meio_pagamento` (reserva não
+  tem bucket/teto); **sem** caixinha continua forçando
+  `estrutura_custo='investimentos'` como já era. `confirmar()` parava de
+  hardcodar `caixinha_id: None` na transação materializada — agora
+  propaga o `caixinha_id` do molde, o que também corrige de tabela o
+  vínculo com `orcamento_sync.py` (reserva confirmada nunca deveria ter
+  criado item de orçamento, mas o `caixinha_id` hardcoded em `None` a
+  fazia passar por investimento puro).
+- `types.ts` + `RecorrentesSection.tsx`: `categoria_id` nullable,
+  `caixinha_id` novo. Formulário ganha seletor "Caixinha (opcional)"
+  pra aplicação/retirada (mesmo padrão de `NovoLancamento.tsx`: trava a
+  conta na conta vinculada à caixinha, quando ela tiver uma); Categoria/
+  Subcategoria somem quando uma caixinha é escolhida, campo passa a
+  "(opcional)" pra aplicação/retirada sem caixinha. Lista de recorrentes
+  mostra "caixinha {nome}" no lugar de categoria quando aplicável.
+
+**Testes:** 360 passed, 33 skipped (9 testes novos — criar aplicação/
+retirada com caixinha sem categoria, investimento puro sem categoria
+também aceito, despesa com caixinha rejeitada, caixinha de conta
+diferente rejeitada, caixinha inexistente 404, atualizar pra adicionar
+caixinha zera estrutura de custo, confirmar materializa `caixinha_id` na
+transação, confirmar com caixinha não sincroniza item de orçamento).
+Frontend verificado via `tsc -b && vite build` + `oxlint` — sem erro,
+sem warning novo.
+
+**Status:** implementado nesta sessão. Sem QA visual via Playwright —
+mesma limitação de sempre (sem `backend/.env` com credenciais reais do
+Supabase nesta sessão remota).
+
+**Checklist de teste manual (usuário, localmente):**
+- [ ] Rodar a migração de `lancamentos_recorrentes.caixinha_id` no *SQL
+      Editor* do Supabase (seção "Migração pendente" do `README.md`)
+      antes de qualquer teste abaixo.
+- [ ] Criar um recorrente de aplicação escolhendo uma caixinha — o
+      formulário não deve mais pedir categoria, e deve salvar sem erro.
+- [ ] Com a caixinha vinculada a uma conta fixa, confirmar que o campo
+      Conta trava sozinho nela ao escolher a caixinha.
+- [ ] Criar um recorrente de retirada com a mesma caixinha — deve
+      salvar normalmente.
+- [ ] Trocar de "Caixinha" pra "Nenhuma (investimento)" no mesmo
+      formulário — Categoria/Subcategoria devem voltar a aparecer.
+- [ ] Confirmar o mês desse recorrente em "Compromissos Futuros" e
+      verificar em Caixinhas que o valor entrou como aporte/resgate da
+      reserva certa.
+- [ ] Confirmar que esse mês confirmado **não** aparece em Estrutura de
+      Custo/Planejamento como item de investimento (reserva é só
+      informativa, sem teto).

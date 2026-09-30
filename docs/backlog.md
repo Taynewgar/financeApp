@@ -114,14 +114,6 @@ prioridade abaixo:
   gráficos** — hoje o modo "Mês" em `/graficos` mostra N meses pra
   trás contando do mês selecionado (12, ver Rodada 16.2). Repensar se
   um ano civil fixo (janeiro-dezembro) seria mais legível.
-- **23.** **Lançamentos recorrentes: aplicação/retirada com caixinha
-  (reserva)** — registrado 2026-09-24. Escopo confirmado com o usuário
-  depois da Rodada 25 (que estendeu recorrentes pra receita/despesa/
-  aplicação/retirada, mas deixou caixinha de fora por decisão minha,
-  não pedida — limitação de análise, o usuário esclareceu depois que
-  aplicação/retirada recorrente PODE ser vinculada a caixinha, igual em
-  Novo Lançamento). Ordem confirmada: item 22 (lentidão de Estrutura de
-  Custo) vem imediatamente antes deste na fila.
 - **31.** **Lançamentos: painel de filtros muito alto no mobile em
   paisagem** — reportado pelo usuário testando a Rodada 28 num celular
   real girado pra paisagem: o painel de filtros expandido (`Tipo`,
@@ -169,6 +161,11 @@ prioridade abaixo:
   Gráficos (Rodada 19.2/19.3), só que ainda não tinha sido aplicada em
   `obter()` (a tela de 1 mês). Detalhe na subseção própria abaixo, ver
   changelog Rodada 27.
+- **23.** ~~Lançamentos recorrentes: aplicação/retirada com caixinha
+  (reserva)~~ **feito 2026-09-30** — reportado como bug ao testar
+  (recorrente de aplicação/retirada em caixinha não salvava, exigindo
+  categoria). Detalhe na subseção própria abaixo, ver changelog Rodada
+  40.
 - **24.** ~~Planejamento com o mesmo padrão de lentidão de Estrutura de
   Custo~~ **feito 2026-09-25** — mesmo fix portado pra
   `routers/orcamentos.py`. Detalhe na subseção própria abaixo, ver
@@ -1025,8 +1022,31 @@ seleção de caixinha quando for reserva.
 carregando devagar) é o item anterior a este na fila — corrigir a
 lentidão primeiro, esta extensão de recorrentes depois.
 
-**Status:** registrado 2026-09-24, a pedido do usuário, sem
-implementação ainda.
+**Decisão de UX (2026-09-30):** diferente da proposta original acima
+("Investimento × Reserva" como um 3º discriminador de tipo, igual Novo
+Lançamento), a implementação usou um seletor de caixinha opcional dentro
+do próprio `tipo_movimento` aplicação/retirada já existente — mais simples
+porque `RecorrentesSection.tsx` não tem o discriminador `tipo`
+intermediário que `NovoLancamento.tsx` tem (lá, `tipo` já distingue
+receita/despesa/reserva/investimento/ajuste/estorno/ressarcimento antes
+de chegar em `tipo_movimento`). Categoria some do formulário quando uma
+caixinha é escolhida (reserva não usa categoria pra classificação —
+bucket vem do `caixinha_id`, não dela); sem caixinha, o campo continua
+disponível, agora opcional (mesma regra de `transacoes.py`, que nunca
+exigiu categoria pra aplicação/retirada, com ou sem caixinha).
+
+**Fix:** `caixinha_id` nullable em `lancamentos_recorrentes`
+(`db/schema.sql` + migração no `README.md`), `categoria_id` deixou de
+ser `not null`. `_check_regras_caixinha()` novo em
+`routers/lancamentos_recorrentes.py`, espelhando `transacoes.py::
+_check_regras_tipo_movimento` (caixinha só em aplicação/retirada; conta
+do recorrente precisa bater com a conta vinculada à caixinha).
+`_normalizar_e_validar()`: com caixinha zera `estrutura_custo`/
+`meio_pagamento`; sem caixinha continua forçando `'investimentos'` como
+já era. `confirmar()` parou de hardcodar `caixinha_id: None` na
+transação materializada. Detalhe completo no changelog, Rodada 40.
+
+**Status:** implementado 2026-09-30. Ver changelog Rodada 40.
 
 ### Planejamento com o mesmo padrão de lentidão de Estrutura de Custo
 

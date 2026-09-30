@@ -105,12 +105,23 @@ PWA com backend hospedado (Render) e banco Supabase.
     força o resto a `null` em vez de confiar no que o cliente mandou:
     `despesa` exige `categoria_id`/`estrutura_custo`
     (`fixo`/`variavel`/`sazonal`)/`meio_pagamento`; `aplicacao`/`retirada`
-    tem `estrutura_custo` sempre `'investimentos'` e `meio_pagamento`
-    sempre `null` (sem suporte a caixinha/reserva recorrente por
-    enquanto); `receita` não usa nenhum dos dois. Categoria (sempre
-    obrigatória, diferente de uma transação avulsa) precisa ter o `tipo`
-    compatível com o `tipo_movimento`, mesma tabela de
-    `_TIPO_CATEGORIA_ESPERADO` de transações. `GET
+    **com** `caixinha_id` (aporte/resgate recorrente de uma reserva) não
+    exige `categoria_id` e tem `estrutura_custo`/`meio_pagamento` sempre
+    `null` (mesma regra de transações avulsas: reserva não é meta de
+    investimento, não usa bucket/teto); `aplicacao`/`retirada` **sem**
+    `caixinha_id` (investimento) tem `estrutura_custo` sempre
+    `'investimentos'` e `meio_pagamento` sempre `null`; `receita` não usa
+    nenhum dos dois. Categoria (obrigatória só pra `despesa` — diferente
+    de uma transação avulsa apenas em ser exigida ali também pra
+    aplicação/retirada sem caixinha) precisa ter o `tipo` compatível com o
+    `tipo_movimento`, mesma tabela de `_TIPO_CATEGORIA_ESPERADO` de
+    transações; `caixinha_id` só é aceito com `aplicacao`/`retirada`, e se
+    a caixinha tiver `conta_id` fixo, `conta_id` do recorrente precisa ser
+    o mesmo (mesmas 3 regras de `_check_regras_tipo_movimento` em
+    `routers/transacoes.py`). Confirmar um mês materializa a transação já
+    com o `caixinha_id` do molde, então cai no bucket `reservas` de
+    Estrutura de Custo e é ignorado por Planejamento (que só reage a
+    despesa/investimento), igual uma reserva lançada na mão. `GET
     /dashboard/compromissos-futuros` mistura a próxima parcela de cada
     compra parcelada com a próxima ocorrência PENDENTE de cada recorrente
     ativo (pode ser um mês já vencido, se ficou sem confirmar — some da
@@ -351,6 +362,25 @@ alter table lancamentos_recorrentes alter column meio_pagamento drop not null;
 
 Um projeto novo, criado rodando `db/schema.sql` já com esta versão, não
 precisa desse passo — coluna e constraints já nascem certas.
+
+### Migração pendente no seu Supabase: `lancamentos_recorrentes.caixinha_id`
+
+Aplicação/retirada recorrente em caixinha (aporte/resgate mensal de uma
+reserva) passa a ser suportada — antes só existia aplicação/retirada
+"investimento puro", com categoria sempre obrigatória (mesma limitação que
+já não existia mais em transações avulsas, ver seção "Lançamentos
+Recorrentes" abaixo). Se o projeto já existia antes desta entrega, rode uma
+vez no *SQL Editor*:
+
+```sql
+alter table lancamentos_recorrentes alter column categoria_id drop not null;
+
+alter table lancamentos_recorrentes
+  add column if not exists caixinha_id uuid references caixinhas(id);
+```
+
+Um projeto novo, criado rodando `db/schema.sql` já com esta versão, não
+precisa desse passo — coluna e constraint já nascem certas.
 
 ### Migração pendente no seu Supabase: `lancamentos_recorrentes_pulados`
 

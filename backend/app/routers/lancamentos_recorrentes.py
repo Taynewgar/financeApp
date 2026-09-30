@@ -23,13 +23,22 @@ router = APIRouter(prefix="/lancamentos-recorrentes", tags=["lancamentos-recorre
 TABLE = "lancamentos_recorrentes"
 
 
-def _check_refs(db: Client, user_id: str, conta_id: str, categoria_id: str, subcategoria_id: str | None) -> None:
+def _check_refs(
+    db: Client,
+    user_id: str,
+    conta_id: str,
+    categoria_id: str | None,
+    subcategoria_id: str | None,
+    caixinha_id: str | None = None,
+) -> None:
     if not crud.get_owned(db, "contas", user_id, conta_id):
         raise HTTPException(status_code=404, detail="Conta não encontrada")
-    if not crud.get_owned(db, "categorias", user_id, categoria_id):
+    if categoria_id and not crud.get_owned(db, "categorias", user_id, categoria_id):
         raise HTTPException(status_code=404, detail="Categoria não encontrada")
     if subcategoria_id and not crud.get_owned(db, "subcategorias", user_id, subcategoria_id):
         raise HTTPException(status_code=404, detail="Subcategoria não encontrada")
+    if caixinha_id and not crud.get_owned(db, "caixinhas", user_id, caixinha_id):
+        raise HTTPException(status_code=404, detail="Caixinha não encontrada")
 
 
 # mesmo mapeamento de backend/app/routers/transacoes.py::_TIPO_CATEGORIA_ESPERADO
@@ -42,7 +51,9 @@ _TIPO_CATEGORIA_ESPERADO = {
 }
 
 
-def _check_categoria_tipo(db: Client, user_id: str, tipo_movimento: str, categoria_id: str) -> None:
+def _check_categoria_tipo(db: Client, user_id: str, tipo_movimento: str, categoria_id: str | None) -> None:
+    if not categoria_id:
+        return
     categoria = db.table("categorias").select("tipo").eq("id", categoria_id).eq("user_id", user_id).execute()
     if categoria.data:
         esperado = _TIPO_CATEGORIA_ESPERADO[tipo_movimento]
@@ -50,6 +61,28 @@ def _check_categoria_tipo(db: Client, user_id: str, tipo_movimento: str, categor
             raise HTTPException(
                 status_code=422,
                 detail=f"Categoria precisa ser do tipo '{esperado}' para esse tipo de lançamento",
+            )
+
+
+def _check_regras_caixinha(
+    tipo_movimento: str, caixinha_id: str | None, conta_id: str | None, db: Client, user_id: str
+) -> None:
+    """Mesma regra de transacoes.py::_check_regras_tipo_movimento: caixinha
+    (reserva) só faz sentido em aplicação/retirada, e se a caixinha tiver
+    conta fixa, o recorrente precisa usar a mesma conta."""
+    if not caixinha_id:
+        return
+    if tipo_movimento not in ("aplicacao", "retirada"):
+        raise HTTPException(
+            status_code=422,
+            detail="Caixinha (reserva) só pode ser usada em lançamentos de aplicação/retirada",
+        )
+    if conta_id:
+        caixinha = db.table("caixinhas").select("conta_id").eq("id", caixinha_id).eq("user_id", user_id).execute()
+        if caixinha.data and caixinha.data[0]["conta_id"] and caixinha.data[0]["conta_id"] != conta_id:
+            raise HTTPException(
+                status_code=422,
+                detail="A conta do lançamento precisa ser a mesma conta vinculada à caixinha",
             )
 
 
@@ -68,7 +101,13 @@ def _normalizar_e_validar(dados: dict, atual: dict | None = None) -> None:
         if faltando:
             raise HTTPException(status_code=422, detail=f"Campo(s) obrigatório(s) faltando: {', '.join(faltando)}")
     elif tipo in ("aplicacao", "retirada"):
-        dados["estrutura_custo"] = "investimentos"
+        # com caixinha é reserva — sem teto/bucket, não usa nenhum dos dois
+        # (mesma regra de transacoes.py); sem caixinha é investimento puro,
+        # sempre 'investimentos' (não há UI pra escolher outro valor)
+        if efetivo.get("caixinha_id"):
+            dados["estrutura_custo"] = None
+        else:
+            dados["estrutura_custo"] = "investimentos"
         dados["meio_pagamento"] = None
     elif tipo == "receita":
         dados["estrutura_custo"] = None
@@ -94,7 +133,8 @@ def criar(
     db: Client = Depends(get_db),
     user_id: str = Depends(get_current_user_id),
 ):
-    _check_refs(db, user_id, payload.conta_id, payload.categoria_id, payload.subcategoria_id)
+    _check_refs(db, user_id, payload.conta_id, payload.categoria_id, payload.subcategoria_id, payload.caixinha_id)
+    _check_regras_caixinha(payload.tipo_movimento, payload.caixinha_id, payload.conta_id, db, user_id)
     dados = payload.model_dump(mode="json")
     _normalizar_e_validar(dados)
     _check_categoria_tipo(db, user_id, dados["tipo_movimento"], payload.categoria_id)
@@ -114,12 +154,18 @@ def atualizar(
         raise HTTPException(status_code=404, detail="Lançamento recorrente não encontrado")
 
     dados = payload.model_dump(mode="json", exclude_unset=True)
+    conta_id_efetivo = dados.get("conta_id", atual["conta_id"])
+    caixinha_id_efetivo = dados.get("caixinha_id", atual.get("caixinha_id"))
     _check_refs(
         db,
         user_id,
-        dados.get("conta_id", atual["conta_id"]),
+        conta_id_efetivo,
         dados.get("categoria_id", atual["categoria_id"]),
         dados.get("subcategoria_id", atual["subcategoria_id"]),
+        caixinha_id_efetivo,
+    )
+    _check_regras_caixinha(
+        dados.get("tipo_movimento", atual["tipo_movimento"]), caixinha_id_efetivo, conta_id_efetivo, db, user_id
     )
     _normalizar_e_validar(dados, atual)
     _check_categoria_tipo(
@@ -222,7 +268,7 @@ def confirmar(
         "categoria_id": recorrente["categoria_id"],
         "subcategoria_id": recorrente["subcategoria_id"],
         "estrutura_custo": recorrente["estrutura_custo"],
-        "caixinha_id": None,
+        "caixinha_id": recorrente.get("caixinha_id"),
         "meio_pagamento": recorrente["meio_pagamento"],
         "fatura_referencia": fatura_referencia_para(db, user_id, recorrente["conta_id"], data_compra),
         "fatura_override": False,

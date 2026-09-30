@@ -18,12 +18,17 @@ class LancamentoRecorrenteCreate(BaseModel):
     dia_mes: int = Field(ge=1, le=31)
     tipo_movimento: TipoMovimentoRecorrente
     conta_id: str
-    categoria_id: str
+    # obrigatória só pra despesa; aplicação/retirada em caixinha (reserva)
+    # não tem categoria, mesma regra de transacoes.py — ver README.md,
+    # seção "Lançamentos Recorrentes"
+    categoria_id: str | None = None
     subcategoria_id: str | None = None
+    # só aplicação/retirada usa — aporte/resgate recorrente de uma reserva
+    caixinha_id: str | None = None
     # obrigatório só pra despesa (fixo/variavel/sazonal); aplicação/retirada
-    # é sempre 'investimentos' (forçado pelo servidor, ver routers/
-    # lancamentos_recorrentes.py); receita não usa — ver README.md, seção
-    # "Lançamentos Recorrentes"
+    # sem caixinha é sempre 'investimentos' (forçado pelo servidor, ver
+    # routers/lancamentos_recorrentes.py); com caixinha não usa; receita
+    # não usa
     estrutura_custo: EstruturaCusto | None = None
     # obrigatório só pra despesa; receita/aplicação/retirada não usam
     meio_pagamento: MeioPagamento | None = None
@@ -39,6 +44,7 @@ class LancamentoRecorrenteUpdate(BaseModel):
     conta_id: str | None = None
     categoria_id: str | None = None
     subcategoria_id: str | None = None
+    caixinha_id: str | None = None
     estrutura_custo: EstruturaCusto | None = None
     meio_pagamento: MeioPagamento | None = None
     data_inicio: date | None = None
