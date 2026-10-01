@@ -16,28 +16,161 @@ merecer não ficar misturado com a tabela proposto×implementado tela a tela.
 
 ## Ordem de prioridade atual
 
-Reorganizado por prioridade em 2026-09-24 (a pedido do usuário — a
-numeração em si não muda, cada item mantém o número que já tinha em
-qualquer lugar que o referencie; só a ordem/agrupamento na lista muda,
-pra separar o que ainda está pendente do que já foi entregue e não ficar
-perdido em volta de itens concluídos).
+Reorganizado por área em 2026-10-01 (a pedido do usuário, a partir da
+reorganização por prioridade de 2026-09-24): agora a área é o agrupamento
+de fora e, dentro de cada área, os itens pendentes aparecem por
+prioridade (Alta/Média/Baixa). A numeração em si não muda — cada item
+mantém o número que já tinha em qualquer lugar que o referencie. Os 20
+itens novos trazidos em CSV em 2026-09-30 foram incorporados aqui,
+numerados 41-60 na sequência. Itens concluídos saíram da divisão por
+área/prioridade — ver "Concluído" abaixo, em ordem numérica simples (o
+changelog já documenta quando e como cada um foi entregue).
 
 > **Nota de formatação (2026-09-25):** os itens abaixo usam `- **N.**`
 > (marcador de lista solto + número em negrito), não `N.` como item de
 > lista numerada nativa do Markdown. Motivo: como a numeração aqui não é
-> sequencial dentro de cada bloco (ex.: Pendente de Alta prioridade pula
-> de 10 pra 29), uma lista numerada nativa é renumerada automaticamente
-> pelo renderizador (GitHub etc.) a partir do primeiro item — o "29"
-> apareceria como "11" na tela. Bug real, encontrado pelo usuário
-> revisando o arquivo renderizado depois da reorganização por prioridade.
-> `- **N.**` exibe sempre o número literal do texto-fonte, imune a isso.
+> sequencial dentro de cada bloco, uma lista numerada nativa é renumerada
+> automaticamente pelo renderizador (GitHub etc.) a partir do primeiro
+> item. `- **N.**` exibe sempre o número literal do texto-fonte, imune a
+> isso.
 
-### Alta prioridade
+### Pendente, por área
 
-**Pendente:**
+#### Dashboard
+
+**Baixa**
+
+- **25.** Saldo atual de contas — hoje só caixinhas têm saldo calculado
+  (`GET /dashboard/patrimonio/{mes}`); dar saldo a `contas` também
+  seria a extensão natural, mas não é urgente. *(2026-09-15)*
+
+#### Lançamentos
+
+**Alta**
+
+- **43.** **Consulta rápida durante a inserção** `tipo: Melhoria` —
+  maneira rápida de consulta e visualização de lançamentos enquanto se
+  insere um novo lançamento (sugestão baseada em UX). *(trazido em CSV,
+  2026-09-30)*
+- **44.** **Agilidade na inserção de transações** `tipo: Melhoria` — 3
+  caminhos avaliados: duplicar transação (evitar duplicidade real com
+  algum termo/caractere no campo descrição), copiar informações da
+  última transação lançada, ou CRUD em lote (avaliar custo de
+  implementação). Levar UX em consideração. *(trazido em CSV,
+  2026-09-30)*
+- **45.** **Busca por descrição parcial** `tipo: Melhoria` — no campo
+  busca por descrição, permitir que a descrição contenha a frase/palavra
+  escrita, em vez de exigir correspondência exata palavra a palavra.
+  *(trazido em CSV, 2026-09-30)*
+
+**Média**
+
+- **31.** **Lançamentos: painel de filtros muito alto no mobile em
+  paisagem** — reportado pelo usuário testando a Rodada 28 num celular
+  real girado pra paisagem: o painel de filtros expandido (`Tipo`,
+  `Descrição`, `Mês`, `Ano`, `De`/`Até`, `Conta`, `Caixinha`,
+  `Categoria`, `Subcategoria`, `Estrutura de custo`, `Meio de
+  pagamento`, `Limpar filtros`) ocupa a tela inteira em paisagem (altura
+  menor que em retrato) e esconde a lista de lançamentos abaixo, sem
+  indicar que há mais conteúdo pra rolar. Print anexado pelo usuário.
+  Sem causa raiz investigada ainda.
+- **33.** **Lançamento com mais de 1 categoria** (detalhe abaixo) —
+  surgiu durante a análise do item 9 (migração de dados).
+- **53.** **Filtro por tipo de transação: parcelado ou à vista**
+  `tipo: Melhoria` — novo filtro na busca de lançamentos. *(trazido em
+  CSV, 2026-09-30)*
+- **54.** **Últimas transações lançadas por conta** `tipo: Melhoria` —
+  sugestão pra mostrar com maior facilidade as últimas transações
+  lançadas nas contas, desconsiderando parcelas futuras. *(trazido em
+  CSV, 2026-09-30)*
+- **55.** **Esquema de cores das transações** `tipo: Melhoria` —
+  avaliar opções de cor por tipo/status de transação, considerando UX.
+  *(trazido em CSV, 2026-09-30)*
+
+**Baixa**
+
+- **35.** **`hash_dedup` não distingue 2 despesas reais idênticas no
+  mesmo dia** (detalhe na seção "Migração de dados do app antigo",
+  achado rodando a migração pra valer) — lançar manualmente 2 despesas
+  com mesma data/valor/descrição/conta/tipo esbarra num 409 que o
+  frontend não trata hoje. Raro no uso manual do dia a dia.
+  *(2026-09-25)*
+- **58.** **Marcador de origem caixinha** `tipo: Melhoria` — um
+  marcador pra indicar, na lista de lançamentos, uma transação cuja
+  origem é retirada de caixinha — facilita identificar uma compra/gasto
+  já reservado ao longo do ano. *(trazido em CSV, 2026-09-30)*
+
+#### Planejamento
+
+**Alta**
+
+- **46.** **Botões fixos + expandir tudo no Planejamento**
+  `tipo: Melhoria` — botão de novo orçamento também no topo (hoje só
+  no fundo da tela), botão de expandir/recolher tudo (como em Estrutura
+  de Custo) e fixar os botões no topo. *(trazido em CSV, 2026-09-30)*
+- **47.** **Renomear bucket→envelope, sobra→saldo do envelope**
+  `tipo: Melhoria` — evitar termo fora do português (bucket→envelope) e
+  termo impreciso (sobra denota excedente, mas o valor carregado do
+  orçamento pode ser negativo — por isso saldo, não sobra). *(trazido
+  em CSV, 2026-09-30)*
+
+**Média**
+
+- **56.** **Botão de apagar orçamento** `tipo: Melhoria` — avaliar a
+  necessidade. *(trazido em CSV, 2026-09-30)*
+
+**Baixa**
+
+- **59.** **Ordenação das subcategorias dentro dos envelopes**
+  `tipo: Melhoria` — em Planejamento. *(trazido em CSV, 2026-09-30)*
+
+#### Estrutura de Custo
+
+**Alta**
 
 - **10.** Exportação de relatório mensal/anual (detalhe abaixo) —
-  próximo passo depois do MVP fechado (itens 1-8 abaixo).
+  próximo passo depois do MVP fechado (itens 1-8 acima).
+
+**Baixa**
+
+- **60.** **Ordenação das subcategorias dentro dos envelopes**
+  `tipo: Melhoria` — mesmo pedido do item 59, aplicado também à tela de
+  Estrutura de Custo. *(trazido em CSV, 2026-09-30)*
+
+#### Gráficos
+
+**Média**
+
+- **18.** **Janela de meses pra trás × ano civil (jan-dez) nos
+  gráficos** — hoje o modo "Mês" em `/graficos` mostra N meses pra
+  trás contando do mês selecionado (12, ver Rodada 16.2). Repensar se
+  um ano civil fixo (janeiro-dezembro) seria mais legível.
+- **51.** **Gráfico de despesa por categoria/subcategoria no tempo**
+  `tipo: Criação` — similar ao de evolução mensal, mas com filtros de
+  categoria/subcategoria (incluindo receitas, investimentos etc.) e/ou
+  possibilidade de gráfico comparativo com elementos dinâmicos
+  selecionados na hora (ex: comparar receitas mensais excluindo
+  extraordinárias com custo fixo ou variável). *(trazido em CSV,
+  2026-09-30)*
+
+#### Configurações
+
+**Média**
+
+- **48.** **Mover subcategoria entre categorias** `tipo: Melhoria` —
+  possibilidade de transferir uma subcategoria pra outra categoria pai.
+  *(trazido em CSV, 2026-09-30)*
+
+**Baixa**
+
+- **28.** Aba Bancos em Configurações — hoje resolvido como campo de
+  texto em Conta, sem perda funcional real. *(2026-09-15, renumerado de
+  24 pra 28 em 2026-09-24 — colidia com o item 24 de média prioridade)*
+
+#### Geral
+
+**Alta**
+
 - **32.** **Melhoria geral de layout da aplicação (V2, pós-MVP)** —
   reportado pelo usuário testando a Rodada 28-31: alguns elementos
   fora de escala, cabeçalho fixo um pouco desproporcional em algumas
@@ -46,7 +179,73 @@ perdido em volta de itens concluídos).
   fechado, numa V2. Sem escopo detalhado ainda (quais telas, quais
   elementos específicos) — a definir quando for priorizado.
 
-**Concluído:**
+**Média**
+
+- **49.** **Título da aba do navegador = nome da feature ativa**
+  `tipo: Melhoria` — hoje o título é fixo, independente da tela aberta.
+  *(trazido em CSV, 2026-09-30)*
+- **50.** **Fuso horário da aplicação para Brasília/SP** `tipo: Melhoria`
+  — hoje não está fixado nesse fuso. *(trazido em CSV, 2026-09-30)*
+
+**Baixa**
+
+- **26.** **Changelog estruturado** — trocar a prosa narrativa de
+  `changelog-proposta-original-do-redesign.md` pelo formato [Keep a
+  Changelog](https://keepachangelog.com) (seções `Added/Changed/Fixed/
+  Removed` por versão datada, amarrada a tag git). Ganho: escaneável e
+  diffável, pronto pra virar release notes se o app for a público.
+  Custo: perde o espaço pro "porquê" narrativo que o formato atual dá
+  — por isso fica de baixa prioridade enquanto o projeto for de um
+  usuário só. Sugestão minha (Claude), confirmada como baixa prioridade
+  pelo usuário. *(2026-09-16)*
+- **27.** **ADRs (Architecture Decision Records)** — trocar o Q&A único
+  de `sugestoes-e-decisoes-do-redesign.md` por um arquivo curto e
+  imutável por decisão relevante (formato Nygard: contexto/decisão/
+  consequências). Decisão revista vira um ADR novo que supersede o
+  antigo, em vez de editar o `> Status:` por cima como hoje — histórico
+  fica honesto, mas com mais arquivos pra navegar. Mesma origem e
+  confirmação do item 26. *(2026-09-16)*
+- **34.** **Fluxo de criação de usuário (cadastro)** (detalhe abaixo) —
+  hoje só existe login; criar usuário é feito manualmente pelo painel
+  do Supabase, sem tela/endpoint no app. *(2026-09-25)*
+
+#### Agenda Contas
+
+**Alta**
+
+- **41.** **Agenda Contas** (nova feature) `tipo: Nova Feature` ·
+  `maturidade: stub — a detalhar` — registrar entrada como item futuro
+  que receberá subitens. *(trazido em CSV, 2026-09-30)*
+
+#### Cartão
+
+**Alta**
+
+- **42.** **Cartão** (nova feature) `tipo: Nova Feature` ·
+  `maturidade: stub — a detalhar` — registrar entrada como item futuro
+  que receberá subitens. *(trazido em CSV, 2026-09-30)*
+
+#### Investimentos
+
+**Média**
+
+- **52.** **Investimentos** (nova feature) `tipo: Nova Feature` ·
+  `maturidade: stub — a detalhar` — registrar entrada como item futuro
+  que receberá subitens. *(trazido em CSV, 2026-09-30)*
+
+#### Imóveis
+
+**Baixa**
+
+- **57.** **Imóveis** (nova feature) `tipo: Nova Feature` ·
+  `maturidade: stub — a detalhar` — registrar entrada como item futuro
+  que receberá subitens. *(trazido em CSV, 2026-09-30)*
+
+### Concluído
+
+Ordem numérica simples, riscado — sem reclassificação por área ou
+prioridade; o changelog (`changelog-proposta-original-do-redesign.md`)
+já documenta quando e como cada um foi entregue.
 
 - **1.** ~~Delta vs mês anterior nos KPIs do Dashboard~~ **feito
   2026-09-13**
@@ -100,37 +299,6 @@ perdido em volta de itens concluídos).
   Base da média), clicável (não depende de hover — não existe em
   touchscreen, corrigido na Rodada 22.1). Ver changelog Rodadas
   22/22.1.
-- **29.** ~~Menu "mais" da barra de navegação mobile: promover item
-  mais usado por contador de uso~~ **feito 2026-09-25** — contador em
-  `localStorage`, sem endpoint novo. Detalhe na subseção própria abaixo,
-  ver changelog Rodada 32.
-
-### Média prioridade confirmada pelo usuário
-
-Registrados 2026-09-24, a partir do teste do seed novo e dos mockups de
-cabeçalho fixo; depois da alta prioridade acima, antes da baixa
-prioridade abaixo:
-
-**Pendente:**
-
-- **18.** **Janela de meses pra trás × ano civil (jan-dez) nos
-  gráficos** — hoje o modo "Mês" em `/graficos` mostra N meses pra
-  trás contando do mês selecionado (12, ver Rodada 16.2). Repensar se
-  um ano civil fixo (janeiro-dezembro) seria mais legível.
-- **31.** **Lançamentos: painel de filtros muito alto no mobile em
-  paisagem** — reportado pelo usuário testando a Rodada 28 num celular
-  real girado pra paisagem: o painel de filtros expandido (`Tipo`,
-  `Descrição`, `Mês`, `Ano`, `De`/`Até`, `Conta`, `Caixinha`,
-  `Categoria`, `Subcategoria`, `Estrutura de custo`, `Meio de
-  pagamento`, `Limpar filtros`) ocupa a tela inteira em paisagem (altura
-  menor que em retrato) e esconde a lista de lançamentos abaixo, sem
-  indicar que há mais conteúdo pra rolar. Print anexado pelo usuário.
-  Sem causa raiz investigada ainda.
-- **33.** **Lançamento com mais de 1 categoria** (detalhe abaixo) —
-  surgiu durante a análise do item 9 (migração de dados).
-
-**Concluído:**
-
 - **13.** ~~Persistir estado de filtros ao navegar entre features~~
   **feito 2026-09-24** — Detalhe na subseção própria abaixo, ver
   changelog Rodada 24.
@@ -173,6 +341,10 @@ prioridade abaixo:
   Custo~~ **feito 2026-09-25** — mesmo fix portado pra
   `routers/orcamentos.py`. Detalhe na subseção própria abaixo, ver
   changelog Rodada 29.
+- **29.** ~~Menu "mais" da barra de navegação mobile: promover item
+  mais usado por contador de uso~~ **feito 2026-09-25** — contador em
+  `localStorage`, sem endpoint novo. Detalhe na subseção própria abaixo,
+  ver changelog Rodada 32.
 - **30.** ~~Estrutura de Custo: tabela de itens quebrando no mobile~~
   **feito 2026-09-25** — reportado com prints do app real; causa igual
   à do item 20 (colunas de largura fixa que não cabem em tela estreita),
@@ -203,43 +375,6 @@ prioridade abaixo:
   acordeão de 2 níveis (bucket → categoria pai → subcategoria), igual
   Estrutura de Custo. Detalhe na subseção própria abaixo, ver changelog
   Rodada 39.
-
-### Baixa prioridade confirmada pelo usuário
-
-Todo o resto acima é alta ou média prioridade, mesmo o que está
-sequenciado pra depois do MVP. Nenhum destes 4 está em andamento:
-
-- **25.** Saldo atual de contas — hoje só caixinhas têm saldo calculado
-  (`GET /dashboard/patrimonio/{mes}`); dar saldo a `contas` também
-  seria a extensão natural, mas não é urgente. *(2026-09-15)*
-- **26.** **Changelog estruturado** — trocar a prosa narrativa de
-  `changelog-proposta-original-do-redesign.md` pelo formato [Keep a
-  Changelog](https://keepachangelog.com) (seções `Added/Changed/Fixed/
-  Removed` por versão datada, amarrada a tag git). Ganho: escaneável e
-  diffável, pronto pra virar release notes se o app for a público.
-  Custo: perde o espaço pro "porquê" narrativo que o formato atual dá
-  — por isso fica de baixa prioridade enquanto o projeto for de um
-  usuário só. Sugestão minha (Claude), confirmada como baixa prioridade
-  pelo usuário. *(2026-09-16)*
-- **27.** **ADRs (Architecture Decision Records)** — trocar o Q&A único
-  de `sugestoes-e-decisoes-do-redesign.md` por um arquivo curto e
-  imutável por decisão relevante (formato Nygard: contexto/decisão/
-  consequências). Decisão revista vira um ADR novo que supersede o
-  antigo, em vez de editar o `> Status:` por cima como hoje — histórico
-  fica honesto, mas com mais arquivos pra navegar. Mesma origem e
-  confirmação do item 26. *(2026-09-16)*
-- **28.** Aba Bancos em Configurações — hoje resolvido como campo de
-  texto em Conta, sem perda funcional real. *(2026-09-15, renumerado de
-  24 pra 28 em 2026-09-24 nesta reorganização — colidia com o item 24
-  de média prioridade acima)*
-- **34.** **Fluxo de criação de usuário (cadastro)** (detalhe abaixo) —
-  hoje só existe login; criar usuário é feito manualmente pelo painel
-  do Supabase, sem tela/endpoint no app. *(2026-09-25)*
-- **35.** **`hash_dedup` não distingue 2 despesas reais idênticas no
-  mesmo dia** (detalhe na seção "Migração de dados do app antigo",
-  achado rodando a migração pra valer) — lançar manualmente 2 despesas
-  com mesma data/valor/descrição/conta/tipo esbarra num 409 que o
-  frontend não trata hoje. Raro no uso manual do dia a dia. *(2026-09-25)*
 
 Este arquivo não substitui o `README.md` da raiz (que descreve o que
 existe) nem o `/status-projeto` (relatório de andamento) — é o registro do
