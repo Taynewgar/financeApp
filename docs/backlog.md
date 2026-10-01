@@ -38,6 +38,13 @@ changelog já documenta quando e como cada um foi entregue).
 
 #### Dashboard
 
+**Média**
+
+- **61.** **Reduzir tamanho dos cards de caixinha no Dashboard**
+  `tipo: Melhoria` — os cards de Caixinhas/Patrimônio trazem pouca
+  informação (nome + saldo), ocupando espaço desproporcional ao
+  conteúdo. *(2026-10-01)*
+
 **Baixa**
 
 - **25.** Saldo atual de contas — hoje só caixinhas têm saldo calculado
@@ -118,6 +125,18 @@ changelog já documenta quando e como cada um foi entregue).
 
 - **56.** **Botão de apagar orçamento** `tipo: Melhoria` — avaliar a
   necessidade. *(trazido em CSV, 2026-09-30)*
+- **62.** **Decisão: criação manual de item em Planejamento ainda é
+  necessária?** `tipo: Decisão` — hoje a maioria dos itens de
+  orçamento já nasce automaticamente a partir dos lançamentos
+  (`sincronizar_item_orcamento`, reativo a toda despesa/investimento
+  sem caixinha que usa uma categoria/subcategoria ainda sem item no
+  mês). Avaliar se o botão "+ Novo item" (criação manual, `POST
+  /orcamentos/{id}/itens`) ainda se justifica, ou se é redundante — e
+  se sim, em qual cenário real (ex: planejar um gasto futuro ainda não
+  lançado, ou um item "nome livre" sem vínculo). Precisa de um
+  racional coerente antes de decidir manter, simplificar ou remover —
+  registrado como decisão a tomar, não como mudança já aprovada.
+  *(2026-10-01)*
 
 **Baixa**
 

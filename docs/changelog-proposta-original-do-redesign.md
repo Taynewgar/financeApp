@@ -3345,7 +3345,10 @@ de cada endpoint.
 
 **Status:** implementado e testado (offline) nesta sessão. Conserta só
 o caminho de leitura — os dados no banco sempre estiveram corretos, não
-precisa rodar a migração de novo.
+precisa rodar a migração de novo. **Confirmado em 2026-10-01: item 4**
+(lista/resumo de Lançamentos sem filtro mostrando o total real, não
+truncado em 1000) — usuário confirmou com a conta já em 1.956
+lançamentos. Itens 1-3 ainda sem confirmação.
 
 **Checklist de teste manual (usuário, localmente):**
 - [ ] Recarregar o Dashboard e conferir que todas as caixinhas em
@@ -3356,9 +3359,9 @@ precisa rodar a migração de novo.
       totais de receita/despesa e o gráfico de Evolução.
 - [ ] Conferir Estrutura de Custo e Planejamento — saldo/realizado de
       pelo menos um bucket num mês qualquer.
-- [ ] Em Lançamentos, limpar todos os filtros e confirmar que a lista/
+- [x] Em Lançamentos, limpar todos os filtros e confirmar que a lista/
       resumo mostram o total real de transações (não truncado em
-      1000).
+      1000). — confirmado 2026-10-01, 1.956 lançamentos na conta.
 
 ### Rodada 36 (2026-09-25) — Compromissos Futuros: "ver mais" + card compacto
 
@@ -3397,20 +3400,30 @@ existentes). Frontend verificado via `tsc -b && vite build` e
 — exigiria login com credenciais reais do Supabase, que esta sessão
 remota não tem (mesma limitação de `backend/.env` documentada em
 `CLAUDE.md` pros testes de integração). Verificação ficou restrita a
-tipo/build; o usuário precisa confirmar visualmente.
+tipo/build; o usuário precisa confirmar visualmente. **Testado pelo
+usuário em 2026-10-01:** itens 1-2 confirmados ok. **Item 3 — achado
+real:** o card ficou mais compacto, mas mostra só parcela/data/valor —
+falta descrição e botões de recorrente, que o checklist original
+previa continuar visíveis. Usuário decidiu manter pendente por ora,
+pra investigar junto da Rodada 40 (recorrentes/caixinha) — pode ser o
+mesmo caminho de código. Item 4 (Confirmar/Pular com lista expandida/
+colapsada) também adiado pro mesmo motivo.
 
 **Checklist de teste manual (usuário, localmente):**
-- [ ] Abrir o Dashboard e confirmar que Compromissos Futuros mostra até
+- [x] Abrir o Dashboard e confirmar que Compromissos Futuros mostra até
       4 itens por padrão, com "Ver mais (N)" abaixo quando houver mais.
-- [ ] Clicar em "Ver mais" e confirmar que a lista completa aparece
+- [x] Clicar em "Ver mais" e confirmar que a lista completa aparece
       (até 50) sem precisar recarregar a página; "Ver menos" volta a
       colapsar.
 - [ ] Confirmar que o card ficou visualmente mais compacto (menos
       espaço por item) mas sem faltar nenhuma informação (descrição,
-      parcela/tipo, data, valor, botões de recorrente).
+      parcela/tipo, data, valor, botões de recorrente). — **achado
+      2026-10-01: só mostra parcela/data/valor, falta descrição e
+      botões de recorrente.** Pendente — investigar junto da Rodada 40.
 - [ ] Testar "Confirmar"/"Pular este mês" de um recorrente com a lista
       expandida e com a lista colapsada — os botões continuam
-      funcionando nos dois estados.
+      funcionando nos dois estados. Pendente — adiado pro mesmo motivo
+      do item acima.
 
 ### Rodada 37 (2026-09-25) — Agregações que crescem pra sempre com o histórico movidas pra RPC
 
@@ -3481,9 +3494,15 @@ precisa rodar o SQL das 3 funções no Supabase real (seção "Migração
 pendente" do `README.md`) antes de recarregar — sem isso, `GET
 /dashboard/patrimonio/*`, `/dashboard/resumo-periodo` e telas de
 Planejamento/Estrutura de Custo respondem 404 do PostgREST (função RPC
-inexistente). **Confirmado em 2026-10-01: SQL rodado (item 1).** Itens
-2-4 (Caixinhas/Patrimônio, Dashboard "Todos os meses"/Intervalo,
-Estrutura de Custo/Planejamento) o usuário disse que testará depois.
+inexistente). **Confirmado em 2026-10-01: SQL rodado (item 1).** Item 2
+pendente — usuário precisa lançar/atualizar lançamentos reais pra ter
+material pra conferir. Itens 3-4 pendentes por outro motivo: exigem
+lembrar valores antigos pra comparar, e o usuário não tem mais esse
+registro — plano é conferir futuramente com a skill `/financeapp-ref`
+(calcula os parâmetros de referência a partir do CSV histórico). **Ver
+nota abaixo: `/financeapp-ref` hoje só cobre os parâmetros do
+Dashboard, não saldo/realizado por bucket de Estrutura de Custo/
+Planejamento — precisaria ser estendida antes de servir pra isso.**
 
 **Checklist de teste manual (usuário, localmente):**
 - [x] Rodar o SQL das 3 funções no *SQL Editor* do Supabase (seção
@@ -3491,12 +3510,15 @@ Estrutura de Custo/Planejamento) o usuário disse que testará depois.
       abaixo.
 - [ ] Recarregar Caixinhas/Patrimônio e confirmar que os saldos
       continuam batendo com a coluna "Guardado" da planilha (mesmo
-      resultado da Rodada 35, agora vindo do RPC).
+      resultado da Rodada 35, agora vindo do RPC). — pendente, usuário
+      precisa lançar/atualizar dados pra verificar.
 - [ ] Dashboard no modo "Todos os meses" e Intervalo — confirmar que os
       totais de receita/despesa/resultado continuam os mesmos de antes.
+      — pendente; usuário não lembra os valores antigos pra comparar,
+      plano é usar `/financeapp-ref` futuramente (ver nota acima).
 - [ ] Estrutura de Custo e Planejamento — confirmar saldo/realizado de
       um bucket com histórico de vários meses (a cadeia de
-      `saldo_anterior`).
+      `saldo_anterior`). — pendente, mesmo motivo do item acima.
 
 ### Rodada 38 (2026-09-29) — Fix: Planejamento travando ao gerar orçamento + form fora de vista
 
@@ -3542,27 +3564,28 @@ build` + `oxlint` — sem erro, sem warning novo.
 
 **Status:** implementado nesta sessão. Sem QA visual via Playwright —
 mesma limitação de sempre (sem `backend/.env` com credenciais reais do
-Supabase nesta sessão remota). **Testado pelo usuário em 2026-10-01:
-Bug 1 (performance) não resolvido de verdade** — item 3 (scroll)
-confirmado ok, mas itens 1/2 (gerar orçamento/gerar a partir do mês
-anterior) reportados "muito lento" — achado real que motivou a Rodada
-41 (2ª e 3ª N+1 no mesmo endpoint, não cobertas pelo fix original desta
-rodada). Revalidação cabe à Rodada 41.
+Supabase nesta sessão remota). **Testado pelo usuário em 2026-10-01:**
+1ª rodada de teste achou Bug 1 (performance) ainda não resolvido de
+verdade — item 3 (scroll) ok, itens 1/2/4 "muito lento" — achado real
+que motivou a Rodada 41 (2ª e 3ª N+1 no mesmo endpoint, não cobertas
+pelo fix original desta rodada). **Revalidado em 2026-10-01, depois da
+Rodada 41: os 4 itens confirmados ok** — confirma de passagem que o
+fix da Rodada 41 resolveu a lentidão.
 
 **Checklist de teste manual (usuário, localmente):**
-- [ ] Com um orçamento configurado com vários itens (o suficiente pra
+- [x] Com um orçamento configurado com vários itens (o suficiente pra
       antes ter travado), clicar em "Gerar orçamento de [mês seguinte]"
       e confirmar que responde rápido, sem ficar preso em "Gerando…".
-- [ ] Num mês sem orçamento, "Gerar a partir de [mês anterior]"
-      também deve responder rápido.
+      — confirmado ok após o fix da Rodada 41.
+- [x] Num mês sem orçamento, "Gerar a partir de [mês anterior]"
+      também deve responder rápido. — confirmado ok após o fix da
+      Rodada 41.
 - [x] Rolar a tela pra baixo (ver os itens dos buckets) e clicar em
       "Editar configuração" — a página deve rolar suavemente pro topo,
       mostrando o form imediatamente, sem precisar rolar manualmente
       pra encontrá-lo.
-- [ ] Mesmo teste ao clicar em "Criar do zero" (mês sem orçamento) —
-      ambíguo na resposta do usuário (item 4 reportado como "muito
-      lento", mas o checklist original de 4 itens misturava scroll e
-      performance); deixado pendente até confirmação explícita.
+- [x] Mesmo teste ao clicar em "Criar do zero" (mês sem orçamento). —
+      confirmado ok após o fix da Rodada 41.
 
 ### Rodada 39 (2026-09-30) — Planejamento: acordeão de 2 níveis igual Estrutura de Custo
 
@@ -3760,16 +3783,20 @@ linhas (insert em lote), espelhando o comportamento real do
 mesma limitação de sempre (sem `backend/.env` com credenciais reais do
 Supabase nesta sessão remota); esta classe de bug só fica visível com
 volume real de dados, que esta sessão não tem como reproduzir.
+**Confirmado indiretamente em 2026-10-01** — a revalidação da Rodada
+38 (itens 1/2/4, antes "muito lento") voltou "ok" depois deste fix.
 
 **Checklist de teste manual (usuário, localmente):**
-- [ ] Com um orçamento configurado com dezenas de itens E o mês com
+- [x] Com um orçamento configurado com dezenas de itens E o mês com
       centenas de transações lançadas, clicar em "Gerar orçamento de
       [mês seguinte]" e confirmar que agora responde rápido de verdade
-      (não só "menos lento").
-- [ ] "Criar a partir do mês anterior" e "Criar do zero" num mês sem
-      orçamento — mesma confirmação de velocidade.
+      (não só "menos lento"). — confirmado via revalidação da Rodada 38.
+- [x] "Criar a partir do mês anterior" e "Criar do zero" num mês sem
+      orçamento — mesma confirmação de velocidade. — confirmado via
+      revalidação da Rodada 38.
 - [ ] Depois de gerar, confirmar que os itens do mês novo têm os
       mesmos valores orçados do mês anterior, e que itens de categorias
       já lançadas no mês novo (mas sem item configurado ainda)
       aparecem com orçado R$ 0,00 — mesmo resultado de antes, só mais
-      rápido.
+      rápido. — ainda sem confirmação explícita (a retestagem foi só de
+      velocidade, não de valores).
