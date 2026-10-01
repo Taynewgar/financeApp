@@ -6,10 +6,15 @@ Esta skill gera um número de referência pra cada parâmetro que o
 Dashboard mostra, calculado a partir do CSV histórico ("Lançamentos
 Calculado" do app antigo) — não do código do app, e sim de uma
 reimplementação independente da regra de negócio. Serve pra comparar
-"o que o app deveria mostrar" contra "o que o app mostra de verdade":
-se os dois baterem, a regra e a implementação estão alinhadas; se não
-baterem, é sinal de bug num dos dois lados (mais provável, na
-aplicação).
+"o que o app deveria mostrar" contra "o que o app mostra de verdade".
+
+Como o Dashboard real lê da base **já migrada** (não do CSV direto),
+essa comparação valida duas coisas ao mesmo tempo, não só uma: a regra
+de negócio (o cálculo está certo?) e a fidelidade da migração (o dado
+chegou certo no banco?). Se os dois baterem, regra, implementação e
+migração estão todas alinhadas; se não baterem, o problema está em um
+desses três pontos — regra mal entendida nesta reimplementação, bug no
+Dashboard, ou lançamento que não migrou corretamente.
 
 ## Antes de rodar
 
@@ -30,7 +35,19 @@ existe — o diretório de uploads é por sessão.
 2. Rode o script de cálculo (reaproveita só o parsing já validado da
    migração — `scripts/migracao/parsing.py`/`mapeamento.py`/
    `parcelas.py` —, mas as fórmulas em si são uma reimplementação
-   própria, não uma cópia de `app/services/resumo_financeiro.py`):
+   própria, não uma cópia de `app/services/resumo_financeiro.py`).
+
+   O script só usa biblioteca padrão do Python (nenhuma dependência de
+   `requirements.txt`) — normalmente roda direto, sem precisar do venv
+   do backend:
+
+   ```bash
+   cd backend
+   python3 scripts/referencia_dashboard.py --csv /caminho/do/CSV.csv > /tmp/ref.json
+   ```
+
+   Se isso falhar (ex: `python3` ausente do PATH ou versão muito
+   antiga), só então caia pro venv do backend:
 
    ```bash
    cd backend
@@ -42,10 +59,29 @@ existe — o diretório de uploads é por sessão.
    (afeta só "Compromissos Futuros" e o corte de "Todos os meses").
 
 3. **Confira a saída antes de reportar** — não repasse números sem
-   olhar: rode uns 2-3 meses pelo `python3 -c "import json; ..."` e
-   confirme que batem com uma conta manual rápida (ex: somar as linhas
-   de receita de um mês no próprio CSV). Se algo parecer implausível
-   (valor muito fora da escala do resto), investigue antes de reportar
+   olhar: escolha 2-3 meses e confirme contra o CSV. Receita costuma
+   bater numa soma simples (filtrar `Movimentação == "Receita"` do
+   mês). Despesa quase nunca bate numa soma simples por `Movimentação
+   == "Despesa"`, porque isso inclui Estorno/Ressarcimento, que o
+   Dashboard trata à parte — pra conferir despesa, agrupe por
+   `(Movimentação, Tipo do Pag / Movimento)` e some cada combinação:
+
+   ```python
+   import csv
+   from collections import defaultdict
+   totais = defaultdict(float)
+   with open("/caminho/do/CSV.csv", encoding="utf-8-sig", newline="") as f:
+       for row in csv.DictReader(f, delimiter=";"):  # confira o delimitador real (";" ou ",")
+           totais[(row["Movimentação"], row["Tipo do Pag / Movimento"])] += float(
+               row["Valor"].replace("R$", "").replace(".", "").replace(",", ".").strip()
+           )
+   ```
+
+   `despesas_brutas` do JSON deve bater com a soma de `("Despesa",
+   "Compra à vista")` + `("Despesa", "Parcela sem juros")` +
+   `("Despesa", "Compra internacional")` — não inclui Estorno nem
+   Ressarcimento, que entram em `ajustes_*`. Se algo parecer
+   implausível mesmo depois dessa quebra, investigue antes de reportar
    — pode ser dado real (renda irregular, 13º, etc.) ou bug no script.
 
 4. **Nunca commite `/tmp/ref.json` nem cole os valores calculados em
@@ -64,10 +100,20 @@ existe — o diretório de uploads é por sessão.
    começam privados, mas ainda contêm dado financeiro pessoal
    embutido no HTML, então trate como sensível mesmo assim.
 
-6. Reporte os números direto na conversa (pelo menos o mês atual e o
-   "Todos os meses até hoje") e, se aplicável, o link do artifact. Não
-   é preciso registrar isso em `docs/backlog.md`/changelog — é uma
-   ferramenta de teste do usuário, não uma entrega de produto.
+6. Reporte direto na conversa, neste formato fixo:
+   - O que foi conferido no passo 3 (qual mês, bateu ou não).
+   - Mês atual (mesmo que parcial): despesas, receitas, resultado
+     saúde, maior categoria de despesa.
+   - "Todos os meses até hoje": receitas, despesas brutas, resultado
+     fluxo de caixa, resultado saúde, taxa de poupança, reservas,
+     investimentos.
+   - Quantidade de compromissos futuros.
+   - Link do artifact, se foi gerado (passo 5).
+   - Limitações conhecidas (seção abaixo) relevantes pro que foi
+     reportado.
+
+   Nunca registre isso em `docs/backlog.md`/changelog — é ferramenta
+   de teste do usuário, não entrega de produto.
 
 ## Limitações conhecidas (não são bugs desta skill)
 
