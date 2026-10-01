@@ -27,11 +27,21 @@ Dashboard, ou lançamento que não migrou corretamente.
 
 ## Antes de rodar
 
-**O CSV é dado financeiro pessoal e nunca é commitado neste repo** —
-cada sessão precisa que o usuário anexe o arquivo de novo (upload na
-conversa). Se a sessão não tiver o CSV em mãos, peça-o antes de
-continuar. Não assuma que um upload de uma sessão anterior ainda
-existe — o diretório de uploads é por sessão.
+**Quem roda isto é o Claude, dentro da sessão — o usuário nunca roda o
+script.** Não existem "a skill" e "o script" como 2 coisas separadas
+pro usuário escolher entre uma ou outra: acionar a skill (`/financeapp-
+ref` ou só pedir) É o Claude rodando `backend/scripts/
+referencia_dashboard.py` por baixo, dentro desta sessão. O usuário só
+precisa fazer 1 coisa — anexar o(s) arquivo(s) na própria conversa
+(upload do CSV e, se tiver, do `migracao_overrides.json`) — o resto é
+o Claude que faz.
+
+**O CSV (e o arquivo de overrides, se usado) são dado financeiro
+pessoal e nunca são commitados neste repo** — cada sessão precisa que
+o usuário anexe os arquivos de novo (upload na conversa). Se a sessão
+não tiver o CSV em mãos, peça-o antes de continuar. Não assuma que um
+upload de uma sessão anterior ainda existe — o diretório de uploads é
+por sessão.
 
 ## Passo a passo
 
@@ -39,7 +49,13 @@ existe — o diretório de uploads é por sessão.
    nome mais recente que contenha "Lançamentos" ou "Lancamentos" —
    confirme com o usuário se houver mais de uma versão candidata; a de
    modificação mais recente costuma ser a correta, ver histórico de
-   sessões anteriores pra um exemplo real disso).
+   sessões anteriores pra um exemplo real disso). Se o usuário mencionar
+   que também tem o arquivo de overrides de estrutura de custo gerado
+   durante a migração real (`migracao_overrides.json` — as respostas
+   que ele deu linha a linha pras despesas ambíguas), peça pra anexar
+   esse também e localize do mesmo jeito em `/root/.claude/uploads/`
+   (nome costuma conter "overrides"). Sem ele, o passo 2 ainda funciona,
+   só que com a limitação descrita lá.
 
 2. Rode o script de cálculo (reaproveita só o parsing já validado da
    migração — `scripts/migracao/parsing.py`/`mapeamento.py`/
@@ -67,15 +83,15 @@ existe — o diretório de uploads é por sessão.
    Use `--hoje AAAA-MM-DD` se quiser simular uma data diferente da real
    (afeta só "Compromissos Futuros" e o corte de "Todos os meses").
 
-   Use `--overrides /caminho/migracao_overrides.json` se o usuário
-   ainda tiver o arquivo de respostas da migração real (resolve
-   estrutura de custo ambígua — sem ele, default é
-   `backend/scripts/migracao_overrides.json`, que não existe nesta
-   sessão remota). Sem o arquivo certo, o script avisa no stderr
-   quantas despesas caíram em "sem_estrutura" por falta de resolução —
-   isso pode fazer o bucket "sem_estrutura" da referência não bater
-   com o bucket real que o app mostra (que já usou os overrides na
-   migração); não é bug, é falta do arquivo.
+   Se o passo 1 achou um arquivo de overrides anexado, use
+   `--overrides /root/.claude/uploads/<nome-do-arquivo>` (o caminho do
+   upload NESTA sessão, nunca um caminho do computador do usuário — a
+   sessão não alcança a máquina dele, só o que foi anexado na
+   conversa). Sem esse arquivo, o script segue rodando igual, só que
+   despesas com estrutura de custo ambígua (nem literal no CSV, nem
+   aprendida por subcategoria) caem em "sem_estrutura" em vez do bucket
+   que o usuário escolheu de verdade na migração — o script avisa isso
+   no stderr, com a contagem; não é bug, é só o arquivo faltando.
 
 3. **Confira a saída antes de reportar** — não repasse números sem
    olhar: escolha 2-3 meses e confirme contra o CSV. Receita costuma

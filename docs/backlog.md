@@ -1827,6 +1827,45 @@ despesas ambíguas caem em "sem_estrutura" e o script avisa no stderr.
 A skill `.claude/commands/financeapp-ref.md` foi atualizada com o novo
 campo e esse aviso.
 
+**Como rodar — não é o usuário quem executa o script.** A skill
+`/financeapp-ref` É o script: o usuário aciona a skill numa conversa
+(digitando `/financeapp-ref` ou só pedindo), **anexa os arquivos** (o
+CSV + opcionalmente `migracao_overrides.json`, os 2 como upload na
+própria conversa — nunca um caminho de disco, a sessão que roda o
+script não tem acesso ao computador do usuário), e é o Claude, do lado
+de dentro da sessão, que roda `backend/scripts/referencia_dashboard.py`
+com `--csv .../--overrides ...` apontando pros 2 arquivos recebidos e
+devolve o resultado na conversa. Não existe "rodar a skill" e "rodar o
+script" como 2 coisas separadas — achado 2026-10-01, a 1ª explicação
+dada ficou confusa nesse ponto.
+
+**Por que 1 item do checklist pode ficar só "meio resolvido" — exemplo
+concreto** (achado 2026-10-01, a explicação original também ficou
+confusa aqui): o item 4 da Rodada 37 pede pra confirmar "saldo/
+realizado de um bucket" — esse texto mistura 2 números que a tela de
+Estrutura de Custo/Planejamento mostra lado a lado pro mesmo bucket,
+mas que vêm de fontes completamente diferentes:
+
+- **Realizado** = quanto você gastou/investiu de verdade naquele
+  bucket naquele mês. Isso é só histórico de transação (data, valor,
+  categoria, tipo) — **existe no CSV**, e é exatamente o que
+  `realizado_por_bucket` calcula.
+- **Orçado / saldo_anterior** = quanto você *planejou* gastar naquele
+  bucket (o número que você digitou na tela de Planejamento,
+  `orcamento_mensal`) + a sobra acumulada dos meses anteriores. Isso
+  **nunca esteve no CSV** — o CSV é histórico de lançamentos reais, não
+  tem campo nenhum pra "quanto eu pretendia gastar". Esse dado só
+  existe nas tabelas `orcamentos`/`orcamento_itens` do Supabase, que a
+  tela de Planejamento escreve.
+
+Não tem como estender o script pra cobrir essa 2ª metade — não é falta
+de código, é que a fonte de dado (o CSV) nunca teve essa informação.
+Por isso um mesmo item de checklist (ex: Rodada 37 item 4) aparece
+**parcialmente** na lista "resolve" abaixo (a metade Realizado) e
+também teve a outra metade registrada como "não resolve" (Orçado/
+saldo_anterior) — não é number duplicado nem contradição, é o mesmo
+item do checklist partido nas 2 metades que ele de fato cobre.
+
 **O que a skill resolve** (realizado, derivado 100% do CSV):
 
 1. Rodada 35, item 1 / Rodada 37, item 2 — Caixinhas/Patrimônio
@@ -1838,16 +1877,16 @@ campo e esse aviso.
    intervalo escolhido) contra os totais de receita/despesa/resultado
    da tela.
 3. Rodada 35, item 3 / Rodada 37, item 4 — Estrutura de Custo/
-   Planejamento, **só a coluna Realizado**: `realizado_por_bucket` de
-   1-2 meses contra o "Realizado" que a tela mostra pra esses meses.
+   Planejamento, **só a metade Realizado** (ver exemplo acima):
+   `realizado_por_bucket` de 1-2 meses contra o "Realizado" que a tela
+   mostra pra esses meses.
 
 **O que a skill NÃO resolve** (não existe no CSV, só no Supabase):
 
-4. A coluna Orçado, o teto por bucket (`receita_base ×
-   percentual_geral% × limite_bucket%`) e a cadeia de `saldo_anterior`
-   do modo envelope — são configuração que o usuário digita no
-   Planejamento, nunca estiveram no histórico migrado. Verificação
-   manual (ver pontos extras abaixo).
+4. A outra metade dos itens 35.3/37.4 acima — a coluna Orçado, o teto
+   por bucket (`receita_base × percentual_geral% × limite_bucket%`) e
+   a cadeia de `saldo_anterior` do modo envelope (ver exemplo acima).
+   Verificação manual (ver pontos extras abaixo).
 5. Rodada 41, item 3 (itens do mês novo saem com o mesmo orçado do mês
    anterior, categoria sem item aparece em R$ 0,00) — mesmo motivo do
    item 4, é 100% dado de configuração copiado entre orçamentos.
