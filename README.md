@@ -190,11 +190,13 @@ PWA com backend hospedado (Render) e banco Supabase.
   Lançamento). Telas com dados reais: Dashboard (KPIs do mês + gráfico de
   evolução), Lançamentos (lista/busca/edição, com seção Recorrentes —
   cadastro de salário/aluguel/aporte mensal, ver "Lançamentos Recorrentes"
-  acima), Novo Lançamento, e Configurações (CRUDs de Contas/Categorias/
-  Caixinhas), e Planejamento
-  (configuração do orçamento por mês — renda, % por bucket, itens reativos
-  a partir dos lançamentos, modo envelope). Estruturas de Custo ainda é
-  placeholder — próxima tela da fila (motor já pronto no backend).
+  acima), Novo Lançamento, Configurações (CRUDs de Contas/Categorias/
+  Caixinhas), Planejamento (configuração do orçamento por mês — renda, %
+  por bucket, itens reativos a partir dos lançamentos, modo envelope,
+  acordeão de 2 níveis bucket→categoria→subcategoria), Estrutura de Custo
+  (orçado×realizado do mês, acordeão com o mesmo padrão de Planejamento,
+  pool de despesas/piso de investimentos, drill-down pra Busca de
+  Lançamentos) e Gráficos (Pareto de despesas, tendência orçado×realizado).
   Decisões de escopo e changelog tela a tela em
   `docs/changelog-proposta-original-do-redesign.md`. Detalhes técnicos em
   `frontend/README.md`.

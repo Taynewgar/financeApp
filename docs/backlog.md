@@ -36,10 +36,6 @@ perdido em volta de itens concluídos).
 
 **Pendente:**
 
-- **9.** **Migração de dados do app antigo** (detalhe abaixo) —
-  registrada 2026-09-24. Passo do MVP original que ficou de fora do
-  backlog quando ele foi consolidado em arquivo próprio (2026-09-15);
-  ver detalhe abaixo pro porquê.
 - **10.** Exportação de relatório mensal/anual (detalhe abaixo) —
   próximo passo depois do MVP fechado (itens 1-8 abaixo).
 - **32.** **Melhoria geral de layout da aplicação (V2, pós-MVP)** —
@@ -89,6 +85,13 @@ perdido em volta de itens concluídos).
 - **8.** ~~Edição de compra parcelada~~ **feito 2026-09-24** — níveis 1
   (metadado) + 3 (exclusão em grupo); nível 2 (recriar o grupo) fica
   pra decisão futura (detalhe abaixo).
+- **9.** ~~Migração de dados do app antigo~~ **feito e executado
+  2026-09-25** — script (`backend/scripts/migrar_dados_antigos.py`) +
+  47 testes offline; rodado contra os dados reais pelo usuário (1.862
+  lançamentos migrados). Reconciliação pós-migração apontou divergência
+  em 9 meses por colisão de `hash_dedup` em transações reais idênticas
+  — corrigido no mesmo dia. Detalhe na subseção própria abaixo, ver
+  changelog Rodadas 33 e 34.
 - **11.** ~~Compromissos futuros no Dashboard~~ **feito por completo
   2026-09-22** — parcelas futuras (2026-09-13) + despesa fixa
   recorrente (item 7, 2026-09-22).

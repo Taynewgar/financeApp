@@ -78,8 +78,11 @@ PWA em React + Vite + TypeScript, consumindo a API do `backend/`.
   (`RecorrentesSection` — cadastro de salário/aluguel/aporte mensal,
   decidido 2026-09-24 sair de Configurações pra aqui, ver `docs/
   backlog.md` item 14/changelog Rodada 25); `EditarLancamento` edita um
-  lançamento à vista existente; Planejamento e Estruturas de Custo ainda
-  são placeholders.
+  lançamento à vista existente; `Planejamento` é o orçamento mensal
+  (modo envelope, acordeão bucket→categoria→subcategoria);
+  `EstruturaCusto` compara orçado×realizado do mês (mesmo padrão de
+  acordeão, pool de despesas/piso de investimentos); `Graficos` tem
+  Pareto de despesas e tendência orçado×realizado.
 - `src/routes/configuracoes/` — uma seção por aba de Configurações
   (`ContasSection`, `CategoriasSection`, `CaixinhasSection`), cada uma com
   seu próprio listar/criar/editar/ativar-desativar.
@@ -236,4 +239,7 @@ sem precisar rodar nada manualmente.
 
 ## O que falta (próximas entregas)
 
-Planejamento (orçamento) e Estruturas de Custo ainda são placeholders.
+Todas as telas do MVP (Dashboard, Lançamentos, Novo Lançamento,
+Configurações, Planejamento, Estrutura de Custo, Gráficos) têm dados
+reais em produção. Lista viva do que falta, por prioridade, em
+`docs/backlog.md` ("Ordem de prioridade atual").
