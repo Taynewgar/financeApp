@@ -1,12 +1,21 @@
 ---
-description: Calcula, a partir do CSV histórico, os parâmetros do Dashboard de forma independente (regra escrita do zero) — referência pra testar a aplicação real
+description: Calcula, a partir do CSV histórico, os parâmetros do Dashboard e o REALIZADO por bucket de Estrutura de Custo/Planejamento, de forma independente (regra escrita do zero) — referência pra testar a aplicação real
 ---
 
 Esta skill gera um número de referência pra cada parâmetro que o
-Dashboard mostra, calculado a partir do CSV histórico ("Lançamentos
-Calculado" do app antigo) — não do código do app, e sim de uma
-reimplementação independente da regra de negócio. Serve pra comparar
-"o que o app deveria mostrar" contra "o que o app mostra de verdade".
+Dashboard mostra, e também o **realizado por bucket** (custos fixos/
+variáveis/sazonalidades/investimentos/reservas) que Estrutura de Custo
+e Planejamento mostram — calculado a partir do CSV histórico
+("Lançamentos Calculado" do app antigo), não do código do app, e sim
+de uma reimplementação independente da regra de negócio. Serve pra
+comparar "o que o app deveria mostrar" contra "o que o app mostra de
+verdade".
+
+**Não cobre o lado ORÇADO** (teto por bucket, `orcamento_mensal` de
+cada item, `saldo_anterior` do modo envelope) — essa configuração só
+existe no Supabase, nunca no CSV histórico. Pra esses 3, a verificação
+é manual (ver "Racional de testes" em `docs/backlog.md`, item
+registrado pra depois da Rodada 40).
 
 Como o Dashboard real lê da base **já migrada** (não do CSV direto),
 essa comparação valida duas coisas ao mesmo tempo, não só uma: a regra
@@ -58,6 +67,16 @@ existe — o diretório de uploads é por sessão.
    Use `--hoje AAAA-MM-DD` se quiser simular uma data diferente da real
    (afeta só "Compromissos Futuros" e o corte de "Todos os meses").
 
+   Use `--overrides /caminho/migracao_overrides.json` se o usuário
+   ainda tiver o arquivo de respostas da migração real (resolve
+   estrutura de custo ambígua — sem ele, default é
+   `backend/scripts/migracao_overrides.json`, que não existe nesta
+   sessão remota). Sem o arquivo certo, o script avisa no stderr
+   quantas despesas caíram em "sem_estrutura" por falta de resolução —
+   isso pode fazer o bucket "sem_estrutura" da referência não bater
+   com o bucket real que o app mostra (que já usou os overrides na
+   migração); não é bug, é falta do arquivo.
+
 3. **Confira a saída antes de reportar** — não repasse números sem
    olhar: escolha 2-3 meses e confirme contra o CSV. Receita costuma
    bater numa soma simples (filtrar `Movimentação == "Receita"` do
@@ -108,6 +127,11 @@ existe — o diretório de uploads é por sessão.
      fluxo de caixa, resultado saúde, taxa de poupança, reservas,
      investimentos.
    - Quantidade de compromissos futuros.
+   - Se o usuário também quiser validar Estrutura de Custo/Planejamento
+     (ver "Racional de testes" em `docs/backlog.md`): `realizado_por_
+     bucket` de 1-2 meses, comparado contra o "Realizado" que a tela
+     real mostra pra esses mesmos meses — deixe claro que só o
+     Realizado está sendo validado, não o Orçado/saldo_anterior.
    - Link do artifact, se foi gerado (passo 5).
    - Limitações conhecidas (seção abaixo) relevantes pro que foi
      reportado.
@@ -129,3 +153,11 @@ existe — o diretório de uploads é por sessão.
 - Dezembro/2025 (ou o que for o primeiro mês do CSV) costuma ser
   parcial — taxa de poupança pode sair com valor extremo (denominador
   perto de zero). Esperado, não é bug.
+- `realizado_por_bucket` só reflete despesa/aplicação/retirada — não
+  valida o lado orçado nem `saldo_anterior` (ver aviso no topo deste
+  arquivo). Sem `--overrides` certo, "sem_estrutura" pode vir maior
+  aqui do que no app real.
+- Qualquer transação lançada direto no app (recorrente confirmado,
+  reserva/investimento, edição de categoria depois da migração) não
+  está no CSV — mesma limitação geral já descrita acima pros outros
+  parâmetros, vale igual pro realizado por bucket.

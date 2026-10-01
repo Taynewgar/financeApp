@@ -1,27 +1,48 @@
 """Calcula, a partir do CSV histórico ("Lançamentos Calculado"), os
 mesmos parâmetros que o Dashboard do app mostra — pra servir de
 referência independente na hora de testar a aplicação de verdade.
+Desde 2026-10-01 também calcula o REALIZADO por bucket (Estrutura de
+Custo/Planejamento) — ver "Limitação importante" abaixo.
 
 Importante: os cálculos aqui são uma reimplementação DELIBERADAMENTE
 independente das regras de negócio (fluxo de caixa vs saúde financeira,
-reserva vs investimento, etc. — ver README.md/docs/backlog.md pro
-racional de cada uma), não uma cópia do código de
-`app/services/resumo_financeiro.py` ou dos routers. O objetivo é ter um
-segundo cálculo, feito do zero a partir da regra escrita, pra comparar
-contra o que a aplicação responde de verdade — se os dois baterem, tanto
-a regra quanto a implementação estão alinhadas; se não baterem, aponta
-pra revisar um dos dois lados.
+reserva vs investimento, bucket de estrutura de custo, etc. — ver
+README.md/docs/backlog.md pro racional de cada uma), não uma cópia do
+código de `app/services/resumo_financeiro.py`,
+`app/routers/estrutura_custo.py` ou dos demais routers. O objetivo é
+ter um segundo cálculo, feito do zero a partir da regra escrita, pra
+comparar contra o que a aplicação responde de verdade — se os dois
+baterem, tanto a regra quanto a implementação estão alinhadas; se não
+baterem, aponta pra revisar um dos dois lados.
 
-Reaproveita só a camada de PARSING do CSV (scripts/migracao/parsing.py,
-mapeamento.py, parcelas.py) — já validada durante a migração real
-(reconciliação bateu, ver docs/backlog.md) — porque "ler a linha do CSV
-corretamente" não é a regra de negócio que este script quer
-conferir, é só leitura de dado.
+Reaproveita só a camada de PARSING/interpretação do CSV
+(scripts/migracao/parsing.py, mapeamento.py, parcelas.py, overrides.py)
+— já validada durante a migração real (reconciliação bateu, ver
+docs/backlog.md) — porque "ler a linha do CSV corretamente" (incluindo
+resolver qual bucket de estrutura de custo uma linha de despesa tinha)
+não é a regra de negócio que este script quer conferir, é só leitura de
+dado. A regra de NEGÓCIO (como agregar isso em "realizado por bucket",
+com que sinal cada tipo de movimento entra) é reimplementada aqui do
+zero, à parte.
+
+**Limitação importante — o que este script NÃO consegue validar:**
+ele só calcula o lado REALIZADO (o que de fato foi gasto/investido,
+derivado 100% do histórico de transações do CSV). O lado ORÇADO —
+teto por bucket (`receita_base × percentual_geral% × limite_bucket%`),
+`orcamento_mensal` de cada item, e a cadeia de `saldo_anterior` do
+modo envelope — não existe no CSV histórico: é configuração que o
+usuário digita direto no Planejamento do app (vive só no Supabase).
+Então este script serve pra conferir a coluna "Realizado" de Estrutura
+de Custo/Planejamento, não a coluna "Orçado" nem o `saldo_anterior`
+acumulado — essas duas precisam de verificação manual (ver
+`docs/backlog.md`, item relacionado ao racional de testes com esta
+skill).
 
 Não lê nem grava nenhum arquivo do repositório além do CSV passado por
---csv (o CSV em si é dado financeiro pessoal e nunca deve ser commitado
-— ver `docs/backlog.md`, "Migração de dados do app antigo"). A saída
-(JSON) também não deve ser commitada — é resultado, não código.
+--csv e, opcionalmente, do arquivo de overrides de estrutura de custo
+(ambos dado financeiro pessoal, nunca devem ser commitados — ver
+`docs/backlog.md`, "Migração de dados do app antigo"). A saída (JSON)
+também não deve ser commitada — é resultado, não código.
 
 Uso:
     cd backend
@@ -31,6 +52,17 @@ Uso:
 Opções:
     --hoje AAAA-MM-DD   data de referência pra "Compromissos Futuros"
                         (default: hoje real do sistema)
+    --overrides CAMINHO arquivo de respostas da estrutura de custo
+                        ambígua (mesmo formato/arquivo usado na migração
+                        real, `scripts/migracao_overrides.json` por
+                        padrão, se existir). Sem ele, despesas cuja
+                        estrutura de custo não vinha no CSV nem tinha
+                        um valor único aprendido por subcategoria caem
+                        em "sem_estrutura" na referência, mesmo que o
+                        app real (que usou os overrides na migração)
+                        mostre um bucket concreto pra elas — isso
+                        aparece num aviso no stderr, não é bug do
+                        script.
 """
 from __future__ import annotations
 
@@ -40,11 +72,44 @@ import sys
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import date
+from pathlib import Path
 
 sys.path.insert(0, ".")
-from scripts.migracao.mapeamento import resolver_tipo_movimento, resolver_valor  # noqa: E402
+from scripts.migracao.mapeamento import (  # noqa: E402
+    aprender_estrutura_custo_por_subcategoria,
+    resolver_estrutura_custo,
+    resolver_tipo_movimento,
+    resolver_valor,
+)
+from scripts.migracao.overrides import CAMINHO_PADRAO as CAMINHO_OVERRIDES_PADRAO  # noqa: E402
+from scripts.migracao.overrides import carregar as carregar_overrides  # noqa: E402
+from scripts.migracao.overrides import chave_linha  # noqa: E402
 from scripts.migracao.parcelas import agrupar_parcelas  # noqa: E402
 from scripts.migracao.parsing import Lancamento, carregar_lancamentos  # noqa: E402
+
+# mesmo vocabulário de bucket de app/routers/estrutura_custo.py — a
+# aplicação/retirada decide o bucket pela presença de caixinha, nunca
+# por `estrutura_custo` (esse campo só importa pra despesa)
+_BUCKET_POR_ESTRUTURA_CUSTO: dict[str, str] = {
+    "fixo": "custos_fixos",
+    "variavel": "custos_variaveis",
+    "sazonal": "sazonalidades",
+}
+_BUCKETS_ESTRUTURA_CUSTO = (
+    "custos_fixos",
+    "custos_variaveis",
+    "sazonalidades",
+    "investimentos",
+    "reservas",
+    "sem_estrutura",
+)
+_SINAL_REALIZADO_ESTRUTURA_CUSTO: dict[str, int] = {
+    "despesa": 1,
+    "estorno": -1,
+    "ressarcimento": -1,
+    "aplicacao": 1,
+    "retirada": -1,
+}
 
 
 @dataclass
@@ -62,10 +127,42 @@ class Movimento:
     # específica (o CSV antigo não guardava esse vínculo) — todo ajuste
     # migrado é "solto". Ver docs/backlog.md.
     tem_ajuste_vinculado: bool = False
+    # só preenchido pra despesa — aplicação/retirada decide o bucket pela
+    # caixinha, nunca por isso (ver _BUCKET_POR_ESTRUTURA_CUSTO). `None` =
+    # despesa sem estrutura resolvida (nem literal do CSV, nem aprendida
+    # por subcategoria, nem em overrides) — vira bucket "sem_estrutura".
+    estrutura_custo: str | None = None
 
     @property
     def tem_caixinha(self) -> bool:
         return bool(self.caixinha)
+
+
+def bucket_da_transacao(m: Movimento) -> str:
+    """Mesma regra de app/routers/estrutura_custo.py::_bucket_da_transacao
+    — reimplementada do zero, não importada de lá."""
+    if m.tipo_movimento in ("aplicacao", "retirada"):
+        return "reservas" if m.tem_caixinha else "investimentos"
+    if m.estrutura_custo:
+        return _BUCKET_POR_ESTRUTURA_CUSTO[m.estrutura_custo]
+    return "sem_estrutura"
+
+
+def realizado_por_bucket_e_mes(movimentos: list[Movimento]) -> dict[str, dict[str, float]]:
+    """Soma de sinal×valor por bucket, por mês — mesma regra de
+    app/routers/estrutura_custo.py::_agregar_estrutura_custo (sem o lado
+    orçado, que não existe no CSV — ver limitação no topo do arquivo).
+    Receita não entra em bucket nenhum (mesmo filtro do app real)."""
+    totais: dict[date, dict[str, float]] = defaultdict(lambda: defaultdict(float))
+    for m in movimentos:
+        if m.tipo_movimento == "receita":
+            continue
+        sinal = _SINAL_REALIZADO_ESTRUTURA_CUSTO.get(m.tipo_movimento, 0)
+        totais[_mes(m.data)][bucket_da_transacao(m)] += sinal * m.valor
+    return {
+        mes.isoformat(): {b: round(buckets.get(b, 0.0), 2) for b in _BUCKETS_ESTRUTURA_CUSTO}
+        for mes, buckets in totais.items()
+    }
 
 
 def _mes(d: date) -> date:
@@ -77,10 +174,18 @@ def _somar_mes(d: date, n: int) -> date:
     return date(mes_total // 12, mes_total % 12 + 1, 1)
 
 
-def traduzir(lancamentos: list[Lancamento]) -> list[Movimento]:
+def traduzir(lancamentos: list[Lancamento], overrides: dict[str, str | None] | None = None) -> list[Movimento]:
+    """`overrides` (opcional) é o mesmo arquivo usado na migração real
+    pra resolver estrutura de custo ambígua — sem ele, linhas ambíguas
+    ficam com `estrutura_custo=None` (bucket "sem_estrutura" na
+    referência, mesmo que o app real já tenha resolvido via override na
+    migração — ver aviso impresso por `main()`)."""
+    overrides = overrides or {}
+    aprendido = aprender_estrutura_custo_por_subcategoria(lancamentos)
     movimentos = []
     for l in lancamentos:
         tipo = resolver_tipo_movimento(l.movimentacao, l.tipo_pag_movimento)
+        estrutura_custo = resolver_estrutura_custo(l, aprendido, overrides, chave_linha(l))
         movimentos.append(
             Movimento(
                 data=l.data,
@@ -88,6 +193,7 @@ def traduzir(lancamentos: list[Lancamento]) -> list[Movimento]:
                 tipo_movimento=tipo,
                 categoria=l.categoria,
                 caixinha=l.caixinha.strip(),
+                estrutura_custo=estrutura_custo,
             )
         )
     return movimentos
@@ -257,6 +363,15 @@ def montar_referencia(movimentos: list[Movimento]) -> dict:
     for chave_mes, saldos in caixinhas_por_mes.items():
         meses_saida[chave_mes]["patrimonio_caixinhas"] = saldos
 
+    # realizado por bucket (Estrutura de Custo/Planejamento) — só o lado
+    # realizado, ver limitação no topo do arquivo (orçado/saldo_anterior
+    # não existem no CSV)
+    realizado_bucket_por_mes = realizado_por_bucket_e_mes(movimentos)
+    for chave_mes in meses_saida:
+        meses_saida[chave_mes]["realizado_por_bucket"] = realizado_bucket_por_mes.get(
+            chave_mes, dict.fromkeys(_BUCKETS_ESTRUTURA_CUSTO, 0.0)
+        )
+
     return {
         "meses": meses_saida,
         "primeiro_mes": primeiro_mes.isoformat(),
@@ -294,12 +409,35 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--csv", required=True, help="Caminho do CSV 'Lançamentos Calculado'")
     parser.add_argument("--hoje", default=None, help="AAAA-MM-DD — default: hoje real")
+    parser.add_argument(
+        "--overrides",
+        default=str(CAMINHO_OVERRIDES_PADRAO),
+        help=(
+            "Caminho do arquivo de overrides de estrutura de custo "
+            f"(default: {CAMINHO_OVERRIDES_PADRAO}, mesmo usado na migração real; "
+            "se não existir, segue sem — ver aviso no stderr)"
+        ),
+    )
     args = parser.parse_args()
 
     hoje = date.fromisoformat(args.hoje) if args.hoje else date.today()
 
     lancamentos, puladas = carregar_lancamentos(args.csv)
-    movimentos = traduzir(lancamentos)
+    overrides = carregar_overrides(Path(args.overrides))
+    movimentos = traduzir(lancamentos, overrides)
+
+    despesas_sem_estrutura = sum(
+        1 for m in movimentos if m.tipo_movimento == "despesa" and m.estrutura_custo is None
+    )
+    if despesas_sem_estrutura:
+        print(
+            f"[aviso] {despesas_sem_estrutura} despesa(s) sem estrutura de custo resolvida "
+            f"(nem literal, nem aprendida, nem em '{args.overrides}') — entram como "
+            "'sem_estrutura' na referência, mas o app real pode já ter resolvido isso via "
+            "overrides na migração. Passe --overrides com o arquivo correto se a comparação "
+            "não bater nesse bucket.",
+            file=sys.stderr,
+        )
 
     referencia = montar_referencia(movimentos)
     referencia["linhas_csv_ignoradas"] = len(puladas)

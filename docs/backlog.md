@@ -205,6 +205,11 @@ changelog já documenta quando e como cada um foi entregue).
   *(trazido em CSV, 2026-09-30)*
 - **50.** **Fuso horário da aplicação para Brasília/SP** `tipo: Melhoria`
   — hoje não está fixado nesse fuso. *(trazido em CSV, 2026-09-30)*
+- **63.** **Racional de testes com `/financeapp-ref`** (detalhe abaixo)
+  `tipo: Validação` — roteiro consolidando as pendências de checklist
+  (Rodadas 35-37) que a skill resolve, as que ela não resolve, e os
+  pontos de cálculo que merecem atenção extra. **Fila: só depois do
+  usuário verificar a Rodada 40.** *(2026-10-01)*
 
 **Baixa**
 
@@ -1797,6 +1802,102 @@ de um grupo ainda fechado).
 **Status:** implementado 2026-09-30. Sem QA visual via Playwright —
 mesma limitação de sempre (sem `backend/.env` com credenciais reais do
 Supabase nesta sessão remota). Ver changelog Rodada 39.
+
+### Racional de testes com `/financeapp-ref`
+
+**Origem:** o usuário vinha testando os checklists manuais das Rodadas
+35-41 e bateu em vários itens que não tinha mais como verificar de
+memória (não lembra os valores antigos pra comparar). Perguntou se
+dava pra usar a skill `/financeapp-ref` pra esses casos — resposta:
+parcial, e esta seção organiza exatamente o que ela cobre, o que não
+cobre, e o que merece atenção extra. **Fila: só entrar nisso depois do
+usuário terminar de verificar a Rodada 40** (ordem pedida
+explicitamente).
+
+**Extensão feita em 2026-10-01:** `backend/scripts/referencia_dashboard.py`
+ganhou `realizado_por_bucket` (por mês) — reimplementação independente
+de `app/routers/estrutura_custo.py::_bucket_da_transacao`/
+`_SINAL_REALIZADO`, reaproveitando só a camada de parsing/interpretação
+do CSV já existente (`scripts/migracao/mapeamento.py::
+resolver_estrutura_custo`, com os mesmos 3 níveis de resolução da
+migração real: literal → aprendido por subcategoria → override salvo).
+Novo argumento `--overrides` aceita o mesmo arquivo usado na migração
+real (default `backend/scripts/migracao_overrides.json`); sem ele,
+despesas ambíguas caem em "sem_estrutura" e o script avisa no stderr.
+A skill `.claude/commands/financeapp-ref.md` foi atualizada com o novo
+campo e esse aviso.
+
+**O que a skill resolve** (realizado, derivado 100% do CSV):
+
+1. Rodada 35, item 1 / Rodada 37, item 2 — Caixinhas/Patrimônio
+   batendo com a coluna "Guardado": `patrimonio_caixinhas` do JSON, por
+   mês, contra o que a tela mostra (mesmo cálculo nas duas rodadas, a
+   única mudança entre elas foi a fonte virar RPC).
+2. Rodada 35, item 2 / Rodada 37, item 3 — Dashboard "Todos os
+   meses"/Intervalo: `todos_os_meses_ate_hoje` (ou a soma dos meses do
+   intervalo escolhido) contra os totais de receita/despesa/resultado
+   da tela.
+3. Rodada 35, item 3 / Rodada 37, item 4 — Estrutura de Custo/
+   Planejamento, **só a coluna Realizado**: `realizado_por_bucket` de
+   1-2 meses contra o "Realizado" que a tela mostra pra esses meses.
+
+**O que a skill NÃO resolve** (não existe no CSV, só no Supabase):
+
+4. A coluna Orçado, o teto por bucket (`receita_base ×
+   percentual_geral% × limite_bucket%`) e a cadeia de `saldo_anterior`
+   do modo envelope — são configuração que o usuário digita no
+   Planejamento, nunca estiveram no histórico migrado. Verificação
+   manual (ver pontos extras abaixo).
+5. Rodada 41, item 3 (itens do mês novo saem com o mesmo orçado do mês
+   anterior, categoria sem item aparece em R$ 0,00) — mesmo motivo do
+   item 4, é 100% dado de configuração copiado entre orçamentos.
+6. Rodada 36, itens 3-4 (card de Compromissos Futuros sem descrição/
+   botões de recorrente) — não é cálculo numérico, é layout/UI; fora
+   do escopo desta skill, resolver junto da Rodada 40 como já decidido.
+
+**Pontos extras que merecem atenção** (sugestão, não pedido original —
+pra fechar a lacuna que a skill deixa no lado orçado):
+
+a. **Cadeia de `saldo_anterior`** — é o cálculo mais complexo do app e
+   não dá pra validar pelo CSV. Sugestão de teste manual dirigido, uma
+   vez só: escolher 1 bucket com ≥3 meses de histórico e confirmar à
+   mão, mês a mês, que `saldo_anterior(mês) = orcamento_mensal(mês−1)
+   + saldo_anterior(mês−1) − realizado(mês−1)`. Bater em 3 meses
+   seguidos já dá confiança alta na recursão inteira (se o padrão
+   vale pra 1 passo, vale pra N).
+b. **Pool de despesas / piso de investimentos** (`dentro_do_teto`/
+   `meta_batida`) — mesma limitação do item a. Sugestão: escolher 1 mês
+   em que o usuário sabe que estourou ou bateu a meta de propósito, e
+   confirmar à mão que o veredito mostrado bate com a conta manual do
+   teto efetivo (teto puro + saldo_anterior acumulado do bucket).
+c. **`hash_dedup` colidindo em transações reais idênticas** (item 35
+   deste backlog) — não é cálculo, é perda silenciosa de dado; na
+   próxima vez que lançar 2 despesas reais idênticas (mesma data/
+   valor/descrição/conta/tipo) no mesmo dia, confirmar que a 2ª
+   realmente aparece — hoje é um 409 que o frontend não trata, e o bug
+   nunca foi reproduzido ao vivo, só em teste automatizado.
+d. **Reserva com caixinha, depois do fix da Rodada 40** — depois de
+   confirmar um recorrente de aplicação/retirada com caixinha,
+   cross-check com `/financeapp-ref`: como essa transação é nova (não
+   existe no CSV histórico), comparar à mão: saldo da caixinha antes
+   do aporte/resgate (já validado pelo item 1 acima) + o valor do
+   aporte/resgate = saldo mostrado depois na tela.
+e. **"sem_estrutura" inesperado** — a migração real fechou com 0
+   pendências de estrutura de custo (ver "Migração de dados do app
+   antigo" acima), então nenhuma despesa migrada deveria cair em
+   "sem_estrutura" na referência (com `--overrides` certo). Se aparecer
+   um valor != 0 mesmo assim, é sinal de uma despesa lançada DIRETO no
+   app sem estrutura de custo preenchida — o que não devia ser
+   possível (`estrutura_custo` é campo obrigatório pra despesa,
+   `_check_campos_obrigatorios` em `transacoes.py`). Um "sem_estrutura"
+   positivo aqui é, na prática, um jeito indireto de pegar um bug de
+   validação que não está exigindo o campo de verdade em algum
+   caminho (ex: `PATCH` deixando um despesa sem o campo).
+
+**Status:** registrado 2026-10-01, prioridade média, na fila pra depois
+da Rodada 40 (ordem pedida pelo usuário). Extensão do script já
+implementada e testada manualmente (CSV sintético, ver commit); nenhum
+dos itens 1-6 foi efetivamente rodado ainda.
 
 ---
 
