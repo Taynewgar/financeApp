@@ -4076,3 +4076,42 @@ visual via Playwright — mesma limitação de sempre.
 - [ ] Selecionar um mês do ano em curso com "Ano civil" ligado e
       confirmar que meses futuros daquele ano aparecem zerados no
       gráfico, sem erro.
+
+### Rodada 46 (2026-10-02) — Fix: compra parcelada sem proteção contra double-submit (item 68)
+
+Achado testando o checklist da Rodada 44 (item 5): diferente do
+lançamento avista, uma compra parcelada idêntica nunca dava 409 —
+`hash_dedup` de cada parcela inclui `compra_parcelada_id`, gerado novo
+a cada `POST /transacoes/parceladas`, então 2 submissões idênticas
+(ex: duplo clique) nunca colidem e criam 2 grupos de parcela inteiros
+duplicados, silenciosamente. Oposto do item 35 (que bloqueava demais).
+Detalhe completo em `docs/backlog.md` ("Compra parcelada não tem
+proteção real contra double-submit") — aqui só o resumo.
+
+**Fix:** `_existe_compra_parcelada_igual()` (`backend/app/routers/
+transacoes.py`) checa ANTES de criar o grupo — acha a 1ª parcela
+(sempre existe) com mesma descrição/data/conta do payload, confirma
+valor_total/parcela_total no cabeçalho do grupo dela. Achou → 409, a
+menos que `forcar_duplicado=true` (mesmo flag do item 35, agora também
+em `CompraParceladaCreate`). `NovoLancamento.tsx`: botão "Lançar mesmo
+assim" (do item 35) passou a cobrir o caminho parcelado também.
+
+**Testes:** 2 testes novos. Suíte completa: 370 passed, 33 skipped.
+Frontend: `tsc -b && vite build` + `oxlint` — sem erro, sem warning
+novo.
+
+**Status:** implementado 2026-10-02. Sem QA visual via Playwright —
+mesma limitação de sempre.
+
+**Checklist de teste manual (usuário, localmente):**
+- [ ] Lançar uma compra parcelada (ex: "Celular", R$1200 em 12x) e, em
+      seguida, lançar outra IDÊNTICA (mesma descrição, valor total,
+      parcelas, data da 1ª parcela, conta) — confirmar 409 + botão
+      "Lançar mesmo assim".
+- [ ] Clicar em "Lançar mesmo assim" e confirmar que o 2º grupo de
+      parcelas é criado normalmente (12 parcelas novas, grupo distinto
+      do 1º).
+- [ ] Mudar só o valor total (ou só o nº de parcelas) antes de
+      reenviar e confirmar que NÃO dá 409 — lança normal.
+- [ ] Confirmar que compra parcelada "normal" (sem nenhuma duplicata
+      por perto) continua funcionando sem pedir confirmação nenhuma.

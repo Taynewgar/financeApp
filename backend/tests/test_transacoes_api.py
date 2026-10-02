@@ -798,6 +798,55 @@ def test_compra_parcelada_gera_uma_transacao_por_ciclo(client):
     assert round(sum(p["valor"] for p in parcelas), 2) == 300.00
 
 
+def test_compra_parcelada_identica_retorna_409_e_forcar_aceita(client):
+    """Item 68 — hash_dedup de cada parcela inclui compra_parcelada_id
+    (gerado novo a cada chamada), então NUNCA detectava double-submit
+    aqui, diferente do lançamento avista. Checagem em nível de aplicação
+    (_existe_compra_parcelada_igual) cobre o caso comum: mesma
+    descrição/valor total/parcelas/data da 1ª parcela/conta."""
+    cartao = _criar_conta_cartao(client)
+    categoria = client.post("/categorias", json={"nome": "Categoria Teste"}).json()
+    payload = {
+        "descricao": "Notebook",
+        "valor_total": 300.00,
+        "parcela_total": 3,
+        "data_primeira_parcela": "2026-08-05",
+        "conta_id": cartao["id"],
+        "categoria_id": categoria["id"],
+        "estrutura_custo": "variavel",
+        "meio_pagamento": "cartao_credito",
+    }
+
+    primeira = client.post("/transacoes/parceladas", json=payload)
+    assert primeira.status_code == 201
+
+    sem_forcar = client.post("/transacoes/parceladas", json=payload)
+    assert sem_forcar.status_code == 409
+
+    com_forcar = client.post("/transacoes/parceladas", json={**payload, "forcar_duplicado": True})
+    assert com_forcar.status_code == 201
+    assert com_forcar.json()[0]["compra_parcelada_id"] != primeira.json()[0]["compra_parcelada_id"]
+
+
+def test_compra_parcelada_com_valor_total_diferente_nao_e_bloqueada(client):
+    cartao = _criar_conta_cartao(client)
+    categoria = client.post("/categorias", json={"nome": "Categoria Teste"}).json()
+    base = {
+        "descricao": "Notebook",
+        "parcela_total": 3,
+        "data_primeira_parcela": "2026-08-05",
+        "conta_id": cartao["id"],
+        "categoria_id": categoria["id"],
+        "estrutura_custo": "variavel",
+        "meio_pagamento": "cartao_credito",
+    }
+
+    primeira = client.post("/transacoes/parceladas", json={**base, "valor_total": 300.00})
+    segunda = client.post("/transacoes/parceladas", json={**base, "valor_total": 450.00})
+    assert primeira.status_code == 201
+    assert segunda.status_code == 201
+
+
 def test_compra_parcelada_calcula_fatura_de_cada_parcela(client):
     cartao = _criar_conta_cartao(client, dia_fechamento=8)
     categoria = client.post("/categorias", json={"nome": "Categoria Teste"}).json()

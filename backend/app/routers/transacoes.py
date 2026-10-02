@@ -343,6 +343,34 @@ def criar(payload: TransacaoCreate, db: Client = Depends(get_db), user_id: str =
     return criada
 
 
+def _existe_compra_parcelada_igual(db: Client, user_id: str, payload: CompraParceladaCreate) -> bool:
+    """hash_dedup de cada parcela inclui compra_parcelada_id — gerado
+    novo a cada chamada, então nunca detecta double-submit aqui (achado
+    2026-10-02, item 68). Checagem em nível de aplicação, ANTES de criar
+    o grupo (evita header fantasma em compras_parceladas quando bloqueia):
+    acha a 1ª parcela (sempre existe) com a mesma descrição/data/conta,
+    depois confirma valor_total/parcela_total no cabeçalho do grupo dela.
+    Não é uma constraint de banco (sem coluna nova em compras_parceladas,
+    que não guarda conta/data) — suficiente pra pegar double-submit real
+    (mesmo clique, mesmo payload), não uma garantia de unicidade total."""
+    primeiras_parcelas = (
+        db.table(TABLE)
+        .select("compra_parcelada_id")
+        .eq("user_id", user_id)
+        .eq("parcela_atual", 1)
+        .eq("data_compra", payload.data_primeira_parcela.isoformat())
+        .eq("conta_id", payload.conta_id)
+        .eq("descricao", payload.descricao)
+        .execute()
+        .data
+    )
+    ids_candidatos = [p["compra_parcelada_id"] for p in primeiras_parcelas if p.get("compra_parcelada_id")]
+    if not ids_candidatos:
+        return False
+    grupos = db.table("compras_parceladas").select("valor_total,parcela_total").in_("id", ids_candidatos).execute().data
+    return any(g["valor_total"] == payload.valor_total and g["parcela_total"] == payload.parcela_total for g in grupos)
+
+
 @router.post("/parceladas", response_model=list[Transacao], status_code=201)
 def criar_parcelada(
     payload: CompraParceladaCreate,
@@ -354,6 +382,12 @@ def criar_parcelada(
     _check_refs(db, user_id, payload.conta_id, payload.categoria_id, payload.subcategoria_id)
     _check_regras_tipo_movimento(db, user_id, "despesa", payload.categoria_id, None)
     _check_campos_obrigatorios("despesa", payload.categoria_id, payload.estrutura_custo, payload.meio_pagamento, None)
+    if not payload.forcar_duplicado and _existe_compra_parcelada_igual(db, user_id, payload):
+        raise HTTPException(
+            status_code=409,
+            detail="Já existe uma compra parcelada idêntica (mesma descrição, valor total, nº de parcelas, "
+            "data da 1ª parcela e conta).",
+        )
 
     grupo = (
         db.table("compras_parceladas")

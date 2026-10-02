@@ -103,13 +103,6 @@ changelog já documenta quando e como cada um foi entregue).
 
 **Baixa**
 
-- **68.** **Compra parcelada não tem proteção real contra double-submit**
-  `tipo: Bug` (detalhe abaixo) — achado testando a Rodada 44
-  (2026-10-02): `hash_dedup` de cada parcela inclui `compra_parcelada_id`,
-  que é gerado novo a cada `POST /transacoes/parceladas` — 2 submissões
-  idênticas (ex: duplo clique) nunca colidem, e criam 2 grupos de
-  parcela inteiros duplicados silenciosamente. Diferente do item 35
-  (que bloqueava demais): aqui não bloqueia o suficiente. *(2026-10-02)*
 - **58.** **Marcador de origem caixinha** `tipo: Melhoria` — um
   marcador pra indicar, na lista de lançamentos, uma transação cuja
   origem é retirada de caixinha — facilita identificar uma compra/gasto
@@ -440,6 +433,12 @@ já documenta quando e como cada um foi entregue.
   "Ano civil" pra quem quiser essa leitura sem trocar pro modo
   Intervalo. Detalhe na subseção própria abaixo, ver changelog Rodada
   45.
+- **68.** ~~Compra parcelada não tem proteção real contra
+  double-submit~~ **feito 2026-10-02** — checagem em nível de
+  aplicação antes de criar o grupo (`_existe_compra_parcelada_igual`),
+  com `forcar_duplicado` pro caso de 2 compras reais e diferentes
+  coincidirem. Detalhe na subseção própria abaixo, ver changelog Rodada
+  46.
 
 Este arquivo não substitui o `README.md` da raiz (que descreve o que
 existe) nem o `/status-projeto` (relatório de andamento) — é o registro do
@@ -2099,23 +2098,34 @@ parceladas`, o problema é o inverso: não existe proteção nenhuma contra
 o caso comum (double-submit acidental), porque a chave inclui um
 identificador que nunca se repete.
 
-**Proposta (não implementada ainda — registrando pra decisão):**
-checar duplicata ANTES de criar o grupo em `compras_parceladas`, com
-uma chave baseada só no que realmente identifica "a mesma compra
-parcelada": (`descricao`, `valor_total`, `parcela_total`,
-`data_primeira_parcela`, `conta_id`, `categoria_id`,
-`subcategoria_id`). Se já existir um grupo com essa mesma chave (ex:
-checando a 1ª parcela por esses campos, já que ela sempre existe), 409
-antes de criar nada — evita o grupo fantasma em `compras_parceladas`
-que o endpoint avista não tem (lá, o `INSERT` que falha nem chega a
-gravar nada parcial). Mesmo `forcar_duplicado` do item 35 poderia valer
-aqui também, pelo mesmo motivo (2 compras parceladas reais e diferentes
-podem coincidir nesses campos).
+**Fix:** checagem em nível de aplicação, ANTES de criar o grupo em
+`compras_parceladas` — `_existe_compra_parcelada_igual()`
+(`backend/app/routers/transacoes.py`) busca a 1ª parcela (sempre
+existe) com a mesma `descricao`/`data_compra`/`conta_id` do payload, e
+confirma `valor_total`/`parcela_total` no cabeçalho do grupo dela. Achou
+→ 409 (a menos que `forcar_duplicado=true`, mesmo flag do item 35,
+adicionado em `CompraParceladaCreate`). Evita o grupo fantasma em
+`compras_parceladas` que bloquear só no `INSERT` da parcela deixaria
+pra trás (lá, o `INSERT` falho não grava nada parcial no endpoint
+avista — aqui tinha que checar antes de qualquer `INSERT`).
+Simplificação da proposta original: `categoria_id`/`subcategoria_id`
+saíram da chave de checagem (evita `.eq(coluna, None)`, sem padrão
+estabelecido no código pra isso ainda) — os 5 campos restantes já
+identificam um double-submit real com segurança suficiente, já que um
+double-submit sempre reenvia o payload idêntico em TODOS os campos, não
+só nesses 5. Frontend (`NovoLancamento.tsx`): o botão "Lançar mesmo
+assim" (já existente do item 35) passou a cobrir também o caminho
+parcelado — `montarPayloadParcelada()` extraída e reusada por
+`handleSubmit`/`handleForcarDuplicado`, igual ao padrão já usado pro
+caminho avista.
 
-**Status:** registrado 2026-10-02, acompanhando o achado da Rodada 44.
-Prioridade baixa (mesma classe de risco do item 35 original — exige
-double-submit real, não é um bug do dia a dia comum). Aguardando
-decisão sobre a proposta antes de implementar.
+**Testes:** 2 testes novos — payload idêntico dá 409 sem forçar e 201
+com `forcar_duplicado` (2 grupos distintos); `valor_total` diferente
+não é bloqueado. Suíte completa: 370 passed, 33 skipped. Frontend:
+`tsc -b && vite build` + `oxlint` — sem erro, sem warning novo.
+
+**Status:** implementado 2026-10-02. Sem QA visual via Playwright —
+mesma limitação de sempre. Ver changelog Rodada 46.
 
 ### Janela de meses pra trás × ano civil nos gráficos
 

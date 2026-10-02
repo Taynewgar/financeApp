@@ -28,11 +28,11 @@ class TransacaoCreate(BaseModel):
     meio_pagamento: MeioPagamento | None = None
     # vincula um estorno/ressarcimento à despesa original
     ajuste_de_transacao_id: str | None = None
-    # só usado por POST /transacoes, pra desambiguar um 409 de hash_dedup
-    # que o usuário confirmou ser lançamento real (não double-submit
-    # acidental) — ver _inserir_avista_com_desambiguacao no router.
-    # exclude=True: nunca entra no model_dump, então nunca vira coluna na
-    # tabela nem afeta PATCH (que reusa este mesmo schema)
+    # usado por POST/PATCH /transacoes, pra desambiguar um 409 de
+    # hash_dedup que o usuário confirmou ser lançamento real (não
+    # double-submit acidental) — ver _com_desambiguacao_de_duplicata no
+    # router. exclude=True: nunca entra no model_dump, então nunca vira
+    # coluna na tabela
     forcar_duplicado: bool = Field(default=False, exclude=True)
 
 
@@ -46,6 +46,10 @@ class CompraParceladaCreate(BaseModel):
     subcategoria_id: str | None = None
     estrutura_custo: EstruturaCusto | None = None
     meio_pagamento: MeioPagamento | None = None
+    # usado por POST /transacoes/parceladas, pra confirmar que uma compra
+    # parcelada idêntica a outra já existente é real (não double-submit)
+    # — ver _existe_compra_parcelada_igual no router (item 68)
+    forcar_duplicado: bool = Field(default=False, exclude=True)
 
 
 class ParcelaUpdate(BaseModel):

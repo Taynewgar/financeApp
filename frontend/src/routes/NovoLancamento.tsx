@@ -319,14 +319,35 @@ export function NovoLancamento() {
     }
   }
 
+  function montarPayloadParcelada(): Record<string, unknown> {
+    return {
+      descricao,
+      valor_total: Number(valorTotal),
+      parcela_total: Number(parcelaTotal),
+      data_primeira_parcela: dataPrimeiraParcela,
+      conta_id: contaId,
+      categoria_id: categoriaId || null,
+      subcategoria_id: subcategoriaId || null,
+      estrutura_custo: estruturaCusto || null,
+      meio_pagamento: meioPagamento || null,
+    }
+  }
+
   async function handleForcarDuplicado() {
     setEnviando(true)
     setErro(null)
     try {
-      await apiFetch('/transacoes', {
-        method: 'POST',
-        body: JSON.stringify({ ...montarPayloadAvista(), forcar_duplicado: true }),
-      })
+      if (tipo === 'despesa' && pagamento === 'parcelado') {
+        await apiFetch('/transacoes/parceladas', {
+          method: 'POST',
+          body: JSON.stringify({ ...montarPayloadParcelada(), forcar_duplicado: true }),
+        })
+      } else {
+        await apiFetch('/transacoes', {
+          method: 'POST',
+          body: JSON.stringify({ ...montarPayloadAvista(), forcar_duplicado: true }),
+        })
+      }
       setSucesso(true)
       setDuplicadoDetectado(false)
     } catch (e) {
@@ -376,20 +397,7 @@ export function NovoLancamento() {
         if (!descricao.trim()) {
           throw new ApiError(422, 'Descrição é obrigatória em compra parcelada.')
         }
-        await apiFetch('/transacoes/parceladas', {
-          method: 'POST',
-          body: JSON.stringify({
-            descricao,
-            valor_total: Number(valorTotal),
-            parcela_total: Number(parcelaTotal),
-            data_primeira_parcela: dataPrimeiraParcela,
-            conta_id: contaId,
-            categoria_id: categoriaId || null,
-            subcategoria_id: subcategoriaId || null,
-            estrutura_custo: estruturaCusto || null,
-            meio_pagamento: meioPagamento || null,
-          }),
-        })
+        await apiFetch('/transacoes/parceladas', { method: 'POST', body: JSON.stringify(montarPayloadParcelada()) })
       } else {
         await apiFetch('/transacoes', { method: 'POST', body: JSON.stringify(montarPayloadAvista()) })
       }
@@ -397,9 +405,7 @@ export function NovoLancamento() {
     } catch (e) {
       if (e instanceof ApiError) {
         setErro(typeof e.detail === 'string' ? e.detail : e.message)
-        // só oferece "lançar mesmo assim" no caminho avista — compra
-        // parcelada não tem esse fluxo (POST /transacoes/parceladas)
-        setDuplicadoDetectado(e.status === 409 && !(tipo === 'despesa' && pagamento === 'parcelado'))
+        setDuplicadoDetectado(e.status === 409)
       } else {
         setErro('Falha ao salvar o lançamento.')
       }
