@@ -44,6 +44,9 @@ type Folha = {
   saldoAnterior: number
   categoriaIdDrillDown: string | null
   subcategoriaIdDrillDown: string | null
+  // só preenchido pra folha do bucket "reservas" (saldo acumulado da
+  // caixinha) — null em toda folha de outro bucket
+  saldoCaixinha: number | null
 }
 
 type GrupoCategoria = {
@@ -53,6 +56,9 @@ type GrupoCategoria = {
   realizado: number
   orcamentoMensal: number
   saldoAnterior: number
+  // soma de saldoCaixinha das folhas — só tem sentido no bucket
+  // "reservas", 0 e não usado nos demais
+  saldoCaixinha: number
   folhas: Folha[]
 }
 
@@ -88,7 +94,7 @@ export function agruparPorCategoria(
   function grupo(chave: string, nome: string): GrupoCategoria {
     let g = grupos.get(chave)
     if (!g) {
-      g = { chave, nome, orcado: 0, realizado: 0, orcamentoMensal: 0, saldoAnterior: 0, folhas: [] }
+      g = { chave, nome, orcado: 0, realizado: 0, orcamentoMensal: 0, saldoAnterior: 0, saldoCaixinha: 0, folhas: [] }
       grupos.set(chave, g)
     }
     return g
@@ -116,6 +122,7 @@ export function agruparPorCategoria(
         saldoAnterior: item.saldo_anterior,
         categoriaIdDrillDown: null,
         subcategoriaIdDrillDown: null,
+        saldoCaixinha: item.saldo_caixinha,
       }
     } else if (item.subcategoria_id) {
       const sub = subcategoriasPorId.get(item.subcategoria_id)
@@ -131,6 +138,7 @@ export function agruparPorCategoria(
         saldoAnterior: item.saldo_anterior,
         categoriaIdDrillDown: sub?.categoria_id ?? null,
         subcategoriaIdDrillDown: item.subcategoria_id,
+        saldoCaixinha: null,
       }
     } else if (item.categoria_id) {
       const catNome = categoriasPorId.get(item.categoria_id)?.nome ?? 'Categoria removida'
@@ -144,6 +152,7 @@ export function agruparPorCategoria(
         saldoAnterior: item.saldo_anterior,
         categoriaIdDrillDown: item.categoria_id,
         subcategoriaIdDrillDown: null,
+        saldoCaixinha: null,
       }
     } else if (item.conta_id) {
       const contaNome = contasPorId.get(item.conta_id)?.nome ?? 'Conta removida'
@@ -157,6 +166,7 @@ export function agruparPorCategoria(
         saldoAnterior: item.saldo_anterior,
         categoriaIdDrillDown: null,
         subcategoriaIdDrillDown: null,
+        saldoCaixinha: null,
       }
     } else {
       g = grupo('sem-categoria', 'Sem categoria')
@@ -169,6 +179,7 @@ export function agruparPorCategoria(
         saldoAnterior: item.saldo_anterior,
         categoriaIdDrillDown: null,
         subcategoriaIdDrillDown: null,
+        saldoCaixinha: null,
       }
     }
 
@@ -176,6 +187,7 @@ export function agruparPorCategoria(
     g.realizado = Math.round((g.realizado + folha.realizado) * 100) / 100
     g.orcamentoMensal = Math.round((g.orcamentoMensal + folha.orcamentoMensal) * 100) / 100
     g.saldoAnterior = Math.round((g.saldoAnterior + folha.saldoAnterior) * 100) / 100
+    g.saldoCaixinha = Math.round((g.saldoCaixinha + (folha.saldoCaixinha ?? 0)) * 100) / 100
     g.folhas.push(folha)
   }
 
@@ -195,6 +207,13 @@ function BadgeStatus({ orcado, realizado }: { orcado: number; realizado: number 
   return <span className={`estrutura-custo-badge ${excedido ? 'excedido' : 'dentro'}`}>{excedido ? 'Excedido' : 'Dentro'}</span>
 }
 
+/** Sinal explícito (+/−) em vez de só o número — "aportado no mês" de uma
+ * reserva pode ser negativo (retirada líquida), e sem sinal pareceria que
+ * faltou dinheiro em algum lugar em vez de "a reserva diminuiu". */
+function valorComSinal(valor: number, oculto: boolean): string {
+  return `${valor >= 0 ? '+ ' : '− '}${formatarMoeda(Math.abs(valor), oculto)}`
+}
+
 export function BucketBloco({
   bucket,
   bucketId,
@@ -205,7 +224,7 @@ export function BucketBloco({
   categoriasAbertas,
   onAlternarCategoria,
 }: {
-  bucket: BucketDaEstrutura & { rotulo: string; cor: string; grupos: GrupoCategoria[] }
+  bucket: BucketDaEstrutura & { rotulo: string; cor: string; grupos: GrupoCategoria[]; saldoCaixinhaAcumulado: number }
   bucketId: BucketEstruturaCusto
   vigenciaMes: string
   oculto: boolean
@@ -215,6 +234,11 @@ export function BucketBloco({
   onAlternarCategoria: (chave: string) => void
 }) {
   const semLancamentos = bucket.grupos.length === 0
+  // Reservas não tem orçado real (Planejamento não permite orçar esse
+  // bucket) — em vez de Orçado/Diferença/Status sem sentido, mostra
+  // Saldo acumulado (quanto já tem guardado) / Aportado no mês. Ver
+  // mockup discutido e aprovado 2026-10-02 (achado do item 65).
+  const isReservas = bucketId === 'reservas'
 
   return (
     <div className={`estrutura-custo-bucket${aberto ? ' aberto' : ''}`}>
@@ -228,76 +252,124 @@ export function BucketBloco({
         {!semLancamentos && <span className="estrutura-custo-seta" aria-hidden="true">▶</span>}
         {semLancamentos && <span style={{ width: 14 }} />}
         <span className="estrutura-custo-cor" style={{ background: bucket.cor }} />
-        <span className="estrutura-custo-bucket-nome">{bucket.rotulo}</span>
+        <span className="estrutura-custo-bucket-nome">
+          {bucket.rotulo}
+          {isReservas && <span className="estrutura-custo-badge-informativo">Informativo</span>}
+        </span>
         <span className="estrutura-custo-bucket-valores">
-          <span><span className="rotulo-inline">Orçado</span>{formatarMoeda(bucket.orcado, oculto)}</span>
-          <span><span className="rotulo-inline">Realizado</span>{formatarMoeda(bucket.realizado, oculto)}</span>
+          {isReservas ? (
+            <>
+              <span><span className="rotulo-inline">Saldo acumulado</span>{formatarMoeda(bucket.saldoCaixinhaAcumulado, oculto)}</span>
+              <span><span className="rotulo-inline">Aportado no mês</span>{formatarMoeda(bucket.realizado, oculto)}</span>
+            </>
+          ) : (
+            <>
+              <span><span className="rotulo-inline">Orçado</span>{formatarMoeda(bucket.orcado, oculto)}</span>
+              <span><span className="rotulo-inline">Realizado</span>{formatarMoeda(bucket.realizado, oculto)}</span>
+            </>
+          )}
         </span>
       </button>
 
       {semLancamentos && <p className="estrutura-custo-vazio">Nenhum lançamento neste bucket no mês.</p>}
 
       {!semLancamentos && aberto && (
-        <div className="estrutura-custo-categoria-lista">
-          {bucket.grupos.map((g) => {
-            const categoriaAberta = categoriasAbertas.has(chaveCategoria(bucketId, g.chave))
-            return (
-              <div key={g.chave}>
-                <button
-                  type="button"
-                  className="estrutura-custo-categoria-linha"
-                  onClick={() => onAlternarCategoria(g.chave)}
-                  aria-expanded={categoriaAberta}
-                >
-                  <span className="estrutura-custo-seta" aria-hidden="true">▶</span>
-                  <span className="estrutura-custo-categoria-nome">{g.nome}</span>
-                  <span className="estrutura-custo-categoria-valores">
-                    <span>{formatarMoeda(g.orcado, oculto)}</span>
-                    <span>{formatarMoeda(g.realizado, oculto)}</span>
-                  </span>
-                </button>
-                {categoriaAberta &&
-                  g.folhas.map((f) => (
-                    <div className="estrutura-custo-sub-linha" key={f.chave}>
-                      <span className="estrutura-custo-sub-linha-nome">{f.nome}</span>
-                      <span className="col-num">
-                        <span className="rotulo-inline">Orçado</span>
-                        {formatarMoeda(f.orcado, oculto)}
-                        {f.saldoAnterior !== 0 && (
-                          <span className="estrutura-custo-detalhe-sobra" title="Planejado + sobra/furo do mês anterior">
-                            {formatarMoeda(f.orcamentoMensal, oculto)} {f.saldoAnterior >= 0 ? '+' : '−'}{' '}
-                            {formatarMoeda(Math.abs(f.saldoAnterior), oculto)}
+        <>
+          <div className={`estrutura-custo-cabecalho-colunas${isReservas ? ' reservas' : ''}`}>
+            {isReservas ? (
+              <>
+                <span>Bucket / conta / caixinha</span>
+                <span>Saldo acumulado</span>
+                <span>Aportado no mês</span>
+                <span></span>
+              </>
+            ) : (
+              <>
+                <span>Bucket / categoria / subcategoria</span>
+                <span>Orçado</span>
+                <span>Realizado</span>
+                <span>Diferença</span>
+                <span>Status</span>
+                <span></span>
+              </>
+            )}
+          </div>
+          <div className="estrutura-custo-categoria-lista">
+            {bucket.grupos.map((g) => {
+              const categoriaAberta = categoriasAbertas.has(chaveCategoria(bucketId, g.chave))
+              return (
+                <div key={g.chave}>
+                  <button
+                    type="button"
+                    className="estrutura-custo-categoria-linha"
+                    onClick={() => onAlternarCategoria(g.chave)}
+                    aria-expanded={categoriaAberta}
+                  >
+                    <span className="estrutura-custo-seta" aria-hidden="true">▶</span>
+                    <span className="estrutura-custo-categoria-nome">{g.nome}</span>
+                    <span className="estrutura-custo-categoria-valores">
+                      <span>{formatarMoeda(isReservas ? g.saldoCaixinha : g.orcado, oculto)}</span>
+                      <span>{formatarMoeda(g.realizado, oculto)}</span>
+                    </span>
+                  </button>
+                  {categoriaAberta &&
+                    g.folhas.map((f) =>
+                      isReservas ? (
+                        <div className="estrutura-custo-sub-linha reservas" key={f.chave}>
+                          <span className="estrutura-custo-sub-linha-nome">{f.nome}</span>
+                          <span className="col-num">
+                            <span className="rotulo-inline">Saldo acumulado</span>
+                            {formatarMoeda(f.saldoCaixinha ?? 0, oculto)}
                           </span>
-                        )}
-                      </span>
-                      <span className="col-num">
-                        <span className="rotulo-inline">Realizado</span>
-                        {formatarMoeda(f.realizado, oculto)}
-                      </span>
-                      <span className="col-num">
-                        <span className="rotulo-inline">Diferença</span>
-                        {formatarMoeda(f.orcado - f.realizado, oculto)}
-                      </span>
-                      <span className="col-status">
-                        <BadgeStatus orcado={f.orcado} realizado={f.realizado} />
-                      </span>
-                      <span className="col-ir">
-                        {(f.categoriaIdDrillDown || f.subcategoriaIdDrillDown) && (
-                          <Link
-                            className="estrutura-custo-ir-busca"
-                            to={linkBusca(vigenciaMes, f.categoriaIdDrillDown, f.subcategoriaIdDrillDown)}
-                            title="Ver em Busca de Lançamentos"
-                          >
-                            →
-                          </Link>
-                        )}
-                      </span>
-                    </div>
-                  ))}
-              </div>
-            )
-          })}
-        </div>
+                          <span className="col-num" style={{ color: 'var(--cor-texto-suave)' }}>
+                            <span className="rotulo-inline">Aportado no mês</span>
+                            {valorComSinal(f.realizado, oculto)}
+                          </span>
+                          <span></span>
+                        </div>
+                      ) : (
+                        <div className="estrutura-custo-sub-linha" key={f.chave}>
+                          <span className="estrutura-custo-sub-linha-nome">{f.nome}</span>
+                          <span className="col-num">
+                            <span className="rotulo-inline">Orçado</span>
+                            {formatarMoeda(f.orcado, oculto)}
+                            {f.saldoAnterior !== 0 && (
+                              <span className="estrutura-custo-detalhe-sobra" title="Planejado + sobra/furo do mês anterior">
+                                {formatarMoeda(f.orcamentoMensal, oculto)} {f.saldoAnterior >= 0 ? '+' : '−'}{' '}
+                                {formatarMoeda(Math.abs(f.saldoAnterior), oculto)}
+                              </span>
+                            )}
+                          </span>
+                          <span className="col-num">
+                            <span className="rotulo-inline">Realizado</span>
+                            {formatarMoeda(f.realizado, oculto)}
+                          </span>
+                          <span className="col-num">
+                            <span className="rotulo-inline">Diferença</span>
+                            {formatarMoeda(f.orcado - f.realizado, oculto)}
+                          </span>
+                          <span className="col-status">
+                            <BadgeStatus orcado={f.orcado} realizado={f.realizado} />
+                          </span>
+                          <span className="col-ir">
+                            {(f.categoriaIdDrillDown || f.subcategoriaIdDrillDown) && (
+                              <Link
+                                className="estrutura-custo-ir-busca"
+                                to={linkBusca(vigenciaMes, f.categoriaIdDrillDown, f.subcategoriaIdDrillDown)}
+                                title="Ver em Busca de Lançamentos"
+                              >
+                                →
+                              </Link>
+                            )}
+                          </span>
+                        </div>
+                      ),
+                    )}
+                </div>
+              )
+            })}
+          </div>
+        </>
       )}
     </div>
   )
@@ -374,6 +446,7 @@ export function EstruturaCusto() {
         rotulo: meta.rotulo,
         cor: meta.cor,
         grupos: agruparPorCategoria(itens, categorias, subcategorias, contas, caixinhas),
+        saldoCaixinhaAcumulado: itens.reduce((soma, i) => soma + (i.saldo_caixinha ?? 0), 0),
       }
     })
   }, [dados, categorias, subcategorias, contas, caixinhas])
@@ -526,14 +599,6 @@ export function EstruturaCusto() {
               </button>
             </div>
           )}
-          <div className="estrutura-custo-cabecalho-colunas">
-            <span>Bucket / categoria / subcategoria</span>
-            <span>Orçado</span>
-            <span>Realizado</span>
-            <span>Diferença</span>
-            <span>Status</span>
-            <span></span>
-          </div>
           {bucketsComGrupo.map((b) => (
             <BucketBloco
               key={b.bucket}

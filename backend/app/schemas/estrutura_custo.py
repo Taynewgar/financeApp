@@ -22,6 +22,13 @@ class ItemEstruturaCusto(BaseModel):
     realizado: float
     orcamento_mensal: float = 0
     saldo_anterior: float = 0
+    # só preenchido pra item do bucket "reservas" — saldo acumulado da
+    # caixinha até o fim do mês (aplicações menos retiradas desde sempre),
+    # mesmo RPC que /dashboard/patrimonio usa. Reservas não tem orçado
+    # real (ver _BUCKET_POR_ESTRUTURA no router): em vez de fingir uma
+    # comparação orçado×realizado que não existe, a tela usa este campo
+    # pra mostrar quanto já tem guardado, não quanto "deveria" ter.
+    saldo_caixinha: float | None = None
 
 
 class BucketEstruturaCusto(BaseModel):

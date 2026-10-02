@@ -421,6 +421,12 @@ já documenta quando e como cada um foi entregue.
   na mesma rodada (Rodada 42, correção) pra conta permanecer 1º nível e
   caixinha ser o 2º. Detalhe na subseção própria abaixo, ver changelog
   Rodada 42.
+- **67.** ~~Bucket Reservas mostrando Orçado/Diferença/Status sem
+  sentido (reserva não tem orçamento configurável)~~ **feito 2026-10-02**
+  — virou puramente informativo: Saldo acumulado da caixinha + Aportado
+  no mês, no lugar de Orçado/Diferença/Status. Mockup aprovado antes da
+  implementação. Detalhe na subseção própria abaixo, ver changelog
+  Rodada 43.
 
 Este arquivo não substitui o `README.md` da raiz (que descreve o que
 existe) nem o `/status-projeto` (relatório de andamento) — é o registro do
@@ -1946,6 +1952,54 @@ em cada item. Suíte completa 363 passed, 33 skipped. Frontend
 verificado via `tsc -b && vite build` + `oxlint` — sem erro, sem
 warning novo. Sem QA visual via Playwright — mesma limitação de
 sempre. Ver changelog Rodada 42.
+
+### Bucket Reservas: Orçado/Diferença/Status sem sentido
+
+**Contexto:** ressalva do usuário testando a Rodada 42 (2026-10-02) —
+caixinha/reserva não tem como ser orçada em Planejamento (bucket
+"reservas" não existe no `Literal` de `OrcamentoItemCreate.bucket`,
+só os 4 buckets de despesa/investimento), mas Estrutura de Custo
+mostrava "Orçado"/"Diferença"/"Status" pra cada item de reserva como se
+fosse comparável. Usuário propôs 2 caminhos (remover orçado de
+Estrutura de Custo, virando só informativo; ou permitir orçar reserva
+em Planejamento) e pediu opinião com liberdade pra discordar.
+
+**Decisão (discutida, não só implementada):** nenhum dos dois caminhos
+como proposto — o 2º (orçar reserva em Planejamento) mistura um modelo
+de alocação percentual de renda (teto%, pool, sobra que rola) com um
+comportamento de aporte/resgate discricionário, que não tem "meta
+mensal fixa" nem leitura clara de orçado×realizado quando há aplicação
+e retirada no mesmo mês pra mesma caixinha. Caminho escolhido: variação
+do 1º — Reservas vira puramente informativo, mas em vez de só remover a
+coluna Orçado, ela é substituída por algo que diz mais sobre reserva:
+**Saldo acumulado** da caixinha (quanto já tem guardado, não só o
+realizado do mês) + **Aportado no mês** (o `realizado` que a API já
+calculava). Mockup publicado e aprovado antes da implementação.
+
+**Fix:**
+- `_enriquecer_saldo_reservas()` (`backend/app/routers/estrutura_custo.py`),
+  chamada só por `obter()` (não entra em `evolucao_orcamento()`, que
+  nunca usa detalhe por item de reserva) — reaproveita a RPC
+  `saldo_caixinhas` que `/dashboard/patrimonio` já usa (1 linha por
+  caixinha, já somada "desde sempre" até o fim do mês), preenchendo
+  `item["saldo_caixinha"]` em cada item do bucket reservas.
+- `ItemEstruturaCusto` (schema + tipo TS) ganhou `saldo_caixinha: float
+  | None` — só preenchido pra item de reserva, `None` nos demais.
+- `EstruturaCusto.tsx`: o cabeçalho de colunas, antes 1 só pra tela
+  inteira, passou a ser renderizado por bucket (`BucketBloco`), porque
+  Reservas agora usa colunas diferentes dos outros buckets (Saldo
+  acumulado / Aportado no mês, sem Diferença/Status) e um cabeçalho
+  único não dava pra rotular os dois ao mesmo tempo. Bucket Reservas
+  ganhou um badge "Informativo" ao lado do nome.
+
+**Testes:** 2 testes novos — `saldo_caixinha` acumula entre meses (não
+é só o realizado do mês repetido) e fica `None` em item sem caixinha.
+Suíte completa: 365 passed, 33 skipped. Frontend verificado via
+`tsc -b && vite build` + `oxlint` — sem erro, sem warning novo.
+
+**Status:** implementado 2026-10-02. Sem QA visual via Playwright —
+mesma limitação de sempre (sem `backend/.env` com credenciais reais do
+Supabase nesta sessão remota). Ver changelog Rodada 43.
 
 ### Racional de testes com `/financeapp-ref`
 

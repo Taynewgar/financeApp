@@ -224,15 +224,35 @@ def _estrutura_custo_do_mes_em_lote(
     return _agregar_estrutura_custo(mes_inicio, orcamento, itens_orcamento, transacoes, saldo_anterior_de)
 
 
+def _enriquecer_saldo_reservas(db: Client, user_id: str, mes_inicio: date, estrutura: dict) -> None:
+    """Reservas não tem orçado real (ver _BUCKET_POR_ESTRUTURA) — em vez
+    de só "realizado", a tela de Estrutura de Custo quer mostrar quanto
+    já tem guardado em cada caixinha. Mesmo RPC que /dashboard/patrimonio
+    usa (1 linha por caixinha já somada "desde sempre" até o fim do mês),
+    só chamado quando o bucket reservas tem item — não entra em
+    evolucao_orcamento(), que nunca usa o detalhe por item (só soma do
+    pool de despesas, que exclui reservas)."""
+    bucket_reservas = next(b for b in estrutura["buckets"] if b["bucket"] == "reservas")
+    if not bucket_reservas["itens"]:
+        return
+    mes_fim_exclusiva = somar_meses(mes_inicio, 1)
+    linhas = db.rpc("saldo_caixinhas", {"p_user_id": user_id, "p_ate": mes_fim_exclusiva.isoformat()}).execute().data
+    saldo_por_caixinha = {linha["caixinha_id"]: linha["saldo"] for linha in linhas}
+    for item in bucket_reservas["itens"]:
+        item["saldo_caixinha"] = saldo_por_caixinha.get(item["caixinha_id"], 0)
+
+
 @router.get("/{vigencia_mes}", response_model=EstruturaCustoMes)
 def obter(vigencia_mes: date, db: Client = Depends(get_db), user_id: str = Depends(get_current_user_id)):
     mes_inicio = date(vigencia_mes.year, vigencia_mes.month, 1)
     orcamento_por_mes, itens_por_orcamento_id, transacoes_por_mes = carregar_dados_periodo(
         db, user_id, mes_inicio, mes_inicio
     )
-    return _estrutura_custo_do_mes_em_lote(
+    estrutura = _estrutura_custo_do_mes_em_lote(
         mes_inicio, orcamento_por_mes, itens_por_orcamento_id, transacoes_por_mes, cache_saldo={}
     )
+    _enriquecer_saldo_reservas(db, user_id, mes_inicio, estrutura)
+    return estrutura
 
 
 @router.get("/evolucao/tendencia", response_model=TendenciaOrcamento)

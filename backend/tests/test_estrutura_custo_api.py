@@ -80,6 +80,65 @@ def test_item_de_reserva_identifica_pela_caixinha_nao_pela_conta(client):
     assert all(item["conta_id"] == conta["id"] for item in reservas["itens"])
 
 
+def test_item_de_reserva_traz_saldo_acumulado_da_caixinha(client):
+    """Reservas não tem orçado real (Planejamento não permite orçar esse
+    bucket) — em vez de orçado/diferença/status sem sentido, o item traz
+    `saldo_caixinha`: acumulado desde sempre, não só o realizado do mês.
+    Aporte de agosto + aporte de setembro precisam somar no saldo de
+    setembro, provando que não é só o `realizado` do mês repetido."""
+    conta = client.post("/contas", json={"nome": "Conta", "tipo_conta": "corrente"}).json()
+    caixinha = client.post("/caixinhas", json={"nome": "Viagem"}).json()
+    client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-08-10",
+            "valor": 100,
+            "tipo_movimento": "aplicacao",
+            "conta_id": conta["id"],
+            "caixinha_id": caixinha["id"],
+        },
+    )
+    client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-09-05",
+            "valor": 50,
+            "tipo_movimento": "aplicacao",
+            "conta_id": conta["id"],
+            "caixinha_id": caixinha["id"],
+        },
+    )
+
+    reservas = _bucket(client.get("/estrutura-custo/2026-09-01"), "reservas")
+    assert len(reservas["itens"]) == 1
+    item = reservas["itens"][0]
+    assert item["realizado"] == 50
+    assert item["saldo_caixinha"] == 150
+
+
+def test_item_sem_caixinha_nao_tem_saldo_caixinha(client):
+    """saldo_caixinha é exclusivo de item do bucket reservas — despesa/
+    investimento não devem ganhar o campo preenchido."""
+    conta = client.post("/contas", json={"nome": "Conta", "tipo_conta": "corrente"}).json()
+    categoria = client.post("/categorias", json={"nome": "Moradia"}).json()
+    client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-09-05",
+            "valor": 200,
+            "tipo_movimento": "despesa",
+            "conta_id": conta["id"],
+            "categoria_id": categoria["id"],
+            "estrutura_custo": "fixo",
+            "meio_pagamento": "pix",
+        },
+    )
+
+    fixos = _bucket(client.get("/estrutura-custo/2026-09-01"), "custos_fixos")
+    assert len(fixos["itens"]) == 1
+    assert fixos["itens"][0]["saldo_caixinha"] is None
+
+
 def test_despesa_com_estrutura_fixo_aparece_em_custos_fixos(client):
     conta = client.post("/contas", json={"nome": "Conta", "tipo_conta": "corrente"}).json()
     categoria = client.post("/categorias", json={"nome": "Moradia"}).json()

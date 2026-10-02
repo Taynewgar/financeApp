@@ -235,6 +235,11 @@ export type ItemEstruturaCusto = {
   // anterior, em vez de só mostrar o total combinado.
   orcamento_mensal: number
   saldo_anterior: number
+  // só preenchido pra item do bucket "reservas" — saldo acumulado da
+  // caixinha até o fim do mês (desde sempre, não só o realizado do mês).
+  // Reservas não tem orçado real, então a tela usa isto em vez de
+  // orçado/diferença/status (ver EstruturaCusto.tsx).
+  saldo_caixinha: number | null
 }
 
 export type BucketDaEstrutura = {

@@ -3893,3 +3893,59 @@ sem erro, sem warning novo.
       separados, nem agrupadas numa só).
 - [ ] Com caixinhas em contas diferentes, confirmar que aparecem em
       grupos de conta diferentes.
+
+### Rodada 43 (2026-10-02) — Bucket Reservas vira informativo (Saldo acumulado / Aportado no mês)
+
+Ressalva levantada pelo usuário testando a Rodada 42: Reservas não tem
+como ser orçada em Planejamento, mas Estrutura de Custo mostrava
+Orçado/Diferença/Status pra cada item desse bucket como se houvesse
+uma meta pra comparar. Discussão completa e decisão registradas em
+`docs/backlog.md` ("Bucket Reservas: Orçado/Diferença/Status sem
+sentido") — aqui só o resumo técnico.
+
+**Decisão:** Reservas vira puramente informativo. Em vez de só remover
+a coluna Orçado, ela é substituída por **Saldo acumulado** (quanto a
+caixinha já tem guardado até o fim do mês, desde sempre) e **Aportado
+no mês** (o `realizado` que a API já calculava). Mockup publicado e
+aprovado antes de implementar.
+
+**Fix:**
+- `_enriquecer_saldo_reservas()` (`backend/app/routers/estrutura_custo.py`),
+  chamada só por `obter()` — reaproveita a RPC `saldo_caixinhas` que
+  `/dashboard/patrimonio` já usa, preenchendo `saldo_caixinha` em cada
+  item do bucket reservas. Não entra em `evolucao_orcamento()` (nunca
+  usa detalhe por item de reserva, só soma do pool de despesas).
+- `ItemEstruturaCusto` (schema + tipo TS) ganhou `saldo_caixinha: float
+  | None`, preenchido só pra item de reserva.
+- `EstruturaCusto.tsx`: cabeçalho de colunas, antes 1 só pra tela
+  inteira, passou a ser renderizado por bucket dentro de `BucketBloco`
+  (Reservas usa colunas diferentes — Saldo acumulado / Aportado no mês,
+  sem Diferença/Status — um cabeçalho único não dava pra rotular os
+  dois layouts ao mesmo tempo). Bucket Reservas ganhou um badge
+  "Informativo" ao lado do nome. CSS: `.estrutura-custo-cabecalho-
+  colunas.reservas`/`.estrutura-custo-sub-linha.reservas` com grid mais
+  estreita (4 colunas em vez de 6).
+
+**Testes:** 2 testes novos — `saldo_caixinha` acumula entre meses
+(aporte de agosto + setembro somam no saldo de setembro, não é só o
+`realizado` do mês repetido) e fica `None` em item sem caixinha. Suíte
+completa: 365 passed, 33 skipped. Frontend: `tsc -b && vite build` +
+`oxlint` — sem erro, sem warning novo.
+
+**Status:** implementado 2026-10-02. Sem QA visual via Playwright —
+mesma limitação de sempre.
+
+**Checklist de teste manual (usuário, localmente):**
+- [ ] Em Estrutura de Custo, abrir o bucket "Reservas" e confirmar que
+      o cabeçalho mostra "Saldo acumulado" e "Aportado no mês" (não
+      "Orçado"/"Diferença"/"Status"), com o badge "Informativo" ao
+      lado do nome do bucket.
+- [ ] Confirmar que "Saldo acumulado" de uma caixinha bate com o
+      patrimônio mostrado em Dashboard pra essa mesma caixinha, no
+      mesmo mês.
+- [ ] Com uma retirada líquida no mês (retirada > aplicação), confirmar
+      que "Aportado no mês" aparece negativo (com o sinal "−"), não só
+      um número sem contexto.
+- [ ] Confirmar que os outros buckets (Custos Fixos, Variáveis,
+      Sazonalidades, Investimentos) continuam mostrando Orçado/
+      Realizado/Diferença/Status normalmente — não regrediu.

@@ -67,20 +67,46 @@
 .estrutura-custo-veredito-item.dentro strong { color: var(--cor-sucesso); }
 .estrutura-custo-veredito-item.fora strong { color: var(--cor-perigo); }
 
+/* 1 cabeçalho por bucket (não 1 só pra tela inteira) desde a Rodada 42 —
+ * Reservas usa colunas diferentes das demais (ver .reservas abaixo), um
+ * cabeçalho único no topo da página não daria pra rotular os dois ao
+ * mesmo tempo. */
 .estrutura-custo-cabecalho-colunas {
   display: grid;
   grid-template-columns: 1fr 140px 100px 100px 90px 26px;
   gap: 10px;
-  padding: 0 14px 6px 48px;
+  padding: 8px 14px 6px 48px;
   font-size: 11px;
   color: var(--cor-texto-suave);
   text-transform: uppercase;
   letter-spacing: .03em;
+  border-top: 1px solid var(--cor-borda);
 }
 
 .estrutura-custo-cabecalho-colunas span:not(:first-child) { text-align: right; }
 .estrutura-custo-cabecalho-colunas span:nth-child(5) { text-align: center; }
 .estrutura-custo-cabecalho-colunas span:last-child { text-align: center; }
+
+/* bucket Reservas é só informativo — sem orçado real, então sem as
+ * colunas Diferença/Status (nada pra comparar); grid mais estreita, só
+ * Saldo acumulado + Aportado no mês. */
+.estrutura-custo-cabecalho-colunas.reservas,
+.estrutura-custo-sub-linha.reservas {
+  grid-template-columns: 1fr 140px 140px 26px;
+}
+
+.estrutura-custo-badge-informativo {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .03em;
+  padding: 2px 8px;
+  margin-left: 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--bucket-reservas) 22%, transparent);
+  color: var(--cor-texto-suave);
+}
 
 .estrutura-custo-bucket {
   background: var(--cor-superficie);
