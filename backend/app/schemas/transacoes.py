@@ -28,6 +28,12 @@ class TransacaoCreate(BaseModel):
     meio_pagamento: MeioPagamento | None = None
     # vincula um estorno/ressarcimento à despesa original
     ajuste_de_transacao_id: str | None = None
+    # só usado por POST /transacoes, pra desambiguar um 409 de hash_dedup
+    # que o usuário confirmou ser lançamento real (não double-submit
+    # acidental) — ver _inserir_avista_com_desambiguacao no router.
+    # exclude=True: nunca entra no model_dump, então nunca vira coluna na
+    # tabela nem afeta PATCH (que reusa este mesmo schema)
+    forcar_duplicado: bool = Field(default=False, exclude=True)
 
 
 class CompraParceladaCreate(BaseModel):

@@ -79,6 +79,67 @@ def test_transacao_identica_repetida_retorna_409(client):
     assert repetida.status_code == 409
 
 
+def test_transacao_identica_com_forcar_duplicado_e_aceita(client):
+    """hash_dedup existe pra pegar double-submit acidental, mas também
+    bloqueava 2 transações reais e diferentes que coincidem em data/
+    valor/descrição/conta/tipo (achado 2026-09-25 migrando dados reais —
+    ex: 2 assinaturas iguais cobradas no mesmo dia). `forcar_duplicado`
+    deixa o usuário confirmar que não é double-submit."""
+    cartao = _criar_conta_cartao(client)
+    categoria = client.post("/categorias", json={"nome": "Categoria Teste"}).json()
+    payload = {
+        "data_compra": "2026-08-05",
+        "valor": 50,
+        "tipo_movimento": "despesa",
+        "conta_id": cartao["id"],
+        "descricao": "Mesma compra",
+        "categoria_id": categoria["id"],
+        "estrutura_custo": "variavel",
+        "meio_pagamento": "cartao_credito",
+    }
+
+    primeira = client.post("/transacoes", json=payload)
+    assert primeira.status_code == 201
+
+    sem_forcar = client.post("/transacoes", json=payload)
+    assert sem_forcar.status_code == 409
+
+    com_forcar = client.post("/transacoes", json={**payload, "forcar_duplicado": True})
+    assert com_forcar.status_code == 201
+    assert com_forcar.json()["id"] != primeira.json()["id"]
+    # forcar_duplicado nunca é gravado — não existe no schema de resposta
+    assert "forcar_duplicado" not in com_forcar.json()
+
+    lista = client.get("/transacoes").json()
+    iguais = [t for t in lista if t["descricao"] == "Mesma compra"]
+    assert len(iguais) == 2
+
+
+def test_transacao_identica_repetida_3x_com_forcar_cria_as_3(client):
+    """Cada ocorrência além da 1ª soma +1 ao índice de desambiguação do
+    hash — precisa continuar funcionando na 3ª repetição, não só na 2ª."""
+    cartao = _criar_conta_cartao(client)
+    categoria = client.post("/categorias", json={"nome": "Categoria Teste"}).json()
+    payload = {
+        "data_compra": "2026-08-05",
+        "valor": 50,
+        "tipo_movimento": "despesa",
+        "conta_id": cartao["id"],
+        "descricao": "Assinatura dobrada",
+        "categoria_id": categoria["id"],
+        "estrutura_custo": "variavel",
+        "meio_pagamento": "cartao_credito",
+    }
+
+    assert client.post("/transacoes", json=payload).status_code == 201
+    assert client.post("/transacoes", json={**payload, "forcar_duplicado": True}).status_code == 201
+    assert client.post("/transacoes", json={**payload, "forcar_duplicado": True}).status_code == 201
+
+    lista = client.get("/transacoes").json()
+    iguais = [t for t in lista if t["descricao"] == "Assinatura dobrada"]
+    assert len(iguais) == 3
+
+
 def test_transacao_com_valor_diferente_nao_e_bloqueada_como_duplicada(client):
     cartao = _criar_conta_cartao(client)
     categoria = client.post("/categorias", json={"nome": "Categoria Teste"}).json()

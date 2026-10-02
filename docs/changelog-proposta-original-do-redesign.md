@@ -3951,3 +3951,59 @@ mesma limitação de sempre.
       Sazonalidades, Investimentos) continuam mostrando Orçado/
       Realizado/Diferença/Status normalmente — não regrediu. —
       confirmado 2026-10-02.
+
+### Rodada 44 (2026-10-02) — Fix: hash_dedup bloqueava lançamento manual legítimo (item 35)
+
+Bug registrado desde a migração de dados (2026-09-25): `hash_dedup` em
+`POST /transacoes` usa só (data, valor, descrição, conta, tipo), sem
+categoria — 2 transações reais e diferentes que coincidem nesses 5
+campos (ex: 2 assinaturas iguais no mesmo dia) colidiam com a mesma
+constraint UNIQUE que existe pra pegar double-submit acidental. A
+migração contornou isso com um índice de ocorrência só no cálculo do
+hash (`agrupar_por_chave_hash`/`gravar_avista_duplicado`), mas o fluxo
+normal de lançamento continuava bloqueado — API rejeitava um
+lançamento legítimo. Detalhe completo em `docs/backlog.md`
+("`hash_dedup` bloqueando lançamento manual legítimo") — aqui só o
+resumo.
+
+**Fix:**
+- `TransacaoCreate` ganhou `forcar_duplicado: bool` (`Field(exclude=True)`
+  — nunca entra no `model_dump`, então nunca vira coluna na tabela nem
+  afeta `PATCH /transacoes/{id}`, que reusa o mesmo schema).
+- `_inserir_avista_com_desambiguacao()` (`backend/app/routers/
+  transacoes.py`): sem `forcar_duplicado`, nada muda (409 na colisão,
+  mesma fórmula de hash de sempre). Com o flag, tenta de novo somando
+  um índice de ocorrência ao cálculo do hash (nunca gravado na linha),
+  até 20x — mesma técnica da migração, só que on-the-fly por request.
+- `NovoLancamento.tsx`: ao receber 409, mostra "Lançar mesmo assim (é
+  outro lançamento real)", que reenvia o mesmo payload com
+  `forcar_duplicado: true`. Só no caminho avista — compra parcelada
+  (`POST /transacoes/parceladas`) não ganhou esse fluxo (fora do
+  escopo do bug reportado).
+
+**Testes:** 2 testes novos — repetição com `forcar_duplicado` cria a
+2ª transação idêntica (confirma que sem o flag continua 409); repetição
+3x confirma que o índice de ocorrência não trava na 2ª tentativa. Suíte
+completa: 367 passed, 33 skipped. Frontend: `tsc -b && vite build` +
+`oxlint` — sem erro, sem warning novo.
+
+**Status:** implementado 2026-10-02. Sem QA visual via Playwright —
+mesma limitação de sempre.
+
+**Checklist de teste manual (usuário, localmente):**
+- [ ] Lançar uma despesa (ex: assinatura R$14,99 hoje, mesma conta/
+      categoria) e, em seguida, lançar outra IDÊNTICA (mesma data,
+      valor, descrição, conta, tipo) — confirmar que aparece a mensagem
+      de 409 + o botão "Lançar mesmo assim".
+- [ ] Clicar em "Lançar mesmo assim" e confirmar que a 2ª transação é
+      criada normalmente (aparece em Lançamentos como um item distinto,
+      não substitui a 1ª).
+- [ ] Repetir o mesmo lançamento uma 3ª vez (idêntico à 1ª e à 2ª) e
+      confirmar que "Lançar mesmo assim" continua funcionando (não só
+      na 2ª tentativa).
+- [ ] Editar o formulário pra um valor diferente antes de reenviar e
+      confirmar que NÃO aparece o botão "Lançar mesmo assim" (não é
+      mais duplicata) — lança normal, sem 409.
+- [ ] Tentar o mesmo cenário de duplicata em compra PARCELADA e
+      confirmar que continua dando 409 sem o botão "Lançar mesmo
+      assim" (fora do escopo deste fix, comportamento inalterado).

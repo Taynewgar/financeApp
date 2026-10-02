@@ -85,6 +85,12 @@ export function NovoLancamento() {
 
   const [enviando, setEnviando] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
+  // true quando o erro acima é o 409 de hash_dedup (lançamento idêntico
+  // a outro já existente) — oferece "lançar mesmo assim" em vez de só
+  // bloquear, porque pode ser 2 transações reais e diferentes que só
+  // coincidem em data/valor/descrição/conta/tipo (achado 2026-09-25
+  // migrando dados reais, ver backend)
+  const [duplicadoDetectado, setDuplicadoDetectado] = useState(false)
   const [sucesso, setSucesso] = useState(false)
 
   // categoria é escolhida entre as do tipo compatível (receita/despesa/
@@ -292,11 +298,48 @@ export function NovoLancamento() {
     setDataPrimeiraParcela(hoje())
     trocarDespesaOriginal()
     setSucesso(false)
+    setDuplicadoDetectado(false)
+  }
+
+  function montarPayloadAvista(): Record<string, unknown> {
+    const tipoMovimento: TipoMovimento =
+      tipo === 'ajuste' ? ajusteTipo : tipo === 'investimento' || tipo === 'reserva' ? direcao : tipo
+    return {
+      data_compra: dataCompra,
+      valor: Number(valor),
+      descricao: descricao || null,
+      tipo_movimento: tipoMovimento,
+      conta_id: contaId,
+      categoria_id: categoriaId || null,
+      subcategoria_id: subcategoriaId || null,
+      estrutura_custo: estruturaCusto || null,
+      caixinha_id: tipo === 'reserva' ? caixinhaId : null,
+      meio_pagamento: tipo === 'despesa' || tipo === 'ajuste' ? meioPagamento || null : null,
+      ajuste_de_transacao_id: tipo === 'ajuste' ? despesaSelecionada!.id : null,
+    }
+  }
+
+  async function handleForcarDuplicado() {
+    setEnviando(true)
+    setErro(null)
+    try {
+      await apiFetch('/transacoes', {
+        method: 'POST',
+        body: JSON.stringify({ ...montarPayloadAvista(), forcar_duplicado: true }),
+      })
+      setSucesso(true)
+      setDuplicadoDetectado(false)
+    } catch (e) {
+      setErro(e instanceof ApiError ? (typeof e.detail === 'string' ? e.detail : e.message) : 'Falha ao salvar o lançamento.')
+    } finally {
+      setEnviando(false)
+    }
   }
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault()
     setErro(null)
+    setDuplicadoDetectado(false)
 
     if (!contaId) {
       setErro('Escolha uma conta.')
@@ -348,30 +391,15 @@ export function NovoLancamento() {
           }),
         })
       } else {
-        const tipoMovimento: TipoMovimento =
-          tipo === 'ajuste' ? ajusteTipo : tipo === 'investimento' || tipo === 'reserva' ? direcao : tipo
-
-        await apiFetch('/transacoes', {
-          method: 'POST',
-          body: JSON.stringify({
-            data_compra: dataCompra,
-            valor: Number(valor),
-            descricao: descricao || null,
-            tipo_movimento: tipoMovimento,
-            conta_id: contaId,
-            categoria_id: categoriaId || null,
-            subcategoria_id: subcategoriaId || null,
-            estrutura_custo: estruturaCusto || null,
-            caixinha_id: tipo === 'reserva' ? caixinhaId : null,
-            meio_pagamento: tipo === 'despesa' || tipo === 'ajuste' ? meioPagamento || null : null,
-            ajuste_de_transacao_id: tipo === 'ajuste' ? despesaSelecionada!.id : null,
-          }),
-        })
+        await apiFetch('/transacoes', { method: 'POST', body: JSON.stringify(montarPayloadAvista()) })
       }
       setSucesso(true)
     } catch (e) {
       if (e instanceof ApiError) {
         setErro(typeof e.detail === 'string' ? e.detail : e.message)
+        // só oferece "lançar mesmo assim" no caminho avista — compra
+        // parcelada não tem esse fluxo (POST /transacoes/parceladas)
+        setDuplicadoDetectado(e.status === 409 && !(tipo === 'despesa' && pagamento === 'parcelado'))
       } else {
         setErro('Falha ao salvar o lançamento.')
       }
@@ -864,6 +892,13 @@ export function NovoLancamento() {
           <p role="alert" className="mensagem-erro">
             {erro}
           </p>
+        )}
+        {duplicadoDetectado && (
+          <div className="form-acoes">
+            <button type="button" className="botao-secundario" onClick={handleForcarDuplicado} disabled={enviando}>
+              Lançar mesmo assim (é outro lançamento real)
+            </button>
+          </div>
         )}
 
         <div className="form-acoes">

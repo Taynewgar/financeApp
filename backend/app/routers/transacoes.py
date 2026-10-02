@@ -249,6 +249,36 @@ def obter(transacao_id: str, db: Client = Depends(get_db), user_id: str = Depend
         raise HTTPException(status_code=404, detail="Transação não encontrada")
 
 
+# hash_dedup existe pra pegar double-submit acidental (ex: duplo clique),
+# mas com só esses 5 campos também bloqueia 2 transações reais e
+# diferentes que coincidem em data/valor/descrição/conta/tipo (ex: 2
+# assinaturas iguais cobradas no mesmo dia) — achado 2026-09-25 migrando
+# dados reais, ver `agrupar_por_chave_hash`/`gravar_avista_duplicado` em
+# scripts/migrar_dados_antigos.py. Mesma técnica aqui: quando o usuário
+# confirma que é um lançamento real (forcar_duplicado), soma um índice
+# de ocorrência só ao cálculo do hash — nunca gravado na linha — até
+# achar uma combinação livre. Sem forçar, o comportamento de hoje não
+# muda: ocorrência 0 usa a MESMA fórmula de sempre (sem a chave extra).
+_MAX_OCORRENCIAS_DUPLICADO = 20
+
+
+def _inserir_avista_com_desambiguacao(db: Client, row: dict, campos_hash: dict, forcar_duplicado: bool) -> dict:
+    row["hash_dedup"] = compute_hash(**campos_hash)
+    try:
+        return inserir_transacao(db, row)
+    except HTTPException as exc:
+        if exc.status_code != 409 or not forcar_duplicado:
+            raise
+        for ocorrencia in range(1, _MAX_OCORRENCIAS_DUPLICADO):
+            row["hash_dedup"] = compute_hash(**campos_hash, ocorrencia=ocorrencia)
+            try:
+                return inserir_transacao(db, row)
+            except HTTPException as exc_ocorrencia:
+                if exc_ocorrencia.status_code != 409:
+                    raise
+        raise
+
+
 @router.post("", response_model=Transacao, status_code=201)
 def criar(payload: TransacaoCreate, db: Client = Depends(get_db), user_id: str = Depends(get_current_user_id)):
     _check_refs(
@@ -277,7 +307,7 @@ def criar(payload: TransacaoCreate, db: Client = Depends(get_db), user_id: str =
         fatura_referencia=fatura_referencia_para(db, user_id, payload.conta_id, payload.data_compra),
         fatura_override=False,
     )
-    row["hash_dedup"] = compute_hash(
+    campos_hash = dict(
         user_id=user_id,
         data_compra=row["data_compra"],
         valor=row["valor"],
@@ -288,7 +318,7 @@ def criar(payload: TransacaoCreate, db: Client = Depends(get_db), user_id: str =
         parcela_total=None,
         compra_parcelada_id=None,
     )
-    criada = inserir_transacao(db, row)
+    criada = _inserir_avista_com_desambiguacao(db, row, campos_hash, payload.forcar_duplicado)
     sincronizar_item_orcamento(db, user_id, criada)
     return criada
 

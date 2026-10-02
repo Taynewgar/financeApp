@@ -103,17 +103,6 @@ changelog já documenta quando e como cada um foi entregue).
 
 **Baixa**
 
-- **35.** **`hash_dedup` não distingue 2 despesas reais idênticas no
-  mesmo dia** `tipo: Bug` (detalhe na seção "Migração de dados do app
-  antigo", achado rodando a migração pra valer) — lançar manualmente 2
-  despesas com mesma data/valor/descrição/conta/tipo esbarra num 409 que
-  o frontend não trata hoje. Raro no uso manual do dia a dia. **Não
-  resolvido** — o fix de 2026-09-25 (`agrupar_por_chave_hash`) cobriu só
-  o script de migração; o app em uso normal continua rejeitando a 2ª
-  transação real idêntica com um 409 que o frontend não trata.
-  Classificado como Bug (não Melhoria) porque a API rejeita um
-  lançamento legítimo por engano — não é um recurso faltando, é uma
-  validação incorreta. *(2026-09-25)*
 - **58.** **Marcador de origem caixinha** `tipo: Melhoria` — um
   marcador pra indicar, na lista de lançamentos, uma transação cuja
   origem é retirada de caixinha — facilita identificar uma compra/gasto
@@ -437,6 +426,10 @@ já documenta quando e como cada um foi entregue.
   no mês, no lugar de Orçado/Diferença/Status. Mockup aprovado antes da
   implementação. Detalhe na subseção própria abaixo, ver changelog
   Rodada 43.
+- **35.** ~~`hash_dedup` não distingue 2 despesas reais idênticas no
+  mesmo dia~~ **feito 2026-10-02** — `POST /transacoes` ganhou
+  `forcar_duplicado`; o frontend oferece "Lançar mesmo assim" no 409.
+  Detalhe na subseção própria abaixo, ver changelog Rodada 44.
 
 Este arquivo não substitui o `README.md` da raiz (que descreve o que
 existe) nem o `/status-projeto` (relatório de andamento) — é o registro do
@@ -755,13 +748,12 @@ cálculo do hash (nunca gravado na linha) — evita a colisão sem alterar
 o dado salvo. Continua idempotente numa 2ª execução (mesmo índice,
 mesmo resultado). Coberto por teste de regressão.
 
-**Limitação de design que sobra, fora do escopo da migração:** esse
-mesmo hash raso existe pro uso normal do app, não só pra migração — se
-o usuário um dia lançar manualmente 2 despesas reais idênticas nesses 5
-campos no mesmo dia, a 2ª esbarra no mesmo 409 (a API responde com
-"Já existe um lançamento idêntico", o frontend não trata esse caso
-hoje). É raro no dia a dia manual, mas vale registrar — ver item 35
-abaixo.
+**Limitação de design que sobrava, fora do escopo da migração:** esse
+mesmo hash raso existe pro uso normal do app, não só pra migração —
+lançar manualmente 2 despesas reais idênticas nesses 5 campos no mesmo
+dia esbarrava no mesmo 409, sem como seguir adiante. **Resolvido
+2026-10-02** (item 35) — ver subseção própria "`hash_dedup` bloqueando
+lançamento manual legítimo" abaixo.
 
 **Depois da migração:** importação de CSV vira opcional (import assistido
 de extrato bancário, mapeando pras categorias já existentes) — não é mais
@@ -2010,6 +2002,47 @@ Suíte completa: 365 passed, 33 skipped. Frontend verificado via
 **Status:** implementado 2026-10-02. Sem QA visual via Playwright —
 mesma limitação de sempre (sem `backend/.env` com credenciais reais do
 Supabase nesta sessão remota). Ver changelog Rodada 43.
+
+### `hash_dedup` bloqueando lançamento manual legítimo
+
+**Contexto:** achado rodando a migração de dados reais (2026-09-25,
+ver seção "Migração de dados do app antigo" acima) — `hash_dedup` em
+`POST /transacoes` usa só (data, valor, descrição, conta, tipo), sem
+categoria. Duas transações reais e diferentes que coincidem nesses 5
+campos (ex: 2 assinaturas iguais de R$14,99 cobradas no mesmo dia)
+colidem na mesma constraint UNIQUE que existe pra pegar double-submit
+acidental (duplo clique) — a API responde 409 "Já existe um lançamento
+idêntico" e, até aqui, não havia como seguir adiante: um lançamento
+real e legítimo ficava bloqueado. O fix de 2026-09-25
+(`agrupar_por_chave_hash`) resolveu isso só dentro do script de
+migração, não no uso normal do app.
+
+**Fix:** mesma técnica do script de migração (`gravar_avista_duplicado`),
+exposta pelo fluxo normal de criação. `TransacaoCreate` ganhou
+`forcar_duplicado: bool` (Pydantic `exclude=True` — nunca vira coluna
+na tabela, nunca afeta `PATCH` que reusa o mesmo schema).
+`_inserir_avista_com_desambiguacao()` (`backend/app/routers/
+transacoes.py`): sem forçar, comportamento idêntico a hoje (409 na
+colisão); com `forcar_duplicado=true`, soma um índice de ocorrência só
+ao cálculo do hash (nunca gravado na linha) e tenta de novo, até 20x.
+Frontend (`NovoLancamento.tsx`): ao receber 409, mostra um botão
+"Lançar mesmo assim (é outro lançamento real)" que reenvia o mesmo
+payload com `forcar_duplicado: true` — só no caminho avista (`POST
+/transacoes`), não em compra parcelada.
+
+**Por que manter o 409 por padrão:** a constraint ainda existe pra
+pegar double-submit acidental — sem o flag explícito, o comportamento
+de hoje não muda em nada. O usuário só vê "lançar mesmo assim" quando a
+API já rejeitou, nunca antes.
+
+**Testes:** 2 testes novos — repetição com `forcar_duplicado` cria uma
+2ª transação idêntica; repetição 3x confirma que o índice de ocorrência
+continua funcionando além da 1ª desambiguação. Suíte completa: 367
+passed, 33 skipped. Frontend verificado via `tsc -b && vite build` +
+`oxlint` — sem erro, sem warning novo.
+
+**Status:** implementado 2026-10-02. Sem QA visual via Playwright —
+mesma limitação de sempre. Ver changelog Rodada 44.
 
 ### Racional de testes com `/financeapp-ref`
 
