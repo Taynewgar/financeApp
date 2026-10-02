@@ -1,0 +1,22 @@
+.botao-privacidade {
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--cor-borda);
+  border-radius: 8px;
+  background: var(--cor-superficie);
+  color: var(--cor-texto);
+  cursor: pointer;
+}
+
+.botao-privacidade:hover {
+  background: var(--cor-fundo);
+}
+
+.botao-privacidade[aria-pressed='true'] {
+  background: var(--cor-acento);
+  border-color: var(--cor-acento);
+  color: var(--cor-acento-texto);
+}

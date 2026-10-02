@@ -1,0 +1,339 @@
+.shell-raiz {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.shell {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+.shell-banner-backend {
+  padding: 8px 16px;
+  background: var(--cor-acento);
+  color: var(--cor-acento-texto);
+  font-size: 13px;
+  text-align: center;
+}
+
+.shell-banner-backend.falhou {
+  background: var(--cor-perigo);
+  color: #fff;
+}
+
+.shell-banner-backend button {
+  border: 1px solid currentColor;
+  background: none;
+  color: inherit;
+  border-radius: 6px;
+  padding: 2px 8px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.shell-nav {
+  width: 220px;
+  flex-shrink: 0;
+  border-right: 1px solid var(--cor-borda);
+  background: var(--cor-superficie);
+  display: flex;
+  flex-direction: column;
+  padding: 16px 12px;
+  gap: 4px;
+  /* fixa a navegação no viewport em vez de rolar junto com o conteúdo —
+   * antes acompanhava o scroll do corpo da página (comportamento não
+   * intencional, backlog); self-scroll (overflow-y) cobre o caso raro de
+   * a lista de seções crescer mais que a altura da tela */
+  position: sticky;
+  top: 0;
+  align-self: flex-start;
+  height: 100vh;
+  overflow-y: auto;
+}
+
+.shell-nav-header {
+  padding: 8px 12px 20px;
+  font-weight: 700;
+  font-size: 16px;
+}
+
+.shell-nav-header-linha {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-right: 4px;
+}
+
+.shell-topo-mobile {
+  display: none;
+}
+
+.shell-nav-link {
+  display: block;
+  padding: 10px 12px;
+  border-radius: 8px;
+  text-decoration: none;
+  color: var(--cor-texto);
+  font-size: 14px;
+}
+
+.shell-nav-link:hover {
+  background: var(--cor-fundo);
+}
+
+.shell-nav-link.ativo {
+  background: var(--cor-acento);
+  color: var(--cor-acento-texto);
+}
+
+.shell-nav-footer {
+  margin-top: auto;
+  padding: 12px;
+  font-size: 13px;
+  color: var(--cor-texto-suave);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.shell-sair {
+  align-self: flex-start;
+  background: none;
+  border: 1px solid var(--cor-borda);
+  border-radius: 8px;
+  padding: 6px 10px;
+  cursor: pointer;
+  color: var(--cor-texto);
+}
+
+.shell-conteudo {
+  flex: 1;
+  min-width: 0;
+  padding: 24px;
+  padding-bottom: 88px;
+}
+
+.shell-fab {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  width: 56px;
+  height: 56px;
+  border-radius: 999px;
+  background: var(--cor-acento);
+  color: var(--cor-acento-texto);
+  border: none;
+  font-size: 28px;
+  line-height: 1;
+  box-shadow: var(--sombra);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  text-decoration: none;
+  opacity: 1;
+  transition: opacity 0.15s ease;
+}
+
+.shell-fab.escondido {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.shell-bottom-nav {
+  display: none;
+}
+
+/* mobile: nav vira barra inferior, sidebar some */
+@media (max-width: 720px) {
+  :root {
+    /* altura real medida da barra (padding do container + padding do
+     * próprio link + ícone + rótulo) é ~70-71px, não 64px como estava —
+     * a subestimativa deixava a sheet/backdrop sobrepondo ~7px do topo da
+     * barra e reduzia o respiro do FAB acima dela. */
+    --shell-altura-barra-mobile: 72px;
+  }
+
+  .shell-nav {
+    display: none;
+  }
+
+  .shell-conteudo {
+    padding: 16px;
+    padding-bottom: 88px;
+  }
+
+  .shell-bottom-nav {
+    display: flex;
+    align-items: stretch;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 5;
+    background: var(--cor-superficie);
+    border-top: 1px solid var(--cor-borda);
+    padding: 8px 8px calc(8px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .shell-bottom-nav-link {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    font-size: 11px;
+    line-height: 1.15;
+    text-align: center;
+    text-decoration: none;
+    color: var(--cor-texto-suave);
+    padding: 8px 2px;
+    border-radius: 10px;
+    border: none;
+    background: none;
+    font-family: inherit;
+    cursor: pointer;
+  }
+
+  .shell-bottom-nav-link span {
+    font-size: 22px;
+    line-height: 1;
+  }
+
+  .shell-bottom-nav-link.ativo {
+    color: var(--cor-acento);
+    background: color-mix(in srgb, var(--cor-acento) 14%, transparent);
+    font-weight: 600;
+  }
+
+  .shell-bottom-nav-divisor {
+    width: 1px;
+    align-self: center;
+    height: 32px;
+    background: var(--cor-borda);
+    margin: 0 2px;
+  }
+
+  .shell-bottom-nav-menu {
+    flex: 0 0 58px;
+  }
+
+  .shell-menu-backdrop {
+    position: fixed;
+    left: 0;
+    right: 0;
+    top: 0;
+    bottom: var(--shell-altura-barra-mobile);
+    background: rgba(0, 0, 0, 0.45);
+    z-index: 3;
+  }
+
+  .shell-menu-sheet {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: var(--shell-altura-barra-mobile);
+    max-height: 54vh;
+    display: flex;
+    flex-direction: column;
+    background: var(--cor-superficie);
+    border-top: 1px solid var(--cor-borda);
+    border-radius: 16px 16px 0 0;
+    box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.25);
+    z-index: 4;
+  }
+
+  .shell-menu-sheet-handle {
+    width: 36px;
+    height: 4px;
+    border-radius: 999px;
+    background: var(--cor-borda);
+    margin: 8px auto 2px;
+  }
+
+  .shell-menu-sheet-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 4px 16px 6px;
+    font-weight: 700;
+    font-size: 14px;
+  }
+
+  .shell-menu-sheet-header button {
+    background: none;
+    border: none;
+    color: var(--cor-texto-suave);
+    font-size: 18px;
+    padding: 4px;
+    cursor: pointer;
+  }
+
+  .shell-menu-sheet-lista {
+    overflow-y: auto;
+    padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* atalho pro item mais usado (item 29 do backlog) — fica FORA dos
+   * grupos normais, com um fundo levemente tingido pra se destacar do
+   * resto da lista sem precisar de mais uma cor nova. */
+  .shell-menu-sheet-destaque {
+    background: color-mix(in srgb, var(--cor-acento) 8%, transparent);
+    border-bottom: 1px solid var(--cor-borda);
+  }
+
+  .shell-menu-sheet-destaque .shell-menu-sheet-grupo-titulo {
+    color: var(--cor-acento);
+  }
+
+  .shell-menu-sheet-grupo-titulo {
+    font-size: 10px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--cor-texto-suave);
+    font-weight: 700;
+    padding: 12px 16px 4px;
+  }
+
+  .shell-menu-sheet-item {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 12px 16px;
+    color: var(--cor-texto);
+    text-decoration: none;
+    font-size: 14px;
+  }
+
+  .shell-menu-sheet-item:active {
+    background: var(--cor-fundo);
+  }
+
+  .shell-menu-sheet-item span {
+    font-size: 20px;
+    width: 22px;
+    text-align: center;
+  }
+
+  .shell-fab {
+    right: 16px;
+    /* 8px deixava o FAB quase colado na barra (reportado pelo usuário,
+     * item 21) — 20px dá um respiro visual claro sem afastar demais do
+     * botão "+" que ele substitui/complementa. */
+    bottom: calc(var(--shell-altura-barra-mobile) + 20px);
+  }
+
+  .shell-topo-mobile {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--cor-borda);
+    background: var(--cor-superficie);
+    font-weight: 700;
+    font-size: 15px;
+  }
+}

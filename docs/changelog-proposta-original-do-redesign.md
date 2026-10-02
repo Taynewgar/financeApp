@@ -1,0 +1,4126 @@
+# Proposta original do redesign + Changelog — o que foi combinado x o que existe hoje
+
+Este documento existe pra não perder o que foi desenhado no início do projeto,
+quando o ZIP do app antigo (`v6_Estrutura_de_custos.zip`, Tkinter + relatório
+HTML local) foi analisado e viraram 4 mockups de tela. Serve de referência pra
+continuar o trabalho sem precisar redescobrir o que já foi decidido.
+
+**Fonte:** artifact de design "Finance App Redesign", publicado a partir da
+análise do ZIP original —
+[ver mockups interativos](https://claude.ai/code/artifact/aca7d916-7ef2-4b93-b482-bce337d343ed).
+As 4 telas também estão exportadas como PNG em `docs/mockups/` (abaixo, uma
+por seção) — versionado, sem depender de login nem do artifact continuar no
+ar. O ZIP em si não está neste repositório (foi um anexo de conversa, não um
+arquivo versionado) — se quiser preservá-lo de forma durável, vale anexar de
+novo e commitar num lugar como `docs/app-original/`. Ver também
+`plano-de-evolucao-original.md` (a auditoria do ZIP e o plano de fases que
+vieram antes destes mockups) e `sugestoes-e-decisoes-do-redesign.md` (a
+rodada de perguntas e respostas que veio logo depois deles).
+
+Cada seção abaixo lista o que o mockup propôs, o que existe hoje (código real,
+não memória — conferido nos routers/telas na data deste documento) e o que
+falta. Legenda: ✅ implementado · 🟡 parcial · ⬜ não implementado.
+
+---
+
+## Dashboard
+
+![Mockup do Dashboard](mockups/dashboard.png)
+
+Mockup: número de patrimônio no topo, seletor de mês com opções de intervalo,
+alternância entre as duas leituras financeiras, KPIs com variação percentual
+vs mês anterior, saldo por conta, compromissos futuros, evolução de 3 séries,
+e despesas por categoria do mês.
+
+| Proposto no mockup | Status | Observação |
+|---|---|---|
+| Saldo histórico / patrimônio total (topo, "desde jan/2019") | ⬜ | Ainda não existe — depende de contas terem saldo, e isso ficou de fora por decisão explícita (ver changelog 2026-09-13) |
+| Seletor de mês | ✅ | `<input type="month">` |
+| Intervalo (Todos os meses / mês específico) | ✅ | Tabs Mês/Intervalo/Todos os meses — Intervalo com 2 seletores de mês, Todos os meses calcula a partir de `GET /dashboard/primeiro-mes` |
+| Base da média (Até o mês / Todos os meses) | 🟡 | Seletor existe e guarda o estado, mas ainda **sem nenhum cálculo pendurado nele** — combinado explicitamente com o usuário, é plumbing pra quando algum gráfico/KPI passar a consumir média |
+| Alternância "Leitura de Caixa" / "Leitura de Saúde" | ✅ | Toggle troca só o hero e o par Receita/Despesa — Taxa de poupança, Reservas e Investimentos ficam sempre visíveis nas duas leituras (não mudam de valor entre elas) |
+| KPI: Despesas Líquidas, Receita, Resultado de Saúde, Taxa de Poupança | ✅ | Cards + número principal (hero) |
+| Delta de cada KPI vs mês anterior (ex: "6,2% vs mês anterior") | ✅ | Calculado no frontend a partir do próprio `/dashboard/evolucao` (penúltimo mês da janela) — só aparece no modo Mês (Intervalo/Todos os meses não têm um "mês anterior" único pra comparar) |
+| Taxa de poupança acumulada no ano | ✅ | Busca à parte de `/dashboard/evolucao` (jan até o mês de referência), mostrada junto do card de Taxa de poupança |
+| Patrimônio por conta (saldo de cada conta/caixinha/fatura) | 🟡 | Só caixinhas (`GET /dashboard/patrimonio/{mes}`) — contas seguem sem saldo próprio por decisão do usuário, a definir depois |
+| Compromissos futuros (parcelas futuras, fixos recorrentes) | 🟡 | Só parcelas futuras (`GET /dashboard/compromissos-futuros`) — "fixo recorrente" (ex: aluguel todo dia 5) registrado como backlog (ver seção própria abaixo), não implementado |
+| Evolução mensal — 3 séries (Receita/Despesa/Resultado) | ✅ | Combo: barras pra Receita/Despesa + linha de Resultado sobreposta, como no mockup (era só 3 linhas antes — corrigido) |
+| Despesas por categoria do mês (% por categoria) | 🟡 | Implementado como **barra horizontal empilhada** + lista, não donut — a skill de dataviz do projeto marca donut/pizza como anti-pattern pra comparar valores próximos; mesma informação (categoria, valor, %), forma diferente. Ver nota abaixo |
+
+**Sobre o donut:** o mockup e o app original (`gráficos de pizza por categoria/subcategoria`,
+ver `plano-de-evolucao-original.md`) usavam pizza/donut. Optei por uma barra horizontal
+empilhada porque é a forma recomendada pra "parte-do-todo" pela skill de dataviz usada
+neste projeto (`references/choosing-a-form.md`: "Part-to-whole → stacked bar"; e
+`anti-patterns.md` lista "donut/pie para comparar valores próximos" como erro comum).
+O layout (barra + lista com cor, categoria, valor e %) reproduz a mesma leitura do
+mockup. Se preferir o donut literal mesmo assim, é uma troca pontual no componente.
+
+**Arquivo:** `frontend/src/routes/Dashboard.tsx`, `frontend/src/components/EvolucaoChart.tsx`,
+`frontend/src/components/DespesasPorCategoria.tsx`, `backend/app/routers/dashboard.py`.
+
+---
+
+## Novo Lançamento
+
+![Mockup do Novo Lançamento](mockups/novo-lancamento.png)
+
+Mockup: tipo em 4 segmentos (Receita/Despesa/Aplicação/Retirada) + checkbox de
+estorno/ressarcimento, categorias "mais usadas" com atalho de criação inline,
+estrutura de custo sugerida pela subcategoria.
+
+| Proposto no mockup | Status | Observação |
+|---|---|---|
+| Tipo: Receita/Despesa/Aplicação/Retirada | 🟡 | Evoluiu pra 5 tipos (Receita/Despesa/Investimento/Reserva/Estorno-Ressarcimento) — Aplicação/Retirada do mockup viraram dois tipos "pai" (Investimento e Reserva) distinguidos por ter ou não caixinha vinculada, decidido depois em conversa com base em uso real |
+| Toggle À vista/Parcelado | ✅ | |
+| Checkbox "É estorno/ressarcimento" | 🟡 | Virou um tipo de movimento próprio (mais estruturado que um checkbox modificador — decisão posterior, não regressão) |
+| Valor, data, conta | ✅ | |
+| Categoria "mais usadas" (atalho) | ⬜ | Formulário usa select simples com todas as categorias do tipo, sem destaque pras mais usadas |
+| "+ Nova" categoria inline, sem sair do formulário | ⬜ | Categoria só pode ser criada em Configurações |
+| Subcategoria | ✅ | |
+| Estrutura de custo sugerida pela subcategoria | ✅ | `estrutura_custo_padrao` da subcategoria pré-preenche o campo |
+| Descrição opcional | ✅ | |
+
+**Arquivo:** `frontend/src/routes/NovoLancamento.tsx` (e `EditarLancamento.tsx`,
+que não existia no mockup — feature adicionada depois por pedido direto).
+
+---
+
+## Configurações (Contas/Categorias/Bancos/Caixinhas)
+
+![Mockup de Configurações](mockups/contas-categorias.png)
+
+Mockup: 4 abas incluindo uma aba "Bancos" separada, tabela de contas com
+saldo calculado e status ativo.
+
+| Proposto no mockup | Status | Observação |
+|---|---|---|
+| Aba Contas | ✅ | CRUD completo |
+| Aba Categorias (pai expansível + subcategorias) | ✅ | Implementado exatamente como desenhado |
+| Aba Bancos (separada de Conta) | ⬜ | `banco` é só um campo de texto livre em `Conta`, não uma entidade própria gerenciável |
+| Aba Caixinhas | ✅ | Não estava desenhada no mockup original (só apareciam como um tipo de conta), acabou implementada como aba própria — decisão do meio do projeto quando caixinha virou conceito de "reserva" separado de conta |
+| Coluna de saldo calculado na tabela de contas | ⬜ | Mesma dependência do saldo atual (Dashboard) |
+
+**Arquivo:** `frontend/src/routes/Configuracoes.tsx` e
+`frontend/src/routes/configuracoes/*Section.tsx`.
+
+---
+
+## Planejamento (Orçamento)
+
+![Mockup do Planejamento](mockups/planejamento.png)
+
+Mockup: alocação percentual visual por bucket, comparação orçado x realizado
+x mês anterior por bucket, ações explícitas "Acumular/Transferir" sobre a
+sobra do envelope, alternância R$/%.
+
+**Divisão de responsabilidade decidida depois do mockup** (ver
+`sugestoes-e-decisoes-do-redesign.md`, seção 8): Planejamento é *só*
+configuração dos valores-alvo (R$ por item/bucket) — nenhuma leitura de
+realizado nem comparação com mês anterior aparece aqui. Essa leitura fica
+inteira pra tela de Estrutura de Custo. Por isso as colunas "Realizado" e
+"Mês anterior" do mockup **não foram implementadas por decisão**, não por
+lacuna — o mockup ficou desatualizado nesse ponto específico depois da
+conversa que fechou essa divisão.
+
+| Proposto no mockup | Status | Observação |
+|---|---|---|
+| Tela de configuração (renda, % geral, limites por bucket) | ✅ | `frontend/src/routes/Planejamento.tsx` — cria/edita o orçamento do mês |
+| Alocação por bucket (% limite) | ✅ | Barra de alocação total + card por bucket, com % do teto já usado pelos itens |
+| Itens do orçamento por bucket (nome/categoria/subcategoria/conta, valor mensal) | ✅ | Aparecem sozinhos a partir do que é lançado (paridade com o app original — "categorias de custo derivadas automaticamente do CSV carregado") — você só ajusta o valor. CRUD manual (nome livre, conta vinculada) continua disponível pra casos sem transação ainda. Teto do bucket validado pelo backend |
+| Orçado x Realizado por bucket | 🚫 | **Fora do escopo desta tela por decisão** — fica em Estrutura de Custo (`GET /estrutura-custo/{mes}` já calcula os dois no backend) |
+| Comparação com mês anterior por bucket | 🚫 | Mesma decisão acima — é leitura de execução, não de configuração |
+| Sobra do envelope acumulada | ✅ | Botão "Gerar orçamento do próximo mês" (`POST /orcamentos/{id}/proximo-mes`); cada item mostra sobra/disponível quando há saldo trazido |
+| Ações manuais "Acumular"/"Transferir" sobre a sobra | ⬜ | Continua automático (todo o saldo rola pro item equivalente do mês seguinte) — sem escolha manual de acumular vs transferir pra outro bucket |
+| Alternância de entrada R$/% | ⬜ | Itens são cadastrados só em R$; os limites por bucket já são em % |
+
+**Arquivo:** `frontend/src/routes/Planejamento.tsx`, `frontend/src/components/planejamento.css`.
+
+---
+
+## Estrutura de Custo
+
+Não fazia parte dos 4 mockups originais (não foi desenhada como tela própria
+naquele momento) — surgiu como conceito só no backend, e virou tela em
+2026-09-15 depois da avaliação dos 6 mockups de referência (ver changelog
+"rodada 3"/"rodada 4" abaixo), com design hierárquico escolhido pelo usuário
+depois de testar um mockup interativo comparando as duas opções.
+
+| Entregue | Status | Observação |
+|---|---|---|
+| Leitura orçado × realizado por bucket do mês | ✅ | `GET /estrutura-custo/{mes}`; 6 buckets — os 4 do orçamento mais `reservas` e `sem_estrutura`, que só existem aqui (nunca recebem item de orçamento) |
+| Hierarquia bucket > categoria pai > subcategoria, expand/collapse | ✅ | Agrupamento client-side (`agruparPorCategoria`) — o backend devolve itens "achatados" por categoria/subcategoria/conta |
+| Fita de KPIs (Orçado/Realizado/Diferença/Execução %) | ✅ | Soma só os 4 buckets que aceitam orçamento (reservas/sem_estrutura ficam de fora, já que orçado é sempre 0 neles) |
+| Vereditos de pool de despesas (teto) e piso de investimentos | ✅ | `pool_despesas` (fixos+variáveis+sazonalidades tratados como 1 teto agregado) e `piso_investimentos` (mínimo, não teto) |
+| Badge Dentro/Excedido por subcategoria | ✅ | "—" quando o item não tem orçado (nada a comparar) |
+| Drill-down pra Busca de Lançamentos | ✅ | Seta "→" no item leva a `/lancamentos?categoria_id=...&mes=...` (ou `subcategoria_id`), que já vem com os filtros pré-aplicados |
+| Aviso quando o mês não tem orçamento configurado | ✅ | Tela funciona sem orçamento (todo orçado fica 0), com aviso linkando pra Planejamento |
+| Modo privacidade | ✅ | Valores em R$ ocultáveis; percentuais (ex.: "Execução: 98,1%") ficam sempre visíveis, mesmo padrão do resto do app |
+| Responsivo mobile | ✅ | Colunas Status/drill-down somem <480px; cabeçalho de bucket/categoria quebra em 2 linhas pra não estourar largura |
+
+**Arquivo:** `frontend/src/routes/EstruturaCusto.tsx`, `frontend/src/components/estruturaCusto.css`.
+
+---
+
+## Gráficos / Análise
+
+Não fazia parte dos 4 mockups originais, e diferente de Estrutura de Custo
+(que pelo menos virou um conceito citado explicitamente nas fases do plano),
+a aba **Gráficos** do app antigo ficou sem menção nenhuma no redesign depois
+do `plano-de-evolucao-original.md` — não virou mockup, não virou tela
+planejada, não entrou no backlog. Registrado aqui em 2026-09-15 depois do
+usuário apontar a lacuna e pedir reavaliação direto do código-fonte do ZIP
+(`features/graficos/graficos_html.py` + `assets/report_scripts.js`).
+
+A aba original tinha 4 blocos. Comparado feature a feature com o que existe
+hoje:
+
+| Bloco / item do original | Status | Observação |
+|---|---|---|
+| Reading strip de saúde (receita de caixa, despesa bruta, ajustes, despesa líquida, resultado de caixa) | ✅ | Coberto pelo Dashboard atual (resumo cards + hero) |
+| KPI: Taxa de poupança do período | ✅ | Dashboard |
+| KPI: Taxa de poupança acumulada | ✅ | Dashboard ("Acumulado no ano") |
+| KPI: Meses com resultado negativo | ⬜ | Não existe em nenhuma tela |
+| KPI: Maior categoria de despesa | 🟡 | Coberto indiretamente pelo gráfico "Despesas por Categoria" do Dashboard — dá pra ver visualmente, mas não como um KPI numérico dedicado ("Mercado — R$ 850") |
+| KPI: Desvio do orçamento | ⬜ | Depende de Estrutura de Custo ter orçado×realizado calculado numa tela, o que ainda não existe |
+| KPI: Completude dos dados | ⬜ | Ver "Qualidade dos dados" abaixo |
+| Seletor local "Escopo da evolução" (Ano até o mês / Só o mês / Período global) — independente do filtro de período da página inteira | ⬜ | O Dashboard novo tem um seletor de período **global** (Mês/Intervalo/Todos os meses) que cobre parte do mesmo objetivo; um segundo escopo *local* só para este gráfico pode ser redundante agora — ver recomendação abaixo |
+| Gráfico de evolução mensal da saúde financeira | ✅ | `EvolucaoChart` do Dashboard |
+| **Pareto de despesas por categoria e subcategoria** (ordenado por valor, % acumulado, filtro de categoria pai para o Pareto de subcategoria) | ⬜ | **Não existe em lugar nenhum do app novo.** Não é a mesma coisa que "Despesas por Categoria" do Dashboard — aquele é uma barra empilhada por categoria/%, sem ordenação nem % acumulado; Pareto responde uma pergunta diferente ("quais poucas categorias concentram a maior parte do gasto"). É o gap mais real desta lista |
+| Orçado × Realizado — **tendência de vários meses** (barra Orçado/Realizado + linha % executado, resumo sem detalhe por categoria) | ⬜ | Diferente do que está planejado para Estrutura de Custo, que hoje é uma leitura de **1 mês só** (orçado×realizado por bucket do mês selecionado), não uma série temporal. Os dois são complementares, não substitutos |
+| Qualidade dos dados (diagnóstico de campos ausentes/pendências, painel sempre disponível, com gráfico e cards) | 🟡 | Já registrado em `sugestoes-e-decisoes-do-redesign.md` seção 5, mas reenquadrado especificamente para o fluxo de **importação de CSV** ("tela de revisão de importação"), não como painel geral sempre visível como no original. O formulário guiado do app novo já **exige** categoria/estrutura de custo/meio de pagamento na entrada de despesas — o cenário de "lançamento incompleto" que esse painel diagnosticava no app antigo é bem mais raro agora, exceto justamente na importação, onde a decisão de manter esse painel já foi tomada |
+| Gasto mensal no cartão de crédito | 🚫 | Conferido no código-fonte: era um dado **calculado mas nunca renderizado** em nenhum gráfico do app original (`data_json["cartao"]` sem consumidor em `report_scripts.js`) — código morto, não uma funcionalidade perdida. Corrigida a menção equivocada em `plano-de-evolucao-original.md` |
+
+**Minha avaliação, não uma decisão já tomada:**
+
+- **Recomendo registrar como prioridade real**: o Pareto por categoria/subcategoria é a única peça desta lista que é uma capacidade analítica genuinamente ausente hoje, sem equivalente parcial em nenhuma tela. Adicionar como backlog concreto (ver seção "Backlog registrado" abaixo).
+- **Recomendo registrar como extensão futura de Estrutura de Custo**, não como feature nova separada: a visão de tendência de Orçado×Realizado ao longo de vários meses — faz mais sentido morar ali (mesma divisão de responsabilidade já decidida: Planejamento configura, Estrutura de Custo lê o realizado) do que reviver uma aba "Gráficos" à parte.
+- **Recomendo baixa prioridade, mas registro**: os 3 KPIs que faltam (meses negativos, maior categoria como número, desvio do orçamento) — baratos de adicionar ao Dashboard quando Estrutura de Custo existir (desvio do orçamento depende disso).
+- **Recomendo não adotar como estava**: o seletor local "Escopo da evolução" — o Dashboard já resolve boa parte do mesmo problema com o seletor de período global (Mês/Intervalo/Todos os meses), que não existia no app antigo. Replicar os dois pode ser complexidade duplicada sem ganho real; melhor avaliar de novo se, na prática, alguém sentir falta de comparar um escopo diferente do que está selecionado na página.
+- **Qualidade dos dados**: mantenho a decisão já registrada (ligado à importação) — o formulário guiado do app novo já cobre a maior parte do problema original na entrada manual.
+
+---
+
+## Prioridades e backlog
+
+Movido para `docs/backlog.md` em 2026-09-15 — esse conteúdo (ordem de
+prioridade + itens detalhados registrados pra decidir depois) cresceu o
+suficiente pra merecer arquivo próprio, separado da tabela proposto ×
+implementado tela a tela que é o foco deste documento.
+
+---
+
+## Changelog deste documento
+
+Registro de rodadas de mudança pedidas diretamente sobre o que já tinha sido
+entregue — pra não perder o histórico de decisão ao reescrever as tabelas
+acima a cada entrega.
+
+**Convenção dos checklists de teste manual (a partir de 2026-10-01):** as
+caixas `- [ ]`/`- [x]` de cada "Checklist de teste manual" agora refletem
+confirmação real — marco `- [x]` só quando o usuário der "ok" pra aquele
+item especificamente (não mais ao escrever a rodada). Rodadas 1-34 foram
+marcadas retroativamente como testadas nesta data, a pedido do usuário —
+critério usado: confirmação textual explícita (ex: "usuário rodou a
+migração de verdade" na Rodada 34) ou achado de teste manual já registrado
+no backlog como consequência de testar aquela rodada (ex: itens 19/20/29/
+30/31/32, encontrados testando Rodadas 22/25/28-32). Rodadas 35+ só têm
+caixa marcada quando o usuário confirmar aquele item nominalmente.
+
+**Atualização (2026-10-02):** a diferença de 1 caractere entre `[ ]` e
+`[x]` passava batido numa leitura rápida — mesmo problema apontado pelo
+usuário no artifact interativo do backlog (ver commit da mesma data). Todo
+item confirmado (`[x]`) agora também vem com o texto inteiro riscado
+(`~~...~~`), reaproveitando a mesma convenção já usada pros itens
+concluídos do `backlog.md` — a caixa marcada deixa de ser o único sinal,
+e item pendente (`[ ]`, sem risco) e confirmado (`[x]`, riscado) ficam
+visualmente distintos mesmo sem reparar no conteúdo da caixa.
+
+### 2026-09-13 — Dashboard: caixa/saúde, delta, patrimônio, compromissos, 3ª linha
+
+Pedido do usuário: o Dashboard entregue antes (só evolução + KPIs simples)
+ficou bem diferente do mockup original, então foi pedido explicitamente para
+fechar mais gaps daquela tabela. Entregue nesta rodada:
+
+- Toggle "Leitura de Caixa" / "Leitura de Saúde" trocando hero + KPIs.
+- Delta vs mês anterior em todo KPI e no hero (reaproveitando `/dashboard/evolucao`,
+  sem endpoint novo).
+- Seção **Patrimônio em Caixinhas** — novo endpoint `GET /dashboard/patrimonio/{mes}`
+  (aplicações menos retiradas, acumulado até o fim do mês selecionado). Título
+  deixa explícito que é só caixinhas: **decisão do usuário nesta rodada foi
+  não dar saldo a contas por enquanto** ("contas decidirei futuramente se
+  terão saldo ou não") — então o "Patrimônio por Conta" do mockup original
+  não pode ser replicado por inteiro ainda.
+- Seção **Compromissos Futuros** — novo endpoint `GET /dashboard/compromissos-futuros`
+  (próxima parcela em aberto de cada compra parcelada, já que parcelas futuras
+  já são materializadas na tabela desde a Entrega 4). **Não inclui despesas
+  fixas recorrentes** (ex: "Aluguel · Fixo · todo dia 05" do mockup) — esse
+  conceito não existe no app: não há cadastro de "lançamento recorrente"
+  separado de uma transação já lançada, só compra parcelada tem data futura
+  conhecida de antemão. Implementar isso é feature nova (schema + tela), não
+  coberta nesta rodada.
+- 3ª linha "Resultado" (resultado_saude) no `EvolucaoChart`, cor slot 3 (aqua,
+  `#1baf7a`/`#199e70`) da paleta categórica validada pela skill de dataviz —
+  mantém a mesma paleta usada nas 2 séries já existentes.
+
+**O que ficou de fora, mesmo estando no mockup do Dashboard** (não foi pedido
+nesta rodada): saldo histórico/patrimônio total no topo, seletor de
+intervalo/"todos os meses", "base da média", taxa de poupança acumulada
+exposta na tela, e o donut de despesas por categoria.
+
+### 2026-09-13 (rodada 2) — correção do gráfico, KPIs sempre visíveis, seletor de período, categoria
+
+Pedido do usuário: revisão em cima da entrega anterior, corrigindo 2 decisões
+minhas que se afastaram do que foi combinado e fechando mais gaps do plano.
+Entregue nesta rodada:
+
+- **Gráfico de evolução corrigido para combo barra+linha** (Receita/Despesa em
+  barra, Resultado em linha sobreposta), como estava no mockup — a versão
+  anterior (3 linhas) foi uma escolha minha não avisada, corrigida aqui.
+- **Gráfico "Despesas por Categoria"** (categoria pai, mês de referência) —
+  não existia antes. Implementado como barra horizontal empilhada + lista, não
+  donut (ver nota na tabela do Dashboard acima) — restaura uma leitura que o
+  app original tinha (`gráficos de pizza por categoria/subcategoria`) usando a
+  forma que a skill de dataviz do projeto recomenda pra parte-do-todo.
+- **Taxa de poupança e Reservas passam a ficar sempre visíveis**, nas duas
+  leituras (antes cada uma "pertencia" só a uma leitura e sumia na outra —
+  decisão minha que escondia informação sem necessidade real, já que nenhum
+  dos dois valores muda entre as leituras). O toggle Caixa/Saúde agora só
+  troca o hero e o par Receita/Despesa, que são os únicos valores que
+  realmente mudam entre as duas leituras.
+- **Novo KPI "Investimentos", separado de "Reservas"** — o usuário notou que
+  aplicação/retirada estava sendo tratado como um conceito só ("reservas"),
+  mas são dois diferentes: reserva é aplicação/retirada COM caixinha
+  vinculada (guardar dinheiro numa Reserva de Emergência, por exemplo);
+  investimento é SEM caixinha. É a mesma distinção que `estrutura_custo.py`
+  já usava pros buckets da Estrutura de Custo — só não estava replicada no
+  resumo do Dashboard. Correção feita na função compartilhada
+  `calcular_resumo()` (afeta também `/transacoes/resumo`, usado pela busca de
+  Lançamentos, de forma aditiva — campo novo, nada quebrou).
+- **Seletor de período Mês / Intervalo / Todos os meses** — implementado com
+  tabs; Intervalo com 2 seletores de mês, Todos os meses calculado a partir
+  de `GET /dashboard/primeiro-mes` (mês do lançamento mais antigo). Novo
+  endpoint `GET /dashboard/resumo-periodo` soma as transações do período
+  inteiro de uma vez (não é a soma dos resumos mensais — taxa de poupança
+  precisa ser recalculada sobre o total, não a média das taxas mensais).
+  Delta vs mês anterior só aparece no modo Mês (não existe um "mês anterior"
+  único pra comparar num intervalo).
+- **"Base da média"** — seletor implementado (Até o mês / Todos os meses),
+  visível só fora do modo Mês, mas **sem nenhum cálculo pendurado nele
+  ainda** — combinado explicitamente com o usuário como plumbing pra uma
+  funcionalidade futura, não uma entrega funcional completa.
+- **Taxa de poupança acumulada no ano** — exposta junto do card de Taxa de
+  poupança, calculada com uma busca à parte de `/dashboard/evolucao` (janeiro
+  até o mês de referência).
+- **Backlog registrado, não implementado:** despesa fixa recorrente e edição
+  de compra parcelada — ambos com o motivo técnico e as opções de
+  implementação detalhadas na seção "Backlog registrado" acima, sem decisão
+  de prioridade ainda.
+
+### 2026-09-14 — Tela de Planejamento
+
+Pedido do usuário: seguir o plano de desenvolvimento — próximo item da lista
+de prioridades era a tela de Planejamento, cujo motor de orçamento já
+estava pronto no backend. Antes de implementar, o usuário pediu pra
+confirmar a divisão de responsabilidade entre Planejamento e Estrutura de
+Custo (ele lembrava que Planejamento seria só configuração, sem
+orçado×realizado) — recuperei a seção 8 de
+`sugestoes-e-decisoes-do-redesign.md`, que confirmou exatamente isso sem
+nenhuma mudança necessária no que já estava registrado.
+
+Entregue:
+
+- Tela `frontend/src/routes/Planejamento.tsx` (substituiu o placeholder).
+- Seletor de mês; criação de orçamento do zero ou a partir do mês anterior
+  (`POST /orcamentos/{id}/proximo-mes`, traz a sobra do envelope); edição da
+  configuração geral (renda base, % destinado, limite de cada bucket).
+- Barra de alocação total dos 4 buckets (cor fixa por bucket, mesma paleta
+  categórica validada) + aviso de % ainda não alocado.
+- Card por bucket com barra de "% do teto já alocado em itens" (fica
+  vermelha se os itens somarem mais que o teto) — isso é sobre o *plano*
+  (quanto dos R$ disponíveis já foi distribuído entre itens), não sobre
+  execução real, então não conflita com a divisão de responsabilidade.
+- CRUD completo de itens do orçamento por bucket (categoria, subcategoria,
+  nome livre, ou conta vinculada pra investimentos) — reaproveita as
+  validações já existentes no backend (teto do bucket, referências).
+- Item mostra sobra do envelope trazida do mês anterior e o disponível
+  total, quando existir.
+- **Não incluído, por decisão de escopo confirmada nesta rodada:** orçado ×
+  realizado e comparação com mês anterior por bucket — ficam pra Estrutura
+  de Custo. Também não incluído (não fazia parte do pedido): ações manuais
+  de acumular/transferir a sobra (continua automático) e alternância de
+  entrada R$/%.
+- tsc + build limpos, suíte de backend (190 testes, sem mudança nesta
+  rodada) verde, QA visual via Playwright (claro/escuro/mobile) antes de
+  fechar.
+
+### 2026-09-14 (rodada 2) — modo privacidade, correções no Planejamento
+
+Pedido do usuário logo após usar a tela de Planejamento: 1 correção de
+paridade que ficou faltando, 1 melhoria de usabilidade, e 1 feature nova
+restaurando algo que o app original já tinha. Entregue:
+
+- **Modo privacidade** (`👁 Ocultar valores` no AppShell, sidebar desktop +
+  nav inferior mobile) — o app original tinha isso no relatório HTML
+  ("Modo privacidade (ocultar/mostrar valores)", ver
+  `plano-de-evolucao-original.md`). Estado persistido em localStorage,
+  aplicado em todo display de R$ do app (Dashboard, gráficos, Lançamentos,
+  Planejamento).
+- **Destaque de estouro na soma dos limites dos buckets do Planejamento**
+  (vermelho quando passa de 100%) — confirmado como paridade: o app
+  original já tinha "indicadores visuais de alocação/estouro" pra essa
+  soma. Só faltava replicar (o destaque por item individual acima do teto
+  do bucket já existia desde a entrega da tela).
+- **Botão "Editar configuração" do Planejamento** trocado de link discreto
+  pra botão de verdade — ficava escondido demais.
+
+**Em aberto na época, decidido e implementado na rodada seguinte** (ver
+changelog 2026-09-14 rodada 3 abaixo): itens reativos a partir de
+lançamentos (decisão: reativo, não só na criação do orçamento) e
+confirmação antes de substituir orçamento existente.
+
+### 2026-09-14 (rodada 3) — itens de orçamento reativos, substituir orçamento existente, botão de privacidade reposicionado
+
+Resolve os 2 pontos que ficaram em aberto na rodada anterior, mais 1 ajuste
+de posição pedido depois de usar o botão de privacidade pela primeira vez.
+
+- **Itens do orçamento reativos** — decisão: reativo (não só na criação do
+  orçamento). Novo `services/orcamento_sync.py`: toda vez que uma despesa
+  ou um investimento (aplicação/retirada sem caixinha) é lançado ou editado,
+  se já existe orçamento pro mês daquela transação e a categoria/subcategoria
+  usada ainda não tem item nele, um item novo é criado sozinho com
+  `orcamento_mensal=0` — você só ajusta o valor, nunca precisa criar o item
+  do zero. Bucket vem direto do `estrutura_custo` da transação (mesmo mapa
+  usado em Estrutura de Custo). Reserva (aplicação/retirada com caixinha),
+  receita e estorno/ressarcimento não alimentam orçamento, não criam item.
+  Item já existente nunca é tocado (nem o valor, nem removido). 8 testes
+  novos cobrindo os casos (categoria nova, subcategoria em vez de categoria,
+  não duplica, sem orçamento não cria nada, investimento, reserva não cria,
+  estorno não cria, edição sincroniza a categoria nova).
+- **Substituir orçamento existente ao gerar o próximo mês** —
+  `POST /orcamentos/{id}/proximo-mes?substituir=true` agora apaga o
+  orçamento (e itens) que já existe pro mês seguinte antes de recriar, em
+  vez de só recusar com 409. Sem o parâmetro, comportamento antigo mantido
+  (409). Frontend: ao tentar gerar e receber 409, mostra
+  `window.confirm()` perguntando se quer substituir; se sim, repete a
+  chamada com `substituir=true`.
+- **Botão de privacidade reposicionado** — tirado do rodapé da barra
+  lateral (ficava embaixo de tudo, fora da vista sem rolar) e virou uma
+  barrinha fixa no topo da página, acima de tudo, sempre visível em
+  qualquer tela — desktop e mobile, com ou sem o aviso de "acordando o
+  servidor" no topo (motivo da mudança: a primeira versão usava um botão
+  flutuante fixo que ficava embaixo desse aviso quando ele aparecia).
+- tsc + build limpos; suíte de backend (199 testes) verde; QA visual via
+  Playwright (claro/escuro/mobile, com e sem o banner do backend) antes de
+  fechar.
+
+### 2026-09-14 (rodada 4) — botão de privacidade: de barrinha no topo pra ícone quadrado ao lado do seletor de mês
+
+A barrinha fixa no topo (rodada 3) ainda incomodava — posição genérica,
+desconectada do conteúdo da tela. Trocado por um botão quadrado com ícone
+de olho, pequeno, ao lado do controle de mês em cada tela — mais perto de
+onde o olhar já passa.
+
+- Novo `components/BotaoPrivacidade.tsx` — botão 38×38px reutilizável, com
+  SVG de olho (aberto) / olho riscado (fechado) inline, `aria-pressed` pra
+  indicar estado ativo. Some o `.shell-topbar` do `AppShell.tsx` (e o CSS
+  correspondente) — o toggle não é mais um elemento global da casca do
+  app, e sim posicionado por tela.
+- Colocado ao lado do seletor de mês/segmentado em **Dashboard** (dentro
+  de `.dashboard-seletor`) e **Planejamento** (ao lado do campo Mês);
+  colocado ao lado do título em **Lançamentos** (o filtro rápido de
+  mês/ano ali fica dentro da linha de filtros, menos em destaque que um
+  cabeçalho). Configurações, Novo/Editar Lançamento seguem sem o botão —
+  não mostram valores agregados relevantes.
+- Estado continua global (mesmo `PrivacyContext`/localStorage de antes) —
+  só a posição de cada botão é por tela.
+- tsc + build limpos; suíte de backend (199 testes, sem mudança) verde; QA
+  visual via Playwright (claro/escuro) confirmando o botão ao lado do
+  seletor de mês e o toggle funcionando.
+
+### 2026-09-15 — botão de privacidade: de posição por tela pra global na casca do app
+
+Correção sobre a rodada anterior: o usuário apontou que o botão *tem* que
+ser global — acessível em qualquer tela, não só nas 3 que tinham seletor
+de mês/título em destaque (ficava ausente em Configurações e nos
+formulários de lançamento). Pedi sugestão de posição, propus a casca do
+app (`AppShell`) em vez de por tela, mostrei um mockup com screenshot
+antes de mexer no código de verdade — a primeira tentativa no mockup
+(6º item na barra inferior mobile) quebrou visualmente (rótulos
+colidindo: "Lançamentos"/"Planejamento" sobrepostos, "Estruturas de
+Custo" invadindo "Configurações"), corrigida ainda no mockup antes de ir
+para aprovação.
+
+- **Desktop**: `<BotaoPrivacidade />` (mesmo componente da rodada
+  anterior, sem mudança nele) movido para dentro de `.shell-nav-header`,
+  ao lado do texto "Finance App", topo da barra lateral — sempre visível
+  sem rolar, em fluxo normal (não `position: fixed`), então sem risco de
+  colidir com o banner de "acordando o servidor" (o mesmo tipo de bug que
+  a versão flutuante da rodada 3 teve).
+- **Mobile**: nova faixa `.shell-topo-mobile` (só visível abaixo de
+  720px, escondida no desktop), com "Finance App" + o botão — a barra de
+  navegação inferior continua com os 5 itens originais, sem o 6º item que
+  quebrou no mockup.
+- Removido de **Dashboard**, **Planejamento** e **Lançamentos** (import e
+  uso de `<BotaoPrivacidade />` por tela, da rodada anterior) — agora é
+  um único ponto de verdade na casca do app, cobrindo todas as telas
+  (inclusive Configurações e os formulários de lançamento, que antes
+  ficavam sem o toggle).
+- `components/BotaoPrivacidade.tsx` e `botaoPrivacidade.css` continuam os
+  mesmos (SVG de olho, `aria-pressed`) — só o lugar onde são montados
+  mudou.
+- tsc + build limpos; suíte de backend (199 testes, sem mudança) verde; QA
+  visual via Playwright (claro/escuro, desktop/mobile) no mockup antes de
+  aprovar, e de novo na implementação final antes de commitar.
+
+### 2026-09-15 (rodada 2) — registro da aba "Gráficos" do app original, ausente do redesign
+
+Pedido do usuário: o ZIP original ainda estava disponível na conversa, e ele
+notou que a aba **Gráficos** do app antigo nunca foi mencionada em nenhum
+documento do redesign — nem virou mockup, nem virou backlog. Pediu pra
+avaliar as funcionalidades e, se eu concordasse com todas, registrar como
+parte do redesign.
+
+Reli o código-fonte do ZIP (`features/graficos/graficos_html.py` +
+`assets/report_scripts.js`, não só a memória documentada) pra levantar
+exatamente o que a aba fazia. Resultado: **não concordei com adoção 1:1 de
+tudo** — ver a nova seção "Gráficos / Análise" acima pra comparação completa
+feature a feature. Resumo do que mudou nesta rodada:
+
+- Nova seção **"Gráficos / Análise"** neste documento, com a tabela completa
+  (11 itens do original × status atual) e minha avaliação item a item.
+- **Achado principal**: o **Pareto de despesas por categoria/subcategoria**
+  é uma capacidade real, hoje totalmente ausente, sem equivalente parcial —
+  registrado como novo item no backlog (seção própria, com o que precisaria
+  pra construir).
+- **Achado secundário (correção, não gap)**: "Gasto mensal no cartão de
+  crédito", listado em `plano-de-evolucao-original.md` como funcionalidade
+  do app antigo, na verdade era um dado calculado mas nunca renderizado em
+  nenhum gráfico — código morto no próprio original. Corrigido lá.
+- **Recomendação de não adotar como estava**: o seletor local "Escopo da
+  evolução" (Ano até o mês / Só o mês / Período global), por sobrepor boa
+  parte do que o seletor de período global do Dashboard novo já resolve —
+  registrado, mas não como pendência a construir.
+- Item 9 adicionado ao "Resumo de prioridades sugerido" (o Pareto).
+- Nenhuma linha de código mudou nesta rodada — só documentação.
+
+### 2026-09-15 (rodada 3) — avaliação de 6 mockups de referência, feature Gráficos aprovada, backlog vira arquivo próprio
+
+Usuário trouxe 6 mockups visuais de referência (conceitos, não screenshots
+do app antigo) mostrando ideias de tela pra Gráficos, Estrutura de Custo e
+Pareto, pediu avaliação honesta ("se discordar, me fale"), sugestões pra
+deixar o Dashboard mais robusto, e reorganização da documentação de
+backlog. Resultado, ponto a ponto:
+
+- **Feature "Gráficos" aprovada como tela própria** — o usuário confirmou
+  querer essa feature dedicada (revertendo minha recomendação anterior de
+  só distribuir peças pelo Dashboard/Estrutura de Custo). Escopo v1: Pareto
+  de despesas + tendência de Orçado×Realizado em vários meses. Detalhe
+  completo em `backlog.md`.
+- **Dashboard proposto para ficar 100% sintético** (números/KPIs/listas,
+  sem gráfico nenhum) — ideia do próprio usuário, que eu recomendei adotar:
+  `EvolucaoChart` e "Despesas por Categoria" migram pra Gráficos (mudam de
+  lugar, não duplicam). Aguardando confirmação final antes de virar
+  trabalho committed.
+- **3 KPIs novos aprovados pro Dashboard**: "Meses com resultado negativo",
+  "Resultado acumulado" (R$), "Maior categoria de despesa" (textual).
+- **Discordâncias registradas, não adotadas como estavam nos mockups**:
+  o seletor local "Escopo da evolução" (redundante com o seletor de
+  período que a tela nova vai reaproveitar do Dashboard); o botão "Ocultar
+  valores" embutido no toolbar de um dos mockups (já resolvido globalmente
+  no `AppShell` desde a rodada de 2026-09-15 anterior); o agrupamento por
+  "categoria pai" solta da tela de Estrutura de Custo no mockup (não bate
+  com o schema real — buckets fixo/variável/sazonal/investimentos vêm
+  primeiro).
+- **Estrutura de Custo — decisão de tabela em aberto**: publicado mockup
+  interativo (artifact) comparando tabela hierárquica com expand/collapse
+  (minha sugestão, mais fiel ao app original — drill-down direto pra Busca
+  de Lançamentos) × duas listas separadas (estilo do mockup trazido) —
+  aguardando o usuário escolher.
+- **Exportação de relatório mensal/anual** — novo item de backlog, pedido
+  explícito do usuário como próximo passo pós-MVP. Prioriza dado
+  estruturado (JSON) pensado pra ser usado numa análise depois, sobre um
+  relatório "bonito" pra imprimir. Recomendação de onde morar: começa como
+  link numa tela existente, não uma tela "Relatórios" própria — só cresce
+  pra isso se ganhar mais capacidade real.
+- **Backlog extraído pra `docs/backlog.md`** — pedido do usuário
+  ("qual arquivo é o backlog? organize") — ver commit próprio dessa
+  reorganização; esta entrada de changelog documenta as decisões de
+  conteúdo desta rodada, não a reorganização de arquivo em si.
+- Nenhuma linha de código de produto mudou nesta rodada — só documentação e
+  um artifact de mockup (fora do repositório).
+
+### 2026-09-15 (rodada 4) — fecha as 2 decisões pendentes da rodada anterior
+
+Usuário testou o mockup interativo, pediu avaliação de ganhos/perdas da
+divisão Dashboard×Gráficos, e fechou tudo que tinha ficado em aberto:
+
+- **Estrutura de Custo: tabela hierárquica escolhida** — depois de testar
+  o mockup interativo (expand/collapse de verdade), decidiu pela hierarquia
+  bucket > categoria > subcategoria em vez das duas listas separadas.
+- **Dashboard 100% sintético, confirmado, com 1 adição** — perguntei
+  explicitamente sobre ganhos/perdas antes do usuário confirmar: ganho é
+  foco e velocidade de leitura + tela mais leve; perda real é a leitura
+  imediata da *forma* da tendência, que um número sozinho não dá. Sugeri
+  mitigar com um **sparkline** compacto (sem eixos/legendas/tooltip) ao
+  lado do resultado principal — aprovado. Passa a fazer parte do escopo da
+  migração de gráficos pro Dashboard/Gráficos.
+- **Export de relatório: botão confirmado**, sem tela "Relatórios" própria.
+- Com isso, nenhuma proposta da rodada anterior ficou pendente — próxima
+  entrega de código é Estrutura de Custo (tabela hierárquica).
+- Nenhuma linha de código mudou nesta rodada — só documentação.
+
+### 2026-09-15 (rodada 5) — Estrutura de Custo entregue
+
+- Tela nova `frontend/src/routes/EstruturaCusto.tsx`, hierárquica
+  (bucket > categoria pai > subcategoria) com expand/collapse, fita de
+  KPIs, vereditos de pool de despesas/piso de investimentos, badges
+  Dentro/Excedido, drill-down pra Busca de Lançamentos via
+  `useSearchParams` (novo em `Lancamentos.tsx`) e aviso de "sem orçamento
+  configurado" quando o mês não tem `Orcamento`. Backend não mudou — o
+  endpoint `GET /estrutura-custo/{mes}` já existia pronto.
+- Verificação: `tsc --noEmit` e `npm run build` limpos; suíte de backend
+  offline (199 passed, 33 skipped — integração fica pra rodar local);
+  QA visual via Playwright (light/dark/mobile/privacidade/badges/
+  drill-down), que encontrou e corrigiu 1 bug real de CSS (estouro de
+  largura em 390px nos cabeçalhos de bucket/categoria).
+- Removida `frontend/src/routes/Placeholder.tsx` (última tela que a usava
+  virou tela própria).
+
+### 2026-09-15 (rodada 6) — 2 correções de backend reportadas pelo usuário testando a tela
+
+- **Subcategoria nunca aparecia como item próprio em Estrutura de Custo** —
+  `_chave()` (`backend/app/routers/estrutura_custo.py`) checava
+  `categoria_id` antes de `subcategoria_id`. Num lançamento real os dois
+  vêm preenchidos juntos (escolher subcategoria grava a categoria pai
+  também, `NovoLancamento.tsx`), então todo item com subcategoria caía
+  agrupado só na categoria como "Geral (sem subcategoria)" — o frontend já
+  sabia desenhar a subcategoria como folha própria, só nunca recebia o
+  dado. Ordem invertida pra subcategoria > categoria > conta. Mesmo bug
+  existia em `orcamentos._calcular_realizado` (usado no rollover de
+  "próximo mês") — corrigido junto, senão um item de subcategoria somava
+  o realizado de todas as subcategorias-irmãs da mesma categoria pai.
+- **Planejamento não nascia com as categorias já lançadas no mês** —
+  `sincronizar_item_orcamento` só reage a transação nova (criada/editada
+  depois de o orçamento existir); lançar antes de planejar — fluxo normal
+  — nunca alimentava a tela retroativamente. `POST /orcamentos` e
+  `POST /orcamentos/{id}/proximo-mes` agora rodam a mesma sincronização
+  contra as transações que já existem no mês, criando os itens com
+  `orcamento_mensal=0`.
+- 5 testes novos cobrindo os dois casos (offline, 204 passed no total).
+  Nenhuma mudança de frontend — os dois bugs eram só backend.
+
+### 2026-09-15 (rodada 7) — botão "Expandir tudo" / "Recolher tudo"
+
+Sugestão minha, aprovada pelo usuário na hora: acha os buckets/categorias
+abertos individualmente lento pra auditar o mês inteiro. Estado de
+categoria aberta, que antes vivia local dentro de cada `BucketBloco`, subiu
+pra `EstruturaCusto` (chave composta `bucket|categoria` — evita qualquer
+ambiguidade entre buckets) pra um botão único conseguir expandir/recolher
+os dois níveis juntos. Botão mostra "Expandir tudo" ou "Recolher tudo"
+conforme o estado atual (calculado, não guardado à parte) e só aparece
+quando existe algum bucket com lançamento. De brinde, corrigida a seta da
+linha de categoria, que nunca rotacionava ao abrir (só a do bucket tinha
+essa regra de CSS) — mesmo bug de UI, mesmo lugar, custo zero corrigir
+junto. QA visual via Playwright (preview temporário, revertido depois).
+
+### 2026-09-15 (rodada 8) — fix: fixture `cleanup` dos testes de integração vazava categoria/orçamento
+
+Usuário reportou (com print da tela real de Categorias) várias categorias
+"... Integração" travadas, e colou o log de 18 falhas — a maioria
+`KeyError: 'id'` em `orcamento["id"]` (orçamento duplicado pro mesmo mês,
+porque um anterior nunca foi apagado) e `duplicate key ... categorias_user_id_nome_key`.
+
+**Causa raiz**: `tests/integration/conftest.py::cleanup` apagava na ordem
+inversa da criação (LIFO), assumindo que "reverso de criação = seguro".
+Isso é falso pro grafo de FK real — vários testes criam o **orçamento**
+antes da **categoria** e só depois um **item** que referencia os dois
+(`POST /orcamentos/{id}/itens`). LIFO então tentava apagar a categoria
+*antes* do orçamento (e do item, que ainda a referenciava), a FK sem
+cascade bloqueava, o erro caía num `except: pass` silencioso, e a
+categoria ficava presa pra sempre. Bug latente desde que a fixture foi
+escrita — a rodada 6 (retroalimentar Planejamento a partir de transações
+já lançadas) tornou o gatilho muito mais frequente, porque agora até
+criar um orçamento sozinho pode criar um item reativo na hora, sem o
+teste saber.
+
+**Fix**: `cleanup` agora apaga numa ordem fixa que respeita as FKs de
+verdade (mesma lista de `tests/limpar_dados_integracao.py`:
+`orcamento_itens → transacoes → orcamentos → caixinhas →
+compras_parceladas → subcategorias → categorias → contas`), não mais a
+ordem reversa de criação. De brinde: zera `ajuste_de_transacao_id`
+(auto-referência de estorno) antes de apagar transações, mesma defesa do
+script de limpeza; e troca o `except: pass` silencioso por um print —
+uma falha de limpeza não pode mais passar despercebida até virar
+"duplicate key" numa rodada futura.
+
+**Ação pro usuário**: a conta de teste já está suja (é o que aparece no
+print) — rode `python tests/limpar_dados_integracao.py` uma vez pra
+zerar antes da próxima rodada de testes de integração (comando completo
+no README, seção "Resetar a conta de teste"). O fix evita que aconteça
+de novo, não desfaz o que já está preso.
+
+### 2026-09-15 (rodada 9) — depois da limpeza, 2 falhas novas de matemática (18 → 2)
+
+Usuário rodou de novo depois do fix da rodada 8: caiu de 18 falhas pra 2,
+ambas em `test_orcamentos_integration.py`, com números claramente errados
+(`saldo_anterior == -1500` esperando `90`; `422` esperando `201`) — não
+mais `KeyError`/`duplicate key`, então já não era lixo de teste.
+
+**Causa raiz**: a conta de teste tem atividade real no mesmo mês
+(2026-09) além do que cada teste cria pra si — outras categorias, outras
+transações. Antes da rodada 6, isso era inofensivo: um item de orçamento
+só nascia reativo quando uma transação NOVA era lançada depois do
+orçamento já existir, e cada teste só lança as suas próprias. A rodada 6
+mudou isso: criar um orçamento (ou rodar "próximo mês") agora varre TODAS
+as transações já lançadas no mês e cria item pra cada uma — então um
+orçamento criado por um teste passa a incluir itens de QUALQUER outra
+atividade real da conta naquele mês, não só a do teste. Dois testes
+assumiam implicitamente que só o item deles existia:
+- `test_proximo_mes_carrega_sobra_contra_banco_real` lia `itens_proximo[0]`
+  como se fosse garantidamente o item do teste — com outros itens no meio,
+  índice 0 virou aposta.
+- `test_sobra_acumulada_do_bucket_amplia_teto_contra_banco_real` assumia
+  que o teto efetivo do bucket (soma de TODOS os itens ativos — é assim
+  que o "pool" agregado funciona, de propósito) dependia só do item do
+  teste.
+
+De passagem, também troquei o filtro `.is_("subcategoria_id", "null")` de
+`_calcular_realizado` (rodada 6) por uma exclusão em Python depois de
+buscar — mesmo resultado, sem depender de mais um operador da query
+builder que eu não conseguia validar contra o Postgres real direto desta
+sessão (o dublê offline não distingue um `.is_()` bem-chamado de um
+mal-chamado, então essa parte nunca teria pego um erro aqui).
+
+**Fix**: os dois testes agora localizam o próprio item pela categoria
+criada (não por índice) e, no segundo, computam o headroom real do
+bucket dinamicamente a partir do que a API devolve (em vez de assumir um
+valor fixo), testando o limite exato — com `pytest.skip` explicando o
+motivo se a conta tiver déficit real maior que a sobra do teste (isso é
+comportamento correto do pool agregado, só não dá pra testar o limite
+exato numa conta com histórico real; a lógica isolada já está coberta em
+`test_orcamentos_api.py`, que usa um dublê sem esse problema).
+
+**Nenhuma mudança de comportamento em produção** além da troca defensiva
+do `.is_()` — o "pool agregado inclui toda atividade real do bucket/mês"
+é a regra desde sempre (documentada no próprio código), só nunca tinha
+aparecido num teste de integração porque, antes da rodada 6, um orçamento
+recém-criado nunca "enxergava" atividade alheia automaticamente.
+
+### 2026-09-15 (rodada 10) — fix: editar item de subcategoria em Planejamento mostrava "Categoria: Nenhuma"
+
+Usuário reportou (com prints) comportamento diferente ao clicar "Editar"
+em itens diferentes: "Lazer (seed)"/"Renda Fixa (seed)" abriam com a
+Categoria certa preenchida; "Aluguel (seed)" abria com "Categoria:
+Nenhuma" — e o campo Subcategoria simplesmente sumia do formulário.
+
+**Causa**: `iniciarEdicaoItem` (`frontend/src/routes/Planejamento.tsx`)
+copiava `item.categoria_id` direto pro formulário. Um item de
+subcategoria tem `categoria_id=null` por design (os dois campos são
+mutuamente exclusivos, ver `orcamento_sync.py`) — "Aluguel (seed)" é
+subcategoria de "Moradia (seed)", então seu item só tem
+`subcategoria_id` preenchido. O rótulo da lista (`rotuloItem`) já
+resolvia isso certo (checa subcategoria antes de categoria), mas o
+formulário de edição não — mostrava "Nenhuma" e, como o campo
+Subcategoria só renderiza quando uma Categoria está selecionada
+(`{formItem.categoria_id && (...)}`), ele desaparecia por completo,
+escondendo a subcategoria que o item já tinha (o valor em si não se
+perdia ao salvar sem tocar em nada — só ficava invisível/confuso; tocar
+na Categoria, porém, resetava a subcategoria de verdade).
+
+**Fix**: `iniciarEdicaoItem` agora resolve a categoria pai a partir da
+subcategoria quando `categoria_id` vem nulo — mesma lógica que
+`rotuloItem` já usava pra exibir o nome, agora também pro formulário.
+
+Verificado por leitura de código (mesmo padrão de `rotuloItem`, já
+correto) e `tsc`/`build` limpos — não deu pra fazer screenshot desta vez
+porque a tela exige sessão Supabase autenticada (não dá pra simular sem
+tocar a autenticação de verdade); peço confirmação visual do usuário.
+
+### 2026-09-15 (rodada 11) — Planejamento: cards por linha, itens em colunas, navegação de mês
+
+Usuário reportou (com prints) o card de item quebrando linha feio logo
+depois do sinal de negativo em "sobra do envelope"/"disponível" — texto
+único com `·` como separador, sem largura própria pra cada valor.
+Sugeriu o fix: cada bucket vira uma linha própria (mais espaço
+horizontal) e os itens usam colunas fixas, mesma ideia da tabela de
+Estrutura de Custo, incluindo drill-down pra Busca de Lançamentos.
+Também pediu botões de mês anterior/seguinte — meu palpite foi recalcular
+ao carregar em vez de cascatear (registrado na rodada seguinte).
+
+- `.planejamento-buckets` vira `flex-direction: column` (era grid de até
+  4 colunas) — um bucket por linha.
+- Item vira uma grade `Item / Orçado / Sobra do envelope / Disponível /
+  Ações`, colunas com classe própria (`col-orcado`/`col-sobra`/
+  `col-disponivel` — não `nth-child`, porque Nome e os valores são todos
+  `<span>` e "enésimo span" não bate com a coluna certa). Mobile esconde
+  "Sobra do envelope" (Disponível já reflete o efeito combinado) e
+  quebra Ações pra uma segunda linha.
+- Seta "→" de drill-down igual Estrutura de Custo, reaproveitando o
+  padrão de `linkBusca` (categoria_id/subcategoria_id/mês na URL de
+  `/lancamentos`).
+- Botões ← / → flanqueando o seletor de mês (`mesesAntes(vigenciaMes,
+  ±1)`, helper que já existia no arquivo).
+
+tsc + build limpos; QA visual via Playwright (preview temporário,
+desktop 900px e mobile 390px — confirmou nome sem quebra de linha,
+colunas alinhadas, Ações quebrando limpo no mobile).
+
+### 2026-09-15 (rodada 12) — saldo_anterior deixa de ser congelado, recalcula ao vivo
+
+Depois da rodada 9 (fix da fórmula) e do usuário confirmar via print que
+regenerar o orçamento resolvia (era dado congelado da rodada anterior a
+alguma correção, não bug vivo), veio a pergunta certa: por que só
+recalcula gerando de novo — e isso não deveria apagar ajustes manuais do
+mês já gerado? Percorri o cenário concreto do usuário (agosto sem
+julho anterior, 1000 orçado, 1500 gasto → setembro nasce com -500) pra
+alinhar a semântica antes de implementar, e ele confirmou.
+
+**Decisão**: recalcular na leitura (não cascatear no mês anterior ao
+mudar). Cascatear exige capturar certo todo ponto de mutação do mês
+anterior (criar/editar/excluir transação, editar `orcamento_mensal`) e
+empurrar pra frente por quantos meses futuros existirem — fácil deixar
+um caminho sem cobertura. Recalcular na leitura é auto-corretivo por
+construção e é extensão natural do que o código já fazia: `disponivel`/
+percentuais já eram recalculados a cada `GET` (`_enriquecer_item`), só
+`saldo_anterior` continuava sendo uma coluna crua.
+
+- Novo `backend/app/services/orcamento_saldo.py` — `calcular_realizado_item`
+  (movido de `orcamentos.py`, sem mudança de lógica) e
+  `saldo_anterior_ao_vivo` (novo, recursivo): sobe pro item equivalente
+  (mesmo bucket/categoria/subcategoria/conta vinculada) do mês anterior e
+  recalcula o disponível dele também, até achar o primeiro mês da cadeia
+  ou um item "nome livre" (sem vínculo — aí não tem como achar o
+  equivalente, mantém a coluna gravada; é o único caso onde o valor
+  gravado em `gerar_proximo_mes` continua sendo a fonte da verdade,
+  porque não há transação pra recalcular contra).
+- `orcamentos.py`: `_enriquecer_item` e `_validar_teto_bucket` (teto
+  efetivo do pool = teto puro + soma do saldo_anterior ao vivo de cada
+  item ativo do bucket) passam a usar a função nova; `gerar_proximo_mes`
+  continua gravando `saldo_anterior` no INSERT (necessário pro caso "nome
+  livre"), mas pra item com vínculo esse valor gravado agora é ignorado
+  na leitura.
+- `estrutura_custo.py`: `saldo_anterior_acumulado` por bucket (e os
+  tetos de pool/piso, que dependem dele) usa a mesma função — antes lia
+  a coluna crua igual orçamentos.py lia.
+- 2 testes novos: um reproduz o bug relatado (lança em agosto, gera
+  setembro, lança MAIS uma despesa em agosto sem regenerar nada, confere
+  que a leitura seguinte de setembro já reflete o total novo — e o mesmo
+  pro `saldo_anterior_acumulado` de Estrutura de Custo) e outro cobre a
+  cadeia recursiva de verdade (3 meses, 2 rollovers, confere que o
+  terceiro mês reflete os dois hops anteriores corretamente). Suíte
+  offline: 206 passed.
+
+## Rodada 13 (2026-09-15) — Estrutura de Custo: navegação, layout e clareza orçado×sobra
+
+**Setas de mês**: mesmo padrão ←/→ de Planejamento adicionado em Estrutura
+de Custo (`mesesAntes` + botões flanqueando o `<input type="month">`).
+
+**Espaçamento colado**: o `<p>` de subtítulo do cabeçalho tinha
+`style={{ margin: 0 }}` e a div do cabeçalho não tinha `marginBottom` — o
+próximo bloco (KPIs/resumo) colava direto embaixo do subtítulo sem
+respiro, em Planejamento e Estrutura de Custo. Corrigido com
+`marginBottom: 20` na div do cabeçalho nas duas telas.
+
+**Scrollbar com setas**: reportado como possível bug de layout — na
+verdade é a scrollbar nativa clássica (com botões ▲▼) do navegador/SO,
+não uma falha de CSS. Como a affordance visual incomodava, adicionado
+estilo global fino (`scrollbar-width: thin` + `::-webkit-scrollbar-*`)
+que esconde os botões de seta mantendo a rolagem normal (roda do
+mouse/trackpad, arrastar o thumb).
+
+**KPI "Orçado no mês" com soma sem sentido**: o card do topo de Estrutura
+de Custo somava os 4 buckets orçamentários (Fixos+Variáveis+
+Sazonalidades+**Investimentos**). Como Investimentos é piso (não teto), sua
+sobra/furo rola com sinal oposto ao das despesas — nessa rodada isso
+coincidiu de cancelar exatamente o valor de Fixos, deixando o KPI igual ao
+de Variáveis isolado (confuso, ainda que matematicamente correto).
+**Fix**: `BUCKETS_ORCAMENTO` no frontend não inclui mais `investimentos` —
+o KPI do topo (Orçado/Realizado/Execução) passa a ter o mesmo escopo do
+veredito "Dentro do teto" (só o pool de despesas). Investimentos mantém
+seu próprio card "Meta de investimento batida" já existente, inalterado.
+
+**Orçado × Sobra, separados**: discussão conceitual sobre o modelo de
+envelope — o rollover **continua simétrico** (sobra positiva soma, furo
+negativo subtrai; não dá pra tornar assimétrico sem quebrar a lógica de
+"pool agregado" já validada, onde a sobra de um item abre espaço pro
+estouro de outro no mesmo bucket). O que mudou foi a **exibição**: antes
+Estrutura de Custo só mostrava o total combinado (`orcado` =
+`orcamento_mensal + saldo_anterior`) rotulado só "Orçado", dando a
+impressão de que a meta do mês tinha mudado quando na verdade era sobra
+rolando. Agora cada item com sobra/furo mostra uma segunda linha pequena
+com o detalhamento ("R$1.000,00 + R$482,00 sobra"), sem adicionar coluna
+nova à tabela.
+
+- Backend: `ItemEstruturaCusto` ganha `orcamento_mensal` e `saldo_anterior`
+  (além do `orcado` combinado, inalterado); `estrutura_custo.py` passa a
+  acumular os 2 valores por chave junto com o que já fazia.
+- Frontend: `Folha`/`GrupoCategoria` ganham `orcamentoMensal`/
+  `saldoAnterior`; `agruparPorCategoria` agrega os 2 campos; sub-linha
+  mostra a segunda linha de detalhe quando `saldoAnterior !== 0`.
+- 1 teste novo (extensão de `test_pool_despesas_considera_saldo_anterior_do_envelope`)
+  cobrindo os 2 campos novos no item. Suíte offline: 206 passed.
+
+**Checklist de teste manual:**
+- [x] ~~Estrutura de Custo e Planejamento: setas ←/→ trocam de mês; há
+      respiro visível entre o subtítulo do cabeçalho e o bloco seguinte
+      (KPIs/resumo).~~
+- [x] ~~Rolar uma lista comprida (ex: itens de um bucket): a scrollbar não
+      mostra os botões ▲▼ clássicos, mas rolar com a roda do
+      mouse/trackpad e arrastar o thumb continuam funcionando normal.~~
+- [x] ~~KPI "Orçado no mês" (topo de Estrutura de Custo) não inclui
+      Investimentos na soma — bate com Fixos+Variáveis+Sazonalidades só.~~
+- [x] ~~Um item com sobra/furo do mês anterior mostra uma 2ª linha pequena
+      com o detalhamento ("R$X + R$Y sobra"/"− R$Y furo"), sem virar
+      coluna nova na tabela.~~
+
+## Rodada 14 (2026-09-15) — Categorias "mais usadas" + criação inline no Novo Lançamento
+
+Item 4 do backlog: categoria e subcategoria eram um `<select>` puro no
+Novo Lançamento — pra cadastrar uma categoria nova era preciso sair da
+tela, ir em Configurações, criar lá e voltar.
+
+**"Mais usadas"**: dois endpoints novos, `GET /categorias/mais-usadas`
+(filtro `tipo`) e `GET /subcategorias/mais-usadas` (filtro `categoria_id`),
+rankeiam por frequência de uso nos últimos ~6 meses (contagem de
+`transacoes` por `categoria_id`/`subcategoria_id` em memória, mesmo padrão
+de agregação já usado em `/dashboard/despesas-por-categoria`, já que o
+projeto usa Supabase client sem `GROUP BY` no banco). Só considera
+registros ativos; precisam vir declarados antes de `/{categoria_id}` e
+`/{subcategoria_id}` na ordem das rotas, senão "mais-usadas" seria
+capturado como id.
+
+**Criação inline**: reaproveita os endpoints `POST /categorias`/
+`POST /subcategorias` que já existiam (sem endpoint novo pra isso) — um
+formulário pequeno ("+ Nova") aparece abaixo do select, cria e já
+seleciona a categoria/subcategoria nova sem sair da tela.
+
+- Frontend: `NovoLancamento.tsx` ganha `categoriasMaisUsadas`/
+  `subcategoriasMaisUsadas` (buscadas via efeito ao trocar tipo/categoria),
+  chips clicáveis acima de cada select, e formulário inline de criação
+  (`criarCategoria`/`criarSubcategoria`) que atualiza a lista local e
+  seleciona o item recém-criado. CSS novo em `forms.css`
+  (`.chips-rapidos`, `.chip`, `.chip-form`).
+- 7 testes novos (`test_categorias_mais_usadas_api.py`): ordenação por
+  frequência, janela de 6 meses, limite, exclusão de inativas, isolamento
+  por usuário, filtro de subcategoria por categoria pai. Suíte offline:
+  213 passed.
+
+**Checklist de teste manual:**
+- [x] ~~Novo Lançamento: chips de categorias "mais usadas" aparecem acima
+      do select, na ordem certa (a mais frequente primeiro); clicar num
+      chip seleciona a categoria sem abrir o select.~~
+- [x] ~~Escolher uma categoria muda os chips de subcategoria "mais usada"
+      pra refletir só as daquela categoria.~~
+- [x] ~~"+ Nova categoria"/"+ Nova subcategoria": formulário inline abre,
+      cria e já seleciona o item novo, sem sair da tela.~~
+- [x] ~~Uma categoria/subcategoria desativada não aparece nos chips de
+      "mais usadas".~~
+
+### Rodada 14.1 (2026-09-16) — feedback de teste: estrutura de custo padrão no "+ Nova subcategoria"
+
+Usuário testou o item 4 e apontou uma lacuna: o "+ Nova subcategoria"
+inline não tinha campo de estrutura de custo padrão, então uma
+subcategoria criada por ali nascia sem sugestão — a auto-preenchida de
+`selecionarSubcategoria()` (que usa `estrutura_custo_padrao` pra
+pré-marcar a estrutura de custo do lançamento) nunca disparava pra ela.
+Não era só estética, era a própria funcionalidade de atalho se
+sabotando. Adicionado 1 select opcional ("Estrutura padrão (opcional)")
+no formulário inline, visível só quando a categoria é do tipo despesa
+(receita/investimento não usam esse campo — investimento já é fixo),
+reaproveitando a mesma lista de `ESTRUTURAS` (sem `investimentos`) já
+usada no select principal da tela.
+
+Confirmado também: estorno/ressarcimento (`tipo === 'ajuste'`) já
+usa `tipoCategoriaEfetivo` mapeado pra `'despesa'` desde a Rodada 14 —
+os chips de "mais usadas" e o formulário de criação inline (agora com
+o select de estrutura padrão) já valem igual pra ajuste, sem mudança
+extra necessária.
+
+- Frontend: `NovoLancamento.tsx` — `novaSubcategoriaEstrutura` (estado),
+  enviado como `estrutura_custo_padrao` no `POST /subcategorias`; select
+  condicional no `chip-form`. CSS: `.chip-form select` no mesmo estilo
+  de `.chip-form input`.
+- Sem mudança de backend (schema já aceitava o campo desde sempre).
+  tsc + build limpos; suíte offline: 213 passed (inalterada).
+
+**Checklist de teste manual:**
+- [x] ~~Novo Lançamento → Despesa → "+ Nova subcategoria": o select
+      "Estrutura padrão (opcional)" aparece no formulário inline.~~
+- [x] ~~Criar uma subcategoria nova escolhendo uma estrutura padrão (ex:
+      "Fixo"), depois selecioná-la num lançamento novo: a estrutura de
+      custo do lançamento já vem pré-marcada sozinha.~~
+- [x] ~~Trocar o tipo pra Receita ou Investimento: o select de estrutura
+      padrão some do formulário inline (não se aplica a esses tipos).~~
+- [x] ~~Criar uma subcategoria a partir de um Estorno/Ressarcimento
+      (tipo "ajuste"): o select de estrutura padrão aparece igual a uma
+      despesa comum.~~
+
+## Rodada 15 (2026-09-16) — Dashboard: 3 KPIs novos (item 6, entregue antes do item 5)
+
+Item 6 do backlog, entregue com a ordem invertida em relação ao item 5
+(feature Gráficos) a pedido do usuário — os 3 KPIs não têm dependência
+real de Gráficos existir primeiro.
+
+Os 3 vêm de dados que a tela já buscava, sem endpoint novo:
+
+- **"Resultado acumulado" (R$)** e **"Meses com resultado negativo"**:
+  reaproveitam a mesma chamada a `/dashboard/evolucao` que já existia só
+  pra calcular `taxaAcumuladaAno` (janela de janeiro até o mês de
+  referência) — o endpoint já retornava `resultado_saude_acumulado` por
+  mês (só não era guardado) e a contagem de negativos é um filtro em
+  memória sobre a mesma lista de meses já recebida. "Resultado acumulado"
+  aparece como uma linha extra dentro do card "Taxa de poupança" (mesma
+  janela, complementa o % que já existia ali); "Meses com resultado
+  negativo" ganhou card próprio.
+- **"Maior categoria de despesa"**: `useMemo` sobre `despesasCategoria`
+  (já buscado pro gráfico "Despesas por Categoria" do mês de referência) —
+  mesmo recorte, sem chamada nova.
+
+- Frontend apenas: `Dashboard.tsx` ganha `resultadoAcumuladoAno`,
+  `mesesNegativosAno` (estados) e `maiorCategoriaDespesa` (`useMemo`); 2
+  cards novos + 1 linha extra no card existente, com tooltips
+  (`EXPLICACAO.meses_negativos`/`maior_categoria_despesa`).
+- Sem mudança de backend, sem teste novo (nada de lógica de servidor).
+  tsc + build limpos; suíte offline: 213 passed (inalterada).
+
+**Checklist de teste manual:**
+- [x] ~~Dashboard: card "Meses com resultado negativo" mostra a contagem
+      certa (de janeiro até o mês de referência, leitura de saúde).~~
+- [x] ~~Card "Taxa de poupança" ganhou uma linha extra "Resultado
+      acumulado (R$)" abaixo do %, mesma janela.~~
+- [x] ~~Card "Maior categoria de despesa" bate com a categoria no topo do
+      gráfico "Despesas por Categoria" do mesmo mês.~~
+- [x] ~~Tooltips (ícone "?") dos 3 KPIs novos abrem com texto explicativo.~~
+
+## Rodada 16 (2026-09-16) — Feature Gráficos, Rodada A: tela nova + migração + sparkline
+
+Item 5 do backlog, dividido em 3 rodadas a pedido do usuário. Esta é a
+Rodada A: tela nova na navegação, migração de `EvolucaoChart` e
+"Despesas por Categoria" do Dashboard pra lá (sem duplicar), e o
+sparkline compacto no Dashboard no lugar deles — exatamente como
+decidido em 2026-09-15 (rodadas 3/4). Rodadas B (Pareto) e C (tendência
+Orçado×Realizado) ficam pra depois.
+
+**Seletor de período extraído pra reaproveitar de verdade** — antes
+vivia inline em `Dashboard.tsx` (~90 linhas de estado + JSX); virou
+`frontend/src/lib/periodo.ts` (hook `usePeriodo` + helpers `hojeAnoMes`/
+`mesesAntes`/`rotuloMesLongo`) e `frontend/src/components/
+SeletorPeriodo.tsx` (a UI), os dois usados por Dashboard e Gráficos sem
+duplicar nada — não é só "o mesmo padrão visual", é literalmente o
+mesmo componente, como pedido no backlog.
+
+**Reforço "taxa de poupança mensal" virou gráfico próprio, não uma
+linha dentro do EvolucaoChart** — o backlog original previa "linha
+extra" no mesmo gráfico, mas a skill de dataviz do projeto proíbe
+dual-axis (uma métrica em R$ e outra em % não cabem no mesmo eixo Y sem
+distorcer a leitura de uma delas). Ajustado pra dois gráficos de eixo
+único, um do lado do outro na tela Gráficos, em vez de forçar os dois
+num só — mesmo resultado analítico (ver a taxa mês a mês, não só
+acumulada), sem violar a regra "one axis".
+
+- `frontend/src/routes/Graficos.tsx` — tela nova (`/graficos`, item de
+  nav "Gráficos" em `AppShell.tsx`): `SeletorPeriodo` + `EvolucaoChart` +
+  `TaxaPoupancaChart` (novo) + `DespesasPorCategoria`. Busca só
+  `/dashboard/evolucao` e `/dashboard/despesas-por-categoria` — endpoints
+  já existentes, nenhum novo.
+- `frontend/src/components/TaxaPoupancaChart.tsx` (+ `.css`) — gráfico de
+  linha só, 1 série (`taxa_poupanca` mensal, não a acumulada), cor slot 4
+  da paleta categórica (amarelo) pra não repetir o verde de "Resultado"
+  já usado acima na mesma tela; pula meses sem taxa (receita ajustada
+  zero) em vez de interpolar; "Ver como tabela" cobre a relief rule do
+  amarelo em modo claro (contraste abaixo de 3:1 na superfície clara).
+- `frontend/src/components/Sparkline.tsx` (+ `.css`) — forma pura (sem
+  eixo/legenda/tooltip) dos meses já buscados pelo Dashboard, ao lado do
+  resultado principal; segue o toggle Caixa/Saúde do hero.
+- `frontend/src/routes/Dashboard.tsx` — usa `usePeriodo`/`SeletorPeriodo`
+  em vez do estado/JSX próprios; perde os `<EvolucaoChart>`/
+  `<DespesasPorCategoria>` completos, ganha o sparkline e um link "Ver
+  gráficos completos →" pra `/graficos`. Continua buscando `evolucao`/
+  `despesasCategoria` (usados pelo sparkline, pelo "mês anterior" e pelos
+  3 KPIs da Rodada 15) — só a renderização dos gráficos completos saiu.
+- Sem mudança de backend. tsc + build limpos (109 módulos); suíte
+  offline: 213 passed (inalterada — nada de servidor mudou).
+
+**Limite desta sessão**: sem `backend/.env`/credenciais reais aqui, não
+deu pra fazer QA visual de login (ver nota já registrada nas rodadas
+anteriores) — validação é só estática (tsc/build/lint) até o usuário
+testar na tela de verdade.
+
+**Checklist de teste manual:**
+- [x] ~~Item "Gráficos" aparece na navegação; a tela mostra Evolução
+      Mensal, Taxa de Poupança Mensal e Despesas por Categoria, usando o
+      mesmo seletor de período (Mês/Intervalo/Todos) do Dashboard.~~
+- [x] ~~Dashboard não mostra mais os gráficos completos — só o sparkline
+      compacto ao lado do resultado principal, e um link "Ver gráficos
+      completos →" que leva pra `/graficos`.~~
+- [x] ~~O sparkline do Dashboard acompanha o toggle Leitura de Caixa/
+      Saúde (muda a série mostrada).~~
+- [x] ~~Trocar o período em Gráficos (Mês/Intervalo/Todos) atualiza os 3
+      gráficos juntos, sem precisar recarregar a página.~~
+
+### Rodada 16.1 (2026-09-16) — feedback de teste da Rodada A: 2 bugs + 3 melhorias
+
+Usuário testou a Rodada A e reportou, com screenshot:
+
+**Bug 1 — `TaxaPoupancaChart` sem grade/eixo ("ficou escuro")**: as
+variáveis `--grade-cor`/`--eixo-cor` só estavam declaradas dentro de
+`.evolucao-chart` (em `evolucaoChart.css`); como `TaxaPoupancaChart` usa
+a classe raiz `.taxa-poupanca-chart`, essas variáveis ficavam
+`undefined` ali — grade e texto de eixo sumiam. Corrigido redeclarando
+os 2 tokens (mesmos valores) em `taxaPoupancaChart.css`.
+
+**Bug 2 — "Despesas por Categoria" não somava o período em Intervalo/
+Todos os meses**: o gráfico sempre buscava só `mesReferencia` (o último
+mês), mesmo com Intervalo/Todos selecionado — mostrava só 1 mês do
+período todo, sem avisar. Endpoint novo `GET /dashboard/despesas-por-
+categoria-periodo?inicio=&fim=` (mesmo padrão de `/resumo-periodo` vs
+`/mensal`: agregação de `/despesas-por-categoria/{vigencia_mes}`
+extraída pra `_despesas_por_categoria_entre()`, reaproveitada pelos 2
+endpoints). `Graficos.tsx` chama o endpoint certo por `modoData`, e o
+título da seção passa a mostrar o período completo ("julho de 2026 a
+setembro de 2026"), não só o último mês.
+
+**Melhoria 1 — Evolução Mensal + Taxa de Poupança Mensal agrupados**:
+usuário perguntou por que não ficaram no mesmo gráfico ("também é um
+tipo de evolução mensal, não?"). Resposta: continuam como 2 gráficos
+separados (regra "one axis" da skill de dataviz — R$ e % não cabem no
+mesmo eixo Y), mas agora moram na mesma seção "Evolução Mensal", com
+"Taxa de poupança mensal" como sub-título em vez de um `<h2>` próprio —
+lê como uma coisa só, mesmo sendo 2 desenhos.
+
+**Melhoria 2 — linhas de média em Receitas/Despesas**: usuário sugeriu
+("esses gráficos de barra já poderiam ter linhas de média, certo?").
+Concordei — adicionadas 2 linhas de referência tracejadas (média do
+período visível) no `EvolucaoChart`, com o valor na legenda ("Média
+receitas (R$X)"/"Média despesas (R$X)"), respeitando modo privacidade.
+
+**Melhoria 3 — sparkline redesenhado + espalhado pelos KPIs do
+Dashboard**: usuário achou o design do sparkline do hero fraco e sugeriu
+levar a ideia pros outros KPIs "interessantes". Redesenhado seguindo o
+contrato "stat tile" da própria skill de dataviz (`trend`: linha no tom
+neutro/de-emphasis + ponto atual em destaque na cor de acento, em vez
+de uma cor de série a mais competindo num card pequeno) e adicionado em
+Receitas/Despesas (ou Receita ajustada/Despesas líquidas, conforme o
+toggle Caixa/Saúde), Reservas, Investimentos e Taxa de poupança — todos
+reaproveitando `evolucao.meses`, já buscado, sem chamada nova. Cards com
+sparkline ganham uma classe extra (`.resumo-card-sparkline`, só
+`margin-top`) pra abrir espaço sem alterar `.resumo-card` (classe
+compartilhada com Lançamentos, que não pode crescer sem necessidade).
+
+**Perguntas respondidas, sem mudança de código**:
+- "Despesas por Categoria" (barra empilhada) é a forma certa pra
+  part-to-whole, confirmado pela própria tabela de formas da skill de
+  dataviz ("Part-to-whole → stacked bar").
+- Em modo "Mês", os gráficos da tela Gráficos mostram no máximo 6 meses
+  de contexto (herdado do comportamento original do sparkline do
+  Dashboard) — janela fixa, não configurável ainda; ponto em aberto,
+  registrado no backlog pra decidir se vale um padrão maior (ex: 12
+  meses) especificamente na tela Gráficos.
+
+- 4 testes novos (`test_despesas_por_categoria_periodo_*`) cobrindo soma
+  multi-mês, exclusão de mês fora do intervalo, `fim < inicio` → 422 e
+  lista vazia. Suíte offline: 217 passed (213 + 4). tsc + build limpos.
+
+**Checklist de teste manual:**
+- [x] ~~Gráficos, modo claro e escuro: "Taxa de Poupança Mensal" mostra
+      grade e eixo (não fica "apagado"/sem referência visual).~~
+- [x] ~~Gráficos → "Despesas por Categoria" em modo Intervalo ou Todos os
+      meses: o valor soma o período inteiro (não só o último mês), e o
+      título mostra o período completo (ex: "julho de 2026 a setembro
+      de 2026").~~
+- [x] ~~"Evolução Mensal" e "Taxa de poupança mensal" aparecem na mesma
+      seção, um como sub-título do outro (não 2 seções separadas).~~
+- [x] ~~`EvolucaoChart` (Receitas/Despesas): linhas tracejadas de média
+      aparecem, com o valor na legenda ("Média receitas (R$X)"); somem/
+      viram "···" no modo privacidade.~~
+- [x] ~~Dashboard: sparkline aparece nos cards de Receitas/Despesas (ou
+      Receita ajustada/Despesas líquidas, conforme o toggle Caixa/
+      Saúde), Reservas, Investimentos e Taxa de poupança — acompanhando
+      o toggle Caixa/Saúde quando ele muda o KPI mostrado.~~
+
+### Rodada 16.2 (2026-09-16) — "Base da média" ganha efeito real, Intervalo aceita mês futuro, Taxa de Poupança vira coluna
+
+Usuário testou a Rodada 16.1 e trouxe 4 pontos. Discutidos antes de
+mexer em código (fase de decisão) — resumo do que foi combinado:
+
+**"Base da média" passa a ter efeito.** Até aqui era só plumbing (rodada
+2026-09-15, "sem nenhum cálculo pendurado ainda"). Definição acordada:
+"Até o mês" é a média só dos meses com lançamento no período (exclui
+mês vazio); "Ritmo anual" (renomeado de "Todos os meses" — o nome
+antigo confundia com o modo "Todos os meses" do seletor) é a soma do
+período ÷ 12, incluindo meses futuros ainda sem lançamento — não é "mês
+típico", é ritmo em relação ao ano cheio. Helper `media()` centralizado
+em `lib/periodo.ts` (evita duplicar entre os 2 gráficos que passam a
+consumir), consome as linhas de média tracejadas do `EvolucaoChart`
+(rodada 16.1) e a nova do `TaxaPoupancaChart`.
+
+**Intervalo aceita mês futuro.** O `max={hojeAnoMes()}` no campo "Fim"
+era herdado do Dashboard original, sem base técnica (os endpoints de
+período nunca rejeitaram data futura, só retornam zero pra mês sem
+lançamento). Removido — necessário pra "Ritmo anual" fazer sentido
+(dividir por meses que ainda vão acontecer).
+
+**Taxa de Poupança Mensal: linha → colunas + média tracejada.** Ficava
+inconsistente com "Evolução Mensal" (barra) logo acima, na mesma seção.
+Mesmo motivo pra continuar em gráfico separado (regra "one axis" — % e
+R$ não cabem na mesma escala), mas agora com a mesma linguagem visual.
+
+**Janela do modo "Mês" em `/graficos`: 6 → 12 meses.** Só nessa tela —
+o sparkline do Dashboard continua em 6 (é só um enfeite ao lado de um
+número, não pede mais que isso). Gráficos é tela de análise dedicada;
+12 meses dá leitura de ano corrido.
+
+- `frontend/src/lib/periodo.ts` ganha `media()`.
+- `frontend/src/components/EvolucaoChart.tsx` e `TaxaPoupancaChart.tsx`
+  ganham prop `baseMedia` (default `'ate_mes'`); `TaxaPoupancaChart`
+  reescrito pra colunas.
+- `frontend/src/components/SeletorPeriodo.tsx` — remove `max` do campo
+  "Fim", renomeia botão, atualiza tooltip.
+- `frontend/src/routes/Graficos.tsx` — janela de 12 meses, passa
+  `baseMedia` pros 2 gráficos.
+- Sem mudança de backend (os endpoints já suportavam data futura). tsc +
+  build limpos; suíte offline: 217 passed (inalterada).
+
+**Checklist de teste manual** (mudança só visual/de interação, sem
+teste automatizado — este projeto não tem suíte de frontend):
+- [x] ~~`/graficos`, modo Intervalo: "Fim" aceita selecionar um mês~~
+  futuro (ex: 3 meses à frente).
+- [x] ~~Com um mês futuro selecionado, alternar "Base da média" entre~~
+  "Até o mês" e "Ritmo anual" muda o valor das linhas tracejadas em
+  Receitas/Despesas/Taxa de poupança (e o texto da legenda/tooltip).
+- [x] ~~Sem mês futuro selecionado (período só com meses já lançados), os~~
+  2 modos de "Base da média" devem dar o mesmo resultado (não há mês
+  vazio pra excluir).
+- [x] ~~"Taxa de Poupança Mensal" renderiza como colunas (não mais linha),~~
+  com a linha de média tracejada atravessando o gráfico.
+- [x] ~~Modo "Mês" em `/graficos` mostra 12 meses no eixo X (não 6).~~
+- [x] ~~Dashboard: sparkline ao lado do resultado principal continua~~
+  igual (6 meses, sem mudança nessa tela).
+
+### Rodada 17 (2026-09-16) — Pareto de despesas (Rodada B da feature Gráficos)
+
+Item 5 do backlog, Rodada B: peça que faltava desde a auditoria da aba
+"Gráficos" do app antigo (2026-09-15) — nenhuma tela hoje respondia
+"quantas categorias concentram a maior parte do gasto".
+
+**Forma escolhida — lista horizontal, não barra+linha de % acumulado.**
+O desenho clássico de Pareto (colunas + linha de % acumulado num eixo
+secundário) é dual-axis, proibido pela skill de dataviz do projeto (%
+e R$ não cabem na mesma escala). Em vez de forçar dois eixos ou dividir
+em dois gráficos separados (como Evolução Mensal/Taxa de Poupança),
+optei por uma tabela com barra horizontal atrás do nome — resolve dois
+problemas de uma vez: não precisa de segundo eixo (a barra é só
+magnitude, o % acumulado é uma coluna de texto) e não tem colisão de
+rótulo longo de categoria (evitado indo horizontal, conforme a própria
+tabela de formas da skill: "Part-to-whole → stacked bar, vai horizontal
+pra muitas categorias/nomes longos" — mesmo racional aplicado aqui).
+Linhas depois do corte de 80% acumulado (critério clássico do Pareto)
+ficam com opacidade reduzida em vez de ganhar uma cor nova — "os poucos
+vitais" vs. "os muitos triviais" sem inflar a paleta.
+
+**Dois níveis, mesmo componente.** Toggle "Por categoria" (reaproveita
+`despesas-por-categoria`, já buscado pro gráfico existente — sem
+chamada nova) / "Por subcategoria" (endpoints novos, com filtro
+opcional de categoria pai, igual ao app original).
+
+- Backend: `DespesaPorSubcategoria` (schema) + `_despesas_por_subcategoria_entre()`
+  (mesmo padrão de agregação de `_despesas_por_categoria_entre`, mas com
+  filtro opcional `categoria_id` e bucket "Sem subcategoria" pra
+  despesa sem subcategoria) + 2 endpoints:
+  `GET /dashboard/despesas-por-subcategoria/{vigencia_mes}` e
+  `GET /dashboard/despesas-por-subcategoria-periodo`.
+- Frontend: `components/Pareto.tsx` (+ `.css`) — componente genérico
+  (`{id, nome, valor, percentual}[]`), reaproveitado pelos 2 níveis.
+  Seção nova em `Graficos.tsx` (topo da tela, antes de Evolução Mensal),
+  com o toggle de nível e o select de categoria pai.
+- 5 testes novos (`test_despesas_por_subcategoria*`): agrupamento e
+  ordenação, bucket "Sem subcategoria", filtro por categoria pai, soma
+  multi-mês, `fim < inicio` → 422. Suíte offline: 222 passed (217 + 5).
+  tsc + build limpos.
+
+**Checklist de teste manual** (visual, sem cobertura automatizada):
+- [x] ~~`/graficos` → seção "Pareto de Despesas" aparece logo abaixo do~~
+  seletor de período, antes de "Evolução Mensal".
+- [x] ~~"Por categoria" mostra a mesma lista/valores de "Despesas por~~
+  Categoria" mais abaixo na mesma tela (mesma fonte de dado).
+- [x] ~~"Por subcategoria" sem filtro mistura subcategorias de todas as~~
+  categorias; escolher uma "Categoria pai" restringe à lista dela.
+- [x] ~~Linhas depois da marcação "80% do gasto acumulado até aqui"~~
+  aparecem visualmente esmaecidas.
+- [x] ~~Trocar o período (Mês/Intervalo/Todos os meses) atualiza o Pareto~~
+  nos dois níveis.
+
+### Rodada 18 (2026-09-16) — Orçado × Realizado em vários meses (Rodada C, fecha o item 5)
+
+Última peça da feature Gráficos: "resumo que linka pra Estrutura de
+Custo pro detalhe de 1 mês" (Estrutura de Custo é leitura de 1 mês só;
+isso aqui é a tendência).
+
+**Mesma regra "one axis" de novo — 2 gráficos, não 1.** R$ (Orçado x
+Realizado) e % (executado) não cabem na mesma escala; mesma solução já
+usada em Evolução Mensal/Taxa de Poupança (Rodada A) e no Pareto
+(Rodada B, ali resolvido com direct labels em vez de 2º gráfico). Linha
+de referência do gráfico de % é fixa em 100% ("gastou exatamente o
+orçado"), diferente da linha de "Base da média" dos outros gráficos
+(que reflete o comportamento real, não uma meta).
+
+**Escopo igual ao KPI "Orçado no mês" já existente** — só o pool de
+despesas (custos_fixos + custos_variaveis + sazonalidades), sem
+investimentos (é piso, não teto — mesma decisão da Rodada 13).
+
+**Link pro detalhe de 1 mês, de verdade** — Estrutura de Custo sempre
+abriu no mês atual, sem jeito de chegar direto num mês específico por
+link. Ganhou suporte a `?mes=YYYY-MM` (fallback pro mês atual se
+ausente); o link em Gráficos aponta pro mês de referência do período
+selecionado.
+
+- Backend: `_estrutura_custo_do_mes()` extraído de `estrutura_custo.
+  obter()` (mesmo corpo, sem mudança de comportamento) — reaproveitado
+  pelo endpoint novo `GET /estrutura-custo/evolucao/tendencia?inicio=
+  &fim=` (rota de 2 segmentos de propósito, pra não colidir com
+  `/{vigencia_mes}`). Schemas `PontoTendenciaOrcamento`/
+  `TendenciaOrcamento` novos.
+- Frontend: `components/OrcadoRealizadoChart.tsx` (barras, com médias
+  tracejadas + `baseMedia`, mesmo padrão do `EvolucaoChart`) e
+  `PercentualExecutadoChart.tsx` (colunas + meta de 100%, mesmo padrão
+  do `TaxaPoupancaChart`). `EstruturaCusto.tsx` lê `?mes=` via
+  `useSearchParams`.
+- 5 testes novos (`test_evolucao_orcamento_*`): soma do pool + %
+  executado, exclusão de investimentos, mês sem orçamento (% nulo),
+  1 ponto por mês no range, `fim < inicio` → 422. Suíte offline:
+  227 passed (222 + 5). tsc + build limpos.
+
+**Item 5 do backlog fechado** — Pareto, tendência Orçado×Realizado,
+migração de EvolucaoChart/Despesas por Categoria e sparkline no
+Dashboard, tudo entregue nas rodadas 16-18.
+
+**Checklist de teste manual** (visual, sem cobertura automatizada):
+- [x] ~~`/graficos` → seção "Orçado × Realizado" aparece entre o Pareto e~~
+  "Evolução Mensal", com as 2 sub-seções (barras + % executado).
+- [x] ~~Barras "Orçado"/"Realizado" batem com o que Estrutura de Custo~~
+  mostra pro mesmo mês (soma dos 3 buckets de despesa, sem
+  investimentos).
+- [x] ~~Linha de meta (100%) aparece no gráfico de % executado.~~
+- [x] ~~Mês sem orçamento configurado aparece sem coluna no gráfico de %~~
+  (não uma coluna de 0%).
+- [x] ~~O link "Ver detalhe de {mês} em Estrutura de Custo →" abre a tela~~
+  já no mês certo (não no mês atual).
+
+### Rodada 19 (2026-09-22) — Rodada D: refinamento de Gráficos (Base da média, reordenação, curva de Pareto)
+
+Usuário testou as Rodadas B e C, trouxe 4 perguntas de discussão (skill
+`preferencia-projetos`) e aprovou as 3 mudanças recomendadas — a 4ª
+pergunta (Base da média) veio com um requisito adicional na aprovação:
+"garanta que terá efeito sempre, pois antes quando todos os meses era
+selecionado não surtia efeito".
+
+**1. "Base da média" sempre visível, com efeito garantido em todo modo.**
+Antes, o toggle só aparecia em Intervalo/Todos os meses (escondido em
+Mês) — inconsistente, já que os gráficos de Gráficos sempre mostram
+dado multi-mês independente do modo selecionado. Passou a aparecer nos
+3 modos via prop nova `mostrarBaseMedia` em `SeletorPeriodo` (Dashboard
+passa `false`, único lugar que não consome `baseMedia`).
+
+Mais importante: o bug real por trás do "sem efeito" relatado. `media()`
+("Ritmo anual") dividia pela contagem real de meses do array
+(`valores.length`), que em Intervalo/Todos os meses raramente é
+exatamente 12 mas também raramente diverge de "até o mês" (só quando
+existe mês zerado no meio do período) — na prática, os dois modos quase
+sempre davam o mesmo número. Agora "Ritmo anual" divide sempre por `12`
+fixo (soma do período ÷ 12, projetando sobre um ano cheio) — garante
+diferença visível na grande maioria dos períodos, não só nos que têm mês
+zerado.
+
+**2. Reordenação de `/graficos` por tema.** Ordem intercalada anterior
+(Pareto → Orçado×Realizado → Evolução Mensal → Despesas por Categoria)
+não seguia nenhuma lógica de agrupamento. Nova ordem: Evolução Mensal (+
+Taxa de Poupança) → Orçado×Realizado (+ % executado) → Pareto de
+Despesas → Despesas por Categoria — as 3 primeiras são leituras de
+tendência (evolução no tempo), a última é composição (retrato de 1
+período), fica isolada por natureza diferente. O indicador de
+carregamento global também subiu, pra logo depois do seletor de período
+em vez de ficar entre Pareto e Orçado×Realizado.
+
+**3. Curva de % acumulado no Pareto.** A tabela (Rodada B) já mostra o %
+acumulado como coluna numérica, mas não deixa visível o "cotovelo" da
+curva — onde o ganho marginal de cada categoria adicional desce rápido.
+`ParetoTendenciaChart` novo, complementando a tabela (não substituindo):
+gráfico de linha de eixo único (0-100%, sem dual-axis — mesma regra "one
+axis" de sempre), com linha tracejada em 80% marcando o critério
+clássico de Pareto. Sem rótulo de categoria no eixo X (mesmo motivo da
+tabela ir com barra horizontal: nome colide) — a ordem (rank) é a mesma
+da tabela abaixo, hover nomeia a categoria e mostra valor/% do período.
+Cor reaproveita `--pareto-cor` (laranja, slot "despesas" da paleta) —
+"% acumulado" e "despesa" são a mesma entidade.
+
+- Frontend: `lib/periodo.ts` (`media()` redefinida),
+  `components/SeletorPeriodo.tsx` (`mostrarBaseMedia`),
+  `routes/Dashboard.tsx` (passa `mostrarBaseMedia={false}`),
+  `routes/Graficos.tsx` (reordenação de seções + import/render de
+  `ParetoTendenciaChart`), `components/ParetoTendenciaChart.tsx` +
+  `paretoTendenciaChart.css` novos (reaproveita as classes genéricas de
+  `evolucaoChart.css`, com `--grade-cor`/`--eixo-cor` redeclarados no
+  próprio escopo — mesmo cuidado da Rodada 16.1 pra não repetir o bug de
+  grade/eixo sumindo).
+- Sem mudança de backend nesta rodada. Suíte offline: 227 passed (sem
+  alteração). tsc + build + lint limpos (mesmos warnings pré-existentes
+  de antes, nenhum novo nos arquivos tocados).
+
+**Checklist de teste manual** (visual, sem cobertura automatizada):
+- [x] ~~`/graficos`, modo Mês: "Base da média" aparece no seletor (antes~~
+  só aparecia em Intervalo/Todos os meses).
+- [x] ~~Alternar "Até o mês" ↔ "Ritmo anual" com "Todos os meses"~~
+  selecionado: as linhas/médias tracejadas de Evolução Mensal, Taxa de
+  Poupança e Orçado×Realizado mudam de posição visivelmente (não mais
+  "sem efeito").
+- [x] ~~Ordem das seções em `/graficos`: Evolução Mensal → Orçado ×~~
+  Realizado → Pareto de Despesas → Despesas por Categoria (Despesas por
+  Categoria por último).
+- [x] ~~Seção Pareto mostra a curva de % acumulado (linha) acima da~~
+  tabela, com linha tracejada em 80%.
+- [x] ~~Hover num ponto da curva do Pareto mostra tooltip com nome da~~
+  categoria, valor, % do período e % acumulado.
+- [x] ~~Trocar "Por categoria" ↔ "Por subcategoria" no Pareto atualiza a~~
+  curva junto com a tabela.
+- [x] ~~Modo oculto (ícone de privacidade) mascara valor/% na curva do~~
+  Pareto também, igual já faz na tabela.
+
+### Rodada 19.1 (2026-09-22) — fix: % não mascarado no modo oculto (Pareto e Despesas por Categoria)
+
+Usuário testou a Rodada 19 e percebeu que alguns percentuais continuavam
+visíveis com o modo oculto ligado. Causa: `Pareto.tsx` e
+`DespesasPorCategoria.tsx` mascaravam `valor` (via `formatarMoeda(...,
+oculto)`) mas não `percentual`/`percentualAcumulado`, que eram
+renderizados direto (`l.percentual.toFixed(1)}%`), sem passar por
+`oculto`. `ParetoTendenciaChart.tsx` (novo na Rodada 19) já nasceu
+mascarando os dois certo — o bug era só nos 2 componentes mais antigos.
+
+- `components/Pareto.tsx`: colunas `%` e `% acumulado` da tabela.
+- `components/DespesasPorCategoria.tsx`: `title` do tooltip da barra
+  segmentada e o `%` da lista.
+- Mesmo padrão já usado em `TaxaPoupancaChart`/`PercentualExecutadoChart`:
+  `oculto ? '•••' : `${valor.toFixed(1)}%`}`.
+- Também aproveitado pra decidir a dúvida levantada junto: curva do
+  Pareto fica separada da tabela (não sobreposta às barras) — sobrepor
+  misturaria a escala por valor absoluto da barra com a escala por %
+  da curva na mesma área, o dual-axis que a skill de dataviz do projeto
+  veta; confirmado que a implementação da Rodada 19 já segue esse
+  desenho, sem mudança necessária aqui.
+- Sem mudança de backend. Suíte offline: 227 passed (sem alteração).
+  tsc + build + lint limpos (mesmos warnings pré-existentes).
+
+**Checklist de teste manual** (visual, sem cobertura automatizada):
+- [x] ~~`/graficos` com modo oculto ligado: coluna `%` e `% acumulado` da~~
+  tabela do Pareto aparecem como `•••`.
+- [x] ~~Tooltip (hover) na barra segmentada de "Despesas por Categoria"~~
+  mostra "valores ocultos" em vez de nome + valor + %.
+- [x] ~~`%` na lista de "Despesas por Categoria" aparece como `•••` com~~
+  modo oculto ligado.
+- [x] ~~Desligar o modo oculto volta a mostrar os percentuais normalmente~~
+  nos 2 componentes.
+
+### Rodada 19.2 (2026-09-22) — fix: eixo do Pareto sem mascarar + perf de /graficos
+
+Usuário reportou 2 coisas separadas nesta rodada.
+
+**1. Rótulo do eixo Y do `ParetoTendenciaChart` também não mascarava** —
+mesma classe de bug da Rodada 19.1, num 3º lugar: `{v}%` do eixo (0/20/
+40/.../100%) era renderizado direto, sem checar `oculto`. Diferente das
+colunas de tabela (Rodada 19.1), esses valores são marcações fixas de
+escala, não dado real — mas o padrão já estabelecido em
+`TaxaPoupancaChart`/`PercentualExecutadoChart` mascara até o rótulo do
+eixo, então segui o mesmo padrão aqui por consistência.
+
+**2. `/graficos` demorando pra carregar — causa raiz achada e corrigida
+(v1 de 2 propostas).** Não é o bundle do frontend (build normal). É
+`/estrutura-custo/evolucao/tendencia`: pra cada mês do período, recalcula
+`saldo_anterior_ao_vivo` subindo recursivamente a cadeia de orçamentos
+anteriores — e o cache que evita recálculo repetido (`cache_saldo`) era
+recriado do zero a cada mês do loop, em vez de compartilhado entre eles.
+Resultado prático: pedir 12 meses com orçamento configurado ao longo do
+período refazia a subida completa da cadeia 12 vezes, ~O(meses²)
+chamadas HTTP sequenciais ao Supabase em vez de ~O(meses).
+
+Fix: `_estrutura_custo_do_mes()` ganhou parâmetro opcional `cache_saldo`
+(None → cria local, comportamento inalterado de `obter()`, que segue
+1 mês só); `evolucao_orcamento()` cria o cache uma vez fora do loop e
+passa o MESMO dict pra cada mês — meses seguintes reaproveitam o que já
+foi calculado dos meses anteriores em vez de refazer a cadeia inteira.
+
+- `backend/app/routers/estrutura_custo.py`: `cache_saldo` compartilhado.
+- `backend/tests/test_estrutura_custo_api.py`: teste novo de regressão
+  de mecanismo — espiona `_estrutura_custo_do_mes` via monkeypatch e
+  confirma que o loop passa o MESMO objeto de cache em todos os meses do
+  período (não um novo por mês). Verificado manualmente que falha contra
+  o código antigo (revertendo o fix, o teste quebra com `TypeError` —
+  assinatura antiga não aceitava `cache_saldo`).
+- `frontend/src/components/ParetoTendenciaChart.tsx`: eixo Y mascarado.
+- Suíte offline: 228 passed (227 + 1). tsc + build + lint limpos.
+
+**Se ainda estiver lento depois desse fix:** v2 proposta (não
+implementada) seria buscar todos os orçamentos/itens do período numa
+query só em vez de 1 por mês — mudança maior no formato da função,
+só vale a pena se a v1 não resolver na prática.
+
+**Checklist de teste manual** (visual, sem cobertura automatizada):
+- [x] ~~`/graficos`, seção Pareto, modo oculto ligado: rótulos do eixo Y~~
+  da curva (0%/20%/.../100%) aparecem como `•••`.
+- [x] ~~`/graficos` com um período de vários meses (Intervalo ou Todos os~~
+  meses, com orçamento configurado em vários deles) carrega
+  perceptivelmente mais rápido que antes desta rodada.
+
+### Rodada 19.3 (2026-09-22) — perf v2: /graficos busca o período inteiro em vez de mês a mês
+
+Usuário testou a v1 (Rodada 19.2) e reportou "continua lento". Causa: v1
+só cortava o crescimento QUADRÁTICO (cache de saldo_anterior
+compartilhado entre meses), mas `/estrutura-custo/evolucao/tendencia` e
+`/dashboard/evolucao` continuavam fazendo pelo menos 1 SELECT por mês do
+período, sequencial, dentro de um loop Python — pra 12 meses, isso
+sozinho já são 12+ idas e voltas de rede ao Supabase, cada uma com
+latência real. v1 resolvia o pior caso (cadeia de orçamento longa), não
+o caso comum.
+
+**v2: busca o período inteiro numa quantidade fixa de queries, agrupa em
+memória.** Aplicado nos 2 endpoints com esse formato:
+
+- **`/estrutura-custo/evolucao/tendencia`** — antes: 3 SELECTs
+  (orçamento, itens, transações) por mês do loop. Agora: 1 SELECT de
+  todos os orçamentos do usuário (não só do período — a cadeia de
+  saldo_anterior pode subir antes de `inicio`; custo desprezível, no
+  máximo 1 linha por mês já orçado alguma vez), 1 SELECT em lote dos
+  itens desses orçamentos (`.in_(orcamento_id, [...])`), 1 SELECT das
+  transações do período inteiro (desde o orçamento mais antigo, se for
+  anterior a `inicio`). Todo o resto — inclusive a recursão de
+  saldo_anterior — passou a rodar 100% em memória sobre esses 3
+  resultados, sem nenhuma consulta a mais dentro do loop.
+- **`/dashboard/evolucao`** — mesmo formato de problema (sem a recursão):
+  1 SELECT em transações por mês → 1 SELECT do período inteiro, agrupado
+  por mês em Python antes de `calcular_resumo()` (já era uma função
+  pura, só precisava parar de ser chamada com dado buscado 1 mês por
+  vez).
+
+**Refactor de `estrutura_custo.py`:** a agregação (montar buckets,
+pool_despesas, piso_investimentos) virou uma função pura,
+`_agregar_estrutura_custo()`, que recebe os dados já carregados e uma
+função `saldo_anterior_de(item)` injetada pelo chamador — `obter()`
+(1 mês) continua batendo no banco a cada chamada via
+`saldo_anterior_ao_vivo()`; `evolucao_orcamento()` usa a nova
+`saldo_anterior_em_lote()` (`services/orcamento_saldo.py`), que reproduz
+a mesma conta recursiva mas 100% sobre dicionários em memória, sem
+`db`. Mesmo dado, dois jeitos de buscar.
+
+- `backend/app/services/orcamento_saldo.py`: `saldo_anterior_em_lote()` +
+  2 helpers (`calcular_realizado_item_em_lote`,
+  `_item_equivalente_no_mes_em_lote`) — mesma lógica de
+  `saldo_anterior_ao_vivo`/`calcular_realizado_item`/
+  `_item_equivalente_no_mes`, sem consulta ao banco.
+- `backend/app/routers/estrutura_custo.py`: `_agregar_estrutura_custo()`
+  extraída; `_estrutura_custo_do_mes()` (1 mês, banco) e
+  `_estrutura_custo_do_mes_em_lote()` (memória) chamam a mesma agregação
+  injetando a função de saldo certa; `evolucao_orcamento()` pré-carrega
+  o período inteiro antes do loop.
+- `backend/app/routers/dashboard.py`: `evolucao_mensal()` busca as
+  transações do período inteiro numa query e agrupa por mês antes de
+  chamar `calcular_resumo()`.
+- `backend/tests/fakes.py`: `FakeQuery.in_()` — faltava no dublê de
+  Supabase pra testar `.in_("orcamento_id", [...])`.
+- Testes novos, verificando a PERF de verdade (não só o resultado, já
+  coberto pelos testes existentes): contam quantas vezes `db.table(...)`
+  é chamado numa requisição de 6 meses com orçamento encadeado — tem que
+  ficar constante (3 e 1, respectivamente), não crescer com a
+  quantidade de meses. Confirmei manualmente que os dois falham contra o
+  código anterior (revertendo o fix, viram 18+ e 6 chamadas). Suíte
+  offline: 230 passed (228 + 2). tsc/build/lint não se aplicam — rodada
+  100% backend.
+
+**Se ainda estiver lento depois desse fix:** não deveria — o número de
+queries por requisição agora é CONSTANTE, não cresce mais com o tamanho
+do período. Se acontecer, o próximo suspeito é o cold start do Render
+(plano gratuito, já tem aviso na tela) ou o volume de dados em si
+(muitas transações/itens de orçamento na conta), não mais o formato da
+query.
+
+**Checklist de teste manual** (visual, sem cobertura automatizada):
+- [x] ~~`/graficos` com "Todos os meses" ou um Intervalo longo (vários~~
+  meses, com orçamento configurado neles) carrega visivelmente mais
+  rápido que na Rodada 19.2.
+- [x] ~~Os números batem com antes (Orçado × Realizado, % executado,~~
+  Evolução Mensal, Taxa de Poupança) — o resultado não deve ter mudado,
+  só a velocidade.
+- [x] ~~`/estruturas-de-custo/{mês}` (leitura de 1 mês só) continua~~
+  funcionando normalmente — não foi tocada por este refactor.
+
+### Rodada 20 (2026-09-22) — Despesa fixa recorrente (item 7 do backlog): projeção virtual
+
+Item 7 do backlog, registrado desde 2026-09-15 sem decisão de estratégia.
+Discutido nesta rodada com 3 perguntas (estratégia de geração, mecanismo
+de confirmação, escopo da entrega) — respondidas e aprovadas antes de
+implementar, ver `docs/backlog.md` pro racional completo de cada decisão.
+
+**Decisão 1 — projeção virtual, não materialização antecipada.** Cadastrar
+um recorrente (aluguel, assinatura) não grava nada em `transacoes` — só
+quando um mês específico é confirmado é que a transação real nasce.
+Rejeitei materialização antecipada (gerar N meses de transações reais na
+criação, como compra parcelada) por 4 motivos: (1) exigiria um job
+periódico pra ir "abastecendo" mais meses — o projeto não tem nenhum
+cron/scheduler hoje (Render free tier, só um serviço web); (2)
+`transacoes` deixaria de ser só "o que já aconteceu de fato"; (3) reajuste
+de valor teria caso de borda extra (afeta só o não-gerado, ou também o já
+gerado e não vencido?); (4) cancelar antes do mês vencer deixaria linhas
+futuras órfãs pra apagar.
+
+**Decisão 2 — confirmação manual, não automática.** Ao abrir o app
+verificar recorrentes vencidos e confirmar sozinho foi cogitado, mas
+descartado pro MVP — usuário escolheu manual explicitamente ("pois se
+trata de mvp").
+
+**Decisão 3 — já integra Compromissos Futuros nesta entrega** (não ficou
+pra depois): `GET /dashboard/compromissos-futuros` passa a mesclar a
+próxima parcela de cada compra parcelada com a próxima ocorrência PENDENTE
+de cada recorrente ativo — pode ser um mês já vencido, se ficou sem
+confirmar, e some da lista só quando confirmado ou o recorrente é
+desativado.
+
+**Schema:** `lancamentos_recorrentes` (descrição, valor, dia do mês,
+conta, categoria, subcategoria opcional, estrutura de custo restrita a
+fixo/variável/sazonal — investimento é aporte, não despesa recorrente —,
+meio de pagamento, início, fim opcional, ativo) + `transacoes.
+lancamento_recorrente_id` (`on delete set null` — apagar o molde não some
+com o histórico já confirmado). **Usuários com Supabase existente
+precisam rodar a migração manual** — ver README.md, seção "Migração
+pendente: `lancamentos_recorrentes`".
+
+**Backend:**
+- `services/recorrentes.py`: `data_ocorrencia()` (dia do mês ajustado pro
+  último dia se o mês for mais curto — mesmo padrão de `somar_meses`/
+  `calcular_fatura_referencia`) e `proxima_ocorrencia_pendente()` (primeiro
+  mês, a partir de `data_inicio`, sem transação confirmada vinculada —
+  trava defensiva de 72 meses contra loop sem fim, mesmo espírito de
+  `_MESES_MAXIMO_NA_EVOLUCAO`).
+- `services/transacao_insercao.py` novo: `fatura_referencia_para()` e
+  `inserir_transacao()` extraídos de `routers/transacoes.py` (eram
+  privados, `_fatura_referencia_para`/`_insert`) — reaproveitados pela
+  confirmação de recorrente, que também cria uma transação real e precisa
+  da mesma regra de fatura de cartão e do mesmo tratamento de duplicata.
+  `transacoes.py` não mudou de comportamento, só passou a importar em vez
+  de definir localmente (mesmos testes, sem alteração, continuam cobrindo).
+- `routers/lancamentos_recorrentes.py` novo: CRUD (`GET`/`POST`/`PATCH`/
+  `PATCH .../ativo`/`DELETE`, mesmo padrão de `caixinhas.py`) + `POST
+  /{id}/confirmar` (recebe `vigencia_mes`, cria a transação com
+  `hash_dedup` incluindo `lancamento_recorrente_id` — sem isso, confirmar
+  colidiria com uma despesa manual idêntica lançada no mesmo dia — chama
+  `sincronizar_item_orcamento` como qualquer criação de despesa, e retorna
+  409 se o mês já foi confirmado antes). Categoria vinculada precisa ser
+  do tipo `despesa` (422 caso contrário, mesma regra de
+  `_TIPO_CATEGORIA_ESPERADO` de `transacoes.py`).
+- `routers/dashboard.py`: `compromissos_futuros()` busca recorrentes
+  ativos + todas as transações já confirmadas (`.in_("lancamento_recorrente_id",
+  [...])`, 1 query em lote, não 1 por recorrente — mesmo cuidado de perf
+  da Rodada 19.3), calcula a pendência de cada um e mescla com as parcelas
+  antes de ordenar por data.
+- 30 testes novos: CRUD completo, validações (categoria errada, refs
+  inexistentes), confirmação (transação criada certa, ajuste de dia em
+  mês curto, 409 em confirmação duplicada, sincronização de orçamento,
+  exclusão do molde preserva histórico), merge em Compromissos Futuros
+  (pendência aparece/avança/some, mistura ordenada com parcela), e
+  unitários puros de `data_ocorrencia`/`proxima_ocorrencia_pendente`.
+  Suíte offline: 259 passed (230 + 29).
+
+**Frontend:**
+- `lib/types.ts`: `LancamentoRecorrente`, `EstruturaCustoRecorrente`;
+  `CompromissoFuturo` ganhou `tipo`/`lancamento_recorrente_id`,
+  `parcela_atual`/`parcela_total` viraram opcionais.
+- `routes/configuracoes/LancamentosRecorrentesSection.tsx` novo — CRUD
+  completo (mesmo padrão de `CaixinhasSection.tsx`), com o formulário
+  completo de despesa (conta, categoria→subcategoria em cascata, estrutura
+  de custo, meio de pagamento) mais os campos próprios (dia do mês, início,
+  fim opcional). Nova aba "Despesas Fixas" em Configurações.
+- `routes/Dashboard.tsx`: "Compromissos Futuros" mostra "Despesa fixa
+  recorrente" em vez de "Parcela X de Y" pros itens desse tipo, com botão
+  "Confirmar" que chama `POST /confirmar` e recarrega a lista.
+- tsc + build + lint limpos (mesmos warnings pré-existentes, nenhum novo).
+
+**Checklist de teste manual** (visual, sem cobertura automatizada):
+- [x] ~~Configurações → Despesas Fixas → criar um recorrente (ex: Aluguel,~~
+  R$1500, dia 5, início neste mês) — aparece na lista.
+- [x] ~~Editar o recorrente (ex: mudar valor) — lista atualiza.~~
+- [x] ~~Desativar o recorrente — some de Compromissos Futuros no Dashboard,~~
+  mas continua na lista de Configurações (marcado "inativo").
+- [x] ~~Reativar — volta a aparecer em Compromissos Futuros.~~
+- [x] ~~Dashboard → Compromissos Futuros mostra o recorrente com "Despesa~~
+  fixa recorrente" e a data prevista (dia configurado do mês pendente).
+- [x] ~~Clicar "Confirmar" — cria o lançamento de verdade (aparece em~~
+  Lançamentos), some de Compromissos Futuros até o próximo mês vencer.
+- [x] ~~Tentar confirmar o mesmo mês de novo (ex: via chamada repetida) —~~
+  bloqueado com erro claro.
+- [x] ~~Excluir o recorrente em Configurações — o lançamento já confirmado~~
+  continua existindo normalmente em Lançamentos.
+- [x] ~~Compromissos Futuros mistura parcela de compra parcelada com~~
+  recorrente pendente, ordenado por data.
+
+### Rodada 20.1 (2026-09-22) — criação inline de categoria/subcategoria no formulário de recorrente
+
+Usuário reportou que o formulário de recorrente (Rodada 20) não tinha a
+opção de criar conta/categoria/subcategoria sem sair da tela, diferente do
+Novo Lançamento. Perguntei se conta também deveria ganhar criação inline
+(quebraria o padrão atual do app, onde conta só é criada em
+Configurações → Contas — é ação mais rara) ou só categoria/subcategoria
+(mesmo padrão já usado no Novo Lançamento). Usuário confirmou manter o
+padrão: só categoria/subcategoria.
+
+`LancamentosRecorrentesSection.tsx` ganhou os mesmos affordances "+ Nova
+categoria"/"+ Nova subcategoria" do Novo Lançamento (`criarCategoria()`/
+`criarSubcategoria()`, chips `.chip-criar`/`.chip-form`/`.chip-cancelar`
+já existentes em `forms.css` — reaproveitados, não criei CSS novo), sem a
+lista de "mais usadas" (chips de atalho por frequência de uso) — não foi
+pedido e o recorrente é cadastrado bem mais raramente que um lançamento
+avulso, não paga o custo de mais 2 chamadas de API por abertura de
+formulário. Escolher uma subcategoria nova ou existente sugere a
+estrutura de custo padrão dela, mesmo comportamento do Novo Lançamento
+(`selecionarSubcategoria`) — ignora a sugestão se for 'investimentos'
+(recorrente só aceita fixo/variavel/sazonal).
+
+- `frontend/src/routes/configuracoes/LancamentosRecorrentesSection.tsx`:
+  estado + handlers de criação inline, JSX dos selects de categoria/
+  subcategoria.
+- Sem mudança de backend — endpoints de criar categoria/subcategoria já
+  existiam. tsc + build + lint limpos (24 warnings, mesmo total de antes,
+  nenhum novo). Suíte backend não roda nesta rodada (nada mudou lá): 259
+  passed, sem alteração.
+
+**Checklist de teste manual** (visual, sem cobertura automatizada):
+- [x] ~~Configurações → Despesas Fixas → Novo recorrente → "+ Nova~~
+  categoria" abre o mini-formulário, cria e já seleciona a categoria nova.
+- [x] ~~Com uma categoria selecionada, "+ Nova subcategoria" cria e já~~
+  seleciona a subcategoria nova, respeitando a categoria pai escolhida.
+- [x] ~~Selecionar uma subcategoria existente que tem estrutura de custo~~
+  padrão preenche o campo "Estrutura de custo" sozinho.
+- [x] ~~Cancelar a criação inline limpa o mini-formulário sem afetar o~~
+  resto dos campos já preenchidos.
+- [x] ~~Conta continua só por dropdown (sem "+ Nova conta") — comportamento~~
+  intencional, mesmo padrão do resto do app.
+
+### Rodada 20.2 (2026-09-22) — pular um mês do recorrente (viagem, mês sem a despesa)
+
+Usuário descreveu o cenário: despesa fixa recorrente que num mês
+específico não vai acontecer (ex: viajou). Hoje só existiam 2 estados por
+(recorrente, mês) — confirmado ou pendente — então excluir a transação
+confirmada fazia o mês voltar a aparecer como pendente pra sempre.
+Perguntei o custo, propus o design (tabela própria pra "pulado", endpoint
+de marcar + desfazer, "pular" nunca vira `transacoes`) e o usuário
+aprovou antes de eu implementar.
+
+**Terceiro estado, não gravado em `transacoes`.** `pulado` não é um
+evento financeiro — não devia existir na tabela pensada como "o que de
+fato aconteceu" (mesmo racional que já levou à projeção virtual na Rodada
+20). Tabela própria `lancamentos_recorrentes_pulados` (`lancamento_
+recorrente_id`, `vigencia_mes`, unique nos dois) registra só a decisão.
+**Usuários com Supabase existente precisam rodar mais uma migração** —
+ver README.md, seção "Migração pendente: `lancamentos_recorrentes_pulados`".
+
+**Backend:**
+- `services/recorrentes.py`: `proxima_ocorrencia_pendente()` ganhou o
+  parâmetro `meses_pulados` (opcional, retrocompatível) — um mês pulado
+  conta como "resolvido" na busca, igual um confirmado, só que sem virar
+  transação.
+- `schemas/lancamentos_recorrentes.py`: `ConfirmarOcorrenciaPayload`
+  renomeado pra `VigenciaMesPayload` (corpo idêntico, agora compartilhado
+  por `/confirmar` e `/pular`); `MesPulado` novo (resposta do `/pular`).
+- `routers/lancamentos_recorrentes.py`: `POST /{id}/pular` (grava o
+  pulado, 409 se o mês já foi confirmado ou já pulado antes) e `DELETE
+  /{id}/pular?vigencia_mes=` (desfaz, 404 se não existia). `confirmar()`
+  ganhou o mesmo tipo de checagem no sentido contrário — 409 se o mês já
+  foi pulado. Extraí `_ja_confirmado()`/`_ja_pulado()` como helpers
+  reaproveitados pelos dois endpoints.
+- `routers/dashboard.py`: `compromissos_futuros()` busca os pulados de
+  todos os recorrentes ativos em lote (mesmo padrão `.in_()` já usado
+  pros confirmados — sem custo extra de performance) e passa pra
+  `proxima_ocorrencia_pendente()`.
+- `tests/fakes.py`: `lancamentos_recorrentes_pulados` registrada em
+  `_UNIQUE_CONSTRAINTS`, espelhando a constraint real do schema.
+- 11 testes novos: unitários de `proxima_ocorrencia_pendente` com
+  pulados (isolado e combinado com confirmados), API completa de
+  `/pular`/desfazer (não cria transação, avança Compromissos Futuros,
+  409 em duplicata e em conflito com confirmar/confirmar-depois-de-pulado,
+  404 em recorrente/pulado inexistente). Suíte offline: 270 passed
+  (259 + 11).
+
+**Frontend:**
+- `routes/Dashboard.tsx`: botão "Pular este mês" ao lado de "Confirmar"
+  em Compromissos Futuros, com confirmação (`window.confirm`) antes de
+  chamar a API — ação com efeito visível (o compromisso muda de mês ou
+  some da lista) e vale conferir antes de disparar, mesmo padrão já usado
+  pra excluir outros recursos no app.
+- tsc + build + lint limpos (24 warnings, mesmo total de antes).
+
+**Fora de escopo nesta rodada** (não foi pedido, registrado caso vire
+prioridade depois): tela pra listar/desfazer meses pulados de um
+recorrente — hoje o desfazer só existe via API (`DELETE .../pular`), sem
+superfície na UI.
+
+**Checklist de teste manual** (visual, sem cobertura automatizada):
+- [x] ~~Dashboard → Compromissos Futuros → recorrente pendente → "Pular~~
+  este mês" (com confirmação) → some da lista ou avança pro mês seguinte
+  (se já houver outra pendência mais próxima).
+- [x] ~~O mês pulado não vira lançamento em Lançamentos.~~
+- [x] ~~Tentar confirmar um mês já pulado (via chamada repetida à API) —~~
+  bloqueado com erro claro.
+- [x] ~~Tentar pular um mês já confirmado (via chamada repetida à API) —~~
+  bloqueado com erro claro.
+
+### Rodada 20.3 (2026-09-24) — bug: clique acidental em "Pular" some com o mês confirmado
+
+Usuário reportou incidente real: ao clicar repetidamente numa confirmação,
+alguns meses da recorrente "Diarista" ficaram faltando (nov/dez) e
+Compromissos Futuros saltou pra fevereiro/2027, sem nenhum erro visível.
+
+**Diagnóstico.** Dois problemas, um de UX e um de bug real:
+1. Em Compromissos Futuros, "Confirmar" e "Pular este mês" ficavam lado a
+   lado na mesma linha com só 8px de espaço — um clique mirando
+   "Confirmar" podia acertar "Pular", que é uma ação válida e silenciosa
+   (201, sem erro), indistinguível de "não aconteceu nada".
+2. Bug real em `Dashboard.tsx`: `setErroConfirmar(null)` era chamado no
+   INÍCIO de toda ação (confirmar e pular), não só na própria ação que
+   tinha sucesso. Um clique rápido em qualquer ação apagava o erro da
+   ação anterior antes do usuário ler — daí a sensação de "não apareceu
+   nada".
+3. Consequência do item 1 do backlog fora-de-escopo da Rodada 20.2: não
+   havia superfície na UI pra ver ou desfazer meses pulados por engano —
+   único jeito de recuperar era via API direto.
+
+Usuário aprovou os 3 fixes.
+
+**Backend:**
+- `routers/lancamentos_recorrentes.py`: `GET /{id}/pulados` — lista os
+  meses pulados de um recorrente (ordenado por `vigencia_mes`), única
+  forma de visualizar o que já existe via `DELETE /{id}/pular` desde a
+  Rodada 20.2. 404 se o recorrente não existe/não é do usuário.
+- 5 testes novos (vazio, ordenado, isolado por recorrente, 404, e
+  confirma que `DELETE` some da listagem). Suíte offline: 275 passed
+  (270 + 5).
+
+**Frontend:**
+- `configuracoes/LancamentosRecorrentesSection.tsx`: botão "Meses
+  pulados" por recorrente, abre lista sob demanda (busca só no primeiro
+  clique, evita N requisições extras no carregamento da página) com
+  "Desfazer" por item — usa `rotuloMesLongo` pro mês, reaproveita
+  `.chip-form`/`.chip-cancelar` já existentes (nenhuma classe CSS nova).
+- `types.ts`: `MesPulado` novo, espelhando o schema do backend.
+- `Dashboard.tsx`:
+  - `confirmarRecorrente`/`pularRecorrente`: erro só é limpo no sucesso
+    da própria ação (nunca preventivamente no início) e a mensagem de
+    erro agora cita a descrição do recorrente e a data do mês, pra ficar
+    claro a qual ação/mês um erro pertence mesmo se outra ação rodar
+    depois.
+  - Compromissos Futuros: "Confirmar" e "Pular este mês" agora empilhados
+    verticalmente (em vez de lado a lado) com mais espaço entre os dois e
+    "Pular" com texto menor/mais discreto — reduz o risco do mesmo
+    misclique.
+- tsc + build + lint limpos (24 warnings, mesmo total de antes).
+
+**Checklist de teste manual** (visual, sem cobertura automatizada):
+- [x] ~~Configurações → Lançamentos Recorrentes → recorrente com algum mês~~
+  pulado → "Meses pulados" → lista aparece só depois do clique (checar
+  Network: 1 request nesse momento, nenhum antes).
+- [x] ~~"Desfazer" num mês pulado → some da lista e o mês volta a aparecer~~
+  como pendente em Compromissos Futuros.
+- [x] ~~Recorrente sem nenhum pulado → "Meses pulados" mostra lista vazia~~
+  (sem erro).
+- [x] ~~Dashboard → Compromissos Futuros → "Confirmar" e "Pular este mês"~~
+  aparecem empilhados, com espaço visível entre os dois e "Pular" em
+  texto discreto — não dá pra confundir um clique num pelo outro.
+- [x] ~~Provocar um erro em "Confirmar" (ex: chamar a API duas vezes rápido~~
+  pro mesmo mês) e depois clicar em "Pular" num outro item — confirmar
+  que a mensagem de erro do primeiro continua visível até a segunda ação
+  também terminar (e, se a segunda também falhar, que a mensagem cita o
+  item/mês certo).
+
+### Rodada 20.4 (2026-09-24) — seed de teste: mais variedade + cobertura de recorrentes
+
+Usuário rodou a suíte de integração e caiu no cenário já documentado na
+skill `/rodar-testes` (lixo de rodada anterior sem limpar) — pediu, junto
+da limpeza, pra atualizar o `seed_dados_teste.py` com mais opções de
+transação e cobertura das features recentes (recorrentes/pulados), e uma
+gama maior de categorias/subcategorias.
+
+**`tests/seed_dados_teste.py`:**
+- 9 categorias / 13 subcategorias (antes: 5 categorias, 2 subcategorias) —
+  Moradia (Aluguel, Condomínio, Conta de Luz, Internet), Mercado
+  (Supermercado, Feira), Lazer (Streaming, Restaurante, Viagem),
+  Transporte (Combustível, Apps de Transporte), Saúde (Plano de Saúde,
+  Farmácia), Renda Fixa e Ações e Fundos (investimento), Salário e Renda
+  Extra (receita). `montar_categorias()` extraído da função principal.
+- Cobre os 6 `tipo_movimento`: receita variável (Freelance só em 2 dos 4
+  meses), retirada pontual da caixinha, estorno vinculado a uma compra
+  real via `ajuste_de_transacao_id`, e ressarcimento avulso — antes só
+  receita/despesa/aplicação apareciam.
+- `montar_recorrentes()`: cria "Internet" (histórico com 2 meses
+  confirmados + 1 pulado, mês atual pendente) e "Assinatura Streaming"
+  (só mês atual pendente) — dados prontos pra testar a tela de "Meses
+  pulados"/desfazer (Rodada 20.3) sem precisar simular manualmente.
+- `--limpar` agora também remove os recorrentes de seed (antes só
+  `/transacoes`).
+
+**`tests/limpar_dados_integracao.py`:** `lancamentos_recorrentes` entrou em
+`TABELAS_NA_ORDEM`, antes de categorias/contas — sem isso, resetar a conta
+de teste falharia por FK assim que o seed passasse a criar recorrentes
+(`lancamentos_recorrentes.categoria_id`/`conta_id` não têm `on delete
+cascade`, ao contrário de `transacoes`). `lancamentos_recorrentes_pulados`
+não precisa de entrada própria — cascade a partir do recorrente.
+
+Sem mudança em código de produção — só nos scripts de seed/limpeza, que
+não rodam em CI. Suíte offline sem alteração: 275 passed, 33 skipped.
+
+**Checklist de teste manual** (no terminal do usuário, única forma de
+testar — scripts de seed/limpeza não rodam contra o Supabase real
+nesta sessão):
+- [x] ~~Rodar `limpar_dados_integracao.py --sim` seguido de
+      `seed_dados_teste.py`: terminam sem erro.~~
+- [x] ~~Configurações → Categorias: aparecem as 9 categorias/13
+      subcategorias novas (Moradia, Mercado, Lazer, Transporte, Saúde,
+      Renda Fixa, Ações e Fundos, Salário, Renda Extra).~~
+- [x] ~~Lançamentos → Recorrentes: "Internet" aparece com histórico (2
+      meses confirmados + 1 pulado) e "Assinatura Streaming" com o mês
+      atual pendente — dá pra testar a tela de "Meses pulados" sem
+      simular nada manualmente.~~
+- [x] ~~Rodar `seed_dados_teste.py --limpar`: os 2 recorrentes de seed
+      também somem (antes só apagava transações).~~
+
+### Rodada 20.5 (2026-09-24) — feedback de progresso no seed + limpeza resiliente por tabela
+
+Usuário rodou a sequência limpar→seed→pytest sugerida na Rodada 20.4 e
+ainda viu falhas de integração no mesmo formato ("duplicate key" em
+categorias, `KeyError: 'id'` em orçamento) — sinal de que a limpeza não
+zerou a conta de teste por completo — e perguntou se o seed podia
+imprimir progresso, já que a rodada com ~70 requisições sequenciais
+contra o Render pode parecer travada sem feedback.
+
+**`tests/seed_dados_teste.py`:** prints de progresso em cada etapa —
+autenticação, criação de contas/categorias, `[mês/4] (X%)` no início de
+cada mês do laço principal com um `.` por requisição concluída
+(sucesso ou 409), e uma linha própria pra compra parcelada e pra
+recorrentes. Puramente cosmético, não muda o que é criado.
+
+**`tests/limpar_dados_integracao.py`:** `contar()`/`limpar()` agora
+tentam cada tabela isoladamente (try/except por tabela, best-effort) em
+vez de uma falha numa tabela abortar o script inteiro antes de chegar
+nas tabelas seguintes da lista. Hipótese mais provável pro sintoma
+reportado: se a migração de `lancamentos_recorrentes` (Rodada 20, ver
+README "Migração pendente") ainda não tiver sido aplicada no Supabase
+de teste, a versão anterior deste script quebrava exatamente na 2ª
+tabela da lista (adicionada na Rodada 20.4) e nunca chegava a apagar
+orçamentos/categorias/contas — a conta de teste nunca era realmente
+zerada, apesar do script "terminar" sem erro visível pro usuário. Agora
+uma tabela que falha (migração pendente, ou qualquer outro motivo) só
+imprime um aviso e a limpeza continua nas próximas.
+
+**Ainda não confirmado:** não temos como reproduzir contra o Supabase
+real de teste nesta sessão — se as falhas de integração persistirem
+depois desta rodada, o próximo passo é o usuário confirmar (a) se as
+migrações `lancamentos_recorrentes`/`lancamentos_recorrentes_pulados`
+foram mesmo aplicadas nesse projeto Supabase e (b) colar a saída do
+próprio `limpar_dados_integracao.py` (não só do pytest) — agora ela
+mostra avisos por tabela que antes ficavam escondidos atrás de um
+crash total.
+
+Sem mudança em código de produção. Suíte offline sem alteração: 275
+passed, 33 skipped.
+
+**Checklist de teste manual** (no terminal do usuário):
+- [x] ~~Rodar `seed_dados_teste.py`: aparece progresso por etapa
+      (autenticação, contas/categorias, `[mês/4] (X%)` por mês, linha
+      própria pra parcelada e pra recorrentes) — não fica "travado" em
+      silêncio durante as ~70 requisições.~~
+- [x] ~~Rodar `limpar_dados_integracao.py --sim` num cenário onde alguma
+      tabela falhe (ex: migração de `lancamentos_recorrentes` ainda não
+      aplicada nesse Supabase): o script imprime um aviso pra essa
+      tabela e CONTINUA limpando as seguintes (orçamentos, categorias,
+      contas), em vez de abortar tudo.~~
+- [x] ~~Depois de rodar limpar→seed→pytest, colar a saída do
+      `limpar_dados_integracao.py` se a suíte de integração ainda
+      falhar — confirma se as migrações de recorrentes estão mesmo
+      aplicadas nesse projeto Supabase.~~
+
+### Rodada 20.6 (2026-09-24) — fix real: nome duplicado em categoria/subcategoria/caixinha quebrava com 500
+
+Usuário pediu pra investigar o "bug de isolamento" dos testes de
+integração. Não consegui reproduzir contra o Supabase real deles nesta
+sessão (sem `.env`), mas ao reler `services/crud.py` encontrei — e
+confirmei reproduzindo na suíte offline — uma causa raiz concreta e
+real, independente de qualquer leftover entre rodadas.
+
+**O bug:** `crud.create()` (usado por `categorias`, `subcategorias`,
+`caixinhas` — qualquer recurso simples do tipo "nome") fazia um
+`insert()` sem nenhum tratamento de exceção. `categorias` tem
+`unique(user_id, nome)`, `subcategorias` tem `unique(categoria_id,
+nome)`, `caixinhas` tem `unique(user_id, nome)` — criar um nome
+duplicado nunca foi um caso hipotético, é uma constraint real do
+schema. Sem captura, a violação sobe como `postgrest.exceptions.
+APIError` cru até o handler genérico do FastAPI — na API real isso é
+um 500 pro usuário; num teste de integração que usa `TestClient`, a
+exceção propaga direto pro teste, exatamente como
+`test_duplicata_e_bloqueada_pela_constraint_real` mostrou: `FAILED ...
+postgrest.exceptions.APIError: {'message': 'duplicate key value
+violates unique constraint "categorias_user_id_nome_key"...`.
+`orcamentos._insert_orcamento` já tratava isso corretamente (409) desde
+sempre — os outros recursos simples nunca tiveram o mesmo cuidado.
+
+**Prova de que é real, não hipótese:** ao adicionar `categorias`/
+`subcategorias`/`caixinhas` em `tests/fakes.py._UNIQUE_CONSTRAINTS`
+(pra simular a mesma constraint offline), **3 testes que já existiam
+quebraram na hora** — `test_pool_despesas_absorve_estouro_de_um_
+bucket_quando_outros_tem_folga` e `test_pool_despesas_estoura_quando_
+soma_total_passa_do_teto_agregado` (`test_estrutura_custo_api.py`)
+criavam "Categoria Teste" 3x na mesma chamada de teste;
+`test_atualizar_para_categoria_de_receita_retorna_422`
+(`test_lancamentos_recorrentes_api.py`) criava uma categoria despesa E
+uma receita, as duas chamadas "Aluguel". Isso é o mesmo padrão exato
+usado em `tests/integration/test_transacoes_integration.py` (toda
+função cria "Categoria Integração") e em `test_orcamentos_integration.
+py`/`test_estrutura_custo_integration.py` (`vigencia_mes="2026-09-01"`
+fixo, repetido entre funções) — qualquer teste anterior que falhe
+ANTES de registrar seu recurso no fixture `cleanup` deixa esse nome/mês
+presos pro resto da rodada, e agora (com o fix) a próxima tentativa
+recebe um 409 limpo em vez de travar com uma exceção crua — não elimina
+o "vazamento" entre testes, mas transforma o sintoma de "crash
+ininteligível" em "409 esperado", o que já teria deixado a causa óbvia
+desde a primeira falha reportada.
+
+**Fix:** `services/crud.py::create()` ganhou o mesmo try/except que
+`_insert_orcamento` já usava — traduz `"duplicate key value violates
+unique constraint"` (ou código `23505`) em `HTTPException(409, "Já
+existe um registro com esse nome.")`; qualquer outra exceção sobe
+normal. Sem mudança de assinatura, nenhum caller precisou ser tocado —
+frontend já trata `ApiError`/`.detail` genericamente em todo formulário
+de Configurações, então a mensagem nova já aparece sem trabalho extra.
+
+**Testes:** `tests/fakes.py` ganhou as 3 constraints citadas acima em
+`_UNIQUE_CONSTRAINTS`; 3 testes existentes corrigidos pra não colidir
+com nome repetido dentro da própria função (categoria compartilhada
+entre despesas do mesmo teste; nome do helper `_categoria()` varia por
+`tipo`); 4 testes novos (`test_criar_categoria_com_nome_duplicado_
+retorna_409`, `test_criar_subcategoria_com_nome_duplicado_na_mesma_
+categoria_retorna_409`, `test_mesmo_nome_de_subcategoria_em_categorias_
+diferentes_e_aceito` — confirma que o unique é por categoria, não
+global —, `test_criar_caixinha_com_nome_duplicado_retorna_409`). Suíte
+offline: **279 passed** (275 + 4), 33 skipped.
+
+**Resolvido no mesmo dia (fora desta sessão, no terminal do usuário):**
+não era vazamento entre testes na suíte de integração — era leftover
+de verdade, só que a limpeza não estava rodando na sequência certa.
+Rodando `limpar_dados_integracao.py --sim` isolado, a conta mostrou 76
+transações, 15 categorias, 4 orçamentos, 2 lançamentos recorrentes
+acumulados (uso manual do app + rodadas de teste anteriores); depois de
+zerar, o teste isolado (`test_orcado_e_realizado_contra_banco_real`)
+passou de primeira. Conclusão: `limpar_dados_integracao.py --sim`
+precisa rodar **imediatamente antes** do pytest, no mesmo bloco de
+comandos — uma limpeza de horas/dias atrás não garante nada, porque uso
+manual do app ou o script de seed realimentam a mesma conta entre uma
+limpeza e a próxima. O achado do `crud.create()` (acima) continua
+válido e vale por si só — só não era a causa desse incidente específico.
+`/rodar-testes` atualizado para sempre recomendar limpar+pytest como um
+único bloco, sem nada no meio.
+
+A fragilidade estrutural nos testes de integração (`vigencia_mes=
+"2026-09-01"`/"Categoria Integração" fixos e reusados entre funções)
+segue real e poderia ser eliminada dando a cada teste seu próprio
+mês/nome — mas como já ficou comprovado que não foi a causa deste
+incidente, fica registrado como melhoria de robustez futura, não como
+correção urgente.
+
+**Checklist de teste manual (409 de nome duplicado):**
+- [x] ~~Configurações → Categorias: criar uma categoria com nome já
+      existente → mensagem "Já existe um registro com esse nome."
+      aparece no formulário (não trava a tela, não é um erro genérico).~~
+- [x] ~~Configurações → Categorias: criar subcategoria com nome já usado
+      dentro da MESMA categoria pai → mesma mensagem de 409.~~
+- [x] ~~Configurações → Categorias: criar subcategoria com o mesmo nome
+      de uma subcategoria que já existe em OUTRA categoria → aceita
+      normalmente (unique é por categoria, não global).~~
+- [x] ~~Configurações → Caixinhas: criar caixinha com nome já existente →
+      mesma mensagem de 409.~~
+
+### Rodada 21 (2026-09-24) — edição de compra parcelada: metadado + exclusão em grupo
+
+Item 8 do backlog, discutido e decidido antes de implementar: dos 3
+níveis registrados (metadado editável / recriar o grupo / excluir o
+grupo inteiro), usuário aprovou os níveis 1 e 3, deixando o nível 2
+(editar valor total/quantidade de parcelas recriando o grupo) pra decisão
+futura — o ponto caro daquele nível (parcelas já vencidas ou com fatura
+movida manualmente entram na recriação ou ficam de fora?) é uma decisão
+de produto, não só mais código.
+
+**Backend — `routers/transacoes.py`:**
+- `PATCH /transacoes/parceladas/{id}` (nível 1): edita só `descricao`/
+  `categoria_id`/`subcategoria_id`/`estrutura_custo`/`meio_pagamento` de
+  uma parcela. Novo schema `ParcelaUpdate` nem aceita valor/data/conta no
+  payload — não é uma checagem em runtime, é impossível de enviar. Roda
+  as mesmas validações de `POST /transacoes/parceladas` (categoria
+  precisa ser tipo despesa, campos obrigatórios de despesa) e
+  `sincronizar_item_orcamento` no final, já que categoria/estrutura
+  podem trocar o bucket do orçamento. Descrição entra no `hash_dedup`
+  (unique) — o endpoint recalcula o hash com a nova descrição, mesma
+  lógica que `PATCH /transacoes/{id}` já usava pra edição à vista.
+- `DELETE /transacoes/parceladas/{compra_parcelada_id}` (nível 3): apaga
+  todas as parcelas do grupo (filtradas por `user_id`) numa chamada só,
+  mais a linha em `compras_parceladas` — em vez de repetir `DELETE
+  /transacoes/{id}` uma vez por parcela. 404 se o grupo não existir ou
+  não pertencer ao usuário.
+- `PATCH /transacoes/{id}` (edição à vista) continua bloqueando parcela
+  com 422 — mensagem atualizada pra apontar pro endpoint novo em vez de
+  só "exclua e lance novamente".
+
+**Frontend:**
+- `EditarLancamento.tsx`: o bloqueio total de antes virou um formulário
+  reduzido (só os 5 campos do nível 1) quando a transação é uma parcela,
+  chamando o endpoint novo.
+- `Lancamentos.tsx`: link "Editar" passa a aparecer pra parcelas também
+  (antes só pra lançamento à vista). Botão novo "Excluir compra inteira"
+  ao lado de "Excluir", só quando o item tem `compra_parcelada_id`, com
+  confirmação nomeando quantas parcelas serão apagadas.
+
+**Testes:** 8 novos em `test_transacoes_api.py` — edição de metadado
+(atualiza os 5 campos e preserva valor/data/conta/parcela_atual/
+compra_parcelada_id; 422 se a transação for à vista; 404 se não existir
+ou for de outro usuário) e exclusão em grupo (remove todas as parcelas;
+não afeta outra compra parcelada do mesmo usuário; 404 se o grupo não
+existir ou for de outro usuário — nesse caso as parcelas continuam
+intactas). Suíte offline: **287 passed** (279 + 8), 33 skipped. Frontend:
+`tsc -b && vite build` e `oxlint` sem erros novos (avisos pré-existentes
+de `set-state-in-effect`/`only-export-components` não relacionados a
+esta mudança).
+
+**Checklist de teste manual:** (item 1 corrigido na Rodada 21.1 — valor
+passou a ser editável, ver abaixo)
+- [x] ~~Lançamentos: abrir "Editar" numa parcela → formulário reduzido
+      aparece (sem campos de data/conta), com os valores atuais
+      pré-preenchidos.~~
+- [x] ~~Editar a descrição/categoria de uma parcela → salva, volta pra
+      Lançamentos, e a data/conta da parcela continuam os mesmos de
+      antes.~~
+- [x] ~~Trocar a categoria de uma parcela em cartão de crédito → meio de
+      pagamento continua travado em "Cartão de crédito" (mesma trava do
+      lançamento à vista).~~
+- [x] ~~Deixar a descrição em branco e tentar salvar → mensagem de erro,
+      não salva.~~
+- [x] ~~Lançamentos: no card de uma parcela, clicar "Excluir compra
+      inteira" → confirmação nomeia a quantidade de parcelas; confirmar
+      → todas as parcelas da compra somem da lista, as de outras compras
+      continuam.~~
+- [x] ~~"Excluir" (sem ser "inteira") numa parcela isolada → continua
+      apagando só aquela parcela, como já funcionava antes.~~
+
+### Rodada 21.1 (2026-09-24) — edição de compra parcelada: valor também editável
+
+Usuário testou a Rodada 21 e explicou o motivo real por trás do pedido:
+a fatura do cartão às vezes fecha uma parcela em R$ 100,13 e outra em
+R$ 100,14 (arredondamento do emissor), e ele queria ajustar mês a mês
+conforme cada fatura fecha. Perguntei se existe um padrão bancário único
+de arredondamento — não existe (BACEN não normatiza; cada emissor/
+adquirente distribui o resto de centavos do jeito que quiser: resto na
+última parcela, na primeira, ou espalhado). Isso muda o problema: não dá
+pra "acertar" o cálculo de antemão, editar valor por parcela é a forma
+real de manter o lançamento fiel à fatura.
+
+Reexaminando a objeção original (nível 1 excluía valor porque editar
+quebraria a soma com `valor_total` do grupo): `compras_parceladas.
+valor_total` é gravado uma vez, na criação, e nunca mais é lido em lugar
+nenhum do código — não tem validação, não aparece em tela, não entra em
+nenhum cálculo depois (só serviu pra calcular o valor inicial de cada
+parcela). A objeção era sobre uma invariante que não é de fato
+conferida em nenhum lugar — editar valor não quebra nada de verdade.
+
+**Backend:** `ParcelaUpdate` ganhou `valor: float = Field(gt=0)`
+(obrigatório, igual `descricao`). `PATCH /transacoes/parceladas/{id}`
+recalcula `hash_dedup` com o valor novo (valor também entra no hash,
+igual descrição). Data e conta continuam fora do schema — não têm
+relação com o problema de arredondamento (mexer nelas moveria a parcela
+pra outro ciclo de fatura ou dividiria a compra entre duas contas).
+
+**Frontend:** `EditarLancamento.tsx` ganhou o campo Valor no formulário
+reduzido de parcela, na mesma linha da Descrição; texto explicativo
+atualizado pra citar o motivo (sem padrão bancário fixo de
+arredondamento).
+
+**Testes:** teste existente de edição de metadado passou a incluir valor
+na asserção (era "preserva valor", virou "atualiza valor e preserva data/
+conta"); teste novo confirma que editar o valor de uma parcela não altera
+as outras parcelas do mesmo grupo. Suíte offline: **288 passed** (287 +
+1), 33 skipped. Frontend: `tsc -b && vite build` e `oxlint` sem erros
+novos.
+
+**Checklist de teste manual:**
+- [x] ~~Lançamentos: abrir "Editar" numa parcela → campo Valor aparece
+      pré-preenchido com o valor atual, editável.~~
+- [x] ~~Trocar o valor de uma parcela (ex: de R$ 100,13 pra R$ 100,14) →
+      salva; as outras parcelas da mesma compra continuam com o valor
+      original.~~
+- [x] ~~Deixar o valor em branco ou zerado e tentar salvar → mensagem de
+      erro, não salva.~~
+
+### Rodada 22 (2026-09-24) — indicador visual de tooltip
+
+Item registrado 2026-09-15 (backlog), primeiro da leva pós-MVP que o
+usuário decidiu priorizar agora, em ordem, cada um com checklist próprio.
+Motivo original: o Dashboard já tem `title` explicando cada card de
+resumo, mas nada na tela avisa que o card é "hover-ável" — só se descobre
+passando o mouse por acaso.
+
+**`components/InfoIcon.tsx`** (componente novo): círculo pequeno com "?",
+puramente decorativo (`aria-hidden`) — a explicação acessível continua
+sendo o `title` nativo do elemento pai, que já existia; o ícone só sinaliza
+que ele existe. Um componente único reaproveitado em todas as telas, em
+vez de um ícone por tela (like pedido no backlog).
+
+**Auditoria de onde entra:** todo lugar com o mesmo padrão do Dashboard —
+um rótulo curto com `title` explicativo no elemento pai (cards de resumo,
+toggles). Aplicado em: Dashboard (toggle Leitura de Caixa/Saúde + 9 cards
+de resumo), Lançamentos (5 cards de resumo), `SeletorPeriodo` ("Base da
+média"). Dois lugares com `title` foram conscientemente deixados de fora
+por não seguirem esse padrão: `EstruturaCusto.tsx` (anotação de "+sobra"
+é um valor inline, não um rótulo de card) e `NovoLancamento.tsx`
+(`<select>` de estrutura de custo padrão na criação inline de
+subcategoria, sem rótulo próprio pra ancorar o ícone).
+
+**Testes:** mudança puramente visual, sem lógica nova — sem teste
+automatizado (frontend não tem suíte). `tsc -b && vite build` e `oxlint`
+sem erros novos.
+
+**Checklist de teste manual:** (itens 2 e 4 corrigidos na Rodada 22.1 —
+clicar/tocar no ícone, não hover; "Base da média" só existe em Gráficos)
+- [x] ~~Dashboard: cada card de resumo (Receitas, Despesas, Reservas,
+      Investimentos, Taxa de poupança, Meses com resultado negativo,
+      Maior categoria de despesa) e o texto "Resultado de caixa/saúde"
+      mostram um círculo pequeno com "?" ao lado do rótulo.~~
+- [x] ~~Clicar/tocar no círculo → balão com a explicação aparece.~~
+- [x] ~~Lançamentos: os 5 cards de resumo (Lançamentos, Receitas, Despesas
+      líquidas, Fluxo de caixa, Taxa de poupança) mostram o mesmo círculo.~~
+- [x] ~~Gráficos → seletor de período → "Base da média" mostra o círculo,
+      com a explicação de "Até o mês" vs "Ritmo anual" ao clicar.~~
+- [x] ~~Visual não quebra em mobile (< 720px) — círculo não estoura a
+      largura do card nem sobrepõe o valor.~~
+
+### Rodada 22.1 (2026-09-24) — ícone de info clicável (não depende de hover)
+
+Usuário testou a Rodada 22 no celular e reportou: tocar no ícone não
+mostrava nada. Causa: o tooltip continuava sendo o `title` nativo do
+elemento pai, que só ativa com hover — e touchscreen não tem hover. O
+ícone visual resolvia "eu sei que tem explicação aqui" mas não "como eu
+vejo a explicação" no dispositivo onde essa PWA mais roda.
+
+**`components/InfoIcon.tsx`:** virou um `<button>` que recebe o texto via
+prop `texto` (antes ficava só no `title` do elemento pai) e mostra num
+balão próprio (`role="tooltip"`) ao ser clicado/tocado — funciona igual
+em mobile e desktop, sem depender de hover do navegador. Fecha ao clicar
+fora (`mousedown` no documento) ou Esc. `title` removido de todos os
+elementos pai (Dashboard, Lançamentos, `SeletorPeriodo`) — o ícone passou
+a ser o único lugar que carrega a explicação, evitando duplicar a mesma
+informação em dois mecanismos diferentes.
+
+**Testes:** mudança visual/interação, sem lógica de negócio — sem teste
+automatizado. `tsc -b && vite build` e `oxlint` sem erros novos.
+
+**Checklist de teste manual:**
+- [x] ~~No celular (ou DevTools em modo mobile): tocar num ícone "?" →
+      balão com a explicação aparece.~~
+- [x] ~~Tocar em outro lugar da tela → balão fecha.~~
+- [x] ~~No desktop: clicar no ícone → mesmo balão aparece; Esc fecha.~~
+- [x] ~~Abrir o balão de um card, depois clicar direto no ícone de outro
+      card sem fechar o primeiro → comportamento não trava (balão do
+      primeiro fecha, do segundo abre, ou os dois convivem sem quebrar
+      layout — qualquer um dos dois é aceitável, só não pode travar).~~
+
+### Rodada 23 (2026-09-24) — barra lateral e cabeçalhos fixos ao rolar
+
+Itens 16 e 17 do backlog (antigos sub-itens 2 e 4 de "Melhorias pós-MVP
+na tela Gráficos e na casca do app"). Processo: usuário pediu mockups
+antes de decidir (ver `docs/backlog.md`, "Cabeçalho fixo — detalhe da
+decisão", pro histórico completo de 2 rodadas de design — a 1ª comparando
+alternativas genéricas, com o botão de ciclar descartado por não resolver
+o objetivo real; a 2ª com o controle de verdade de cada tela).
+
+**Mockups (histórico, `docs/mockups/`):** 1ª rodada —
+[barra lateral fixa](mockups/rodada23-sidebar-fixa.png),
+[opção A: título de seção](mockups/rodada23-opcaoA-cabecalho-titulo-secao.png),
+[opção B: botão de ciclar, descartada](mockups/rodada23-opcaoB-botao-ciclar-descartada.png).
+2ª rodada (controle real por tela) —
+[Lançamentos desktop](mockups/rodada23-lancamentos-desktop-filtro-fixo.png),
+[Lançamentos mobile](mockups/rodada23-lancamentos-mobile-filtro-fixo.png),
+[Gráficos](mockups/rodada23-graficos-seletor-fixo.png),
+[Estrutura de Custo](mockups/rodada23-estrutura-custo-cabecalho-fixo.png),
+[Planejamento](mockups/rodada23-planejamento-cabecalho-fixo.png),
+[Dashboard](mockups/rodada23-dashboard-cabecalho-fixo.png).
+
+**`AppShell.css`** — `.shell-nav` ganhou `position: sticky; top: 0;
+height: 100vh; overflow-y: auto`. Antes acompanhava o scroll do corpo da
+página (bug de layout não intencional, não um recurso ausente).
+
+**`components/cabecalhoFixo.css`** (novo, compartilhado): `.cabecalho-
+fixo` (mecânica sticky) + `.cabecalho-fixo-card` (visual de card pra
+quem não tem um pra encaixar) + `.cabecalho-fixo-grid`/`-stat`/`-barra`
+(grade compacta de estatísticas/barra de progresso). Aplicado em:
+
+- **Gráficos** — `SeletorPeriodo` (Mês/Intervalo/Todos + Base da média)
+  fixo. Reaproveita o card que o próprio `SeletorPeriodo` já desenha
+  (`.dashboard-seletor`), por isso não usa `.cabecalho-fixo-card` — regra
+  CSS nova zera o card duplicado quando `.dashboard-seletor` aparece
+  dentro de `.cabecalho-fixo-card` (usada pelas outras 3 telas abaixo).
+- **Dashboard** — toggle Leitura de Caixa/Saúde + `SeletorPeriodo` fixos,
+  mais uma linha nova com 3 KPIs compactos (Resultado/Despesas líquidas/
+  Taxa de poupança) — pedido do usuário na revisão do mockup, pra não
+  perder de vista os números principais enquanto rola até Patrimônio/
+  Compromissos Futuros.
+- **Estrutura de Custo** — navegador de mês fixo, saiu da linha do `<h1>`
+  pra dentro do cabeçalho fixo; fita de KPIs compacta nova (Orçado/
+  Realizado/Diferença/Execução) — duplica reduzido a fita completa que
+  já existia mais abaixo (`.estrutura-custo-fita`, intacta).
+- **Planejamento** — navegador de mês fixo; grade nova com os 4 buckets
+  em miniatura (barra de progresso + "alocado/teto" compacto) — pedido
+  do usuário na revisão do mockup ("não seria bom manter a alocação
+  visível, mesmo que reduzida?"). Reaproveita a mesma lógica de
+  `percentualUso`/`estourou` que os cards de bucket completos já usavam
+  mais abaixo.
+- **Lançamentos** — responsivo, resolvido diferente por tamanho de tela
+  (o painel de filtro tem 12 campos, não cabe fixo no mobile sem
+  colapsar): desktop mantém o painel completo (`.filtros`) sempre fixo e
+  visível; mobile esconde `.filtros` por padrão e mostra uma barra
+  resumida (`.filtros-resumo-mobile`, contador "N filtros ativos") que
+  alterna `.filtros` visível/escondido ao tocar — a mesma lógica de
+  filtro (`atualizarFiltro`) não mudou, só a exibição.
+
+**Testes:** mudança de layout/CSS, sem lógica de negócio nova — sem
+teste automatizado (frontend não tem suíte). `tsc -b && vite build` e
+`oxlint` sem erros novos em nenhum dos 6 arquivos tocados.
+
+**Checklist de teste manual:**
+- [x] ~~Desktop (>720px): em qualquer tela, rolar o conteúdo → a barra
+      lateral de navegação não se move, continua no lugar.~~
+- [x] ~~Gráficos: rolar pelas 4 seções → o seletor de período (Mês/
+      Intervalo/Todos + Base da média) continua visível e funcional no
+      topo; trocar de mês/intervalo enquanto rolado funciona normal.~~
+- [x] ~~Dashboard: rolar até Patrimônio/Compromissos Futuros → toggle
+      Leitura de Caixa/Saúde, seletor de período e os 3 KPIs (Resultado/
+      Despesas líquidas/Taxa de poupança) continuam visíveis no topo;
+      trocar de leitura enquanto rolado atualiza os 3 KPIs.~~
+- [x] ~~Estrutura de Custo: rolar a tabela de buckets → mês e fita de KPIs
+      compacta continuam visíveis; navegar de mês enquanto rolado
+      funciona normal.~~
+- [x] ~~Planejamento: rolar pelos 4 buckets → mês e as 4 barrinhas de
+      alocação continuam visíveis; provocar um bucket estourado (alocar
+      mais que o teto) → barrinha correspondente fica vermelha, tanto na
+      versão fixa quanto no card completo abaixo.~~
+- [x] ~~Lançamentos desktop (>720px): painel de filtro completo aparece
+      sempre fixo no topo, sem barra resumida nem botão de expandir.~~
+- [x] ~~Lançamentos mobile (≤720px, ou DevTools em modo mobile): painel de
+      filtro aparece escondido por padrão; barra resumida no
+      topo mostra "Sem filtros" ou "N filtro(s) ativo(s)"; tocar nela
+      expande o painel completo por cima da lista; tocar de novo
+      recolhe. Aplicar um filtro com o painel aberto → lista atualiza
+      normalmente (mesmo comportamento de sempre).~~
+- [x] ~~Redimensionar a janela do navegador de mobile pra desktop (ou
+      vice-versa) em Lançamentos com o painel aberto → não quebra o
+      layout (o painel deve continuar coerente com o breakpoint atual).~~
+
+### Rodada 23.1 (2026-09-24) — cabeçalho fixo: texto pequeno, números sobrepondo, painel alto demais
+
+Usuário testou a Rodada 23 e reportou 3 problemas concretos (um 4º —
+cabeçalho não fixando no mobile em Gráficos/Estrutura de Custo/
+Planejamento — ainda em investigação, não corrigido nesta rodada por
+falta de causa raiz confirmada; sessão remota não consegue reproduzir
+com sessão autenticada real pra inspecionar ao vivo).
+
+**Texto dos KPIs/estatísticas compactas pequeno demais** (Dashboard,
+Estrutura de Custo, Planejamento): `.cabecalho-fixo-stat-rotulo` foi de
+10px pra 11px, `.cabecalho-fixo-stat-valor` de 13px pra 15px, barra de
+progresso de 4px pra 5px de altura — mais perto da proporção das seções
+normais da página (`.resumo-card-rotulo` 12px / `.resumo-card-valor`
+18px), sem virar um card completo.
+
+**Planejamento mobile — números da alocação se sobrepondo:** causa raiz
+real, não só estética — o valor usava `formatarMoeda()` (`"R$ 1.800,00"`,
+formato completo com centavos) dentro de uma grade de 4 colunas em tela
+de 390px (~85px de coluna útil), sem espaço nenhum pra esse tanto de
+caractere. `lib/formatar.ts` ganhou `formatarMoedaCompacta()`
+(`Intl.NumberFormat` com `notation: "compact"` — ex: "1,8 mil" em vez de
+"R$ 1.800,00"), usada só nessa grade compacta. Grade `.cabecalho-fixo-
+grid-3`/`-4` (substituindo o `style={{gridTemplateColumns}}` inline por
+classes) também ganhou uma regra `@media (max-width: 480px)` derrubando
+pra 2 colunas — 4 colunas nunca coube direito numa tela de celular,
+independente do tamanho do texto.
+
+**Lançamentos desktop — painel de filtro fixo alto demais:** os 10 campos
+estavam agrupados em 3 `<div className="filtros-linha">` fixos (grupos
+de 4/4/3), cada um sua própria linha de flexbox — mesmo com espaço
+sobrando numa tela larga, os grupos nunca se misturavam, sempre pelo
+menos 3 linhas. Os 3 grupos viraram 1 só (mesmo comportamento de
+`flex-wrap`, mas agora decidindo quantos campos cabem por linha pela
+largura real da tela, não por um agrupamento arbitrário) — o botão
+"Limpar filtros" continua numa linha própria.
+
+**Não corrigido — cabeçalho não fixando no mobile (Gráficos/Estrutura de
+Custo/Planejamento):** usuário suspeitou do tamanho da barra de navegação
+inferior (`.shell-bottom-nav`, já registrado como bug separado no
+backlog, item 21) forçando rolagem extra. Não encontrei uma causa
+concreta revisando o CSS estaticamente — o Dashboard usa o mesmo padrão
+de `.cabecalho-fixo` e funciona no mobile segundo o usuário, então não é
+um problema estrutural óbvio de `position: sticky`. Registrado como
+pendente, aguardando mais detalhe do usuário (print de tela ou descrição
+mais precisa do que acontece) antes de tentar outro fix às cegas.
+
+**Testes:** `tsc -b && vite build` e `oxlint` sem erros novos.
+
+**Checklist de teste manual:**
+- [x] ~~Dashboard/Estrutura de Custo/Planejamento: texto dos KPIs/
+      estatísticas fixas legível, proporção parecida com o resto da
+      página (não minúsculo).~~
+- [x] ~~Planejamento mobile: os 4 valores de alocação (ex: "1,8 mil/1,95
+      mil") não se sobrepõem nem quebram estranho, mesmo com a tela
+      girada/estreita.~~
+- [x] ~~Planejamento: grade de 4 colunas vira 2 colunas em telas bem
+      estreitas (≤480px) — sem espremer.~~
+- [x] ~~Lançamentos desktop: painel de filtro fixo ocupa menos altura que
+      antes (campos fluem em menos linhas, aproveitando a largura da
+      tela).~~
+
+### Rodada 23.2 (2026-09-24) — causa raiz achada: Gráficos rolava de lado no mobile
+
+Usuário mandou prints do celular — a causa do "cabeçalho não fixa" em
+Gráficos (pendência da Rodada 23.1) não era o `position: sticky` nem a
+barra de navegação inferior (a suspeita inicial): era **rolagem
+horizontal na página inteira**, só em Gráficos. O cabeçalho até fica
+fixo verticalmente, mas desliza junto quando a página rola de lado — daí
+parecer "não fixo".
+
+**Causa raiz:** `.evolucao-legenda` (`evolucaoChart.css`) — a linha de
+legenda ("Receitas · Despesas · Resultado · Média receitas (R$...) ·
+Média despesas (R$...)") é `display: flex` sem `flex-wrap: wrap`. Com
+texto real (valores em R$, não os rótulos curtos dos mockups), a linha
+fica mais larga que uma tela de 390px e empurra a página inteira pra
+rolar na horizontal. Classe compartilhada por **5 componentes**
+(`EvolucaoChart`, `OrcadoRealizadoChart`, `TaxaPoupancaChart`,
+`ParetoTendenciaChart`, `PercentualExecutadoChart`) — um fix só resolve
+os 5.
+
+**Fix:** `.evolucao-legenda` ganhou `flex-wrap: wrap` (os itens quebram
+linha em vez de forçar largura). Também adicionada uma rede de segurança
+em `index.css`: `body { overflow-x: hidden }` — uma legenda/linha sem
+`flex-wrap` numa tela nova não deve mais conseguir alargar a página
+inteira de novo. Tabela genuinamente larga continua podendo rolar na
+horizontal, isolada, com `overflow-x: auto` no próprio container (padrão
+já usado em `.pareto`/`crud.css` — não muda com essa rede de segurança).
+
+**Testes:** `tsc -b && vite build` e `oxlint` sem erros novos.
+
+**Checklist de teste manual:**
+- [x] ~~Gráficos no mobile: rolar a tela não move mais de lado — só
+      verticalmente.~~
+- [x] ~~Gráficos no mobile: a legenda de cada gráfico (Evolução Mensal,
+      Orçado×Realizado, etc.) quebra em 2+ linhas quando não cabe numa
+      só, sem cortar texto nem forçar rolagem.~~
+- [x] ~~Gráficos: com a rolagem horizontal corrigida, o cabeçalho fixo
+      (seletor de período) agora se comporta igual às outras telas
+      (fica no topo ao rolar verticalmente).~~
+- [x] ~~Conferir rapidamente Lançamentos/Dashboard/Estrutura de Custo/
+      Planejamento no mobile → ainda sem rolagem lateral (a rede de
+      segurança não deveria mudar nada ali, só confirmar).~~
+
+### Rodada 24 (2026-09-24) — filtro/período sobrevive à navegação entre telas
+
+Item 13 do backlog, próximo da ordem que o usuário definiu (depois do
+lote de cabeçalho fixo/barra lateral). Exemplo original: aplicar filtros
+em Lançamentos, ir pra Planejamento, voltar — os filtros resetavam.
+Escopo confirmado com o usuário antes de implementar (`AskUserQuestion`):
+as 4 telas com filtro/período (não só Lançamentos), pelo mesmo mecanismo.
+
+**Mecanismo escolhido:** Context React, um por tela, montado no
+`AppShell` — que fica montado o tempo todo entre trocas de rota (só o
+`<Outlet/>` interno troca) — em vez de `sessionStorage`/`localStorage`.
+Não precisa sobreviver a fechar a aba, só à navegação dentro do app, e
+Context evita serialização (os filtros de Lançamentos incluem `union
+types` como `TipoMovimento | ''`, sem custo extra de (de)serializar).
+
+**Arquivos novos** (`src/lib/`):
+- `LancamentosFiltrosContext.tsx` — `Filtros`/`FILTROS_VAZIOS` (movidos
+  de `Lancamentos.tsx`, agora fonte única) + `filtros`/`mesRapido`/
+  `anoRapido`. `filtroMobileAberto` (o painel colapsado da Rodada 23)
+  continua local — é estado de UI, não filtro, não faz sentido persistir
+  o painel aberto entre visitas.
+- `GraficosPeriodoContext.tsx` — não duplica a lógica de `usePeriodo()`
+  (`lib/periodo.ts`): o Provider só chama o hook por dentro e expõe o
+  resultado via Context. Dashboard continua chamando `usePeriodo()`
+  direto (fora do escopo confirmado — não é uma das 4 telas).
+- `EstruturaCustoContext.tsx` / `PlanejamentoContext.tsx` — só
+  `vigenciaMes`/`setVigenciaMes` (sem a derivação de período mais
+  elaborada de Gráficos).
+
+**Caso especial — Estrutura de Custo:** `?mes=YYYY-MM` na URL (link de
+drill-down vindo de Gráficos) precisa continuar sobrepondo o mês
+persistido. Virou um `useEffect` que, se o param existir, chama
+`setVigenciaMes` do contexto — sobrescreve e também passa a valer como
+"o mês atual" daí pra frente (mesmo padrão de antes, só que agora o novo
+valor sobrevive se o usuário navegar pra outro lugar e voltar).
+
+**Testes:** mudança de arquitetura de estado, sem lógica de negócio nova
+— sem teste automatizado (frontend não tem suíte). `tsc -b && vite
+build` e `oxlint` sem erros novos (os avisos `only-export-components`
+nos 4 arquivos novos são o mesmo padrão já aceito em `PrivacyContext.tsx`/
+`AuthContext.tsx` — Context sempre exporta hook junto do Provider).
+
+**Checklist de teste manual:**
+- [x] ~~Lançamentos: aplicar um filtro (ex: Tipo = Despesa) → ir pra
+      Planejamento → voltar pra Lançamentos → filtro continua aplicado.~~
+- [x] ~~Gráficos: trocar pra "Intervalo" (ou "Todos os meses") e mudar o
+      mês → ir pra outra tela → voltar → seleção continua.~~
+- [x] ~~Estrutura de Custo: navegar pra outro mês (← →) → ir pra outra
+      tela → voltar → mês continua o navegado, não volta pro atual.~~
+- [x] ~~Estrutura de Custo: entrar via link de drill-down de Gráficos
+      (Orçado×Realizado, clicar num ponto) → mês correto aparece; sair e
+      voltar sem usar o link de novo → mês do drill-down persiste.~~
+- [x] ~~Planejamento: mesmo teste do mês de Estrutura de Custo.~~
+- [x] ~~Lançamentos: painel de filtro mobile aberto → trocar de tela e
+      voltar → painel aparece colapsado de novo (não persiste aberto,
+      comportamento esperado).~~
+- [x] ~~Fechar a aba/app e abrir de novo → todos os filtros/períodos
+      voltam ao padrão (não persistem entre sessões — só durante a
+      navegação, por design).~~
+
+### Rodada 24.1 (2026-09-24) — Dashboard entra no escopo + bug do drill-down
+
+Checklist da Rodada 24 apontou dois problemas.
+
+**Dashboard fora do escopo por engano.** Rodada 24 excluiu Dashboard do
+escopo de persistência ("não é uma das 4 telas") — decisão minha, não
+pedida pelo usuário, que corrigiu depois de testar ("faltou dashboard").
+`DashboardPeriodoContext.tsx` criado espelhando `GraficosPeriodoContext.tsx`
+(instância própria, não compartilha estado com Gráficos — são leituras
+independentes); `Dashboard.tsx` passa a usar `useDashboardPeriodo()`;
+`AppShell.tsx` ganha o 5º Provider (mais externo dos 5, sem motivo
+específico de ordem — nenhum depende de outro).
+
+**Bug real: mês do drill-down não sobrevivia à navegação.** Em Estrutura
+de Custo, o `useEffect` que aplica `?mes=` (link de drill-down vindo de
+Gráficos) dependia do objeto `searchParams` inteiro. O react-router
+recria esse objeto a cada render, mesmo sem navegação real — e a URL
+continuava com `?mes=2026-07` (clicar nas setas de mês não muda a URL),
+então todo re-render reaplicava julho por cima da navegação do usuário.
+Corrigido extraindo o valor primitivo (`searchParams.get('mes')`) pra
+uma constante e usando essa constante como dependência do efeito, em vez
+do objeto.
+
+**Testes:** mesma natureza da Rodada 24 — mudança de estado/arquitetura,
+sem teste automatizado. `tsc -b && vite build` e `oxlint` sem erros
+novos.
+
+**Checklist de teste manual:**
+- [x] ~~Estrutura de Custo: entrar via link de drill-down de Gráficos
+      (Orçado×Realizado, clicar num ponto) → navegar pro mês anterior
+      (←) → mês muda e permanece no navegado (não volta pro mês do
+      link).~~
+- [x] ~~Dashboard: trocar de mês/intervalo → ir pra outra tela → voltar →
+      seleção continua a mesma.~~
+
+**Checklist do usuário (2026-09-24):** item 1 (mês do drill-down)
+reportado como "continua voltando pro mês do link" — comportamento
+correto, esclarecido depois: entrar de novo pelo link deve mesmo levar
+ao mês indicado, faz mais sentido assim (não é bug). Item 2: toggle
+Leitura de Caixa/Saúde do Dashboard não sobrevivia à navegação — real,
+tratado na Rodada 24.2 abaixo.
+
+### Rodada 24.2 (2026-09-24) — toggle Leitura de Caixa/Saúde do Dashboard
+
+Checklist da Rodada 24.1 apontou que o toggle "Leitura de Caixa"/"Leitura
+de Saúde" do Dashboard resetava pra "Saúde" a cada troca de tela — ficou
+de fora da Rodada 24 porque na época só o período (`usePeriodo()`) tinha
+sido movido pro Context; o toggle continuou em `useState` local.
+
+**Mecanismo:** `DashboardPeriodoContext.tsx` passa a carregar também
+`leitura`/`setLeitura` (tipo `LeituraDashboard`, movido de `Dashboard.tsx`
+pro Context — é o único lugar que agora declara esse tipo), ao lado do
+`Periodo` que já vinha de `usePeriodo()`. Mesmo racional dos outros 5
+Contexts: estado que precisa sobreviver à troca de rota vive no Provider
+montado no `AppShell`, não em `useState` do componente de rota
+(desmontado a cada navegação).
+
+**Testes:** mudança de estado, sem lógica nova — `tsc -b && vite build`
+e `oxlint` sem erros novos.
+
+**Checklist de teste manual:**
+- [x] ~~Dashboard: trocar pra "Leitura de Caixa" → ir pra outra tela →
+      voltar → continua em "Leitura de Caixa" (não volta pra "Saúde").~~
+
+### Rodada 25 (2026-09-24) — Lançamentos Recorrentes: receita/aplicação/
+retirada + filtro + nova aba
+
+Item 14 do backlog, próximo da ordem que o usuário definiu. Pedido
+original era só "filtro pra recorrentes" — mas "recorrente" só existia
+como despesa fixa (aluguel, assinatura); ao discutir os eixos do filtro
+com o usuário, ficou claro que essa era uma limitação incorreta minha, e
+não uma regra de negócio real: o usuário tem receitas e aplicações
+recorrentes (salário mensal, aporte mensal), então o item virou uma
+extensão de escopo maior, decidida em duas perguntas diretas ao usuário
+antes de implementar: (1) estender o cadastro pros 4 tipos ou manter só
+despesa e tratar isso como "vir de um recorrente confirmado"; (2)
+manter a tela em Configurações ou mover pra dentro de Lançamentos. O
+usuário escolheu estender de verdade e mover a tela.
+
+**Backend** (`lancamentos_recorrentes` — schema, router, `db/schema.sql`):
+- Nova coluna `tipo_movimento` (`receita`/`despesa`/`aplicacao`/`retirada`
+  — sem estorno/ressarcimento, que só existem vinculados a uma despesa
+  específica já lançada, não fazem sentido como molde recorrente).
+  Migração documentada no README pra quem já tem o schema antigo no
+  Supabase (`alter table` com default `'despesa'` pra não quebrar linhas
+  existentes).
+- `estrutura_custo`/`meio_pagamento` deixam de ser `NOT NULL` — cada
+  tipo usa um subconjunto fixo de campos, mesmo padrão do Novo
+  Lançamento (`NovoLancamento.tsx`): `_normalizar_e_validar()` no router
+  força o resto a `null`/`'investimentos'` em vez de confiar no que o
+  cliente mandou, pra Estrutura de Custo/Busca nunca verem uma
+  combinação inconsistente. Despesa continua exigindo
+  categoria/estrutura_custo(fixo|variavel|sazonal)/meio_pagamento;
+  aplicação/retirada tem `estrutura_custo` sempre `'investimentos'`
+  (mesma regra de Novo Lançamento pra investimento "de verdade", sem
+  caixinha) e `meio_pagamento` sempre `null`; receita não usa nenhum dos
+  dois.
+- `_check_categoria_tipo()` substitui o antigo `_check_categoria_despesa`
+  — mesma tabela `_TIPO_CATEGORIA_ESPERADO` de `routers/transacoes.py`
+  (receita→receita, despesa→despesa, aplicação/retirada→investimento),
+  sem estorno/ressarcimento.
+- `confirmar()` usava `tipo_movimento="despesa"` fixo ao criar a
+  transação real — passou a usar `recorrente["tipo_movimento"]`.
+- Sem suporte a caixinha/reserva recorrente por enquanto (decisão de
+  escopo explícita — o usuário só pediu receita/aplicação recorrente,
+  não reserva) — fica registrado aqui pra um próximo pedido, não é
+  esquecimento.
+- `GET /dashboard/compromissos-futuros` (`CompromissoFuturo`) ganha
+  `tipo_movimento` (sempre `'despesa'` pra item `tipo='parcela'`, já que
+  compra parcelada continua despesa-only; o do próprio recorrente pro
+  item `tipo='recorrente'`) — usado pelo Dashboard pra rótulo/cor certos.
+
+**Frontend:**
+- `RecorrentesSection.tsx` (antes `configuracoes/LancamentosRecorrentesSection.tsx`)
+  — form ganha seletor "Tipo de lançamento" no topo; trocar o tipo reseta
+  categoria/subcategoria (universo de categorias válidas muda, mesmo
+  padrão de `NovoLancamento.tsx`) e limpa estrutura_custo/meio_pagamento
+  se saiu de despesa. Os dois campos só aparecem no formulário quando o
+  tipo é despesa. Lista busca `/categorias` sem filtro de tipo (antes só
+  `?tipo=despesa`) e filtra client-side pelo tipo elegível do formulário.
+  Filtro novo (status/categoria/tipo de movimento) acima da lista — os 3
+  eixos do pedido original, viáveis agora que existe mais de um tipo de
+  movimento pra filtrar.
+- `Lancamentos.tsx` ganha aba local "Lançamentos"/"Recorrentes" (mesmo
+  padrão `.tabs` de `Configuracoes.tsx`) — aba não persiste entre
+  navegações, mesmo critério de `filtroMobileAberto` (estado de UI, não
+  de filtro). `Configuracoes.tsx` perde a aba "Despesas Fixas".
+- `classePorTipoMovimento()` (novo, em `lib/rotulos.ts`) — extraído do
+  `classeValor()` que já existia só em `Lancamentos.tsx`, agora
+  reaproveitado também no Dashboard (Compromissos Futuros: rótulo e cor
+  do valor não são mais fixos em "Despesa fixa recorrente"/vermelho,
+  seguem o `tipo_movimento` do compromisso).
+
+**Testes:** 27 novos/alterados em `test_lancamentos_recorrentes_api.py`
+(criar cada tipo, forçar `estrutura_custo`/`meio_pagamento` corretos,
+validar categoria incompatível, `confirmar()` gerando o tipo certo,
+Estrutura de Custo não conta aplicação/retirada como despesa) — helpers
+de payload em `test_dashboard_api.py`/`seed_dados_teste.py` atualizados
+com o novo campo obrigatório `tipo_movimento`. Suíte completa: **297
+passed, 33 skipped**. `tsc -b && vite build` e `oxlint` sem erros novos.
+Sem teste manual no navegador nesta sessão — ambiente remoto sem
+`backend/.env` com credenciais reais do Supabase (ver CLAUDE.md),
+suíte offline é a cobertura real disponível aqui.
+
+**Checklist de teste manual:**
+- [x] ~~Lançamentos → aba "Recorrentes": criar um recorrente de Receita
+      (ex: "Salário", categoria de receita) → salvar → aparece na lista
+      com rótulo "Receita" e sem campos de estrutura de custo/meio de
+      pagamento.~~
+- [x] ~~Criar um recorrente de Aplicação (ex: "Aporte mensal", categoria
+      de investimento) → salvar → aparece na lista sem pedir estrutura
+      de custo/meio de pagamento no formulário.~~
+- [x] ~~Confirmar o mês desse recorrente de aplicação (Dashboard →
+      Compromissos Futuros → Confirmar) → a transação criada aparece em
+      Lançamentos como Aplicação, valor em azul (cor de investimento) —
+      e em Estrutura de Custo cai no bucket Investimentos, não nos
+      Custos Fixos/Variáveis.~~
+- [x] ~~Dashboard → Compromissos Futuros: um recorrente de receita/
+      aplicação pendente mostra o rótulo certo ("Receita recorrente"/
+      "Aplicação recorrente") com a cor certa (verde/azul), não mais
+      "Despesa fixa recorrente" em vermelho pra tudo.~~
+- [x] ~~Filtro em Lançamentos → Recorrentes: filtrar por Status=Inativos,
+      por Categoria, e por Tipo de lançamento — cada eixo isolado reduz
+      a lista corretamente; "Limpar filtros" volta a mostrar todos.~~
+- [x] ~~Configurações não mostra mais a aba "Despesas Fixas".~~
+- [x] ~~Um recorrente de despesa já existente (criado antes desta rodada)
+      continua aparecendo e editável normalmente (migração não quebrou
+      dados antigos — depende de rodar a migração do README no Supabase
+      real do usuário).~~
+
+### Rodada 25.1 (2026-09-24) — Estrutura de Custo no mobile: ribbon
+duplicada + cabeçalho de colunas estourando a tela
+
+Reportado com screenshot: "quebrando o menu inferior" — logo abaixo do
+cabeçalho fixo (Mês + KPIs compactos, Rodada 23), aparecia uma linha
+solta com dois números sem rótulo ("-R$700,00"/"R$350,00"), antes do
+primeiro bucket ("Custos Fixos") aparecer.
+
+**Investigação:** sem `backend/.env` real nesta sessão pra testar no
+navegador de verdade (ver CLAUDE.md), então a reprodução foi via
+`npm run dev` local + Playwright com auth e API do backend mockadas
+(sessão Supabase falsa via `localStorage`, respostas de
+`/estrutura-custo/{mes}` etc. interceptadas com os mesmos números do
+print) — não uma suíte de teste permanente, só uma investigação pontual.
+Achou dois problemas reais, ambos únicos dessa tela:
+
+1. **Ribbon duplicada:** `.estrutura-custo-fita` (Orçado no mês/
+   Realizado líquido/Diferença/Execução, em cards grandes) mostrava
+   exatamente os mesmos 4 números que o cabeçalho fixo compacto acima
+   dela — sobrou da versão anterior ao cabeçalho fixo (Rodada 23 já
+   tinha decidido "duplicar por enquanto", nunca voltou pra remover).
+   Sem motivo pra existir mais — removida (JSX e CSS
+   `.estrutura-custo-fita*`).
+2. **Cabeçalho de colunas estourando:** `.estrutura-custo-cabecalho-colunas`
+   (linha "BUCKET / ORÇADO / REALIZADO / DIFERENÇA / STATUS" acima da
+   lista de buckets, útil no desktop pra alinhar as colunas) usa larguras
+   fixas em px (140/100/100/90/26) que nunca cabem numa tela de celular
+   — mesmo a tentativa de mobile já existente (esconder 2 das 6 colunas
+   abaixo de 480px) não bastava, o resto ainda estourava. Cada linha de
+   bucket/categoria já rotula os valores inline ("Orçado R$x  Realizado
+   R$y"), então esse cabeçalho é só decorativo — mais seguro esconder
+   por completo abaixo de 480px do que continuar tentando espremer.
+
+Não achei uma reprodução exata do "nome do bucket sumindo" que o
+screenshot mostrava (com dados/CSS fiéis, "Custos Fixos" sempre apareceu
+completo nos testes) — a hipótese mais provável é que os dois blocos
+acima (~150-200px de conteúdo redundante/quebrado bem nessa região da
+tela) fossem a causa visual relatada. Se depois de testar o app real o
+problema persistir, preciso de um novo print/vídeo pra investigar mais.
+
+**Testes:** mudança visual — `tsc -b && vite build` e `oxlint` sem erros
+novos. Sem teste automatizado (frontend não tem suíte de componente).
+
+**Checklist de teste manual:**
+- [x] ~~Estrutura de Custo no mobile: rolar até o cabeçalho fixo (Mês +
+      KPIs) grudar no topo → não aparece mais nenhuma linha solta nem
+      cabeçalho de coluna cortado entre o cabeçalho fixo e "Custos
+      Fixos".~~
+- [x] ~~Estrutura de Custo no desktop: cabeçalho de colunas
+      ("Bucket/categoria/subcategoria", "Orçado", "Realizado"...)
+      continua aparecendo normalmente acima da lista de buckets (só
+      sumiu no mobile).~~
+- [x] ~~Confirmar que os números batem: só existe 1 lugar mostrando
+      Orçado/Realizado/Diferença/Execução do mês agora (o cabeçalho
+      fixo), não mais 2.~~
+
+### Rodada 26 (2026-09-24) — Meses pulados: acordeão por ano
+
+Item 15 do backlog, próximo da ordem que o usuário definiu. A lista de
+"Meses pulados" de um recorrente (dentro de Lançamentos → Recorrentes)
+mostrava tudo achatado, sem separação — um recorrente de longa duração
+acumula muitos pulados ao longo dos anos.
+
+**Mockups:** 2 opções em Artifact Design (canvas interativo, phone
+390×760, tema escuro igual ao do usuário) — Opção A (acordeão por ano,
+ano corrente aberto) e Opção B (últimos 12 + "ver todos"). Usuário
+escolheu a **Opção A**. Histórico em `docs/mockups/`:
+[opção A: acordeão por ano — escolhida](mockups/rodada26-meses-pulados-opcaoA-acordeao-escolhida.png),
+[opção B: últimos 12 + ver todos](mockups/rodada26-meses-pulados-opcaoB-ver-todos.png).
+
+**Implementação** (`RecorrentesSection.tsx`):
+- `agruparPuladosPorAno(lista)` — agrupa `MesPulado[]` pelo ano de
+  `vigencia_mes`, ano mais recente primeiro; dentro do ano mantém a
+  ordem cronológica que a API já devolve (`.order("vigencia_mes")`).
+- `anosAbertos` (novo `Set<string>`, chave `recorrenteId:ano`) — ao
+  abrir "Meses pulados" de um recorrente, o ano corrente
+  (`new Date().getFullYear()`) entra automaticamente no set; os demais
+  anos só entram quando o usuário clica no cabeçalho do ano
+  (`toggleAno`). Fechar e reabrir "Meses pulados" descarrega o cache
+  (`pulados[recorrenteId]`, comportamento que já existia) e reseeda o
+  ano corrente como aberto de novo — mesmo padrão sempre que a seção é
+  reaberta.
+- Cada grupo de ano vira um cabeçalho clicável (seta que gira 90°,
+  nome do ano, contagem "N meses"/"1 mês") seguido da lista de meses
+  quando aberto, cada um com o botão "Desfazer" que já existia.
+- **Bug pego na verificação visual:** o container `.chip-form` (`display:
+  flex; flex-wrap: wrap`) foi reaproveitado do código antigo, pensado
+  pra UM filho só (a lista achatada); com múltiplos grupos de ano como
+  filhos diretos, viravam "chips" lado a lado em vez de empilhar.
+  Corrigido envolvendo os grupos num `<div>` de coluna só, do jeito que
+  o `<ul>` antigo já fazia implicitamente.
+
+**Testes:** mudança de UI sem lógica de negócio nova — sem teste
+automatizado (frontend não tem suíte). Verificado visualmente com
+`npm run dev` local + Playwright (auth/API do backend mockadas, sem
+`backend/.env` real nesta sessão — ver CLAUDE.md): abrir "Meses
+pulados" mostra 2026 aberto com os pulados corretos e 2025/2024/2023
+fechados com a contagem certa; clicar em "2025" abre e mostra os 4
+meses na ordem certa, sem afetar os outros anos. `tsc -b && vite build`
+e `oxlint` sem erros novos.
+
+**Checklist de teste manual:**
+- [x] ~~Um recorrente com pulados em anos diferentes: abrir "Meses
+      pulados" → ano corrente já aparece aberto, anos anteriores
+      fechados com a contagem certa ("N meses"/"1 mês").~~
+- [x] ~~Clicar num ano fechado → expande mostrando os meses daquele ano;
+      clicar de novo → fecha. Outros anos não são afetados.~~
+- [x] ~~"Desfazer" num mês pulado continua funcionando normalmente
+      dentro do grupo do ano.~~
+- [x] ~~Fechar "Meses pulados" (botão "Ocultar meses pulados") e abrir de
+      novo → ano corrente volta a aparecer aberto (não fica "lembrando"
+      qual ano você tinha aberto/fechado da vez anterior).~~
+
+### Rodada 27 (2026-09-24) — perf: Estrutura de Custo carregando devagar
+
+Item 22 do backlog, próximo da ordem que o usuário definiu. Registrado
+mais cedo na sessão com a suspeita "padrão parecido com o bug já
+corrigido em Gráficos" — suspeita confirmada.
+
+**Causa raiz.** `GET /estrutura-custo/{vigencia_mes}` (`obter()`)
+montava o resultado chamando `saldo_anterior_ao_vivo()` uma vez por item
+do orçamento — função recursiva que sobe a cadeia de orçamentos
+anteriores DIRETO NO BANCO, mês a mês (3 SELECTs por mês subido:
+`orcamentos`, `orcamento_itens` do mês anterior, `transacoes` do mês
+anterior), até achar o primeiro mês sem orçamento anterior. Pra um
+orçamento com histórico de N meses e M itens, isso é até `3×N×M`
+requisições sequenciais — numa tela que mostra 1 mês só. A Rodada
+19.2/19.3 já tinha resolvido exatamente essa classe de bug em
+`/graficos` (`evolucao_orcamento()`) com `saldo_anterior_em_lote()` —
+carrega o histórico inteiro em 3 queries fixas e recalcula a cadeia
+100% em memória — mas isso nunca foi portado pra `obter()`, que "só
+pedia 1 mês" e parecia barato o bastante sem o fix.
+
+**Fix:** extraído `_carregar_dados_periodo()` (as mesmas 3 queries em
+lote que já existiam dentro de `evolucao_orcamento()` — todos os
+orçamentos do usuário, itens desses orçamentos, transações do período)
+como função compartilhada; `evolucao_orcamento()` passou a chamar essa
+função em vez de ter a lógica duplicada inline. `obter()` passou a
+chamar a MESMA função (com `mes_inicio == mes_fim`, já que é 1 mês só)
+e usar `_estrutura_custo_do_mes_em_lote()` (que já existia, usada só por
+`evolucao_orcamento()` até agora) — a função antiga `_estrutura_custo_do_mes()`,
+que fazia a versão item-a-item direto no banco, foi removida.
+
+- `backend/app/routers/estrutura_custo.py`: `_carregar_dados_periodo()`
+  novo; `obter()` e `evolucao_orcamento()` compartilham a mesma função
+  de carregamento; `_estrutura_custo_do_mes()` removida; import de
+  `saldo_anterior_ao_vivo` removido (não é mais usada aqui).
+- `backend/tests/test_estrutura_custo_api.py`: teste de regressão de
+  perf, mesmo formato do já existente pra `/graficos` — conta chamadas
+  reais a `db.table(...)` num cenário de 2 itens × 5 meses de cadeia
+  encadeada de verdade (via "gerar próximo mês"), pedindo só o ÚLTIMO
+  mês (pior caso pra recursão item a item). Confirmado manualmente que
+  falha contra o código antigo (13 chamadas a `orcamentos`, não 1 —
+  revertido o fix isoladamente via `git stash` pra provar). Suíte
+  offline: **298 passed** (297 + 1), 33 skipped.
+- **Achado de passagem, fora de escopo:** `routers/orcamentos.py`
+  (`_enriquecer_item`, usada por `GET /orcamentos/{id}/itens` —
+  Planejamento) tem o mesmo padrão recursivo item-a-item, ainda não
+  corrigido. Registrado como novo item 24 do backlog (não reportado
+  pelo usuário ainda, não corrigido nesta rodada).
+
+**Testes:** mudança 100% backend — tsc/build/lint não se aplicam.
+
+**Checklist de teste manual:**
+- [x] ~~Estrutura de Custo, um mês com orçamento que já veio sendo gerado
+      há vários meses ("gerar próximo mês" repetido): a tela carrega
+      perceptivelmente mais rápido que antes desta rodada.~~
+- [x] ~~Os números continuam batendo — Orçado/Realizado/saldo_anterior de
+      cada item, mesmos valores de antes do fix (o resultado não muda,
+      só como é calculado).~~
+
+### Rodada 28 (2026-09-25) — barra de navegação mobile: 4 itens + menu
+
+Item 21 do backlog. Processo completo (3 rodadas de mockup, decisões e
+o porquê de cada uma) documentado em detalhe em `docs/backlog.md`, seção
+"Botões inferiores (barra de navegação mobile) pequenos e colados" — aqui
+só o resumo técnico da implementação real.
+
+**Decisão final (Opção C, aprovada pelo usuário):** barra mobile reduzida
+a 4 itens diretos (Dashboard, Lançamentos, Estruturas de Custo, Gráficos)
++ um botão "Menu" (ícone `•••`/`✕`) que abre uma sheet de largura total
+agrupada por seção, com Planejamento e Configurações — os 2 itens que
+saíram da barra. FAB desaparece (fade) enquanto o menu está aberto; o
+botão "Menu" acende quando a tela atual é uma das escondidas, não só
+quando o painel está aberto; a sheet nasce colada acima da barra (não por
+cima dela), então os 4 ícones diretos continuam visíveis e clicáveis com
+o menu aberto.
+
+**Mockups (histórico, `docs/mockups/`):** Artifact Design, canvas
+`https://claude.ai/artifact/Px2ZERDHXK3ZGy1uyc5v5S` — 1ª rodada comparou
+[opção A: ícones maiores](mockups/rodada28-opcaoA-icones-maiores.png) e
+[opção B: menu "Mais"](mockups/rodada28-opcaoB-menu-mais.png); usuário
+pediu pra mesclar as duas, viraram a opção C escolhida, com 3 estados —
+[fechado](mockups/rodada28-opcaoC-mesclada-fechado.png),
+[menu aberto](mockups/rodada28-opcaoC-mesclada-menu-aberto.png),
+[indicador de ativo](mockups/rodada28-opcaoC-mesclada-indicador-ativo.png).
+
+**`frontend/src/components/AppShell.tsx`:**
+- `SECOES` (desktop, inalterada) separada de `SECOES_BARRA_MOBILE` (4
+  itens) e `SECOES_MENU_MOBILE` (Planejamento/Configurações, com campo
+  `grupo` pro rótulo de seção na sheet).
+- `menuMobileAberto` (estado) + `useEffect` que fecha o menu a cada troca
+  de `location.pathname` — `AppShell` não desmonta ao navegar (só o
+  `<Outlet/>` troca), então sem isso o menu ficaria aberto por cima da
+  tela seguinte depois de tocar num item dele.
+- `menuMobileAtivo` deriva de `menuMobileAberto` OU da rota atual
+  começar com `/planejamento`/`/configuracoes` — alimenta a classe
+  `.ativo` do botão "Menu" mesmo com o painel fechado.
+- Backdrop + sheet renderizados condicionalmente; FAB ganha classe
+  `escondido` no mesmo estado.
+
+**`frontend/src/components/AppShell.css`** (bloco `@media (max-width:
+720px)`):
+- `--shell-altura-barra-mobile: 64px` — usada tanto pelo `bottom` do
+  backdrop/sheet (nascem colados acima da barra) quanto pelo `bottom` do
+  FAB (`calc(var(...) + 8px)`, mesmo valor de antes — 72px — só que
+  derivado em vez de mágico).
+- `.shell-bottom-nav-link`: ícone (`span`, 22px) desacoplado do rótulo
+  (11px, antes os dois dividiam 10px); `padding: 8px 2px`; estado
+  `.ativo` ganha fundo em pílula via `color-mix(in srgb, var(--cor-acento)
+  14%, transparent)` — mesmo padrão já usado em `estruturaCusto.css`/
+  `pareto.css`, não introduz mecanismo novo.
+- `.shell-menu-backdrop`/`.shell-menu-sheet`: `position: fixed`,
+  `bottom: var(--shell-altura-barra-mobile)`; sheet com `max-height: 54vh`,
+  handle, header, lista com `overflow-y: auto` e grupos por seção
+  (`.shell-menu-sheet-grupo-titulo`).
+- `.shell-fab.escondido { opacity: 0; pointer-events: none; }` +
+  `transition: opacity` na regra base.
+
+**Testes:** `tsc -b && vite build` limpo; `oxlint` sem warning novo (o
+único warning introduzido, `set-state-in-effect` no `useEffect` de fechar
+o menu, é o mesmo padrão já presente e tolerado em `Dashboard.tsx`,
+`Graficos.tsx`, `Planejamento.tsx`, `EstruturaCusto.tsx` e
+`NovoLancamento.tsx`). QA visual via Playwright com sessão Supabase
+mockada (sem `.env`/credenciais reais nesta sessão remota — harness
+descartado ao final): `/configuracoes` mobile claro e escuro (indicador
+de ativo do botão "Menu" ligado sem abrir o painel, já que é uma rota do
+menu), menu aberto (sheet acima da barra, ícones ainda visíveis, FAB
+sumido), e desktop (`/configuracoes`, 1280px) confirmando que a sidebar
+não mudou.
+
+**Checklist de teste manual:**
+- [x] ~~Mobile: tocar nos 4 itens diretos da barra (Dashboard, Lançamentos,
+      Estruturas de Custo, Gráficos) navega normalmente, item ativo com
+      pílula de fundo.~~
+- [x] ~~Tocar em "Menu" abre a sheet com Planejamento e Configurações
+      agrupados; tocar num item navega e a sheet fecha sozinha.~~
+- [x] ~~Tocar no fundo escurecido (fora da sheet) ou no "✕" fecha o menu
+      sem navegar.~~
+- [x] ~~Navegar direto pra Planejamento ou Configurações (ex: link
+      direto/recarregar a página) mostra o botão "Menu" já aceso, mesmo
+      com a sheet fechada.~~
+- [x] ~~Abrir o menu esconde o "+" (FAB); fechar o menu traz ele de volta.~~
+- [x] ~~Rotacionar/redimensionar pra desktop (>720px) volta pro layout de
+      sidebar de sempre, sem barra inferior nem menu.~~
+
+### Rodada 29 (2026-09-25) — perf: Planejamento com o mesmo padrão de lentidão de Estrutura de Custo
+
+Item 24 do backlog — achado de passagem na Rodada 27 (corrigindo
+Estrutura de Custo), registrado mas fora de escopo na hora. Usuário
+confirmou que ainda não tinha sido feito e pediu pra priorizar antes dos
+itens 19/20.
+
+**Causa raiz:** igual à de Estrutura de Custo antes da Rodada 27.
+`_enriquecer_item()` e `_validar_teto_bucket()` (`routers/orcamentos.py`)
+chamavam `saldo_anterior_ao_vivo()` uma vez por item — função recursiva
+que sobe a cadeia de orçamentos anteriores DIRETO NO BANCO, mês a mês.
+`GET /orcamentos/{id}/itens` (tela de Planejamento) enriquece TODOS os
+itens da lista, então virava N cadeias de idas e voltas sequenciais numa
+única requisição.
+
+**Fix:** `_carregar_dados_periodo` (só existia em `estrutura_custo.py`)
+migrou pra `services/orcamento_saldo.py` como `carregar_dados_periodo`
+(função pública) — agora compartilhada pelos dois routers, sem
+duplicação. Em `orcamentos.py`: `_carregar_contexto_saldo()` novo carrega
+o período em lote 1 vez por requisição; `_enriquecer_item()` e
+`_validar_teto_bucket()` passaram a receber esse contexto já pronto (a
+`saldo_anterior_em_lote()`, que já existia) em vez de consultar o banco.
+`_validar_teto_bucket` também parou de fazer sua própria query pros itens
+do bucket — usa os mesmos itens já carregados no contexto (filtrados
+`ativo=True`, igual antes). `listar_itens()` carrega o contexto 1 vez e
+reaproveita entre todos os itens da lista (era 1 cadeia de banco por
+item, agora 0).
+
+- `backend/app/services/orcamento_saldo.py`: `carregar_dados_periodo()`
+  novo (movido de `estrutura_custo.py`); `saldo_anterior_ao_vivo()` e
+  `_item_equivalente_no_mes()` (a versão que consultava o banco a cada
+  passo da cadeia) removidas — sem nenhum chamador depois da troca, era o
+  último lugar do código ainda com essa classe de bug.
+- `backend/app/routers/estrutura_custo.py`: passou a importar
+  `carregar_dados_periodo` do service em vez de ter sua própria cópia
+  privada (`_carregar_dados_periodo` removida daqui, sem mudança de
+  comportamento).
+- `backend/app/routers/orcamentos.py`: `_carregar_contexto_saldo()`
+  novo; `_enriquecer_item()`/`_validar_teto_bucket()` reescritas pra
+  receber o contexto em vez de `db`/`user_id` + consulta própria;
+  `listar_itens`/`criar_item`/`atualizar_item`/`alternar_item_ativo`
+  carregam o contexto 1 vez e passam adiante.
+- `backend/tests/test_orcamentos_api.py`: teste de regressão de perf,
+  mesmo formato do já existente pra Estrutura de Custo — conta chamadas
+  reais a `db.table(...)` num cenário de 2 itens × 5 meses de cadeia
+  encadeada de verdade, pedindo os itens do último mês (pior caso).
+  Confirmado manualmente que falha contra o código antigo (13 chamadas a
+  `orcamentos`, não 2 — revertido o fix isoladamente via `git stash` pra
+  provar). Fica em 5 chamadas fixas por requisição, não 3 como Estrutura
+  de Custo — `listar_itens` também busca sua própria lista completa de
+  itens (incluindo inativos, que a tela mostra) separada do lote
+  ativos-only usado só pra recalcular a cadeia de saldo — mas o ponto
+  central (não crescer com histórico/nº de itens) está coberto. Suíte
+  offline: **299 passed** (298 + 1), 33 skipped.
+
+**Testes:** mudança 100% backend — tsc/build/lint não se aplicam.
+
+**Checklist de teste manual:**
+- [x] ~~Planejamento, um orçamento com vários meses gerados via "gerar
+      próximo mês" e vários itens: a tela carrega perceptivelmente mais
+      rápido que antes desta rodada.~~
+- [x] ~~Os números continuam batendo — saldo_anterior/disponível/percentual
+      de cada item, mesmos valores de antes do fix (o resultado não
+      muda, só como é calculado).~~
+- [x] ~~Criar/editar/reativar um item que estoura o teto do bucket ainda
+      bloqueia com a mensagem de erro esperada (validação de teto
+      continua funcionando com os dados vindos do contexto em lote).~~
+
+### Rodada 30 (2026-09-25) — 2 fixes de layout mobile: tooltip perto da borda + cards de Lançamentos quebrando
+
+Itens 19 e 20 do backlog, pedidos juntos pelo usuário ("correções de
+layout"). Detalhe técnico completo de cada um em `docs/backlog.md`
+(seções "Tooltip: balão abre perto da borda/canto no mobile" e
+"Lançamentos: cards quebrando no layout mobile") — aqui só o resumo.
+
+**Item 19 — balão do InfoIcon estourando a tela perto das bordas:**
+`.info-icone-balao` trocou `position: absolute` (ancorado no ícone via
+CSS, sem noção de onde estava na tela) por `position: fixed` com
+coordenadas calculadas via `getBoundingClientRect()` do botão, clampadas
+dentro do viewport — se não coubesse embaixo do ícone, abre em cima.
+Fecha também ao rolar a página (um balão `fixed` fica desalinhado do
+ícone assim que a página rola), além dos fechamentos que já existiam
+(clique fora, Escape).
+
+- `frontend/src/components/InfoIcon.tsx`: `useLayoutEffect` calcula
+  `{top, left}` a cada abertura; listener de `scroll` (capture) somado
+  ao efeito de fechar.
+- `frontend/src/components/infoIcon.css`: `.info-icone-balao` vira
+  `position: fixed`, sem `top`/`left` fixos (vêm inline).
+
+**Item 20 — cards de Lançamentos quebrando no mobile:** causa raiz era
+no componente de lista COMPARTILHADO (`crud.css`), não específica de
+Lançamentos — afeta também Contas/Categorias/Caixinhas, Recorrentes e
+Compromissos Futuros. `.item-acoes` tinha `flex-shrink: 0`: numa parcela
+com "Editar" + "Excluir" + "Excluir compra inteira" (label longo, só em
+compra parcelada), a soma dos botões passava da largura da tela e vazava
+do card — `flex-wrap: wrap` sozinho não resolvia porque `flex-shrink: 0`
+impede o container de encolher, então seu próprio `flex-wrap` interno
+nunca tinha chance de agir.
+
+- `frontend/src/components/crud.css`: `.item-linha` ganhou
+  `flex-wrap: wrap`; `.item-acoes` trocou `flex-shrink: 0` por
+  `min-width: 0` (+ `flex-wrap: wrap` nele mesmo).
+
+**Testes:** mudança 100% frontend, sem lógica nova — tsc/build/lint
+limpos (nenhum warning novo; os 2 leftover `set-state-in-effect` já
+existiam antes desta rodada, padrão já tolerado em outras telas). QA
+visual via Playwright (harness de auth mockada, descartado ao final):
+- Item 19: os 8 `InfoIcon` do Dashboard a 390px — todos os balões
+  fecham dentro do viewport (horizontal e vertical), incluindo o mais
+  próximo da borda direita; `scrollHeight` do documento não muda
+  antes/depois de abrir nenhum.
+- Item 20: `/lancamentos` a 360px e 320px com uma transação parcelada de
+  descrição longa (pior caso) — `scrollWidth` do documento bate exato
+  com a largura do viewport nos dois tamanhos; varredura de
+  `getBoundingClientRect()` em todos os elementos da página não achou
+  nenhum passando da borda. `/configuracoes` a 320px também sem
+  overflow (mesmo componente compartilhado).
+
+**Checklist de teste manual:**
+- [x] ~~Num celular de verdade, abrir um InfoIcon perto da borda direita
+      da tela (ex: KPI "Investimentos" no Dashboard) — balão aparece
+      inteiro, sem cortar.~~
+- [x] ~~Abrir um InfoIcon perto do fim da tela (rolar até o fim antes) —
+      balão abre em cima do ícone em vez de embaixo.~~
+- [x] ~~Rolar a página com um balão aberto — ele fecha.~~
+- [x] ~~Lançamentos, mobile, um item de compra parcelada com descrição
+      longa — botões quebram linha dentro do card, sem vazar.~~
+- [x] ~~Configurações → Contas/Categorias/Caixinhas e Lançamentos →
+      Recorrentes, mobile — sem regressão visual (mesmo componente).~~
+
+### Rodada 31 (2026-09-25) — FAB colado na barra + tabela de Estrutura de Custo quebrando no mobile
+
+Usuário testou item 21 (barra inferior) e itens 19/20 (fixes da Rodada
+30) no aparelho real, mandou 3 prints. Feedback: 19 e 20 ficaram bons;
+21 tinha um ajuste de acabamento pendente (FAB colado na barra); e um
+bug novo, não relatado antes — a tabela de itens da Estrutura de Custo
+também quebra no mobile. Pedido: corrigir o FAB e avaliar/resolver a
+quebra da tabela. Detalhe técnico completo de cada um em
+`docs/backlog.md` (seções "Botões inferiores..." e "Estrutura de Custo:
+tabela de itens quebrando no mobile") — aqui só o resumo.
+
+**FAB colado na barra:** duas causas. (1) o gap entre o FAB e a barra
+era só 8px. (2) a constante `--shell-altura-barra-mobile`, usada pra
+posicionar FAB/sheet/backdrop acima da barra, estava em 64px — a altura
+real medida (padding do container + padding do próprio link + ícone +
+rótulo, os dois paddings empilham) é ~70-71px. Isso deixava a
+sheet/backdrop do menu sobrepondo ~7px do topo da barra (mascarado pelo
+fundo escurecido, ninguém tinha notado) e reduzia ainda mais o respiro
+do FAB.
+
+- `frontend/src/components/AppShell.css`: `--shell-altura-barra-mobile`
+  de 64px pra 72px; gap do FAB de `+8px` pra `+20px` sobre essa
+  constante.
+
+**Tabela de Estrutura de Custo quebrando:** mesma classe de bug do item
+20 (Rodada 30) — colunas de largura fixa em px que não cabem em tela
+estreita — só que numa tela ainda não coberta por aquele fix.
+`.estrutura-custo-sub-linha` (linha de cada categoria/subcategoria)
+usava `display: grid` com colunas fixas (`1fr 100px 80px 60px` no
+mobile); a coluna "Diferença" (60px) é estreita demais pra valores de
+4+ dígitos, e como CSS Grid não quebra um token só no meio, o número
+vazava da coluna e da tela. Bônus: o breakpoint dessa tabela (480px) era
+diferente do breakpoint do resto do app (720px, `AppShell.css`) — uma
+tela entre os dois caía numa zona nunca testada.
+
+- `frontend/src/components/estruturaCusto.css`: breakpoint unificado
+  pra 720px; `.estrutura-custo-sub-linha` de `display: grid` (colunas
+  fixas) pra `display: flex; flex-wrap: wrap` — nome do item ocupa a
+  linha inteira, valores fluem numa 2ª linha e quebram entre si se
+  precisar, em vez de vazar. `.rotulo-inline` generalizado (antes só
+  valia dentro de `.estrutura-custo-bucket-valores`).
+- `frontend/src/routes/EstruturaCusto.tsx`: cada valor da linha de item
+  ganhou rótulo inline ("Orçado"/"Realizado"/"Diferença") — o cabeçalho
+  de coluna continua escondido no mobile, então sem rótulo não dava pra
+  saber qual número é qual numa linha quebrada em várias.
+
+**Testes:** mudança 100% frontend — tsc/build/lint limpos, sem warning
+novo. QA visual via Playwright (harness de auth mockada, descartado ao
+final):
+- FAB: `getBoundingClientRect` do FAB e da barra em `/configuracoes` —
+  gap subiu de ~13px pra ~21px; gap da sheet do menu até a barra foi de
+  -6.6px (sobrepondo) pra ~1px (colado, sem sobrepor).
+- Estrutura de Custo: reproduzidos os valores exatos dos prints do
+  usuário (Aluguel, Conta de Luz, Condomínio, Plano de Saúde) a 390px e
+  360px, bucket e categoria expandidos — `scrollWidth` do documento bate
+  exato com o viewport nos dois tamanhos, varredura de
+  `getBoundingClientRect()` não achou elemento nenhum passando da borda.
+
+**Checklist de teste manual:**
+- [x] ~~Num celular de verdade, olhar o espaço entre o "+" e a barra
+      inferior — deve ter um respiro visível, não mais colado.~~
+- [x] ~~Abrir o menu "•••" e conferir que a sheet nasce coladinha acima da
+      barra, sem sobrepor nem deixar um vão visível entre os dois.~~
+- [x] ~~Estrutura de Custo, expandir um bucket com vários itens (algum com
+      sobra/furo do mês anterior): nenhum número corta na borda da tela,
+      rótulos "Orçado"/"Realizado"/"Diferença" aparecem antes de cada
+      valor.~~
+- [x] ~~Um tablet ou celular grande em modo retrato (~500-700px): tabela
+      de itens também no layout quebrado em linha, não mais a grade
+      "desktop".~~
+
+### Rodada 32 (2026-09-25) — Menu "mais" mobile: destacar item mais usado (item 29)
+
+Item 29 do backlog: sugestão minha durante a discussão de mockups do
+item 21, confirmada pelo usuário como alta prioridade. A sheet do menu
+"•••" (Opção C, item 21) tende a crescer conforme o app ganha telas —
+destacar o item mais usado no topo, fora dos grupos, evita que ele fique
+perdido lá dentro conforme a lista cresce. Detalhe técnico completo em
+`docs/backlog.md` ("Menu 'mais' da barra de navegação mobile: promover
+item mais usado") — aqui só o resumo.
+
+**Implementação:** contador em `localStorage`, sem endpoint novo nem
+mudança de schema — o uso não precisa sincronizar entre dispositivos
+para este caso (usuário único, poucos aparelhos).
+
+- `frontend/src/lib/usoMenuMobile.ts` (novo): `registrarUsoMenuMobile`
+  incrementa a contagem da rota visitada; `itemMaisUsadoMenuMobile`
+  decide o vencedor.
+- `frontend/src/components/AppShell.tsx`: registra uso no `useEffect` de
+  troca de rota já existente; bloco "Mais usado" renderizado no topo da
+  sheet quando há vencedor.
+- `frontend/src/components/AppShell.css`: `.shell-menu-sheet-destaque`
+  com leve tingimento na cor de acento.
+
+**Ajuste feito durante o QA, fora do desenho original:** a regra
+combinada no backlog ("o dobro de cliques do 2º colocado") promovia já
+na 1ª navegação a qualquer rota, porque o 2º colocado em 0 cliques
+satisfaz "o dobro" trivialmente — destacar algo como "mais usado" depois
+de 1 clique é cedo demais. Adicionado um mínimo absoluto de 3 cliques
+além da razão 2:1.
+
+**Testes:** mudança 100% frontend — `tsc`/`vite build`/`oxlint` limpos,
+sem warning novo (bundle 232,93 kB, igual à baseline). QA via Playwright
+(harness de auth mockada) contra `vite build` + `vite preview` — o dev
+server roda em React StrictMode, que duplica os efeitos e portanto o
+contador, então só o build de produção dá uma contagem confiável. Casos
+cobertos: 1 navegação isolada não promove; 2 rotas empatadas (1×1) não
+promovem; 3 navegações a uma rota vs. 1 a outra promove e aponta pro
+link certo; aparência conferida em claro e escuro.
+
+**Checklist de teste manual:**
+- [x] ~~Navegar pelo menu "•••" priorizando bem mais uma rota que a outra
+      (ex: Configurações várias vezes, Planejamento só 1) num celular
+      real: o atalho "Mais usado" aparece no topo da sheet, fora dos
+      grupos.~~
+- [x] ~~Com uso ainda empatado ou abaixo do mínimo, o atalho não aparece.~~
+- [x] ~~Fechar e reabrir o app: o destaque persiste (contador é local ao
+      aparelho, salvo em `localStorage`).~~
+- [x] ~~Aba anônima/`localStorage` bloqueado: app não quebra, menu
+      funciona normalmente, só sem o atalho.~~
+
+### Rodada 33 (2026-09-25) — Migração de dados: script + análise dos CSVs reais (item 9)
+
+Item 9 do backlog (alta prioridade), a partir de 5 CSVs reais que o
+usuário forneceu (histórico de lançamentos, categorias, caixinhas,
+orçamento e estrutura de custo calculados). Trabalho em 3 partes:
+diagnóstico, desenho técnico e implementação — as 3 discutidas e
+aprovadas com o usuário antes de cada passo seguinte. Detalhe técnico
+completo em `docs/backlog.md`, "Migração de dados do app antigo" — aqui
+só o resumo.
+
+**Diagnóstico:** cruzamento linha a linha do CSV principal (1.862
+lançamentos válidos, dez/2025–mai/2027) contra `Categorias.csv` e
+`Caixinhas.csv` — hierarquia categoria→subcategoria e caixinhas batem
+100%, sem nenhum typo. Os pontos reais de atenção, resolvidos em
+conversa com o usuário: ~4% das despesas sem estrutura de custo
+(resolvido em 3 níveis: literal → aprendido por subcategoria → decisão
+interativa), reconstrução do vínculo de compra parcelada que o app
+antigo nunca guardou (cada parcela era uma linha solta), contas BTG
+misturando corrente e cartão de crédito numa coluna só, e sinal negativo
+usado pelo usuário como convenção própria pra Estorno.
+
+**Achado durante a análise (bug de agrupamento):** o agrupamento inicial
+de parcelas (por descrição-base + total) juntava incorretamente 2
+compras diferentes do "Flamengo Nação" (uma assinatura de 12x renovada
+todo ano) — os números das 2 compras, embora de compras diferentes, se
+completavam 1-12 quando somados. Corrigido acrescentando checagem
+cronológica: só continua o mesmo grupo se a parcela seguinte vier
+exatamente 1 mês depois. Virou teste de regressão dedicado.
+
+**Implementação:**
+- `backend/scripts/migracao/` — módulos de lógica pura: `parsing.py`
+  (leitura dos 3 CSVs), `contas.py` (mapeamento fixo, split BTG
+  corrente/cartão), `mapeamento.py` (tipo_movimento/meio_pagamento/
+  estrutura de custo), `parcelas.py` (agrupamento cronológico),
+  `overrides.py` (persistência das respostas interativas).
+- `backend/scripts/migrar_dados_antigos.py` — orquestrador, segue o
+  padrão de `tests/seed_dados_teste.py` (`TestClient` + login real via
+  Supabase). Modo dry-run (padrão, não grava nada) e `--executar`.
+- Compras parceladas não usam `POST /transacoes/parceladas` (ele
+  sempre cria todas as N parcelas com valor dividido igualmente — não
+  serve pra histórico truncado com valor real por parcela). O script
+  importa direto os serviços que o endpoint usa por baixo
+  (`inserir_transacao`, `fatura_referencia_para`, `compute_hash`,
+  `sincronizar_item_orcamento`) e grava cada parcela com o valor/data
+  reais do CSV.
+- **Achado durante a implementação:** o `hash_dedup` sozinho não
+  protege o caminho de parcelas contra duplicação numa 2ª execução —
+  ele inclui `compra_parcelada_id`, que é gerado de novo a cada
+  cabeçalho criado, então nunca bateria com uma rodada anterior mesmo
+  pra dados idênticos. Adicionada checagem própria (existência da 1ª
+  parcela do grupo) antes de criar qualquer coisa.
+
+**Testes:** 44 testes offline (`tests/test_migracao.py`) cobrindo toda
+a lógica pura — parsing de valor/data, roteamento de conta, mapeamento
+de tipo de movimento/meio de pagamento, resolução de estrutura de
+custo nos 3 níveis, extração e agrupamento de parcelas (incluindo o
+caso do "Flamengo Nação" como regressão), estabilidade do hash de
+override. Suíte completa do backend seguiu passando (343 passed, 33
+skipped). Validação ponta a ponta com um CSV sintético pequeno (dry-run
+completo, sem tocar nos dados reais do usuário nem em rede) — achou e
+corrigiu um bug no próprio fixture de teste (vírgula sem aspas
+quebrando o CSV), não no script.
+
+**Status:** script implementado e testado; **ainda não executado
+contra os dados reais** — precisa rodar localmente (`backend/.env`
+preenchido), não roda nesta sessão remota. Próximo passo é o usuário
+rodar o dry-run com os CSVs reais, resolver as pendências de estrutura
+de custo interativamente, e então `--executar`.
+
+**Checklist de teste manual (usuário, localmente):**
+- [x] ~~Rodar o dry-run com os 3 CSVs reais — conferir se o relatório
+      bate com os números discutidos na conversa (contas, categorias,
+      caixinhas, grupos de parcela, transações totais).~~
+- [x] ~~Responder as perguntas interativas de estrutura de custo até o
+      relatório não apontar mais pendência.~~
+- [x] ~~Rodar de novo o dry-run (sem `--executar`) e confirmar que as
+      respostas já dadas não são perguntadas de novo.~~
+- [x] ~~Rodar com `--executar` e conferir no app (Configurações,
+      Lançamentos, Planejamento) que contas/categorias/caixinhas/
+      transações apareceram corretamente.~~
+- [x] ~~Rodar `--executar` uma 2ª vez e confirmar que nada duplica
+      (idempotência) — checar em especial um grupo de compra parcelada.~~
+- [x] ~~Conferir o relatório de reconciliação ao final — não deve apontar
+      divergência nenhuma entre a soma do CSV e a soma no banco.~~
+
+### Rodada 34 (2026-09-25) — Fix: transações reais idênticas descartadas na migração
+
+O usuário rodou a migração de verdade (item 9): 1.862 lançamentos, dry-run
+limpo. A **reconciliação pós-migração** apontou divergência em 9 meses —
+banco sempre com um pouco menos de despesa que o CSV (R$14,99 a
+R$156,84 por mês). Investigação e fix no mesmo dia. Detalhe técnico
+completo em `docs/backlog.md` ("Migração de dados do app antigo") —
+aqui só o resumo.
+
+**Causa raiz:** `hash_dedup` do `POST /transacoes` usa só (data, valor,
+descrição, conta, tipo_movimento) — não inclui categoria. Duas
+transações **reais e diferentes** que só coincidem nesses 5 campos (ex:
+uma assinatura de R$14,99 cobrada todo dia 13, um Pix de R$10 repetido
+no mesmo dia — casos que o próprio usuário já tinha revisado e
+confirmado como reais durante a análise do CSV, não duplicata de
+digitação) colidem na mesma constraint UNIQUE que existe pra impedir
+duplicação. O script tratava qualquer 409 do endpoint como "já existe,
+idempotente" sem diferenciar os dois casos — perdendo a 2ª ocorrência
+em silêncio. As 9 diferenças bateram, centavo a centavo, com a soma das
+linhas confirmadas como reais em cada mês.
+
+**Fix:** `agrupar_por_chave_hash` (os mesmos 5 campos do `hash_dedup`)
+agrupa os lançamentos avista antes de criar. A 1ª ocorrência de cada
+grupo segue usando `POST /transacoes` normalmente; a 2ª em diante grava
+direto via `inserir_transacao`, somando um índice de ocorrência só ao
+cálculo do hash (nunca gravado na linha — o dado salvo fica idêntico ao
+que o endpoint criaria). Determinístico: numa 2ª execução, o mesmo
+lançamento sempre recebe o mesmo índice, então continua idempotente.
+
+O dry-run agora também avisa quantas transações caem nesse caso, antes
+de qualquer gravação.
+
+**Limitação que sobra, fora do escopo da migração:** o mesmo hash raso
+vale pro uso manual do dia a dia — 2 despesas reais idênticas nesses 5
+campos no mesmo dia esbarram no mesmo 409 (raro, mas o frontend não
+trata esse erro hoje). Registrado como item 35 do backlog.
+
+**Testes:** 3 testes novos (`tests/test_migracao.py`) — agrupamento
+correto de lançamentos idênticos, não-agrupamento quando o valor
+difere, e o caso descoberto na análise do CSV real
+("Armazenamento Google. Apple" repetido). Suíte completa: 346 passed,
+33 skipped.
+
+**Status:** fix implementado e testado (offline) nesta sessão. O
+usuário ainda precisa rodar a migração de novo (idempotente — só as
+transações que faltam entram) pra corrigir os 9 meses já divergentes no
+banco real, e conferir que a reconciliação fecha sem diferença.
+
+**Checklist de teste manual (usuário, localmente):**
+- [x] ~~Rodar o dry-run de novo com os mesmos 3 CSVs — o relatório deve
+      mostrar a contagem de "transações com mesma data/valor/descrição/
+      conta/tipo de outra".~~
+- [x] ~~Rodar com `--executar` de novo — as transações que já existiam
+      são puladas (idempotente), só as que faltavam (as descartadas
+      antes) entram.~~
+- [x] ~~Conferir o relatório de reconciliação final — os 9 meses que
+      antes divergiam devem bater exatamente agora.~~
+- [x] ~~No app, conferir um dos casos específicos (ex: Comunicação/
+      Serviços Digitais em março/2026) e contar se as 2 cobranças de
+      "Armazenamento Google. Apple" aparecem separadas em Lançamentos.~~
+
+### Rodada 35 (2026-09-25) — Fix: limite de 1000 linhas do Supabase cortando queries sem paginação
+
+Com a migração real feita (Rodada 33/34), o usuário começou a usar a
+aplicação no dia a dia e reportou saldos de Caixinhas incorretos —
+"não são só essas caixinhas que tem problema de cálculo, outras também
+não estão batendo". Detalhe técnico completo em `docs/backlog.md`
+("Caixinhas com saldo errado / limite de 1000 linhas do Supabase") —
+aqui só o resumo.
+
+**Investigação:** antes de suspeitar de paginação, foi preciso
+descartar dado migrado errado — recalculando `aplicação - retirada`
+por caixinha direto do CSV final, o resultado bate exatamente com a
+coluna "Guardado" da planilha do usuário. O usuário também confirmou
+por print que as caixinhas e suas transações existem corretamente em
+Lançamentos, isolando o problema pro caminho de leitura, não de
+migração.
+
+**Causa raiz:** o Supabase/PostgREST tem um limite padrão de 1000
+linhas por `.execute()` (`db-max-rows`) que corta o resultado **sem
+lançar erro nenhum**. Qualquer query em `transacoes` sem paginação
+explícita (`.range()`) trunca silenciosamente acima de 1000 linhas — e
+a conta do usuário, pós-migração, já tem ~1862. `patrimonio_caixinhas`
+era o pior caso possível: sem filtro de data de início e sem
+`.order()`, então quais 1000 linhas voltavam nem era estável entre
+chamadas. Auditoria do código achou o mesmo padrão em mais 6 pontos:
+`GET /dashboard/resumo-periodo` (modos "Todos os meses"/Intervalo),
+gráfico de Evolução, despesas por categoria/subcategoria do Dashboard,
+saldo/realizado de Estrutura de Custo e Planejamento
+(`orcamento_saldo.carregar_dados_periodo`), `GET /transacoes` e
+`/transacoes/resumo` sem filtro de data, e o ranking "mais usadas" de
+categoria/subcategoria.
+
+**Fix:** `buscar_todas_paginado()`, novo helper em
+`app/services/crud.py` — itera `.range(offset, offset+999)` acumulando
+páginas até uma vir com menos de 1000 linhas, aplicado em todos os
+pontos acima. `tests/fakes.py` ganhou suporte a `.range()` no
+`FakeQuery` pra poder testar a paginação offline.
+
+**Testes:** suíte completa passando (348 passed, 33 skipped) — sem
+teste novo dedicado à paginação em si (o comportamento só se manifesta
+acima de 1000 linhas, volume que a suíte de fakes não reproduz), mas
+todos os pontos alterados continuam cobertos pelos testes existentes
+de cada endpoint.
+
+**Status:** implementado e testado (offline) nesta sessão. Conserta só
+o caminho de leitura — os dados no banco sempre estiveram corretos, não
+precisa rodar a migração de novo. **Confirmado em 2026-10-01: item 4**
+(lista/resumo de Lançamentos sem filtro mostrando o total real, não
+truncado em 1000) — usuário confirmou com a conta já em 1.956
+lançamentos. Itens 1-3 ainda sem confirmação.
+
+**Checklist de teste manual (usuário, localmente):**
+- [ ] Recarregar o Dashboard e conferir que todas as caixinhas em
+      Caixinhas/Patrimônio batem com a coluna "Guardado" da planilha
+      (não a "Real", que inclui rendimento de banco — divergência
+      esperada).
+- [ ] Conferir Dashboard no modo "Todos os meses" e no modo Intervalo —
+      totais de receita/despesa e o gráfico de Evolução.
+- [ ] Conferir Estrutura de Custo e Planejamento — saldo/realizado de
+      pelo menos um bucket num mês qualquer.
+- [x] ~~Em Lançamentos, limpar todos os filtros e confirmar que a lista/
+      resumo mostram o total real de transações (não truncado em
+      1000). — confirmado 2026-10-01, 1.956 lançamentos na conta.~~
+
+### Rodada 36 (2026-09-25) — Compromissos Futuros: "ver mais" + card compacto
+
+Reportado na mesma rodada de dogfooding acima — "compromissos futuros
+não são todos mostrados, cadê o restante das parcelas?". Detalhe
+técnico completo em `docs/backlog.md` ("Compromissos Futuros: mostrar
+todas as parcelas, não só 5") — aqui só o resumo.
+
+**Causa raiz:** `GET /dashboard/compromissos-futuros` tem `limite`
+padrão 5 e o frontend nunca passava esse parâmetro. Opções discutidas:
+aumentar o limite fixo, ou trocar por "ver mais". O usuário decidiu
+"ver mais": "[limite fixo] é sempre provável de cortar e não ficar na
+cara o tempo todo — se quero ver as próximas todas vou lá e expando" —
+e pediu, junto, um card mais enxuto (menor altura por item) sem perder
+informação, já que fica sempre visível no Dashboard.
+
+**Implementado:**
+- Frontend busca de uma vez um lote maior (`limite=50`) — o endpoint já
+  dedupe pra 1 item por compra parcelada/recorrente ativa, então isso
+  cobre o caso real quase sempre. Mostra só as 4 primeiras por padrão;
+  botão "Ver mais (N)"/"Ver menos" expande a lista já carregada, sem
+  nova requisição.
+- Backend: teto de `limite` (`Query(..., le=...)`) subiu de 20 para
+  100, pra não recriar o mesmo tipo de corte silencioso caso o usuário
+  acumule mais compromissos ativos no futuro.
+- Card mais enxuto: classe `.lista-compromissos` reduz padding do item
+  e a fonte do detalhe secundário — sem remover nenhum dado exibido.
+
+**Testes:** suíte backend completa passando (348 passed, 33 skipped) —
+sem teste novo dedicado (mudança é só o teto de validação e o valor
+default do parâmetro, comportamento já coberto pelos testes
+existentes). Frontend verificado via `tsc -b && vite build` e
+`oxlint` — sem erro, sem warning novo.
+
+**Status:** implementado nesta sessão. **Sem QA visual via Playwright**
+— exigiria login com credenciais reais do Supabase, que esta sessão
+remota não tem (mesma limitação de `backend/.env` documentada em
+`CLAUDE.md` pros testes de integração). Verificação ficou restrita a
+tipo/build; o usuário precisa confirmar visualmente. **Testado pelo
+usuário em 2026-10-01 (1ª rodada):** itens 1-2 ok. Item 3 reportado com
+achado (faltava descrição/botões de recorrente) — mantido pendente de
+propósito, pra reconferir junto da Rodada 40. **Retestado em
+2026-10-02, depois da Rodada 40: os 4 itens confirmados ok** —
+descrição, parcela/tipo, data, valor e os botões de recorrente aparecem
+e funcionam (o achado da 1ª rodada não se repetiu; não ficou claro se
+era um estado desatualizado da tela ou dependia mesmo do fix da Rodada
+40). Observação nova do usuário: o card dá pra ficar ainda mais
+compacto em telas maiores (desktop) — não é bug, registrado como
+sugestão de melhoria (`docs/backlog.md`, item 64).
+
+**Checklist de teste manual (usuário, localmente):**
+- [x] ~~Abrir o Dashboard e confirmar que Compromissos Futuros mostra até
+      4 itens por padrão, com "Ver mais (N)" abaixo quando houver mais.~~
+- [x] ~~Clicar em "Ver mais" e confirmar que a lista completa aparece
+      (até 50) sem precisar recarregar a página; "Ver menos" volta a
+      colapsar.~~
+- [x] ~~Confirmar que o card ficou visualmente mais compacto (menos
+      espaço por item) mas sem faltar nenhuma informação (descrição,
+      parcela/tipo, data, valor, botões de recorrente). — confirmado
+      2026-10-02; sugestão de compactar mais em desktop virou item 64
+      do backlog.~~
+- [x] ~~Testar "Confirmar"/"Pular este mês" de um recorrente com a lista
+      expandida e com a lista colapsada — os botões continuam
+      funcionando nos dois estados. — confirmado 2026-10-02.~~
+
+### Rodada 37 (2026-09-25) — Agregações que crescem pra sempre com o histórico movidas pra RPC
+
+Depois dos fixes de Caixinhas/Compromissos Futuros (Rodadas 35-36), o
+usuário perguntou pela robustez de longo prazo: com ~2,5k
+transações/ano, em 6-7 anos a conta chega a 15-20k linhas — o
+`buscar_todas_paginado` (Rodada 35) já garante que isso nunca mais gera
+corte silencioso, mas ainda soma em Python sobre linhas cruas trazidas
+pela rede. Detalhe técnico completo em `docs/backlog.md` ("Agregações
+que crescem pra sempre com o histórico — RPCs no Postgres") — aqui só o
+resumo.
+
+**Diagnóstico:** corretude e performance são problemas independentes.
+A maioria das queries é limitada pela largura do período pedido, não
+pela idade da conta — só 3 pontos não têm limite de data (ou o limite é
+"desde o início da conta") e por isso crescem pra sempre: `patrimonio_
+caixinhas` (aplicações/retiradas desde sempre), o Dashboard no modo
+"Todos os meses" (`_resumo_entre`), e a cadeia de `saldo_anterior` do
+orçamento (`orcamento_saldo.carregar_dados_periodo`).
+
+**Decisão:** mover a soma desses 3 pontos pro Postgres via RPC, em vez
+de trazer linha por linha pra somar em Python — o resultado que volta
+já é agregado, então o custo passa a depender da complexidade da conta
+(categorias × contas × caixinhas × meses), não do volume de
+lançamentos. Alternativa descartada de propósito: cache incremental de
+saldo (atualizar a cada insert/delete) — é exatamente o padrão que o
+próprio código já evita (`orcamento_saldo.py` nunca confia num
+`saldo_anterior` gravado, porque edição/backfill dessincroniza
+silenciosamente); RPC recalcula do zero a cada leitura, só que dentro
+do banco, sem reabrir esse risco.
+
+**Fix:**
+- 3 funções SQL novas em `db/schema.sql` — `saldo_caixinhas(p_user_id,
+  p_ate)`, `resumo_agregado_transacoes(p_user_id, p_desde, p_ate)` e
+  `saldo_transacoes_agregado(p_user_id, p_desde, p_ate)`, todas
+  `security invoker` (RLS de `transacoes` continua valendo por trás do
+  parâmetro, mesma dupla camada do resto do app).
+- `dashboard.py`: `_resumo_entre` e `patrimonio_caixinhas` chamam as 2
+  primeiras via `db.rpc(...)`.
+- `orcamento_saldo.carregar_dados_periodo`: chama a terceira, agrupando
+  por (mês, categoria, subcategoria, conta, caixinha, estrutura_custo,
+  tipo_movimento) — exatamente os campos que `calcular_realizado_item_
+  em_lote` e `_agregar_estrutura_custo` já usavam pra filtrar/somar, só
+  que agora numa linha por grupo em vez de 1 por lançamento real.
+- Nenhuma das funções puras que consomem o resultado
+  (`calcular_resumo`, `calcular_realizado_item_em_lote`,
+  `_agregar_estrutura_custo`) precisou mudar — só passam a receber
+  "linhas sintéticas" já somadas por grupo.
+- `tests/fakes.py` ganhou `.rpc(nome, params)`, com uma implementação
+  Python de cada função SQL operando sobre o mesmo `store["transacoes"]`
+  que os testes já povoam — nenhum teste precisou mudar como monta seus
+  dados.
+- `README.md`: nova seção "Migração pendente no seu Supabase" com o SQL
+  das 3 funções, pro usuário rodar uma vez no *SQL Editor* (mesmo padrão
+  já usado pras migrações anteriores).
+
+**Testes:** 350 passed, 33 skipped (2 testes novos de regressão —
+`test_duas_despesas_no_mesmo_mes_somam_no_resumo` e `test_duas_despesas_
+da_mesma_subcategoria_no_mes_somam_no_realizado` — provam que 2
+lançamentos que caem no mesmo grupo de agregação são somados pelo
+Postgres, não sobrescritos/duplicados). Os testes existentes de
+contagem de chamadas (`_ContadorClient`, Rodadas 27/29) foram ajustados
+pra contar `.rpc(...)` no lugar de `.table("transacoes")` — o número
+total de chamadas ao "banco" por requisição não mudou.
+
+**Status:** implementado e testado (offline) nesta sessão. O usuário
+precisa rodar o SQL das 3 funções no Supabase real (seção "Migração
+pendente" do `README.md`) antes de recarregar — sem isso, `GET
+/dashboard/patrimonio/*`, `/dashboard/resumo-periodo` e telas de
+Planejamento/Estrutura de Custo respondem 404 do PostgREST (função RPC
+inexistente). **Confirmado em 2026-10-01: SQL rodado (item 1).** Item 2
+pendente — usuário precisa lançar/atualizar lançamentos reais pra ter
+material pra conferir. Itens 3-4 pendentes por outro motivo: exigem
+lembrar valores antigos pra comparar, e o usuário não tem mais esse
+registro — plano é conferir futuramente com a skill `/financeapp-ref`
+(calcula os parâmetros de referência a partir do CSV histórico). **Ver
+nota abaixo: `/financeapp-ref` hoje só cobre os parâmetros do
+Dashboard, não saldo/realizado por bucket de Estrutura de Custo/
+Planejamento — precisaria ser estendida antes de servir pra isso.**
+
+**Checklist de teste manual (usuário, localmente):**
+- [x] ~~Rodar o SQL das 3 funções no *SQL Editor* do Supabase (seção
+      "Migração pendente" do `README.md`) antes de qualquer teste
+      abaixo.~~
+- [ ] Recarregar Caixinhas/Patrimônio e confirmar que os saldos
+      continuam batendo com a coluna "Guardado" da planilha (mesmo
+      resultado da Rodada 35, agora vindo do RPC). — pendente, usuário
+      precisa lançar/atualizar dados pra verificar.
+- [ ] Dashboard no modo "Todos os meses" e Intervalo — confirmar que os
+      totais de receita/despesa/resultado continuam os mesmos de antes.
+      — pendente; usuário não lembra os valores antigos pra comparar,
+      plano é usar `/financeapp-ref` futuramente (ver nota acima).
+- [ ] Estrutura de Custo e Planejamento — confirmar saldo/realizado de
+      um bucket com histórico de vários meses (a cadeia de
+      `saldo_anterior`). — pendente, mesmo motivo do item acima.
+
+### Rodada 38 (2026-09-29) — Fix: Planejamento travando ao gerar orçamento + form fora de vista
+
+Usuário começou a usar Planejamento no dia a dia (dados reais migrados
++ RPCs já aplicadas) e reportou 2 bugs concretos, mais um pedido de
+alinhamento visual com Estrutura de Custo (registrado como item 40 do
+backlog, aguardando decisão de escopo). Detalhe técnico completo em
+`docs/backlog.md` ("Planejamento: 'Gerar orçamento' travando + form de
+edição fora de vista") — aqui só o resumo.
+
+**Bug 1 — "Gerando…" travado ao criar/avançar orçamento:** `POST
+/orcamentos/{id}/proximo-mes` chamava `calcular_realizado_item()` uma
+vez por item do orçamento — N itens = N buscas sequenciais de transação
+no Supabase. Mesma classe de N+1 já corrigida em Estrutura de Custo
+(Rodada 27) e na listagem de itens de Planejamento (Rodada 29), nunca
+portada pra este endpoint de escrita especificamente. Com dezenas de
+itens numa conta real, o botão ficava visivelmente travado.
+
+**Fix:** troca pra `carregar_dados_periodo` +
+`calcular_realizado_item_em_lote` — 1 busca agregada das transações do
+mês antes do loop, em vez de 1 por item.
+
+**Bug 2 — form de "Editar configuração" parecendo abrir depois dos
+buckets:** o form e a lista de buckets são mutuamente exclusivos (um
+substitui o outro), mas nada reposicionava o scroll quando o form
+abria. Usuário rolado pra ver os buckets + clique em "Editar
+configuração" = buckets somem, página encolhe, scroll não muda —
+navegador mantém a posição antiga, agora no fim de uma página bem mais
+curta. Parecia que o form "abriu depois dos buckets"; na verdade os
+buckets já tinham sumido e o form estava fora da área visível.
+
+**Fix:** `window.scrollTo({ top: 0, behavior: 'smooth' })` ao abrir o
+form de configuração.
+
+**Testes:** 351 passed, 33 skipped (1 teste novo — cria 4 itens em
+categorias diferentes, confirma que a agregação de transações do mês
+roda 1 vez só ao gerar o próximo orçamento, não 1 por item — achado
+real durante a escrita do teste: as 4 transações de teste inicialmente
+usavam a mesma descrição/valor/data/conta, colidindo no `hash_dedup` e
+mascarando o próprio bug que o teste queria provar; corrigido dando
+descrição distinta a cada uma). Frontend verificado via `tsc -b && vite
+build` + `oxlint` — sem erro, sem warning novo.
+
+**Status:** implementado nesta sessão. Sem QA visual via Playwright —
+mesma limitação de sempre (sem `backend/.env` com credenciais reais do
+Supabase nesta sessão remota). **Testado pelo usuário em 2026-10-01:**
+1ª rodada de teste achou Bug 1 (performance) ainda não resolvido de
+verdade — item 3 (scroll) ok, itens 1/2/4 "muito lento" — achado real
+que motivou a Rodada 41 (2ª e 3ª N+1 no mesmo endpoint, não cobertas
+pelo fix original desta rodada). **Revalidado em 2026-10-01, depois da
+Rodada 41: os 4 itens confirmados ok** — confirma de passagem que o
+fix da Rodada 41 resolveu a lentidão.
+
+**Checklist de teste manual (usuário, localmente):**
+- [x] ~~Com um orçamento configurado com vários itens (o suficiente pra
+      antes ter travado), clicar em "Gerar orçamento de [mês seguinte]"
+      e confirmar que responde rápido, sem ficar preso em "Gerando…".
+      — confirmado ok após o fix da Rodada 41.~~
+- [x] ~~Num mês sem orçamento, "Gerar a partir de [mês anterior]"
+      também deve responder rápido. — confirmado ok após o fix da
+      Rodada 41.~~
+- [x] ~~Rolar a tela pra baixo (ver os itens dos buckets) e clicar em
+      "Editar configuração" — a página deve rolar suavemente pro topo,
+      mostrando o form imediatamente, sem precisar rolar manualmente
+      pra encontrá-lo.~~
+- [x] ~~Mesmo teste ao clicar em "Criar do zero" (mês sem orçamento). —
+      confirmado ok após o fix da Rodada 41.~~
+
+### Rodada 39 (2026-09-30) — Planejamento: acordeão de 2 níveis igual Estrutura de Custo
+
+Usuário reportou o layout de Planejamento inconsistente com Estrutura
+de Custo (item 40 do backlog). Antes de implementar, 3 mockups foram
+apresentados (artifact "Design" com 3 artboards lado a lado, dados
+reais do domínio): alinhamento visual leve, acordeão + cabeçalho único,
+e acordeão + badge de status. Usuário escolheu o acordeão, pedindo
+explicitamente que o 2º nível reflita categoria PAI → subcategoria
+(não só bucket → item flat) — mesma hierarquia de Estrutura de Custo.
+Detalhe técnico completo em `docs/backlog.md` ("Planejamento: layout
+não alinhado com Estrutura de Custo") — aqui só o resumo.
+
+**Implementado:**
+- `agruparItensPorCategoria()`, nova função em `Planejamento.tsx` —
+  mesma lógica de `EstruturaCusto.tsx:agruparPorCategoria`, adaptada
+  aos campos de `OrcamentoItem`. Item de subcategoria agrupa pela
+  categoria pai; item só-categoria vira a folha "Geral (sem
+  subcategoria)" dentro do mesmo grupo; item de conta vinculada ou
+  nome livre vira seu próprio grupo de 1 folha.
+- Buckets viraram acordeão (`estrutura-custo-bucket`/
+  `-bucket-cabecalho`, reaproveitados direto de `estruturaCusto.css`
+  em vez de recriados) — cabeçalho de colunas único no topo da lista
+  em vez de repetido por bucket. Categoria pai também é acordeão
+  (`estrutura-custo-categoria-linha`), subcategoria é a folha final.
+- Todos os 4 buckets nascem abertos por padrão (diferente de Estrutura
+  de Custo, que só abre bucket com lançamento — Planejamento é tela de
+  configurar os 4, não de revisar relatório).
+- Criar um item novo expande automaticamente o grupo de categoria dele
+  — sem isso, sumiria dentro de um grupo ainda fechado.
+- Removidas as classes CSS antigas de card-por-bucket/lista-flat
+  (`planejamento-bucket`, `-item-linha`, etc.) — reaproveitando classes
+  de Estrutura de Custo pra parte estrutural, mantendo em
+  `planejamento.css` só o que é específico de Planejamento (barra de
+  progresso, colunas Orçado/Sobra do envelope/Disponível).
+
+**Testes:** sem teste automatizado novo (mudança é só de frontend/CSS,
+sem lógica de backend nova). Verificado via `tsc -b && vite build` +
+`oxlint` — sem erro, sem warning novo. Suíte backend continua em 351
+passed, 33 skipped (nenhuma mudança de backend nesta rodada).
+
+**Status:** implementado nesta sessão, **confirmado testado pelo usuário
+em 2026-10-01** (6/6 itens do checklist). Sem QA visual via Playwright —
+mesma limitação de sempre (sem `backend/.env` com credenciais reais do
+Supabase nesta sessão remota).
+
+**Checklist de teste manual (usuário, localmente):**
+- [x] ~~Abrir Planejamento com um mês que já tem itens em mais de 1
+      bucket — os 4 buckets devem nascer abertos (acordeão expandido).~~
+- [x] ~~Clicar no cabeçalho de um bucket — deve recolher/expandir,
+      escondendo/mostrando as categorias dele.~~
+- [x] ~~Clicar numa linha de categoria pai — deve expandir mostrando as
+      subcategorias (e o item "Geral", se houver um item só-categoria
+      na mesma categoria).~~
+- [x] ~~Criar um item novo numa categoria ainda não expandida — confirmar
+      que o grupo dela abre sozinho, mostrando o item recém-criado sem
+      precisar clicar em nada.~~
+- [x] ~~Editar/Desativar/Reativar um item, e o link "→" pra Busca de
+      Lançamentos — devem continuar funcionando normalmente dentro do
+      novo layout.~~
+- [x] ~~Testar em mobile (≤720px) — nome do item numa linha, valores
+      rotulados (Orçado/Sobra/Disponível) fluindo depois, sem cortar
+      texto.~~
+
+### Rodada 40 (2026-09-30) — Fix: recorrente de aplicação/retirada em caixinha não salvava
+
+Usuário reportou: ao tentar lançar uma transação recorrente de aplicação
+ou retirada vinculada a uma caixinha, o salvamento falhava exigindo
+categoria — caixinha (reserva) não tem categoria, mesma regra já válida
+pra transações avulsas (`transacoes.py`). `lancamentos_recorrentes`
+nunca teve suporte a caixinha (gap documentado desde a Rodada 25:
+"aplicacao/retirada é sempre 'investimentos', sem suporte a caixinha/
+reserva recorrente por enquanto") — só ficou aparente quando o usuário
+tentou de fato cadastrar um aporte/resgate recorrente de reserva.
+
+**Fix:**
+- `db/schema.sql` + `README.md`: `categoria_id` deixou de ser `not null`
+  em `lancamentos_recorrentes`, nova coluna `caixinha_id` (mesmo papel
+  de `transacoes.caixinha_id`). Migração pendente documentada pro
+  Supabase real do usuário.
+- `schemas/lancamentos_recorrentes.py`: `categoria_id: str | None`,
+  novo campo `caixinha_id: str | None`.
+- `routers/lancamentos_recorrentes.py`: `_check_refs`/
+  `_check_categoria_tipo` passam a tratar categoria como opcional; nova
+  `_check_regras_caixinha` espelha `transacoes.py::
+  _check_regras_tipo_movimento` (caixinha só em aplicação/retirada;
+  conta do recorrente precisa bater com a conta vinculada à caixinha,
+  quando ela tiver uma). `_normalizar_e_validar`: aplicação/retirada
+  **com** caixinha zera `estrutura_custo`/`meio_pagamento` (reserva não
+  tem bucket/teto); **sem** caixinha continua forçando
+  `estrutura_custo='investimentos'` como já era. `confirmar()` parava de
+  hardcodar `caixinha_id: None` na transação materializada — agora
+  propaga o `caixinha_id` do molde, o que também corrige de tabela o
+  vínculo com `orcamento_sync.py` (reserva confirmada nunca deveria ter
+  criado item de orçamento, mas o `caixinha_id` hardcoded em `None` a
+  fazia passar por investimento puro).
+- `types.ts` + `RecorrentesSection.tsx`: `categoria_id` nullable,
+  `caixinha_id` novo. Formulário ganha seletor "Caixinha (opcional)"
+  pra aplicação/retirada (mesmo padrão de `NovoLancamento.tsx`: trava a
+  conta na conta vinculada à caixinha, quando ela tiver uma); Categoria/
+  Subcategoria somem quando uma caixinha é escolhida, campo passa a
+  "(opcional)" pra aplicação/retirada sem caixinha. Lista de recorrentes
+  mostra "caixinha {nome}" no lugar de categoria quando aplicável.
+
+**Testes:** 360 passed, 33 skipped (9 testes novos — criar aplicação/
+retirada com caixinha sem categoria, investimento puro sem categoria
+também aceito, despesa com caixinha rejeitada, caixinha de conta
+diferente rejeitada, caixinha inexistente 404, atualizar pra adicionar
+caixinha zera estrutura de custo, confirmar materializa `caixinha_id` na
+transação, confirmar com caixinha não sincroniza item de orçamento).
+Frontend verificado via `tsc -b && vite build` + `oxlint` — sem erro,
+sem warning novo.
+
+**Status:** implementado nesta sessão. Sem QA visual via Playwright —
+mesma limitação de sempre (sem `backend/.env` com credenciais reais do
+Supabase nesta sessão remota). **Testado pelo usuário em 2026-10-02: os
+7 itens confirmados ok.** Item 7 veio com um achado novo, fora do
+escopo original desta rodada — ver "Estrutura de Custo: subitem de
+reserva mostra nome da conta em vez da caixinha" em `docs/backlog.md`.
+
+**Checklist de teste manual (usuário, localmente):**
+- [x] ~~Rodar a migração de `lancamentos_recorrentes.caixinha_id` no *SQL
+      Editor* do Supabase (seção "Migração pendente" do `README.md`)
+      antes de qualquer teste abaixo.~~
+- [x] ~~Criar um recorrente de aplicação escolhendo uma caixinha — o
+      formulário não deve mais pedir categoria, e deve salvar sem erro.~~
+- [x] ~~Com a caixinha vinculada a uma conta fixa, confirmar que o campo
+      Conta trava sozinho nela ao escolher a caixinha.~~
+- [x] ~~Criar um recorrente de retirada com a mesma caixinha — deve
+      salvar normalmente.~~
+- [x] ~~Trocar de "Caixinha" pra "Nenhuma (investimento)" no mesmo
+      formulário — Categoria/Subcategoria devem voltar a aparecer.~~
+- [x] ~~Confirmar o mês desse recorrente em "Compromissos Futuros" e
+      verificar em Caixinhas que o valor entrou como aporte/resgate da
+      reserva certa.~~
+- [x] ~~Confirmar que esse mês confirmado **não** aparece em Estrutura de
+      Custo/Planejamento como item de investimento (reserva é só
+      informativa, sem teto). — confirmado (aparece em Reservas, não em
+      Investimentos); achado à parte sobre o rótulo do subitem, ver nota
+      de Status acima.~~
+
+### Rodada 41 (2026-09-30) — Fix: "Gerar orçamento"/"Criar do zero" continuavam lentos (2ª e 3ª N+1)
+
+Usuário testou o fix da Rodada 38 (Fix 1, `calcular_realizado_item_em_
+lote`) com dados reais e reportou que "Gerar orçamento", "Criar a
+partir do mês anterior" e "Criar do zero" continuavam muito lentos —
+só o Bug 2 (scroll ao editar configuração) daquela rodada de fato tinha
+sido resolvido. O fix anterior corrigiu uma N+1 real, mas havia mais
+duas no mesmo endpoint (`POST /orcamentos/{id}/proximo-mes`, também
+usado por "Criar do zero" via `criar()`), que dominam o tempo numa
+conta real: dezenas de itens × 1 busca extra é pouco perceptível;
+centenas de transações/mês × 2-3 buscas cada é o que realmente travava.
+
+**N+1 #2 — 1 insert por item copiado:** o loop que copia os itens do
+orçamento atual pro mês seguinte fazia `db.table("orcamento_itens").
+insert({...}).execute()` dentro do `for item in itens_atuais`, uma
+chamada por item.
+
+**Fix:** acumula os itens num `novos_itens: list[dict]` e faz 1 único
+`insert(novos_itens)` depois do loop.
+
+**N+1 #3 — 1 busca de orçamento/itens por transação, não por mês:**
+`_popular_itens_de_transacoes_existentes()` (roda em `criar()` e no
+fim de `gerar_proximo_mes()` — cria itens com `orcamento_mensal=0` pra
+categorias já lançadas antes do orçamento existir) chamava
+`sincronizar_item_orcamento()` uma vez por transação do mês. Essa
+função foi desenhada pra uso reativo (1 transação nova chegando,
+`transacoes.py`/`lancamentos_recorrentes.py`) e sempre refaz sua
+própria busca de "qual orçamento existe pra este mês" + "quais itens
+esse orçamento já tem" — correto pra 1 transação, mas repetido N vezes
+pra N transações do mesmo mês é puro desperdício: o orçamento é o
+mesmo, e a lista de itens existentes muda pouco entre uma transação e
+outra.
+
+**Fix:** extraída `classificar_transacao_para_orcamento()` de dentro de
+`sincronizar_item_orcamento()` (`services/orcamento_sync.py`) — função
+pura, sem I/O, que decide bucket/subcategoria/categoria (ou `None` se a
+transação não deveria virar item) a partir só dos campos da própria
+transação. `_popular_itens_de_transacoes_existentes()` passa a: buscar
+as transações do mês (1 busca, já existia), buscar os itens já
+existentes do orçamento (1 busca, novo — o orçamento já é conhecido, o
+próprio parâmetro da função, nunca precisou de busca própria aqui),
+classificar cada transação em memória, deduplicar contra os itens já
+existentes E contra os que o próprio lote já decidiu criar, e inserir
+tudo que falta num só `insert(lista)`. `sincronizar_item_orcamento()`
+(uso reativo, 1 transação por vez) continua igual por fora, só delega
+a classificação pra função nova.
+
+**Testes:** 362 passed, 33 skipped (2 novos, de regressão, ambos
+provando que o nº de idas ao "banco" fica fixo independente de N):
+`test_proximo_mes_copia_itens_em_1_insert_em_lote_nao_1_por_item` (6
+itens copiados, 3 chamadas a `orcamento_itens` sempre, não 6+) e
+`test_proximo_mes_popula_itens_de_transacoes_em_1_busca_nao_1_por_
+transacao` (5 transações no mês seguinte, 1 chamada a `transacoes`,
+não 5). `tests/fakes.py` ganhou suporte a `insert()` com uma lista de
+linhas (insert em lote), espelhando o comportamento real do
+`supabase-py` — nenhum teste existente precisou mudar.
+
+**Status:** implementado nesta sessão. Sem QA visual via Playwright —
+mesma limitação de sempre (sem `backend/.env` com credenciais reais do
+Supabase nesta sessão remota); esta classe de bug só fica visível com
+volume real de dados, que esta sessão não tem como reproduzir.
+**Confirmado indiretamente em 2026-10-01** — a revalidação da Rodada
+38 (itens 1/2/4, antes "muito lento") voltou "ok" depois deste fix.
+**Confirmado por completo em 2026-10-02** — item 3 (valores orçados do
+mês novo) também veio ok.
+
+**Checklist de teste manual (usuário, localmente):**
+- [x] ~~Com um orçamento configurado com dezenas de itens E o mês com
+      centenas de transações lançadas, clicar em "Gerar orçamento de
+      [mês seguinte]" e confirmar que agora responde rápido de verdade
+      (não só "menos lento"). — confirmado via revalidação da Rodada 38.~~
+- [x] ~~"Criar a partir do mês anterior" e "Criar do zero" num mês sem
+      orçamento — mesma confirmação de velocidade. — confirmado via
+      revalidação da Rodada 38.~~
+- [x] ~~Depois de gerar, confirmar que os itens do mês novo têm os
+      mesmos valores orçados do mês anterior, e que itens de categorias
+      já lançadas no mês novo (mas sem item configurado ainda)
+      aparecem com orçado R$ 0,00 — mesmo resultado de antes, só mais
+      rápido. — confirmado 2026-10-02.~~
+
+### Rodada 42 (2026-10-02) — Fix: Estrutura de Custo mostrava nome da conta em vez da caixinha
+
+Achado testando o checklist da Rodada 40 (item 7): uma aplicação/
+retirada vinculada a caixinha cai corretamente no bucket "Reservas" de
+Estrutura de Custo, mas o subitem dentro dele (2º nível do acordeão)
+mostrava o nome da CONTA repetido no pai e no filho, em vez do nome da
+caixinha. Detalhe técnico completo em `docs/backlog.md` ("Subitem do
+bucket Reservas mostra nome da conta em vez da caixinha") — aqui só o
+resumo.
+
+**Causa raiz:** `_chave()` (`backend/app/routers/estrutura_custo.py`),
+usada tanto pra item de orçamento quanto pra transação, checava só
+subcategoria → categoria → conta — nunca `caixinha_id`. Uma reserva
+não tem categoria/subcategoria (regra de negócio), então caía direto
+no fallback de conta; o item retornado pela API nem carregava
+`caixinha_id` (campo não existia no schema). No frontend
+(`EstruturaCusto.tsx`), o branch de conta usava o mesmo nome pro grupo
+(pai) e pra folha (filho) — daí a repetição.
+
+**Fix:**
+- `_chave()` ganhou uma checagem de `caixinha_id`, antes de
+  subcategoria/categoria/conta — item de orçamento nunca tem esse
+  campo, então a checagem nova não muda nada no caminho que já
+  funcionava (despesa, investimento puro).
+- `ItemEstruturaCusto` (schema Pydantic + tipo TS) ganhou o campo
+  `caixinha_id`.
+- `EstruturaCusto.tsx` passou a buscar `/caixinhas` (mesmo padrão já
+  usado em outras telas) e ganhou um branch `item.caixinha_id`, com
+  prioridade sobre `conta_id` (mesma ordem do backend) — grupo e folha
+  usam o nome da caixinha.
+
+**Testes:** 1 teste novo — 2 caixinhas na mesma conta geram 2 itens
+distintos no bucket Reservas, cada um com `caixinha_id` certo e
+`conta_id` nulo (prova que o agrupamento não volta a colapsar as duas
+numa só por causa da conta compartilhada). Suíte completa: 363 passed,
+33 skipped. Frontend verificado via `tsc -b && vite build` + `oxlint`
+— sem erro, sem warning novo.
+
+**Status:** implementado nesta sessão. Sem QA visual via Playwright —
+mesma limitação de sempre (sem `backend/.env` com credenciais reais do
+Supabase nesta sessão remota).
+
+**Checklist de teste manual (usuário, localmente):**
+- [ ] ~~Em Estrutura de Custo, num mês com aplicação/retirada em pelo
+      menos 1 caixinha, abrir o bucket "Reservas" e confirmar que o
+      subitem mostra o nome da caixinha, não o nome da conta.~~
+      **Reportado errado 2026-10-02**: inverteu demais — caixinha
+      virou o nível pai também (e a conta some do agrupamento). Ver
+      correção abaixo.
+- [ ] ~~Com 2 caixinhas diferentes na mesma conta, confirmar que
+      aparecem como 2 subitens separados dentro de "Reservas" (não
+      agrupados num só pela conta em comum).~~ **Reportado errado
+      2026-10-02**: mesmo motivo acima (a conta não aparece mais).
+- [x] ~~Conferir que despesa e investimento (aplicação/retirada sem
+      caixinha) continuam mostrando categoria/subcategoria normalmente
+      — não regrediu pro fallback de conta nesses casos. — confirmado
+      2026-10-02.~~
+
+**Correção (mesmo dia, 2026-10-02):** a 1ª versão usava o nome da
+caixinha tanto no grupo (pai) quanto na folha (filho) — exatamente o
+mesmo bug de antes, só com caixinha no lugar de conta, e a conta deixou
+de aparecer (o item da API zerava `conta_id` sempre que tinha
+`caixinha_id`, porque `_chave()` retorna só 1 tipo de chave por vez). A
+intenção sempre foi: conta como 1º nível (inalterado), caixinha como
+2º. Fix: `_agregar_estrutura_custo` passou a rastrear, à parte da chave
+de dedup (caixinha, pra 2 caixinhas na mesma conta continuarem como 2
+itens), a conta de cada transação de reserva — o item da API agora
+expõe `conta_id` e `caixinha_id` juntos nesse caso. `EstruturaCusto.tsx`
+volta a agrupar reserva por conta (igual ao branch que já existia) e
+usa o nome da caixinha só na folha. Teste de regressão ajustado
+(`conta_id` esperado = a conta certa, não mais `None`). Suíte completa:
+363 passed, 33 skipped. Frontend: `tsc -b && vite build` + `oxlint` —
+sem erro, sem warning novo.
+
+**Checklist de teste manual da correção (usuário, localmente):**
+- [x] ~~Em Estrutura de Custo, num mês com aplicação/retirada em pelo
+      menos 1 caixinha, abrir o bucket "Reservas" e confirmar que o
+      1º nível mostra o nome da CONTA (como antes) e o 2º nível mostra
+      o nome da CAIXINHA (não repete o nome da conta). — confirmado
+      2026-10-02.~~
+- [x] ~~Com 2 caixinhas diferentes na mesma conta, confirmar que aparecem
+      como 2 subitens dentro do MESMO grupo de conta (não 2 grupos
+      separados, nem agrupadas numa só). — confirmado 2026-10-02.~~
+- [x] ~~Com caixinhas em contas diferentes, confirmar que aparecem em
+      grupos de conta diferentes. — confirmado 2026-10-02.~~
+
+### Rodada 43 (2026-10-02) — Bucket Reservas vira informativo (Saldo acumulado / Aportado no mês)
+
+Ressalva levantada pelo usuário testando a Rodada 42: Reservas não tem
+como ser orçada em Planejamento, mas Estrutura de Custo mostrava
+Orçado/Diferença/Status pra cada item desse bucket como se houvesse
+uma meta pra comparar. Discussão completa e decisão registradas em
+`docs/backlog.md` ("Bucket Reservas: Orçado/Diferença/Status sem
+sentido") — aqui só o resumo técnico.
+
+**Decisão:** Reservas vira puramente informativo. Em vez de só remover
+a coluna Orçado, ela é substituída por **Saldo acumulado** (quanto a
+caixinha já tem guardado até o fim do mês, desde sempre) e **Aportado
+no mês** (o `realizado` que a API já calculava). Mockup publicado e
+aprovado antes de implementar.
+
+**Fix:**
+- `_enriquecer_saldo_reservas()` (`backend/app/routers/estrutura_custo.py`),
+  chamada só por `obter()` — reaproveita a RPC `saldo_caixinhas` que
+  `/dashboard/patrimonio` já usa, preenchendo `saldo_caixinha` em cada
+  item do bucket reservas. Não entra em `evolucao_orcamento()` (nunca
+  usa detalhe por item de reserva, só soma do pool de despesas).
+- `ItemEstruturaCusto` (schema + tipo TS) ganhou `saldo_caixinha: float
+  | None`, preenchido só pra item de reserva.
+- `EstruturaCusto.tsx`: cabeçalho de colunas, antes 1 só pra tela
+  inteira, passou a ser renderizado por bucket dentro de `BucketBloco`
+  (Reservas usa colunas diferentes — Saldo acumulado / Aportado no mês,
+  sem Diferença/Status — um cabeçalho único não dava pra rotular os
+  dois layouts ao mesmo tempo). Bucket Reservas ganhou um badge
+  "Informativo" ao lado do nome. CSS: `.estrutura-custo-cabecalho-
+  colunas.reservas`/`.estrutura-custo-sub-linha.reservas` com grid mais
+  estreita (4 colunas em vez de 6).
+
+**Testes:** 2 testes novos — `saldo_caixinha` acumula entre meses
+(aporte de agosto + setembro somam no saldo de setembro, não é só o
+`realizado` do mês repetido) e fica `None` em item sem caixinha. Suíte
+completa: 365 passed, 33 skipped. Frontend: `tsc -b && vite build` +
+`oxlint` — sem erro, sem warning novo.
+
+**Status:** implementado 2026-10-02. Sem QA visual via Playwright —
+mesma limitação de sempre.
+
+**Checklist de teste manual (usuário, localmente):**
+- [x] ~~Em Estrutura de Custo, abrir o bucket "Reservas" e confirmar que
+      o cabeçalho mostra "Saldo acumulado" e "Aportado no mês" (não
+      "Orçado"/"Diferença"/"Status"), com o badge "Informativo" ao
+      lado do nome do bucket. — confirmado 2026-10-02.~~
+- [x] ~~Confirmar que "Saldo acumulado" de uma caixinha bate com o
+      patrimônio mostrado em Dashboard pra essa mesma caixinha, no
+      mesmo mês. — confirmado 2026-10-02.~~
+- [x] ~~Com uma retirada líquida no mês (retirada > aplicação), confirmar
+      que "Aportado no mês" aparece negativo (com o sinal "−"), não só
+      um número sem contexto. — confirmado 2026-10-02.~~
+- [x] ~~Confirmar que os outros buckets (Custos Fixos, Variáveis,
+      Sazonalidades, Investimentos) continuam mostrando Orçado/
+      Realizado/Diferença/Status normalmente — não regrediu. —
+      confirmado 2026-10-02.~~
+
+### Rodada 44 (2026-10-02) — Fix: hash_dedup bloqueava lançamento manual legítimo (item 35)
+
+Bug registrado desde a migração de dados (2026-09-25): `hash_dedup` em
+`POST /transacoes` usa só (data, valor, descrição, conta, tipo), sem
+categoria — 2 transações reais e diferentes que coincidem nesses 5
+campos (ex: 2 assinaturas iguais no mesmo dia) colidiam com a mesma
+constraint UNIQUE que existe pra pegar double-submit acidental. A
+migração contornou isso com um índice de ocorrência só no cálculo do
+hash (`agrupar_por_chave_hash`/`gravar_avista_duplicado`), mas o fluxo
+normal de lançamento continuava bloqueado — API rejeitava um
+lançamento legítimo. Detalhe completo em `docs/backlog.md`
+("`hash_dedup` bloqueando lançamento manual legítimo") — aqui só o
+resumo.
+
+**Fix:**
+- `TransacaoCreate` ganhou `forcar_duplicado: bool` (`Field(exclude=True)`
+  — nunca entra no `model_dump`, então nunca vira coluna na tabela).
+- `_com_desambiguacao_de_duplicata()` (`backend/app/routers/
+  transacoes.py`): sem `forcar_duplicado`, nada muda (409 na colisão,
+  mesma fórmula de hash de sempre). Com o flag, tenta de novo somando
+  um índice de ocorrência ao cálculo do hash (nunca gravado na linha),
+  até 20x — mesma técnica da migração, só que on-the-fly por request.
+- `NovoLancamento.tsx`: ao receber 409, mostra "Lançar mesmo assim (é
+  outro lançamento real)", que reenvia o mesmo payload com
+  `forcar_duplicado: true`. Só no caminho avista — compra parcelada
+  (`POST /transacoes/parceladas`) não ganhou esse fluxo (fora do
+  escopo do bug reportado — ver achado novo abaixo).
+
+**Testes:** 2 testes novos — repetição com `forcar_duplicado` cria a
+2ª transação idêntica (confirma que sem o flag continua 409); repetição
+3x confirma que o índice de ocorrência não trava na 2ª tentativa. Suíte
+completa: 367 passed, 33 skipped. Frontend: `tsc -b && vite build` +
+`oxlint` — sem erro, sem warning novo.
+
+**Status:** implementado 2026-10-02. Sem QA visual via Playwright —
+mesma limitação de sempre.
+
+**Rodada 44, correção (mesmo dia) — PATCH também precisava do fix:**
+usuário testando o checklist achou que editar um lançamento existente
+pra ficar idêntico a outro (`PATCH /transacoes/{id}`, `Editar
+Lançamento`) batia no mesmo 409 sem nenhuma saída — o fix original só
+cobria criação. `_com_desambiguacao_de_duplicata()` generalizada pra
+receber a operação (inserir OU atualizar) como função, reusada em
+`atualizar()`; `EditarLancamento.tsx` ganhou o mesmo botão "Lançar
+mesmo assim" de `NovoLancamento.tsx`. Achado também expôs lacuna no
+fake de teste (`tests/fakes.py`): só simulava a constraint UNIQUE em
+`insert`, nunca em `update` — o Postgres real aplica UNIQUE nos dois;
+corrigido pra checar `hash_dedup`/`_UNIQUE_CONSTRAINTS` contra as
+outras linhas também no `update`, excluindo a própria linha. +1 teste
+(editar pra duplicata dá 409 sem forçar, 200 com `forcar_duplicado`).
+Suíte completa: 368 passed, 33 skipped.
+
+**Checklist de teste manual (usuário, localmente):**
+- [x] ~~Lançar uma despesa (ex: assinatura R$14,99 hoje, mesma conta/
+      categoria) e, em seguida, lançar outra IDÊNTICA (mesma data,
+      valor, descrição, conta, tipo) — confirmar que aparece a mensagem
+      de 409 + o botão "Lançar mesmo assim". — confirmado 2026-10-02.~~
+- [x] ~~Clicar em "Lançar mesmo assim" e confirmar que a 2ª transação é
+      criada normalmente (aparece em Lançamentos como um item distinto,
+      não substitui a 1ª). — confirmado 2026-10-02.~~
+- [x] ~~Repetir o mesmo lançamento uma 3ª vez (idêntico à 1ª e à 2ª) e
+      confirmar que "Lançar mesmo assim" continua funcionando (não só
+      na 2ª tentativa). — confirmado 2026-10-02.~~
+- [x] ~~Editar o formulário pra um valor diferente antes de reenviar e
+      confirmar que NÃO aparece o botão "Lançar mesmo assim" (não é
+      mais duplicata) — lança normal, sem 409. — confirmado 2026-10-02
+      em Novo Lançamento. Achado à parte no mesmo teste: EDITAR um
+      lançamento JÁ EXISTENTE (`EditarLancamento.tsx`/`PATCH
+      /transacoes/{id}`) pra ficar idêntico a outro também batia 409,
+      sem o botão — esse caminho não tinha sido coberto pelo fix
+      original. Corrigido no mesmo dia, ver "Rodada 44, correção"
+      abaixo.~~
+- [ ] ~~Tentar o mesmo cenário de duplicata em compra PARCELADA e
+      confirmar que continua dando 409 sem o botão "Lançar mesmo
+      assim" (fora do escopo deste fix, comportamento inalterado).~~
+      **Checklist errado** — reportado 2026-10-02: não deu 409, criou
+      normalmente. Investigado: não é regressão, compra parcelada
+      nunca teve proteção real contra double-submit (hash inclui um id
+      gerado novo a cada chamada). Registrado como item novo (68) no
+      backlog, com causa raiz e proposta de fix — não implementado
+      ainda, fora do escopo desta rodada.
+
+### Rodada 45 (2026-10-02) — Toggle "Ano civil" em Gráficos (item 18)
+
+Pergunta registrada desde 2026-09-16 (Rodada 16.2): o modo "Mês" em
+`/graficos` sempre usou janela trailing de 12 meses (Evolução Mensal +
+Orçado × Realizado) — repensar se ano civil fixo seria mais legível.
+Discussão completa (prós/contras de cada abordagem) e decisão em
+`docs/backlog.md` ("Janela de meses pra trás × ano civil nos
+gráficos") — aqui só o resumo.
+
+**Decisão:** manter trailing 12 meses como padrão (evita gráfico quase
+vazio em janeiro/fevereiro) e adicionar um toggle opt-in pra quem quer
+ano civil sem trocar pro modo Intervalo e digitar jan-dez manualmente.
+
+**Fix:** `Graficos.tsx` ganhou `verAnoCivil` (estado local, não
+persistido — mesma classe de `nivelPareto`, já existente na tela) e um
+segmentado "Últimos 12 meses" / "Ano civil (AAAA)" junto ao seletor de
+período, só no modo "Mês". Troca só `evolucaoInicio`/`evolucaoFim` (os
+2 endpoints que alimentam Evolução Mensal e Orçado × Realizado) — não
+toca em Pareto/despesas por categoria, que já ficam presas ao mês de
+referência. Sem mudança de backend — os endpoints já aceitam qualquer
+intervalo (mesmo contrato do modo Intervalo).
+
+**Status:** implementado 2026-10-02 — só frontend. `tsc -b && vite
+build` + `oxlint` sem erro, sem warning novo. Sem teste automatizado
+novo (troca de janela de busca, sem lógica de cálculo nova). Sem QA
+visual via Playwright — mesma limitação de sempre.
+
+**Checklist de teste manual (usuário, localmente):**
+- [ ] Em Gráficos, modo "Mês", confirmar que o toggle "Últimos 12
+      meses" / "Ano civil (AAAA)" aparece ao lado do seletor de
+      período, com "Últimos 12 meses" selecionado por padrão.
+- [ ] Clicar em "Ano civil" e confirmar que Evolução Mensal e Orçado ×
+      Realizado passam a mostrar jan-dez do ano do mês selecionado
+      (não mais os 12 meses terminando nele).
+- [ ] Confirmar que o Pareto de Despesas (categoria/subcategoria) NÃO
+      muda ao ligar o toggle — continua mostrando só o mês de
+      referência selecionado.
+- [ ] Trocar pro modo "Intervalo" ou "Todos os meses" e confirmar que
+      o toggle desaparece (só existe no modo "Mês").
+- [ ] Selecionar um mês do ano em curso com "Ano civil" ligado e
+      confirmar que meses futuros daquele ano aparecem zerados no
+      gráfico, sem erro.
+
+### Rodada 46 (2026-10-02) — Fix: compra parcelada sem proteção contra double-submit (item 68)
+
+Achado testando o checklist da Rodada 44 (item 5): diferente do
+lançamento avista, uma compra parcelada idêntica nunca dava 409 —
+`hash_dedup` de cada parcela inclui `compra_parcelada_id`, gerado novo
+a cada `POST /transacoes/parceladas`, então 2 submissões idênticas
+(ex: duplo clique) nunca colidem e criam 2 grupos de parcela inteiros
+duplicados, silenciosamente. Oposto do item 35 (que bloqueava demais).
+Detalhe completo em `docs/backlog.md` ("Compra parcelada não tem
+proteção real contra double-submit") — aqui só o resumo.
+
+**Fix:** `_existe_compra_parcelada_igual()` (`backend/app/routers/
+transacoes.py`) checa ANTES de criar o grupo — acha a 1ª parcela
+(sempre existe) com mesma descrição/data/conta do payload, confirma
+valor_total/parcela_total no cabeçalho do grupo dela. Achou → 409, a
+menos que `forcar_duplicado=true` (mesmo flag do item 35, agora também
+em `CompraParceladaCreate`). `NovoLancamento.tsx`: botão "Lançar mesmo
+assim" (do item 35) passou a cobrir o caminho parcelado também.
+
+**Testes:** 2 testes novos. Suíte completa: 370 passed, 33 skipped.
+Frontend: `tsc -b && vite build` + `oxlint` — sem erro, sem warning
+novo.
+
+**Status:** implementado 2026-10-02. Sem QA visual via Playwright —
+mesma limitação de sempre.
+
+**Checklist de teste manual (usuário, localmente):**
+- [ ] Lançar uma compra parcelada (ex: "Celular", R$1200 em 12x) e, em
+      seguida, lançar outra IDÊNTICA (mesma descrição, valor total,
+      parcelas, data da 1ª parcela, conta) — confirmar 409 + botão
+      "Lançar mesmo assim".
+- [ ] Clicar em "Lançar mesmo assim" e confirmar que o 2º grupo de
+      parcelas é criado normalmente (12 parcelas novas, grupo distinto
+      do 1º).
+- [ ] Mudar só o valor total (ou só o nº de parcelas) antes de
+      reenviar e confirmar que NÃO dá 409 — lança normal.
+- [ ] Confirmar que compra parcelada "normal" (sem nenhuma duplicata
+      por perto) continua funcionando sem pedir confirmação nenhuma.

@@ -1,0 +1,883 @@
+import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { Link } from 'react-router-dom'
+import '../components/cabecalhoFixo.css'
+import '../components/forms.css'
+import '../components/crud.css'
+import '../components/estruturaCusto.css'
+import '../components/planejamento.css'
+import { ApiError, apiFetch } from '../lib/api'
+import { formatarMoeda, formatarMoedaCompacta } from '../lib/formatar'
+import { ordenarPorNome } from '../lib/ordenar'
+import { usePlanejamentoMes } from '../lib/PlanejamentoContext'
+import { usePrivacidade } from '../lib/PrivacyContext'
+import type { Bucket, Categoria, Conta, Orcamento, OrcamentoItem, Subcategoria } from '../lib/types'
+
+const BUCKETS: {
+  valor: Bucket
+  rotulo: string
+  cor: string
+  limiteCampo: 'limite_custos_fixos' | 'limite_custos_variaveis' | 'limite_sazonalidades' | 'limite_investimentos'
+}[] = [
+  { valor: 'custos_fixos', rotulo: 'Custos Fixos', cor: 'var(--bucket-fixos)', limiteCampo: 'limite_custos_fixos' },
+  {
+    valor: 'custos_variaveis',
+    rotulo: 'Custos Variáveis',
+    cor: 'var(--bucket-variaveis)',
+    limiteCampo: 'limite_custos_variaveis',
+  },
+  {
+    valor: 'sazonalidades',
+    rotulo: 'Sazonalidades',
+    cor: 'var(--bucket-sazonalidades)',
+    limiteCampo: 'limite_sazonalidades',
+  },
+  {
+    valor: 'investimentos',
+    rotulo: 'Investimentos',
+    cor: 'var(--bucket-investimentos)',
+    limiteCampo: 'limite_investimentos',
+  },
+]
+
+type FormConfig = {
+  receita_base: string
+  percentual_geral: string
+  limite_custos_fixos: string
+  limite_custos_variaveis: string
+  limite_sazonalidades: string
+  limite_investimentos: string
+}
+
+const FORM_CONFIG_PADRAO: FormConfig = {
+  receita_base: '',
+  percentual_geral: '100',
+  limite_custos_fixos: '40',
+  limite_custos_variaveis: '25',
+  limite_sazonalidades: '10',
+  limite_investimentos: '25',
+}
+
+type FormItem = {
+  categoria_id: string
+  subcategoria_id: string
+  nome: string
+  conta_vinculada_id: string
+  orcamento_mensal: string
+}
+
+const FORM_ITEM_VAZIO: FormItem = { categoria_id: '', subcategoria_id: '', nome: '', conta_vinculada_id: '', orcamento_mensal: '' }
+
+/** 'YYYY-MM' menos N meses, sempre 'YYYY-MM' de volta. */
+function mesesAntes(anoMes: string, n: number): string {
+  const [ano, mes] = anoMes.split('-').map(Number)
+  const totalMeses = ano * 12 + (mes - 1) - n
+  const anoResultado = Math.floor(totalMeses / 12)
+  const mesResultado = (totalMeses % 12) + 1
+  return `${anoResultado}-${String(mesResultado).padStart(2, '0')}`
+}
+
+/** Mesma conta de backend/app/services/orcamento_teto.py — teto "puro" em
+ * R$ do bucket, sem somar sobra de envelope de mês anterior. */
+function tetoBucket(
+  orcamento: Orcamento,
+  limiteCampo: 'limite_custos_fixos' | 'limite_custos_variaveis' | 'limite_sazonalidades' | 'limite_investimentos',
+): number {
+  const baseOrcada = (orcamento.receita_base * orcamento.percentual_geral) / 100
+  const limite = orcamento[limiteCampo]
+  return Math.round(((baseOrcada * limite) / 100) * 100) / 100
+}
+
+/** Chave de agrupamento de 1 item — mesma prioridade de sempre
+ * (subcategoria > categoria > conta vinculada > nome livre), só que aqui
+ * devolve a chave do GRUPO (categoria pai, no caso de subcategoria) em
+ * vez do rótulo do próprio item. Compartilhada entre
+ * `agruparItensPorCategoria` (monta os grupos) e `handleSubmitItem`
+ * (expande automaticamente o grupo do item recém-criado). */
+function chaveGrupoItem(item: OrcamentoItem, subcategorias: Subcategoria[]): string {
+  if (item.subcategoria_id) {
+    const sub = subcategorias.find((s) => s.id === item.subcategoria_id)
+    return sub?.categoria_id ?? `sub-orfa-${item.subcategoria_id}`
+  }
+  if (item.categoria_id) return item.categoria_id
+  if (item.conta_vinculada_id) return `conta-${item.conta_vinculada_id}`
+  return `item-${item.id}`
+}
+
+type FolhaPlanejamento = { chave: string; item: OrcamentoItem }
+
+type GrupoCategoriaPlanejamento = {
+  chave: string
+  nome: string
+  orcamentoMensal: number
+  saldoAnterior: number
+  disponivel: number
+  folhas: FolhaPlanejamento[]
+}
+
+/** Agrupa os itens flat de 1 bucket em categoria pai > subcategoria —
+ * mesma ideia de EstruturaCusto.tsx:agruparPorCategoria (bucket >
+ * categoria pai > subcategoria), adaptada aos campos de OrcamentoItem.
+ * Item de subcategoria agrupa pela categoria pai; item só-categoria vira
+ * a folha "Geral" dentro do mesmo grupo (pode coexistir com itens de
+ * subcategoria da mesma categoria — um item de Planejamento pode ter só
+ * a categoria preenchida, sem subcategoria); item de conta vinculada ou
+ * nome livre vira seu próprio grupo de 1 folha só (mesmo padrão do grupo
+ * "conta" de Estrutura de Custo). */
+function agruparItensPorCategoria(
+  itens: OrcamentoItem[],
+  categorias: Categoria[],
+  subcategorias: Subcategoria[],
+  contas: Conta[],
+): GrupoCategoriaPlanejamento[] {
+  const categoriasPorId = new Map(categorias.map((c) => [c.id, c]))
+  const contasPorId = new Map(contas.map((c) => [c.id, c]))
+  const grupos = new Map<string, GrupoCategoriaPlanejamento>()
+
+  function grupo(chave: string, nome: string): GrupoCategoriaPlanejamento {
+    let g = grupos.get(chave)
+    if (!g) {
+      g = { chave, nome, orcamentoMensal: 0, saldoAnterior: 0, disponivel: 0, folhas: [] }
+      grupos.set(chave, g)
+    }
+    return g
+  }
+
+  for (const item of itens) {
+    const chave = chaveGrupoItem(item, subcategorias)
+    let nome: string
+    if (item.subcategoria_id) {
+      const sub = subcategorias.find((s) => s.id === item.subcategoria_id)
+      nome = (sub && categoriasPorId.get(sub.categoria_id)?.nome) ?? 'Categoria removida'
+    } else if (item.categoria_id) {
+      nome = categoriasPorId.get(item.categoria_id)?.nome ?? 'Categoria removida'
+    } else if (item.conta_vinculada_id) {
+      nome = contasPorId.get(item.conta_vinculada_id)?.nome ?? 'Conta removida'
+    } else {
+      nome = item.nome ?? 'Item sem nome'
+    }
+    const g = grupo(chave, nome)
+    g.orcamentoMensal = Math.round((g.orcamentoMensal + item.orcamento_mensal) * 100) / 100
+    g.saldoAnterior = Math.round((g.saldoAnterior + item.saldo_anterior) * 100) / 100
+    g.disponivel = Math.round((g.disponivel + item.disponivel) * 100) / 100
+    g.folhas.push({ chave: item.id, item })
+  }
+
+  return [...grupos.values()].sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'))
+}
+
+/** Rótulo da folha (nível de subcategoria) dentro de um grupo já aberto —
+ * diferente do nome do grupo (categoria pai): item só-categoria vira
+ * "Geral" pra não repetir o nome do grupo que já está no cabeçalho. */
+function rotuloFolha(item: OrcamentoItem, subcategorias: Subcategoria[], contas: Conta[]): string {
+  if (item.subcategoria_id) return subcategorias.find((s) => s.id === item.subcategoria_id)?.nome ?? 'Subcategoria removida'
+  if (item.categoria_id) return 'Geral (sem subcategoria)'
+  if (item.conta_vinculada_id) return contas.find((c) => c.id === item.conta_vinculada_id)?.nome ?? 'Conta removida'
+  return item.nome ?? 'Item sem nome'
+}
+
+function chaveCategoria(bucket: Bucket, chave: string): string {
+  return `${bucket}|${chave}`
+}
+
+/** Mesmo drill-down de Estrutura de Custo: leva pra Busca de Lançamentos já
+ * filtrada por categoria/subcategoria + mês deste item. */
+function linkBusca(mes: string, categoriaId: string | null, subcategoriaId: string | null): string {
+  const params = new URLSearchParams({ mes })
+  if (categoriaId) params.set('categoria_id', categoriaId)
+  if (subcategoriaId) params.set('subcategoria_id', subcategoriaId)
+  return `/lancamentos?${params.toString()}`
+}
+
+export function Planejamento() {
+  const { oculto } = usePrivacidade()
+  const { vigenciaMes, setVigenciaMes } = usePlanejamentoMes()
+  const [orcamentos, setOrcamentos] = useState<Orcamento[] | null>(null)
+  const [itens, setItens] = useState<OrcamentoItem[] | null>(null)
+  const [categorias, setCategorias] = useState<Categoria[]>([])
+  const [subcategorias, setSubcategorias] = useState<Subcategoria[]>([])
+  const [contas, setContas] = useState<Conta[]>([])
+  const [erro, setErro] = useState<string | null>(null)
+
+  const [mostrarFormConfig, setMostrarFormConfig] = useState(false)
+  const [formConfig, setFormConfig] = useState<FormConfig>(FORM_CONFIG_PADRAO)
+  const [itemFormAberto, setItemFormAberto] = useState<Bucket | null>(null)
+  const [itemEditando, setItemEditando] = useState<OrcamentoItem | null>(null)
+  const [formItem, setFormItem] = useState<FormItem>(FORM_ITEM_VAZIO)
+  const [salvando, setSalvando] = useState(false)
+  const [gerandoProximoMes, setGerandoProximoMes] = useState(false)
+  // acordeão de 2 níveis (bucket > categoria pai > subcategoria), mesmo
+  // padrão de Estrutura de Custo — todos os buckets começam abertos
+  // (Planejamento é tela de configuração, diferente do uso de relatório
+  // de Estrutura de Custo, que só abre buckets com lançamento)
+  const [bucketsAbertos, setBucketsAbertos] = useState<Set<Bucket>>(new Set(BUCKETS.map((b) => b.valor)))
+  const [categoriasAbertas, setCategoriasAbertas] = useState<Set<string>>(new Set())
+
+  useEffect(() => {
+    Promise.all([
+      apiFetch<Orcamento[]>('/orcamentos'),
+      apiFetch<Categoria[]>('/categorias'),
+      apiFetch<Subcategoria[]>('/subcategorias'),
+      apiFetch<Conta[]>('/contas'),
+    ])
+      .then(([o, cat, sub, c]) => {
+        setOrcamentos(o)
+        setCategorias(ordenarPorNome(cat.filter((x) => x.ativo)))
+        setSubcategorias(ordenarPorNome(sub.filter((x) => x.ativo)))
+        setContas(ordenarPorNome(c.filter((x) => x.ativo)))
+      })
+      .catch((e) => setErro(e instanceof ApiError ? e.message : 'Falha ao carregar o planejamento'))
+  }, [])
+
+  const orcamentoAtual = useMemo(
+    () => orcamentos?.find((o) => o.vigencia_mes.slice(0, 7) === vigenciaMes) ?? null,
+    [orcamentos, vigenciaMes],
+  )
+  const orcamentoMesAnterior = useMemo(
+    () => orcamentos?.find((o) => o.vigencia_mes.slice(0, 7) === mesesAntes(vigenciaMes, 1)) ?? null,
+    [orcamentos, vigenciaMes],
+  )
+
+  useEffect(() => {
+    if (!orcamentoAtual) {
+      setItens([])
+      return
+    }
+    apiFetch<OrcamentoItem[]>(`/orcamentos/${orcamentoAtual.id}/itens`)
+      .then(setItens)
+      .catch((e) => setErro(e instanceof ApiError ? e.message : 'Falha ao carregar os itens do orçamento'))
+  }, [orcamentoAtual])
+
+  function iniciarCriacaoConfig() {
+    setFormConfig(FORM_CONFIG_PADRAO)
+    setMostrarFormConfig(true)
+    // o form substitui os buckets (não abre embaixo deles), mas sem isso o
+    // scroll da página fica onde estava — se o usuário tinha rolado pra
+    // ver os buckets, a página encolhe e ele cai no fim dela, parecendo
+    // que o form "abriu depois dos buckets" (bug reportado 2026-09-29)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  function iniciarEdicaoConfig() {
+    if (!orcamentoAtual) return
+    setFormConfig({
+      receita_base: String(orcamentoAtual.receita_base),
+      percentual_geral: String(orcamentoAtual.percentual_geral),
+      limite_custos_fixos: String(orcamentoAtual.limite_custos_fixos),
+      limite_custos_variaveis: String(orcamentoAtual.limite_custos_variaveis),
+      limite_sazonalidades: String(orcamentoAtual.limite_sazonalidades),
+      limite_investimentos: String(orcamentoAtual.limite_investimentos),
+    })
+    setMostrarFormConfig(true)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  async function handleSubmitConfig(event: FormEvent) {
+    event.preventDefault()
+    setSalvando(true)
+    setErro(null)
+    try {
+      const payload = {
+        receita_base: Number(formConfig.receita_base) || 0,
+        percentual_geral: Number(formConfig.percentual_geral) || 0,
+        limite_custos_fixos: Number(formConfig.limite_custos_fixos) || 0,
+        limite_custos_variaveis: Number(formConfig.limite_custos_variaveis) || 0,
+        limite_sazonalidades: Number(formConfig.limite_sazonalidades) || 0,
+        limite_investimentos: Number(formConfig.limite_investimentos) || 0,
+      }
+      if (orcamentoAtual) {
+        const atualizado = await apiFetch<Orcamento>(`/orcamentos/${orcamentoAtual.id}`, {
+          method: 'PATCH',
+          body: JSON.stringify(payload),
+        })
+        setOrcamentos((atual) => atual!.map((o) => (o.id === atualizado.id ? atualizado : o)))
+      } else {
+        const criado = await apiFetch<Orcamento>('/orcamentos', {
+          method: 'POST',
+          body: JSON.stringify({ vigencia_mes: `${vigenciaMes}-01`, ...payload }),
+        })
+        setOrcamentos((atual) => [...(atual ?? []), criado])
+      }
+      setMostrarFormConfig(false)
+    } catch (e) {
+      setErro(e instanceof ApiError ? (typeof e.detail === 'string' ? e.detail : e.message) : 'Falha ao salvar orçamento')
+    } finally {
+      setSalvando(false)
+    }
+  }
+
+  async function gerarComRollover(orcamentoOrigemId: string, avancarVigencia: boolean, substituir = false) {
+    setGerandoProximoMes(true)
+    setErro(null)
+    try {
+      const novo = await apiFetch<Orcamento>(
+        `/orcamentos/${orcamentoOrigemId}/proximo-mes${substituir ? '?substituir=true' : ''}`,
+        { method: 'POST' },
+      )
+      setOrcamentos((atual) => [...(atual ?? []).filter((o) => o.vigencia_mes !== novo.vigencia_mes), novo])
+      if (avancarVigencia) setVigenciaMes(novo.vigencia_mes.slice(0, 7))
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 409 && !substituir) {
+        setGerandoProximoMes(false)
+        if (window.confirm('Já existe um orçamento para esse mês. Substituir pelo novo (traz a sobra do envelope)?')) {
+          await gerarComRollover(orcamentoOrigemId, avancarVigencia, true)
+        }
+        return
+      }
+      setErro(e instanceof ApiError ? (typeof e.detail === 'string' ? e.detail : e.message) : 'Falha ao gerar orçamento')
+    } finally {
+      setGerandoProximoMes(false)
+    }
+  }
+
+  async function gerarAPartirDoAnterior() {
+    if (!orcamentoMesAnterior) return
+    await gerarComRollover(orcamentoMesAnterior.id, false)
+  }
+
+  async function gerarProximoMes() {
+    if (!orcamentoAtual) return
+    await gerarComRollover(orcamentoAtual.id, true)
+  }
+
+  function iniciarCriacaoItem(bucket: Bucket) {
+    setFormItem(FORM_ITEM_VAZIO)
+    setItemEditando(null)
+    setItemFormAberto(bucket)
+  }
+
+  function alternarBucket(bucket: Bucket) {
+    setBucketsAbertos((atual) => {
+      const proximo = new Set(atual)
+      if (proximo.has(bucket)) proximo.delete(bucket)
+      else proximo.add(bucket)
+      return proximo
+    })
+  }
+
+  function alternarCategoria(bucket: Bucket, chave: string) {
+    setCategoriasAbertas((atual) => {
+      const proximo = new Set(atual)
+      const chaveCompleta = chaveCategoria(bucket, chave)
+      if (proximo.has(chaveCompleta)) proximo.delete(chaveCompleta)
+      else proximo.add(chaveCompleta)
+      return proximo
+    })
+  }
+
+  function iniciarEdicaoItem(item: OrcamentoItem) {
+    // item de subcategoria vem com categoria_id nulo (os dois são
+    // mutuamente exclusivos, ver orcamento_sync.py) — sem resolver a
+    // categoria pai aqui, o campo Categoria mostra "Nenhuma" e o campo
+    // Subcategoria (que só aparece com uma categoria selecionada) some,
+    // escondendo a subcategoria de verdade que o item já tem
+    const categoriaId = item.categoria_id ?? subcategorias.find((s) => s.id === item.subcategoria_id)?.categoria_id ?? ''
+    setFormItem({
+      categoria_id: categoriaId,
+      subcategoria_id: item.subcategoria_id ?? '',
+      nome: item.nome ?? '',
+      conta_vinculada_id: item.conta_vinculada_id ?? '',
+      orcamento_mensal: String(item.orcamento_mensal),
+    })
+    setItemEditando(item)
+    setItemFormAberto(item.bucket)
+  }
+
+  async function toggleAtivoItem(item: OrcamentoItem) {
+    if (!orcamentoAtual) return
+    try {
+      const atualizado = await apiFetch<OrcamentoItem>(
+        `/orcamentos/${orcamentoAtual.id}/itens/${item.id}/ativo?ativo=${!item.ativo}`,
+        { method: 'PATCH' },
+      )
+      setItens((atual) => atual!.map((i) => (i.id === atualizado.id ? atualizado : i)))
+    } catch (e) {
+      setErro(e instanceof ApiError ? (typeof e.detail === 'string' ? e.detail : e.message) : 'Falha ao atualizar item')
+    }
+  }
+
+  async function handleSubmitItem(event: FormEvent, bucket: Bucket) {
+    event.preventDefault()
+    if (!orcamentoAtual) return
+    setSalvando(true)
+    setErro(null)
+    try {
+      const payload = {
+        bucket,
+        categoria_id: formItem.categoria_id || null,
+        subcategoria_id: formItem.subcategoria_id || null,
+        nome: formItem.nome || null,
+        conta_vinculada_id: formItem.conta_vinculada_id || null,
+        orcamento_mensal: Number(formItem.orcamento_mensal) || 0,
+      }
+      if (itemEditando) {
+        const atualizado = await apiFetch<OrcamentoItem>(`/orcamentos/${orcamentoAtual.id}/itens/${itemEditando.id}`, {
+          method: 'PATCH',
+          body: JSON.stringify(payload),
+        })
+        setItens((atual) => atual!.map((i) => (i.id === atualizado.id ? atualizado : i)))
+      } else {
+        const criado = await apiFetch<OrcamentoItem>(`/orcamentos/${orcamentoAtual.id}/itens`, {
+          method: 'POST',
+          body: JSON.stringify(payload),
+        })
+        setItens((atual) => [...(atual ?? []), criado])
+        // sem isso, o item recém-criado nasce dentro de um grupo de
+        // categoria ainda fechado (categoriasAbertas não sabia dele) —
+        // some da vista até o usuário abrir manualmente
+        setCategoriasAbertas((atual) => new Set(atual).add(chaveCategoria(bucket, chaveGrupoItem(criado, subcategorias))))
+      }
+      setItemFormAberto(null)
+    } catch (e) {
+      setErro(e instanceof ApiError ? (typeof e.detail === 'string' ? e.detail : e.message) : 'Falha ao salvar item')
+    } finally {
+      setSalvando(false)
+    }
+  }
+
+  const somaLimites = orcamentoAtual ? BUCKETS.reduce((soma, b) => soma + orcamentoAtual[b.limiteCampo], 0) : 0
+  const disponivelMensal = orcamentoAtual ? (orcamentoAtual.receita_base * orcamentoAtual.percentual_geral) / 100 : 0
+
+  const resumoBuckets = orcamentoAtual
+    ? BUCKETS.map((b) => {
+        const teto = tetoBucket(orcamentoAtual, b.limiteCampo)
+        const somaAlocada = (itens ?? [])
+          .filter((i) => i.bucket === b.valor && i.ativo)
+          .reduce((soma, i) => soma + i.orcamento_mensal, 0)
+        const percentualUso = teto > 0 ? Math.min(100, (somaAlocada / teto) * 100) : 0
+        const estourou = somaAlocada > teto + 0.005
+        return { ...b, teto, somaAlocada, percentualUso, estourou }
+      })
+    : []
+
+  return (
+    <div className="planejamento">
+      <div style={{ marginBottom: 12 }}>
+        <h1 style={{ fontSize: 22, marginTop: 0, marginBottom: 4 }}>Planejamento</h1>
+        <p className="planejamento-resumo" style={{ margin: 0 }}>
+          Defina os valores-alvo do orçamento — a leitura do que foi de fato gasto fica na Estrutura de Custo.
+        </p>
+      </div>
+
+      <div className="cabecalho-fixo cabecalho-fixo-card">
+        <div className="cabecalho-fixo-linha">
+          <button
+            type="button"
+            className="botao-secundario"
+            onClick={() => setVigenciaMes(mesesAntes(vigenciaMes, 1))}
+            title="Mês anterior"
+            aria-label="Mês anterior"
+          >
+            ←
+          </button>
+          <label className="campo" style={{ maxWidth: 180, margin: 0 }}>
+            Mês
+            <input type="month" value={vigenciaMes} onChange={(e) => setVigenciaMes(e.target.value)} />
+          </label>
+          <button
+            type="button"
+            className="botao-secundario"
+            onClick={() => setVigenciaMes(mesesAntes(vigenciaMes, -1))}
+            title="Próximo mês"
+            aria-label="Próximo mês"
+          >
+            →
+          </button>
+        </div>
+        {resumoBuckets.length > 0 && (
+          <div className="cabecalho-fixo-grid cabecalho-fixo-grid-4">
+            {resumoBuckets.map((b) => (
+              <div className="cabecalho-fixo-stat" key={b.valor}>
+                <div className="cabecalho-fixo-stat-rotulo">{b.rotulo}</div>
+                <div className="cabecalho-fixo-barra">
+                  <div
+                    className={`cabecalho-fixo-barra-fill${b.estourou ? ' estourou' : ''}`}
+                    style={{ width: `${b.percentualUso}%` }}
+                  />
+                </div>
+                <div className="cabecalho-fixo-stat-valor compacto">
+                  {formatarMoedaCompacta(b.somaAlocada, oculto)}/{formatarMoedaCompacta(b.teto, oculto)}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {erro && <p className="mensagem-erro">{erro}</p>}
+
+      {orcamentos === null && <p>Carregando…</p>}
+
+      {orcamentos !== null && !orcamentoAtual && !mostrarFormConfig && (
+        <div style={{ marginTop: 16 }}>
+          <p>Nenhum orçamento configurado para este mês.</p>
+          <div className="form-acoes">
+            {orcamentoMesAnterior && (
+              <button type="button" className="botao-primario" onClick={gerarAPartirDoAnterior} disabled={gerandoProximoMes}>
+                {gerandoProximoMes ? 'Gerando…' : `Gerar a partir de ${mesesAntes(vigenciaMes, 1)} (traz a sobra do envelope)`}
+              </button>
+            )}
+            <button type="button" className="botao-secundario" onClick={iniciarCriacaoConfig}>
+              Criar do zero
+            </button>
+          </div>
+        </div>
+      )}
+
+      {mostrarFormConfig && (
+        <form className="form" onSubmit={handleSubmitConfig} style={{ marginTop: 16, marginBottom: 20, maxWidth: 560 }}>
+          <div className="campo-linha">
+            <label className="campo">
+              Renda base (R$)
+              <input
+                type="number"
+                min={0}
+                step="0.01"
+                required
+                value={formConfig.receita_base}
+                onChange={(e) => setFormConfig({ ...formConfig, receita_base: e.target.value })}
+              />
+            </label>
+            <label className="campo">
+              % destinado ao orçamento
+              <input
+                type="number"
+                min={0}
+                max={100}
+                step="0.1"
+                required
+                value={formConfig.percentual_geral}
+                onChange={(e) => setFormConfig({ ...formConfig, percentual_geral: e.target.value })}
+              />
+            </label>
+          </div>
+          <div className="campo-linha">
+            <label className="campo">
+              Limite Fixos (%)
+              <input
+                type="number"
+                min={0}
+                max={100}
+                step="0.1"
+                required
+                value={formConfig.limite_custos_fixos}
+                onChange={(e) => setFormConfig({ ...formConfig, limite_custos_fixos: e.target.value })}
+              />
+            </label>
+            <label className="campo">
+              Limite Variáveis (%)
+              <input
+                type="number"
+                min={0}
+                max={100}
+                step="0.1"
+                required
+                value={formConfig.limite_custos_variaveis}
+                onChange={(e) => setFormConfig({ ...formConfig, limite_custos_variaveis: e.target.value })}
+              />
+            </label>
+          </div>
+          <div className="campo-linha">
+            <label className="campo">
+              Limite Sazonalidades (%)
+              <input
+                type="number"
+                min={0}
+                max={100}
+                step="0.1"
+                required
+                value={formConfig.limite_sazonalidades}
+                onChange={(e) => setFormConfig({ ...formConfig, limite_sazonalidades: e.target.value })}
+              />
+            </label>
+            <label className="campo">
+              Limite Investimentos (%)
+              <input
+                type="number"
+                min={0}
+                max={100}
+                step="0.1"
+                required
+                value={formConfig.limite_investimentos}
+                onChange={(e) => setFormConfig({ ...formConfig, limite_investimentos: e.target.value })}
+              />
+            </label>
+          </div>
+          <div className="form-acoes">
+            <button type="submit" className="botao-primario" disabled={salvando}>
+              {salvando ? 'Salvando…' : orcamentoAtual ? 'Salvar alterações' : 'Criar orçamento'}
+            </button>
+            <button type="button" className="botao-secundario" onClick={() => setMostrarFormConfig(false)}>
+              Cancelar
+            </button>
+          </div>
+        </form>
+      )}
+
+      {orcamentoAtual && !mostrarFormConfig && (
+        <>
+          <div className="planejamento-config-resumo">
+            <p className="planejamento-resumo" style={{ margin: 0 }}>
+              Renda base {formatarMoeda(orcamentoAtual.receita_base, oculto)} · {orcamentoAtual.percentual_geral}%
+              destinado ao orçamento · disponível mensal {formatarMoeda(disponivelMensal, oculto)}
+            </p>
+            <button type="button" className="botao-secundario" onClick={iniciarEdicaoConfig}>
+              Editar configuração
+            </button>
+          </div>
+
+          <div className="planejamento-alocacao">
+            <div className="planejamento-alocacao-cabecalho">
+              <strong>Alocação total dos buckets</strong>
+              <span className={somaLimites > 100 ? 'planejamento-estouro' : undefined}>
+                {somaLimites.toFixed(0)}% de 100%{somaLimites > 100 && ' — acima de 100%'}
+              </span>
+            </div>
+            <div className={`planejamento-alocacao-barra${somaLimites > 100 ? ' planejamento-alocacao-barra-estourada' : ''}`}>
+              {BUCKETS.map(
+                (b) =>
+                  orcamentoAtual[b.limiteCampo] > 0 && (
+                    <div
+                      key={b.valor}
+                      className="planejamento-alocacao-segmento"
+                      style={{ width: `${(orcamentoAtual[b.limiteCampo] / Math.max(somaLimites, 100)) * 100}%`, background: b.cor }}
+                      title={`${b.rotulo}: ${orcamentoAtual[b.limiteCampo]}%`}
+                    />
+                  ),
+              )}
+            </div>
+            <div className="planejamento-alocacao-legenda">
+              {BUCKETS.map((b) => (
+                <span key={b.valor} className="planejamento-alocacao-legenda-item">
+                  <span className="planejamento-swatch" style={{ background: b.cor }} /> {b.rotulo}{' '}
+                  {orcamentoAtual[b.limiteCampo]}%
+                </span>
+              ))}
+              {somaLimites < 100 && <span>{(100 - somaLimites).toFixed(0)}% ainda não alocado</span>}
+              {somaLimites > 100 && (
+                <span className="planejamento-estouro">
+                  {(somaLimites - 100).toFixed(0)}% acima de 100% — reduza o limite de algum bucket
+                </span>
+              )}
+            </div>
+          </div>
+
+          <div className="planejamento-buckets">
+            <div className="planejamento-cabecalho-colunas">
+              <span>Bucket / categoria / item</span>
+              <span>Orçado</span>
+              <span>Sobra</span>
+              <span>Disponível</span>
+              <span></span>
+            </div>
+            {BUCKETS.map((b) => {
+              const itensDoBucket = (itens ?? []).filter((i) => i.bucket === b.valor)
+              const itensAtivos = itensDoBucket.filter((i) => i.ativo)
+              const teto = tetoBucket(orcamentoAtual, b.limiteCampo)
+              const somaAlocada = itensAtivos.reduce((soma, i) => soma + i.orcamento_mensal, 0)
+              const percentualUso = teto > 0 ? Math.min(100, (somaAlocada / teto) * 100) : 0
+              const estourou = somaAlocada > teto + 0.005
+              const categoriasDoBucket = categorias.filter((c) =>
+                b.valor === 'investimentos' ? c.tipo === 'investimento' : c.tipo === 'despesa',
+              )
+              const subcategoriasDaCategoria = subcategorias.filter((s) => s.categoria_id === formItem.categoria_id)
+              const aberto = bucketsAbertos.has(b.valor)
+              const grupos = agruparItensPorCategoria(itensDoBucket, categorias, subcategorias, contas)
+
+              return (
+                <div key={b.valor} className={`estrutura-custo-bucket${aberto ? ' aberto' : ''}`}>
+                  <button
+                    type="button"
+                    className="estrutura-custo-bucket-cabecalho"
+                    onClick={() => alternarBucket(b.valor)}
+                    aria-expanded={aberto}
+                  >
+                    <span className="estrutura-custo-seta" aria-hidden="true">
+                      ▶
+                    </span>
+                    <span className="estrutura-custo-cor" style={{ background: b.cor }} />
+                    <span className="estrutura-custo-bucket-nome">{b.rotulo}</span>
+                    <span className="estrutura-custo-bucket-valores">
+                      <span style={estourou ? { color: 'var(--cor-perigo)' } : undefined}>
+                        {formatarMoeda(somaAlocada, oculto)} de {formatarMoeda(teto, oculto)} · limite{' '}
+                        {orcamentoAtual[b.limiteCampo]}%{estourou && ' — acima do teto'}
+                      </span>
+                    </span>
+                  </button>
+                  <div className="planejamento-progresso">
+                    <div
+                      className="planejamento-progresso-fill"
+                      style={{ width: `${percentualUso}%`, background: estourou ? 'var(--cor-perigo)' : b.cor }}
+                    />
+                  </div>
+
+                  {aberto && (
+                    <>
+                      {grupos.length === 0 && <p className="estrutura-custo-vazio">Nenhum item ainda.</p>}
+                      {grupos.length > 0 && (
+                        <div className="estrutura-custo-categoria-lista">
+                          {grupos.map((g) => {
+                            const categoriaAberta = categoriasAbertas.has(chaveCategoria(b.valor, g.chave))
+                            return (
+                              <div key={g.chave}>
+                                <button
+                                  type="button"
+                                  className="estrutura-custo-categoria-linha"
+                                  onClick={() => alternarCategoria(b.valor, g.chave)}
+                                  aria-expanded={categoriaAberta}
+                                >
+                                  <span className="estrutura-custo-seta" aria-hidden="true">
+                                    ▶
+                                  </span>
+                                  <span className="estrutura-custo-categoria-nome">{g.nome}</span>
+                                  <span className="estrutura-custo-categoria-valores">
+                                    <span>{formatarMoeda(g.orcamentoMensal, oculto)}</span>
+                                    <span>{formatarMoeda(g.disponivel, oculto)}</span>
+                                  </span>
+                                </button>
+                                {categoriaAberta &&
+                                  g.folhas.map((f) => (
+                                    <div key={f.chave} className={`planejamento-sub-linha${f.item.ativo ? '' : ' inativo'}`}>
+                                      <span className="planejamento-sub-linha-nome">
+                                        {rotuloFolha(f.item, subcategorias, contas)}
+                                        {!f.item.ativo && ' — inativo'}
+                                      </span>
+                                      <span className="col-orcado">
+                                        <span className="rotulo-inline">Orçado</span>
+                                        {formatarMoeda(f.item.orcamento_mensal, oculto)}
+                                      </span>
+                                      <span className="col-sobra">
+                                        <span className="rotulo-inline">Sobra</span>
+                                        {f.item.saldo_anterior !== 0 ? formatarMoeda(f.item.saldo_anterior, oculto) : '—'}
+                                      </span>
+                                      <span className="col-disponivel">
+                                        <span className="rotulo-inline">Disponível</span>
+                                        {f.item.saldo_anterior !== 0 ? formatarMoeda(f.item.disponivel, oculto) : '—'}
+                                      </span>
+                                      <span className="planejamento-sub-linha-acoes">
+                                        {(f.item.categoria_id || f.item.subcategoria_id) && (
+                                          <Link
+                                            className="estrutura-custo-ir-busca"
+                                            to={linkBusca(vigenciaMes, f.item.categoria_id, f.item.subcategoria_id)}
+                                            title="Ver em Busca de Lançamentos"
+                                          >
+                                            →
+                                          </Link>
+                                        )}
+                                        <button type="button" className="botao-link" onClick={() => iniciarEdicaoItem(f.item)}>
+                                          Editar
+                                        </button>
+                                        <button type="button" className="botao-link" onClick={() => toggleAtivoItem(f.item)}>
+                                          {f.item.ativo ? 'Desativar' : 'Reativar'}
+                                        </button>
+                                      </span>
+                                    </div>
+                                  ))}
+                              </div>
+                            )
+                          })}
+                        </div>
+                      )}
+
+                      <div style={{ padding: '12px 14px 14px 30px' }}>
+                        {itemFormAberto === b.valor ? (
+                          <form className="form" onSubmit={(e) => handleSubmitItem(e, b.valor)}>
+                            <div className="campo-linha">
+                              <label className="campo">
+                                Categoria
+                                <select
+                                  value={formItem.categoria_id}
+                                  onChange={(e) => setFormItem({ ...formItem, categoria_id: e.target.value, subcategoria_id: '' })}
+                                >
+                                  <option value="">Nenhuma</option>
+                                  {categoriasDoBucket.map((c) => (
+                                    <option key={c.id} value={c.id}>
+                                      {c.nome}
+                                    </option>
+                                  ))}
+                                </select>
+                              </label>
+                              {formItem.categoria_id && (
+                                <label className="campo">
+                                  Subcategoria
+                                  <select
+                                    value={formItem.subcategoria_id}
+                                    onChange={(e) => setFormItem({ ...formItem, subcategoria_id: e.target.value })}
+                                  >
+                                    <option value="">Nenhuma</option>
+                                    {subcategoriasDaCategoria.map((s) => (
+                                      <option key={s.id} value={s.id}>
+                                        {s.nome}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </label>
+                              )}
+                            </div>
+                            <div className="campo-linha">
+                              <label className="campo">
+                                Nome livre
+                                <input
+                                  type="text"
+                                  placeholder="usado se não tiver categoria"
+                                  value={formItem.nome}
+                                  onChange={(e) => setFormItem({ ...formItem, nome: e.target.value })}
+                                />
+                              </label>
+                              {b.valor === 'investimentos' && (
+                                <label className="campo">
+                                  Conta vinculada
+                                  <select
+                                    value={formItem.conta_vinculada_id}
+                                    onChange={(e) => setFormItem({ ...formItem, conta_vinculada_id: e.target.value })}
+                                  >
+                                    <option value="">Nenhuma</option>
+                                    {contas.map((c) => (
+                                      <option key={c.id} value={c.id}>
+                                        {c.nome}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </label>
+                              )}
+                            </div>
+                            <label className="campo" style={{ maxWidth: 200 }}>
+                              Valor mensal (R$)
+                              <input
+                                type="number"
+                                min={0}
+                                step="0.01"
+                                required
+                                value={formItem.orcamento_mensal}
+                                onChange={(e) => setFormItem({ ...formItem, orcamento_mensal: e.target.value })}
+                              />
+                            </label>
+                            <div className="form-acoes">
+                              <button type="submit" className="botao-primario" disabled={salvando}>
+                                {salvando ? 'Salvando…' : itemEditando ? 'Salvar alterações' : 'Criar item'}
+                              </button>
+                              <button type="button" className="botao-secundario" onClick={() => setItemFormAberto(null)}>
+                                Cancelar
+                              </button>
+                            </div>
+                          </form>
+                        ) : (
+                          <button type="button" className="botao-link" onClick={() => iniciarCriacaoItem(b.valor)}>
+                            + Novo item
+                          </button>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+
+          <button type="button" className="botao-secundario" onClick={gerarProximoMes} disabled={gerandoProximoMes}>
+            {gerandoProximoMes ? 'Gerando…' : `Gerar orçamento de ${mesesAntes(vigenciaMes, -1)} (leva a sobra do envelope)`}
+          </button>
+        </>
+      )}
+    </div>
+  )
+}

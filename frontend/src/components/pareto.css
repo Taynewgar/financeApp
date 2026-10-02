@@ -1,0 +1,75 @@
+.pareto {
+  --pareto-cor: var(--serie-despesas, #eb6834);
+  overflow-x: auto;
+}
+
+@media (prefers-color-scheme: dark) {
+  .pareto {
+    --pareto-cor: #d95926;
+  }
+}
+
+.pareto-tabela {
+  width: 100%;
+  min-width: 360px;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.pareto-tabela th,
+.pareto-tabela td {
+  text-align: left;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--cor-borda);
+}
+
+.pareto-tabela th {
+  color: var(--cor-texto-suave);
+  font-weight: 500;
+  font-size: 12px;
+}
+
+.pareto-col-numerica {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* barra atrás do nome, escalada pelo maior valor da lista — compara
+ * magnitude entre linhas, não composição de um todo */
+.pareto-barra-trilho {
+  position: relative;
+  min-width: 160px;
+}
+
+.pareto-barra {
+  position: absolute;
+  inset: -3px 0;
+  background: color-mix(in srgb, var(--pareto-cor) 18%, transparent);
+  border-radius: 3px;
+}
+
+.pareto-nome {
+  position: relative;
+  font-weight: 500;
+}
+
+/* linhas depois do corte de 80% acumulado — "muitos triviais", tom
+ * reduzido (mesma cor, menos ênfase) em vez de cor nova */
+.pareto-linha-fora {
+  opacity: 0.55;
+}
+
+.pareto-linha-fora .pareto-barra {
+  background: color-mix(in srgb, var(--cor-texto-suave) 16%, transparent);
+}
+
+.pareto-linha-corte td {
+  padding: 4px 10px;
+  border-bottom: 1px dashed var(--cor-borda);
+  font-size: 11px;
+  color: var(--cor-texto-suave);
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}

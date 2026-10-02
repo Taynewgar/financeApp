@@ -1,0 +1,344 @@
+/* Mesma paleta categórica de Planejamento — ordem fixa por bucket, nunca
+ * muda com o valor. Reservas/sem-estrutura não têm teto/piso (só
+ * informativo), por isso usam tons neutros em vez de cor própria. */
+.estrutura-custo {
+  --bucket-fixos: #2a78d6;
+  --bucket-variaveis: #eb6834;
+  --bucket-sazonalidades: #4a3aa7;
+  --bucket-investimentos: #1baf7a;
+  --bucket-reservas: #8a8a86;
+  --bucket-sem-estrutura: #b3261e;
+}
+
+@media (prefers-color-scheme: dark) {
+  .estrutura-custo {
+    --bucket-fixos: #3987e5;
+    --bucket-variaveis: #d95926;
+    --bucket-sazonalidades: #9085e9;
+    --bucket-investimentos: #199e70;
+    --bucket-reservas: #9a9a96;
+    --bucket-sem-estrutura: #e05a52;
+  }
+}
+
+.estrutura-custo-resumo {
+  color: var(--cor-texto-suave);
+  font-size: 13px;
+  margin: 4px 0 16px;
+}
+
+.estrutura-custo-aviso-sem-orcamento {
+  background: var(--cor-superficie);
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio);
+  padding: 10px 12px;
+  font-size: 13px;
+  color: var(--cor-texto-suave);
+  margin-bottom: 16px;
+}
+
+.estrutura-custo-aviso-sem-orcamento a {
+  color: var(--cor-acento);
+}
+
+.estrutura-custo-veredito {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+}
+
+.estrutura-custo-veredito-item {
+  flex: 1;
+  min-width: 220px;
+  background: var(--cor-superficie);
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio);
+  padding: 10px 12px;
+  font-size: 13px;
+}
+
+.estrutura-custo-veredito-item strong {
+  display: block;
+  font-size: 14px;
+  margin-bottom: 2px;
+}
+
+.estrutura-custo-veredito-item.dentro strong { color: var(--cor-sucesso); }
+.estrutura-custo-veredito-item.fora strong { color: var(--cor-perigo); }
+
+/* 1 cabeçalho por bucket (não 1 só pra tela inteira) desde a Rodada 42 —
+ * Reservas usa colunas diferentes das demais (ver .reservas abaixo), um
+ * cabeçalho único no topo da página não daria pra rotular os dois ao
+ * mesmo tempo. */
+.estrutura-custo-cabecalho-colunas {
+  display: grid;
+  grid-template-columns: 1fr 140px 100px 100px 90px 26px;
+  gap: 10px;
+  padding: 8px 14px 6px 48px;
+  font-size: 11px;
+  color: var(--cor-texto-suave);
+  text-transform: uppercase;
+  letter-spacing: .03em;
+  border-top: 1px solid var(--cor-borda);
+}
+
+.estrutura-custo-cabecalho-colunas span:not(:first-child) { text-align: right; }
+.estrutura-custo-cabecalho-colunas span:nth-child(5) { text-align: center; }
+.estrutura-custo-cabecalho-colunas span:last-child { text-align: center; }
+
+/* bucket Reservas é só informativo — sem orçado real, então sem as
+ * colunas Diferença/Status (nada pra comparar); grid mais estreita, só
+ * Saldo acumulado + Aportado no mês. */
+.estrutura-custo-cabecalho-colunas.reservas,
+.estrutura-custo-sub-linha.reservas {
+  grid-template-columns: 1fr 140px 140px 26px;
+}
+
+.estrutura-custo-badge-informativo {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .03em;
+  padding: 2px 8px;
+  margin-left: 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--bucket-reservas) 22%, transparent);
+  color: var(--cor-texto-suave);
+}
+
+.estrutura-custo-bucket {
+  background: var(--cor-superficie);
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio);
+  margin-bottom: 10px;
+  overflow: hidden;
+}
+
+.estrutura-custo-bucket-cabecalho {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  cursor: pointer;
+  user-select: none;
+  border: none;
+  background: none;
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+}
+
+.estrutura-custo-cor {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.estrutura-custo-bucket-nome {
+  font-weight: 700;
+  font-size: 14px;
+  flex: 1;
+}
+
+.estrutura-custo-bucket-valores {
+  display: flex;
+  gap: 16px;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.rotulo-inline {
+  color: var(--cor-texto-suave);
+  font-weight: 400;
+  margin-right: 4px;
+}
+
+/* nas linhas de item (col-num), o rótulo só aparece no mobile — no
+ * desktop o cabeçalho de coluna (Orçado/Realizado/Diferença) já diz o
+ * que é cada número, repetir em toda linha seria ruído visual */
+.estrutura-custo-sub-linha .rotulo-inline {
+  display: none;
+}
+
+.estrutura-custo-seta {
+  font-size: 11px;
+  color: var(--cor-texto-suave);
+  transition: transform 0.15s ease;
+  width: 14px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.estrutura-custo-bucket.aberto > .estrutura-custo-bucket-cabecalho .estrutura-custo-seta {
+  transform: rotate(90deg);
+}
+
+.estrutura-custo-categoria-linha[aria-expanded='true'] .estrutura-custo-seta {
+  transform: rotate(90deg);
+}
+
+.estrutura-custo-categoria-lista {
+  border-top: 1px solid var(--cor-borda);
+}
+
+.estrutura-custo-categoria-linha {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px 10px 30px;
+  cursor: pointer;
+  user-select: none;
+  border: none;
+  border-top: 1px solid var(--cor-borda);
+  background: none;
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+}
+
+.estrutura-custo-categoria-linha:first-child { border-top: none; }
+
+.estrutura-custo-categoria-nome {
+  font-weight: 600;
+  font-size: 13.5px;
+  flex: 1;
+}
+
+.estrutura-custo-categoria-valores {
+  display: flex;
+  gap: 16px;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  color: var(--cor-texto-suave);
+}
+
+.estrutura-custo-sub-linha {
+  display: grid;
+  grid-template-columns: 1fr 140px 100px 100px 90px 26px;
+  gap: 10px;
+  align-items: center;
+  padding: 12px 14px 12px 50px;
+  border-top: 1px solid var(--cor-borda);
+  font-size: 13px;
+  background: color-mix(in srgb, var(--cor-fundo) 55%, transparent);
+}
+
+.estrutura-custo-sub-linha .col-num { text-align: right; font-variant-numeric: tabular-nums; }
+
+/* linha 2 do "Orçado" quando há sobra/furo do mês anterior — mostra o
+ * que foi planejado + a sobra rolada, separado do total combinado. */
+.estrutura-custo-detalhe-sobra {
+  display: block;
+  margin-top: 3px;
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.3;
+  color: var(--cor-texto-suave);
+  white-space: normal;
+  overflow-wrap: break-word;
+}
+.estrutura-custo-sub-linha .col-status { text-align: center; }
+.estrutura-custo-sub-linha .col-ir { text-align: center; }
+
+.estrutura-custo-badge {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+
+.estrutura-custo-badge.dentro {
+  background: color-mix(in srgb, var(--cor-sucesso) 16%, transparent);
+  color: var(--cor-sucesso);
+}
+
+.estrutura-custo-badge.excedido {
+  background: color-mix(in srgb, var(--cor-perigo) 16%, transparent);
+  color: var(--cor-perigo);
+}
+
+.estrutura-custo-ir-busca {
+  color: var(--cor-acento);
+  text-decoration: none;
+  font-size: 14px;
+}
+
+.estrutura-custo-vazio {
+  padding: 14px;
+  font-size: 13px;
+  color: var(--cor-texto-suave);
+}
+
+/* mesmo breakpoint do AppShell (720px, onde a navegação vira barra
+ * inferior) — não um valor próprio (480px, como era até a Rodada 25.1):
+ * um tablet estreito em modo retrato (ex: 600px) já usa a casca mobile,
+ * mas ainda caía na grade "desktop" daqui, com colunas fixas de até
+ * 140px que não cabiam nem nesse meio-termo. Unificar no mesmo
+ * breakpoint elimina essa zona intermediária quebrada. */
+@media (max-width: 720px) {
+  /* linhas de item: a grade de colunas fixas (140/100/100/90/26px) nunca
+   * cabe numa tela de celular — mesmo a versão "encolhida" (100/80/60px)
+   * ainda estourava a largura, cortando números no fim da tela (bug
+   * reportado 2026-09-24 e de novo 2026-09-25, com prints do app real).
+   * Causa: colunas de largura fixa em px, mais o texto do nome (1ª
+   * coluna) que não tem como encolher além do próprio conteúdo — a soma
+   * sempre passa da largura da tela em algum breakpoint. Troca de grid
+   * por flex-wrap: nome ocupa a linha inteira, os valores (agora com
+   * rótulo — Orçado/Realizado/Diferença — já que o cabeçalho de coluna
+   * fica escondido) fluem numa 2ª linha e quebram entre si se precisar,
+   * em vez de vazar pra fora do card. */
+  .estrutura-custo-sub-linha {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    row-gap: 6px;
+    column-gap: 14px;
+  }
+
+  .estrutura-custo-sub-linha-nome {
+    flex: 1 1 100%;
+  }
+
+  .estrutura-custo-sub-linha .col-num,
+  .estrutura-custo-sub-linha .col-status,
+  .estrutura-custo-sub-linha .col-ir {
+    text-align: left;
+  }
+
+  .estrutura-custo-sub-linha .rotulo-inline {
+    display: inline;
+  }
+
+  /* cabeçalho de coluna era só decorativo mesmo no desktop (cada linha
+   * já rotula os valores) — sem espaço pra ele no mobile. */
+  .estrutura-custo-cabecalho-colunas {
+    display: none;
+  }
+
+  /* cabeçalho de bucket/categoria: nome numa linha, valores embaixo — sem
+   * isso "Orçado R$ x Realizado R$ y" estoura a largura em tela estreita */
+  .estrutura-custo-bucket-cabecalho,
+  .estrutura-custo-categoria-linha {
+    flex-wrap: wrap;
+  }
+
+  .estrutura-custo-bucket-valores {
+    width: 100%;
+    justify-content: space-between;
+    margin-left: 24px;
+    gap: 8px;
+  }
+
+  .estrutura-custo-categoria-valores {
+    width: 100%;
+    justify-content: space-between;
+    margin-left: 24px;
+    gap: 8px;
+  }
+}

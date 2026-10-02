@@ -1,0 +1,1561 @@
+from .conftest import OUTRO_USUARIO
+
+
+def _criar_conta_cartao(client, dia_fechamento=8):
+    return client.post(
+        "/contas",
+        json={"nome": "Cartão", "tipo_conta": "cartao_credito", "dia_fechamento": dia_fechamento},
+    ).json()
+
+
+def _criar_conta_corrente(client):
+    return client.post(
+        "/contas", json={"nome": "Conta Corrente", "tipo_conta": "corrente", "saldo_inicial": 0}
+    ).json()
+
+
+def test_despesa_no_cartao_calcula_fatura_por_ciclo(client):
+    cartao = _criar_conta_cartao(client, dia_fechamento=8)
+    categoria = client.post("/categorias", json={"nome": "Categoria Teste"}).json()
+
+    resposta = client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-08-05",
+            "valor": 89.90,
+            "tipo_movimento": "despesa",
+            "conta_id": cartao["id"],
+            "categoria_id": categoria["id"],
+            "estrutura_custo": "variavel",
+            "meio_pagamento": "cartao_credito",
+        },
+    )
+    assert resposta.status_code == 201
+    transacao = resposta.json()
+    assert transacao["fatura_referencia"] == "2026-08-08"
+    assert transacao["fatura_override"] is False
+
+
+def test_receita_em_conta_corrente_nao_tem_fatura(client):
+    conta = _criar_conta_corrente(client)
+
+    resposta = client.post(
+        "/transacoes",
+        json={"data_compra": "2026-08-01", "valor": 3000, "tipo_movimento": "receita", "conta_id": conta["id"]},
+    )
+    assert resposta.status_code == 201
+    assert resposta.json()["fatura_referencia"] is None
+
+
+def test_transacao_com_conta_de_outro_usuario_retorna_404(client, current_user):
+    cartao = _criar_conta_cartao(client)
+
+    current_user["id"] = OUTRO_USUARIO
+    resposta = client.post(
+        "/transacoes",
+        json={"data_compra": "2026-08-05", "valor": 10, "tipo_movimento": "despesa", "conta_id": cartao["id"]},
+    )
+    assert resposta.status_code == 404
+
+
+def test_transacao_identica_repetida_retorna_409(client):
+    cartao = _criar_conta_cartao(client)
+    categoria = client.post("/categorias", json={"nome": "Categoria Teste"}).json()
+    payload = {
+        "data_compra": "2026-08-05",
+        "valor": 50,
+        "tipo_movimento": "despesa",
+        "conta_id": cartao["id"],
+        "descricao": "Mesma compra",
+        "categoria_id": categoria["id"],
+        "estrutura_custo": "variavel",
+        "meio_pagamento": "cartao_credito",
+    }
+
+    primeira = client.post("/transacoes", json=payload)
+    assert primeira.status_code == 201
+
+    repetida = client.post("/transacoes", json=payload)
+    assert repetida.status_code == 409
+
+
+def test_transacao_identica_com_forcar_duplicado_e_aceita(client):
+    """hash_dedup existe pra pegar double-submit acidental, mas também
+    bloqueava 2 transações reais e diferentes que coincidem em data/
+    valor/descrição/conta/tipo (achado 2026-09-25 migrando dados reais —
+    ex: 2 assinaturas iguais cobradas no mesmo dia). `forcar_duplicado`
+    deixa o usuário confirmar que não é double-submit."""
+    cartao = _criar_conta_cartao(client)
+    categoria = client.post("/categorias", json={"nome": "Categoria Teste"}).json()
+    payload = {
+        "data_compra": "2026-08-05",
+        "valor": 50,
+        "tipo_movimento": "despesa",
+        "conta_id": cartao["id"],
+        "descricao": "Mesma compra",
+        "categoria_id": categoria["id"],
+        "estrutura_custo": "variavel",
+        "meio_pagamento": "cartao_credito",
+    }
+
+    primeira = client.post("/transacoes", json=payload)
+    assert primeira.status_code == 201
+
+    sem_forcar = client.post("/transacoes", json=payload)
+    assert sem_forcar.status_code == 409
+
+    com_forcar = client.post("/transacoes", json={**payload, "forcar_duplicado": True})
+    assert com_forcar.status_code == 201
+    assert com_forcar.json()["id"] != primeira.json()["id"]
+    # forcar_duplicado nunca é gravado — não existe no schema de resposta
+    assert "forcar_duplicado" not in com_forcar.json()
+
+    lista = client.get("/transacoes").json()
+    iguais = [t for t in lista if t["descricao"] == "Mesma compra"]
+    assert len(iguais) == 2
+
+
+def test_transacao_identica_repetida_3x_com_forcar_cria_as_3(client):
+    """Cada ocorrência além da 1ª soma +1 ao índice de desambiguação do
+    hash — precisa continuar funcionando na 3ª repetição, não só na 2ª."""
+    cartao = _criar_conta_cartao(client)
+    categoria = client.post("/categorias", json={"nome": "Categoria Teste"}).json()
+    payload = {
+        "data_compra": "2026-08-05",
+        "valor": 50,
+        "tipo_movimento": "despesa",
+        "conta_id": cartao["id"],
+        "descricao": "Assinatura dobrada",
+        "categoria_id": categoria["id"],
+        "estrutura_custo": "variavel",
+        "meio_pagamento": "cartao_credito",
+    }
+
+    assert client.post("/transacoes", json=payload).status_code == 201
+    assert client.post("/transacoes", json={**payload, "forcar_duplicado": True}).status_code == 201
+    assert client.post("/transacoes", json={**payload, "forcar_duplicado": True}).status_code == 201
+
+    lista = client.get("/transacoes").json()
+    iguais = [t for t in lista if t["descricao"] == "Assinatura dobrada"]
+    assert len(iguais) == 3
+
+
+def test_transacao_com_valor_diferente_nao_e_bloqueada_como_duplicada(client):
+    cartao = _criar_conta_cartao(client)
+    categoria = client.post("/categorias", json={"nome": "Categoria Teste"}).json()
+    base = {
+        "data_compra": "2026-08-05",
+        "tipo_movimento": "despesa",
+        "conta_id": cartao["id"],
+        "descricao": "Compras diferentes",
+        "categoria_id": categoria["id"],
+        "estrutura_custo": "variavel",
+        "meio_pagamento": "cartao_credito",
+    }
+
+    primeira = client.post("/transacoes", json={**base, "valor": 50})
+    segunda = client.post("/transacoes", json={**base, "valor": 51})
+    assert primeira.status_code == 201
+    assert segunda.status_code == 201
+
+
+def test_estorno_vinculado_a_despesa_original(client):
+    cartao = _criar_conta_cartao(client)
+    categoria = client.post("/categorias", json={"nome": "Categoria Teste"}).json()
+    despesa = client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-08-05",
+            "valor": 100,
+            "tipo_movimento": "despesa",
+            "conta_id": cartao["id"],
+            "categoria_id": categoria["id"],
+            "estrutura_custo": "variavel",
+            "meio_pagamento": "cartao_credito",
+        },
+    ).json()
+
+    estorno = client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-08-10",
+            "valor": 20,
+            "tipo_movimento": "estorno",
+            "conta_id": cartao["id"],
+            "ajuste_de_transacao_id": despesa["id"],
+        },
+    )
+    assert estorno.status_code == 201
+    assert estorno.json()["ajuste_de_transacao_id"] == despesa["id"]
+
+
+def test_estorno_vinculado_a_transacao_de_outro_usuario_retorna_404(client, current_user):
+    cartao = _criar_conta_cartao(client)
+    categoria = client.post("/categorias", json={"nome": "Categoria Teste"}).json()
+    despesa = client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-08-05",
+            "valor": 100,
+            "tipo_movimento": "despesa",
+            "conta_id": cartao["id"],
+            "categoria_id": categoria["id"],
+            "estrutura_custo": "variavel",
+            "meio_pagamento": "cartao_credito",
+        },
+    ).json()
+
+    current_user["id"] = OUTRO_USUARIO
+    outro_cartao = _criar_conta_cartao(client)
+    resposta = client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-08-10",
+            "valor": 20,
+            "tipo_movimento": "estorno",
+            "conta_id": outro_cartao["id"],
+            "ajuste_de_transacao_id": despesa["id"],
+        },
+    )
+    assert resposta.status_code == 404
+
+
+def test_mover_fatura_em_conta_que_nao_e_cartao_retorna_422(client):
+    conta = _criar_conta_corrente(client)
+    categoria = client.post("/categorias", json={"nome": "Categoria Teste"}).json()
+    transacao = client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-09-05",
+            "valor": 50,
+            "tipo_movimento": "despesa",
+            "conta_id": conta["id"],
+            "categoria_id": categoria["id"],
+            "estrutura_custo": "variavel",
+            "meio_pagamento": "pix",
+        },
+    ).json()
+
+    resposta = client.patch(
+        f"/transacoes/{transacao['id']}/fatura", json={"fatura_referencia": "2026-10-01"}
+    )
+    assert resposta.status_code == 422
+
+
+def test_meio_pagamento_e_gravado_e_pode_ser_filtrado(client):
+    conta = _criar_conta_corrente(client)
+    categoria = client.post("/categorias", json={"nome": "Categoria Teste"}).json()
+    client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-09-05",
+            "valor": 40,
+            "tipo_movimento": "despesa",
+            "conta_id": conta["id"],
+            "categoria_id": categoria["id"],
+            "estrutura_custo": "variavel",
+            "meio_pagamento": "pix",
+        },
+    )
+    client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-09-06",
+            "valor": 60,
+            "tipo_movimento": "despesa",
+            "conta_id": conta["id"],
+            "categoria_id": categoria["id"],
+            "estrutura_custo": "variavel",
+            "meio_pagamento": "boleto",
+        },
+    )
+
+    resposta = client.get("/transacoes", params={"meio_pagamento": "pix"})
+    dados = resposta.json()
+    assert len(dados) == 1
+    assert dados[0]["meio_pagamento"] == "pix"
+
+
+def test_meio_pagamento_invalido_retorna_422(client):
+    conta = _criar_conta_corrente(client)
+    resposta = client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-09-05",
+            "valor": 10,
+            "tipo_movimento": "despesa",
+            "conta_id": conta["id"],
+            "meio_pagamento": "cheque",
+        },
+    )
+    assert resposta.status_code == 422
+
+
+def test_pix_parcelado_em_conta_corrente_e_permitido_e_sem_fatura(client):
+    """Parcelamento não é exclusivo de cartão de crédito — Pix parcelado
+    numa conta corrente é um caso real, e não deve ter fatura nenhuma
+    (fatura só existe pra ciclo de fechamento de cartão)."""
+    conta = _criar_conta_corrente(client)
+    categoria = client.post("/categorias", json={"nome": "Categoria Teste"}).json()
+
+    resposta = client.post(
+        "/transacoes/parceladas",
+        json={
+            "descricao": "Geladeira via Pix parcelado",
+            "valor_total": 900,
+            "parcela_total": 3,
+            "data_primeira_parcela": "2026-09-05",
+            "conta_id": conta["id"],
+            "categoria_id": categoria["id"],
+            "estrutura_custo": "variavel",
+            "meio_pagamento": "pix",
+        },
+    )
+    assert resposta.status_code == 201
+    parcelas = resposta.json()
+    assert len(parcelas) == 3
+    assert all(p["fatura_referencia"] is None for p in parcelas)
+    assert all(p["meio_pagamento"] == "pix" for p in parcelas)
+
+
+def test_mover_fatura_manualmente_marca_override(client):
+    cartao = _criar_conta_cartao(client)
+    categoria = client.post("/categorias", json={"nome": "Categoria Teste"}).json()
+    transacao = client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-08-05",
+            "valor": 30,
+            "tipo_movimento": "despesa",
+            "conta_id": cartao["id"],
+            "categoria_id": categoria["id"],
+            "estrutura_custo": "variavel",
+            "meio_pagamento": "cartao_credito",
+        },
+    ).json()
+    assert transacao["fatura_referencia"] == "2026-08-08"
+
+    movida = client.patch(f"/transacoes/{transacao['id']}/fatura", json={"fatura_referencia": "2026-09-08"})
+    assert movida.status_code == 200
+    assert movida.json()["fatura_referencia"] == "2026-09-08"
+    assert movida.json()["fatura_override"] is True
+
+
+def test_editar_transacao_atualiza_campos(client):
+    cartao = _criar_conta_cartao(client)
+    corrente = _criar_conta_corrente(client)
+    categoria = client.post("/categorias", json={"nome": "Categoria Teste"}).json()
+    transacao = client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-08-05",
+            "valor": 30,
+            "descricao": "Original",
+            "tipo_movimento": "despesa",
+            "conta_id": cartao["id"],
+            "categoria_id": categoria["id"],
+            "estrutura_custo": "variavel",
+            "meio_pagamento": "cartao_credito",
+        },
+    ).json()
+
+    editada = client.patch(
+        f"/transacoes/{transacao['id']}",
+        json={
+            "data_compra": "2026-08-10",
+            "valor": 45,
+            "descricao": "Editada",
+            "tipo_movimento": "despesa",
+            "conta_id": corrente["id"],
+            "categoria_id": categoria["id"],
+            "estrutura_custo": "fixo",
+            "meio_pagamento": "pix",
+        },
+    )
+    assert editada.status_code == 200
+    corpo = editada.json()
+    assert corpo["data_compra"] == "2026-08-10"
+    assert corpo["valor"] == 45
+    assert corpo["descricao"] == "Editada"
+    assert corpo["conta_id"] == corrente["id"]
+    assert corpo["estrutura_custo"] == "fixo"
+    assert corpo["meio_pagamento"] == "pix"
+    assert corpo["fatura_referencia"] is None  # saiu do cartão, não tem mais fatura
+
+
+def test_editar_transacao_para_ficar_identica_a_outra_retorna_409_e_forcar_aceita(client):
+    """Mesmo bug do item 35 (hash_dedup bloqueando lançamento legítimo),
+    achado 2026-10-02 no caminho de EDIÇÃO: editar uma transação pra
+    ficar idêntica a outra já existente batia no mesmo 409, sem como
+    confirmar e seguir adiante — forcar_duplicado precisa valer aqui
+    também, não só em POST /transacoes."""
+    cartao = _criar_conta_cartao(client)
+    categoria = client.post("/categorias", json={"nome": "Categoria Teste"}).json()
+    payload_existente = {
+        "data_compra": "2026-08-05",
+        "valor": 50,
+        "tipo_movimento": "despesa",
+        "conta_id": cartao["id"],
+        "descricao": "Mesma compra",
+        "categoria_id": categoria["id"],
+        "estrutura_custo": "variavel",
+        "meio_pagamento": "cartao_credito",
+    }
+    client.post("/transacoes", json=payload_existente)
+    outra = client.post(
+        "/transacoes",
+        json={**payload_existente, "data_compra": "2026-08-06", "descricao": "Outra coisa"},
+    ).json()
+
+    sem_forcar = client.patch(f"/transacoes/{outra['id']}", json=payload_existente)
+    assert sem_forcar.status_code == 409
+
+    com_forcar = client.patch(f"/transacoes/{outra['id']}", json={**payload_existente, "forcar_duplicado": True})
+    assert com_forcar.status_code == 200
+    assert com_forcar.json()["descricao"] == "Mesma compra"
+
+
+def test_editar_transacao_preserva_fatura_movida_manualmente(client):
+    cartao = _criar_conta_cartao(client)
+    categoria = client.post("/categorias", json={"nome": "Categoria Teste"}).json()
+    transacao = client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-08-05",
+            "valor": 30,
+            "tipo_movimento": "despesa",
+            "conta_id": cartao["id"],
+            "categoria_id": categoria["id"],
+            "estrutura_custo": "variavel",
+            "meio_pagamento": "cartao_credito",
+        },
+    ).json()
+    client.patch(f"/transacoes/{transacao['id']}/fatura", json={"fatura_referencia": "2026-09-08"})
+
+    editada = client.patch(
+        f"/transacoes/{transacao['id']}",
+        json={
+            "data_compra": "2026-08-05",
+            "valor": 99,
+            "tipo_movimento": "despesa",
+            "conta_id": cartao["id"],
+            "categoria_id": categoria["id"],
+            "estrutura_custo": "variavel",
+            "meio_pagamento": "cartao_credito",
+        },
+    )
+    assert editada.status_code == 200
+    assert editada.json()["fatura_referencia"] == "2026-09-08"
+    assert editada.json()["fatura_override"] is True
+
+
+def test_editar_parcela_de_compra_parcelada_retorna_422(client):
+    cartao = _criar_conta_cartao(client)
+    categoria = client.post("/categorias", json={"nome": "Categoria Teste"}).json()
+    parcelas = client.post(
+        "/transacoes/parceladas",
+        json={
+            "descricao": "Compra parcelada",
+            "valor_total": 300,
+            "parcela_total": 3,
+            "data_primeira_parcela": "2026-08-05",
+            "conta_id": cartao["id"],
+            "categoria_id": categoria["id"],
+            "estrutura_custo": "variavel",
+            "meio_pagamento": "cartao_credito",
+        },
+    ).json()
+
+    resposta = client.patch(
+        f"/transacoes/{parcelas[0]['id']}",
+        json={
+            "data_compra": "2026-08-05",
+            "valor": 999,
+            "tipo_movimento": "despesa",
+            "conta_id": cartao["id"],
+            "categoria_id": categoria["id"],
+            "estrutura_custo": "variavel",
+            "meio_pagamento": "cartao_credito",
+        },
+    )
+    assert resposta.status_code == 422
+
+
+def test_editar_metadado_de_parcela_atualiza_campos_incluindo_valor_e_preserva_data_conta(client):
+    cartao = _criar_conta_cartao(client)
+    categoria_a = client.post("/categorias", json={"nome": "Categoria A"}).json()
+    categoria_b = client.post("/categorias", json={"nome": "Categoria B"}).json()
+    parcelas = client.post(
+        "/transacoes/parceladas",
+        json={
+            "descricao": "Compra parcelada",
+            "valor_total": 300,
+            "parcela_total": 3,
+            "data_primeira_parcela": "2026-08-05",
+            "conta_id": cartao["id"],
+            "categoria_id": categoria_a["id"],
+            "estrutura_custo": "variavel",
+            "meio_pagamento": "cartao_credito",
+        },
+    ).json()
+    parcela = parcelas[0]
+
+    editada = client.patch(
+        f"/transacoes/parceladas/{parcela['id']}",
+        json={
+            "descricao": "Compra parcelada — corrigida",
+            "valor": 100.14,
+            "categoria_id": categoria_b["id"],
+            "estrutura_custo": "fixo",
+            "meio_pagamento": "pix",
+        },
+    )
+    assert editada.status_code == 200
+    corpo = editada.json()
+    assert corpo["descricao"] == "Compra parcelada — corrigida"
+    # valor é o que a Rodada 21.1 passou a permitir editar — não existe
+    # padrão bancário único de arredondamento entre parcelas, então a
+    # fatura real do emissor pode divergir do calculado na criação
+    assert corpo["valor"] == 100.14
+    assert corpo["categoria_id"] == categoria_b["id"]
+    assert corpo["estrutura_custo"] == "fixo"
+    assert corpo["meio_pagamento"] == "pix"
+    # data e conta continuam travadas — só valor/metadado são editáveis
+    assert corpo["data_compra"] == parcela["data_compra"]
+    assert corpo["conta_id"] == cartao["id"]
+    assert corpo["parcela_atual"] == parcela["parcela_atual"]
+    assert corpo["compra_parcelada_id"] == parcela["compra_parcelada_id"]
+
+
+def test_editar_valor_de_uma_parcela_nao_altera_as_outras_do_grupo(client):
+    cartao = _criar_conta_cartao(client)
+    categoria = client.post("/categorias", json={"nome": "Categoria Teste"}).json()
+    parcelas = client.post(
+        "/transacoes/parceladas",
+        json={
+            "descricao": "Compra parcelada",
+            "valor_total": 300,
+            "parcela_total": 3,
+            "data_primeira_parcela": "2026-08-05",
+            "conta_id": cartao["id"],
+            "categoria_id": categoria["id"],
+            "estrutura_custo": "variavel",
+            "meio_pagamento": "cartao_credito",
+        },
+    ).json()
+
+    client.patch(
+        f"/transacoes/parceladas/{parcelas[0]['id']}",
+        json={
+            "descricao": parcelas[0]["descricao"],
+            "valor": 99.87,
+            "categoria_id": categoria["id"],
+            "estrutura_custo": "variavel",
+            "meio_pagamento": "cartao_credito",
+        },
+    )
+
+    parcela_2 = client.get(f"/transacoes/{parcelas[1]['id']}").json()
+    parcela_3 = client.get(f"/transacoes/{parcelas[2]['id']}").json()
+    assert parcela_2["valor"] == parcelas[1]["valor"]
+    assert parcela_3["valor"] == parcelas[2]["valor"]
+
+
+def test_editar_metadado_de_parcela_em_transacao_avista_retorna_422(client):
+    cartao = _criar_conta_cartao(client)
+    categoria = client.post("/categorias", json={"nome": "Categoria Teste"}).json()
+    transacao = client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-08-05",
+            "valor": 30,
+            "tipo_movimento": "despesa",
+            "conta_id": cartao["id"],
+            "categoria_id": categoria["id"],
+            "estrutura_custo": "variavel",
+            "meio_pagamento": "cartao_credito",
+        },
+    ).json()
+
+    resposta = client.patch(f"/transacoes/parceladas/{transacao['id']}", json={"descricao": "Nova descrição", "valor": 50})
+    assert resposta.status_code == 422
+
+
+def test_editar_metadado_de_parcela_inexistente_retorna_404(client):
+    resposta = client.patch(
+        "/transacoes/parceladas/00000000-0000-0000-0000-000000000000",
+        json={"descricao": "Nova descrição", "valor": 50},
+    )
+    assert resposta.status_code == 404
+
+
+def test_editar_metadado_de_parcela_de_outro_usuario_retorna_404(client, current_user):
+    cartao = _criar_conta_cartao(client)
+    categoria = client.post("/categorias", json={"nome": "Categoria Teste"}).json()
+    parcelas = client.post(
+        "/transacoes/parceladas",
+        json={
+            "descricao": "Compra parcelada",
+            "valor_total": 300,
+            "parcela_total": 3,
+            "data_primeira_parcela": "2026-08-05",
+            "conta_id": cartao["id"],
+            "categoria_id": categoria["id"],
+            "estrutura_custo": "variavel",
+            "meio_pagamento": "cartao_credito",
+        },
+    ).json()
+
+    current_user["id"] = OUTRO_USUARIO
+    resposta = client.patch(
+        f"/transacoes/parceladas/{parcelas[0]['id']}",
+        json={"descricao": "Nova descrição", "valor": 50},
+    )
+    assert resposta.status_code == 404
+
+
+def test_editar_transacao_inexistente_retorna_404(client):
+    resposta = client.patch(
+        "/transacoes/00000000-0000-0000-0000-000000000000",
+        json={
+            "data_compra": "2026-08-05",
+            "valor": 10,
+            "tipo_movimento": "receita",
+            "conta_id": "00000000-0000-0000-0000-000000000000",
+        },
+    )
+    assert resposta.status_code == 404
+
+
+def test_editar_transacao_com_conta_de_outro_usuario_retorna_404(client, current_user):
+    cartao = _criar_conta_cartao(client)
+    categoria = client.post("/categorias", json={"nome": "Categoria Teste"}).json()
+    transacao = client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-08-05",
+            "valor": 30,
+            "tipo_movimento": "despesa",
+            "conta_id": cartao["id"],
+            "categoria_id": categoria["id"],
+            "estrutura_custo": "variavel",
+            "meio_pagamento": "cartao_credito",
+        },
+    ).json()
+
+    current_user["id"] = OUTRO_USUARIO
+    resposta = client.patch(
+        f"/transacoes/{transacao['id']}",
+        json={
+            "data_compra": "2026-08-05",
+            "valor": 30,
+            "tipo_movimento": "despesa",
+            "conta_id": cartao["id"],
+            "categoria_id": categoria["id"],
+            "estrutura_custo": "variavel",
+            "meio_pagamento": "cartao_credito",
+        },
+    )
+    assert resposta.status_code == 404
+
+
+def test_excluir_transacao(client):
+    cartao = _criar_conta_cartao(client)
+    categoria = client.post("/categorias", json={"nome": "Categoria Teste"}).json()
+    transacao = client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-08-05",
+            "valor": 30,
+            "tipo_movimento": "despesa",
+            "conta_id": cartao["id"],
+            "categoria_id": categoria["id"],
+            "estrutura_custo": "variavel",
+            "meio_pagamento": "cartao_credito",
+        },
+    ).json()
+
+    excluida = client.delete(f"/transacoes/{transacao['id']}")
+    assert excluida.status_code == 204
+
+    busca = client.get(f"/transacoes/{transacao['id']}")
+    assert busca.status_code == 404
+
+
+def test_excluir_transacao_inexistente_retorna_404(client):
+    resposta = client.delete("/transacoes/00000000-0000-0000-0000-000000000000")
+    assert resposta.status_code == 404
+
+
+def test_excluir_compra_parcelada_remove_todas_as_parcelas_de_uma_vez(client):
+    cartao = _criar_conta_cartao(client)
+    categoria = client.post("/categorias", json={"nome": "Categoria Teste"}).json()
+    parcelas = client.post(
+        "/transacoes/parceladas",
+        json={
+            "descricao": "Compra parcelada",
+            "valor_total": 300,
+            "parcela_total": 3,
+            "data_primeira_parcela": "2026-08-05",
+            "conta_id": cartao["id"],
+            "categoria_id": categoria["id"],
+            "estrutura_custo": "variavel",
+            "meio_pagamento": "cartao_credito",
+        },
+    ).json()
+    compra_parcelada_id = parcelas[0]["compra_parcelada_id"]
+
+    excluida = client.delete(f"/transacoes/parceladas/{compra_parcelada_id}")
+    assert excluida.status_code == 204
+
+    for parcela in parcelas:
+        assert client.get(f"/transacoes/{parcela['id']}").status_code == 404
+
+
+def test_excluir_compra_parcelada_nao_afeta_outras_compras(client):
+    cartao = _criar_conta_cartao(client)
+    categoria = client.post("/categorias", json={"nome": "Categoria Teste"}).json()
+    payload_base = {
+        "valor_total": 300,
+        "parcela_total": 3,
+        "data_primeira_parcela": "2026-08-05",
+        "conta_id": cartao["id"],
+        "categoria_id": categoria["id"],
+        "estrutura_custo": "variavel",
+        "meio_pagamento": "cartao_credito",
+    }
+    compra_a = client.post(
+        "/transacoes/parceladas", json={**payload_base, "descricao": "Compra A"}
+    ).json()
+    compra_b = client.post(
+        "/transacoes/parceladas", json={**payload_base, "descricao": "Compra B"}
+    ).json()
+
+    client.delete(f"/transacoes/parceladas/{compra_a[0]['compra_parcelada_id']}")
+
+    for parcela in compra_b:
+        assert client.get(f"/transacoes/{parcela['id']}").status_code == 200
+
+
+def test_excluir_compra_parcelada_inexistente_retorna_404(client):
+    resposta = client.delete("/transacoes/parceladas/00000000-0000-0000-0000-000000000000")
+    assert resposta.status_code == 404
+
+
+def test_excluir_compra_parcelada_de_outro_usuario_retorna_404(client, current_user):
+    cartao = _criar_conta_cartao(client)
+    categoria = client.post("/categorias", json={"nome": "Categoria Teste"}).json()
+    parcelas = client.post(
+        "/transacoes/parceladas",
+        json={
+            "descricao": "Compra parcelada",
+            "valor_total": 300,
+            "parcela_total": 3,
+            "data_primeira_parcela": "2026-08-05",
+            "conta_id": cartao["id"],
+            "categoria_id": categoria["id"],
+            "estrutura_custo": "variavel",
+            "meio_pagamento": "cartao_credito",
+        },
+    ).json()
+    compra_parcelada_id = parcelas[0]["compra_parcelada_id"]
+
+    current_user["id"] = OUTRO_USUARIO
+    resposta = client.delete(f"/transacoes/parceladas/{compra_parcelada_id}")
+    assert resposta.status_code == 404
+
+    current_user["id"] = "11111111-1111-1111-1111-111111111111"
+    for parcela in parcelas:
+        assert client.get(f"/transacoes/{parcela['id']}").status_code == 200
+
+
+def test_compra_parcelada_gera_uma_transacao_por_ciclo(client):
+    cartao = _criar_conta_cartao(client)
+    categoria = client.post("/categorias", json={"nome": "Categoria Teste"}).json()
+
+    resposta = client.post(
+        "/transacoes/parceladas",
+        json={
+            "descricao": "Notebook",
+            "valor_total": 300.00,
+            "parcela_total": 3,
+            "data_primeira_parcela": "2026-08-05",
+            "conta_id": cartao["id"],
+            "categoria_id": categoria["id"],
+            "estrutura_custo": "variavel",
+            "meio_pagamento": "cartao_credito",
+        },
+    )
+    assert resposta.status_code == 201
+    parcelas = resposta.json()
+
+    assert len(parcelas) == 3
+    assert [p["data_compra"] for p in parcelas] == ["2026-08-05", "2026-09-05", "2026-10-05"]
+    assert [p["parcela_atual"] for p in parcelas] == [1, 2, 3]
+    assert all(p["parcela_total"] == 3 for p in parcelas)
+    assert all(p["compra_parcelada_id"] == parcelas[0]["compra_parcelada_id"] for p in parcelas)
+    # nenhuma perda por arredondamento: soma das parcelas == valor total
+    assert round(sum(p["valor"] for p in parcelas), 2) == 300.00
+
+
+def test_compra_parcelada_identica_retorna_409_e_forcar_aceita(client):
+    """Item 68 — hash_dedup de cada parcela inclui compra_parcelada_id
+    (gerado novo a cada chamada), então NUNCA detectava double-submit
+    aqui, diferente do lançamento avista. Checagem em nível de aplicação
+    (_existe_compra_parcelada_igual) cobre o caso comum: mesma
+    descrição/valor total/parcelas/data da 1ª parcela/conta."""
+    cartao = _criar_conta_cartao(client)
+    categoria = client.post("/categorias", json={"nome": "Categoria Teste"}).json()
+    payload = {
+        "descricao": "Notebook",
+        "valor_total": 300.00,
+        "parcela_total": 3,
+        "data_primeira_parcela": "2026-08-05",
+        "conta_id": cartao["id"],
+        "categoria_id": categoria["id"],
+        "estrutura_custo": "variavel",
+        "meio_pagamento": "cartao_credito",
+    }
+
+    primeira = client.post("/transacoes/parceladas", json=payload)
+    assert primeira.status_code == 201
+
+    sem_forcar = client.post("/transacoes/parceladas", json=payload)
+    assert sem_forcar.status_code == 409
+
+    com_forcar = client.post("/transacoes/parceladas", json={**payload, "forcar_duplicado": True})
+    assert com_forcar.status_code == 201
+    assert com_forcar.json()[0]["compra_parcelada_id"] != primeira.json()[0]["compra_parcelada_id"]
+
+
+def test_compra_parcelada_com_valor_total_diferente_nao_e_bloqueada(client):
+    cartao = _criar_conta_cartao(client)
+    categoria = client.post("/categorias", json={"nome": "Categoria Teste"}).json()
+    base = {
+        "descricao": "Notebook",
+        "parcela_total": 3,
+        "data_primeira_parcela": "2026-08-05",
+        "conta_id": cartao["id"],
+        "categoria_id": categoria["id"],
+        "estrutura_custo": "variavel",
+        "meio_pagamento": "cartao_credito",
+    }
+
+    primeira = client.post("/transacoes/parceladas", json={**base, "valor_total": 300.00})
+    segunda = client.post("/transacoes/parceladas", json={**base, "valor_total": 450.00})
+    assert primeira.status_code == 201
+    assert segunda.status_code == 201
+
+
+def test_compra_parcelada_calcula_fatura_de_cada_parcela(client):
+    cartao = _criar_conta_cartao(client, dia_fechamento=8)
+    categoria = client.post("/categorias", json={"nome": "Categoria Teste"}).json()
+
+    parcelas = client.post(
+        "/transacoes/parceladas",
+        json={
+            "descricao": "Notebook",
+            "valor_total": 30.00,
+            "parcela_total": 2,
+            "data_primeira_parcela": "2026-08-05",
+            "conta_id": cartao["id"],
+            "categoria_id": categoria["id"],
+            "estrutura_custo": "variavel",
+            "meio_pagamento": "cartao_credito",
+        },
+    ).json()
+
+    assert parcelas[0]["fatura_referencia"] == "2026-08-08"
+    assert parcelas[1]["fatura_referencia"] == "2026-09-08"
+
+
+# ── busca/filtro em GET /transacoes e GET /transacoes/resumo ──────────────
+
+
+def test_filtrar_por_categoria(client):
+    conta = _criar_conta_corrente(client)
+    mercado = client.post("/categorias", json={"nome": "Mercado"}).json()
+    lazer = client.post("/categorias", json={"nome": "Lazer"}).json()
+    client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-09-05",
+            "valor": 100,
+            "tipo_movimento": "despesa",
+            "conta_id": conta["id"],
+            "categoria_id": mercado["id"],
+            "estrutura_custo": "variavel",
+            "meio_pagamento": "pix",
+        },
+    )
+    client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-09-06",
+            "valor": 50,
+            "tipo_movimento": "despesa",
+            "conta_id": conta["id"],
+            "categoria_id": lazer["id"],
+            "estrutura_custo": "variavel",
+            "meio_pagamento": "pix",
+        },
+    )
+
+    resposta = client.get("/transacoes", params={"categoria_id": mercado["id"]})
+    assert resposta.status_code == 200
+    dados = resposta.json()
+    assert len(dados) == 1
+    assert dados[0]["categoria_id"] == mercado["id"]
+
+
+def test_filtrar_por_tipo_movimento(client):
+    conta = _criar_conta_corrente(client)
+    client.post(
+        "/transacoes",
+        json={"data_compra": "2026-09-01", "valor": 5000, "tipo_movimento": "receita", "conta_id": conta["id"]},
+    )
+    client.post(
+        "/transacoes",
+        json={"data_compra": "2026-09-05", "valor": 100, "tipo_movimento": "despesa", "conta_id": conta["id"]},
+    )
+
+    resposta = client.get("/transacoes", params={"tipo_movimento": "receita"})
+    dados = resposta.json()
+    assert len(dados) == 1
+    assert dados[0]["tipo_movimento"] == "receita"
+
+
+def test_filtrar_por_periodo(client):
+    conta = _criar_conta_corrente(client)
+    categoria = client.post("/categorias", json={"nome": "Categoria Teste"}).json()
+    payload_base = {
+        "tipo_movimento": "despesa",
+        "conta_id": conta["id"],
+        "categoria_id": categoria["id"],
+        "estrutura_custo": "variavel",
+        "meio_pagamento": "pix",
+    }
+    client.post("/transacoes", json={**payload_base, "data_compra": "2026-08-31", "valor": 10})
+    client.post("/transacoes", json={**payload_base, "data_compra": "2026-09-15", "valor": 20})
+    client.post("/transacoes", json={**payload_base, "data_compra": "2026-10-01", "valor": 30})
+
+    resposta = client.get("/transacoes", params={"data_inicio": "2026-09-01", "data_fim": "2026-09-30"})
+    dados = resposta.json()
+    assert len(dados) == 1
+    assert dados[0]["valor"] == 20
+
+
+def test_buscar_por_descricao_parcial_case_insensitive(client):
+    conta = _criar_conta_corrente(client)
+    categoria = client.post("/categorias", json={"nome": "Categoria Teste"}).json()
+    client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-09-05",
+            "valor": 40,
+            "tipo_movimento": "despesa",
+            "conta_id": conta["id"],
+            "categoria_id": categoria["id"],
+            "estrutura_custo": "variavel",
+            "meio_pagamento": "pix",
+            "descricao": "Supermercado Extra",
+        },
+    )
+    client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-09-06",
+            "valor": 15,
+            "tipo_movimento": "despesa",
+            "conta_id": conta["id"],
+            "categoria_id": categoria["id"],
+            "estrutura_custo": "variavel",
+            "meio_pagamento": "pix",
+            "descricao": "Farmácia",
+        },
+    )
+
+    resposta = client.get("/transacoes", params={"descricao": "extra"})
+    dados = resposta.json()
+    assert len(dados) == 1
+    assert dados[0]["descricao"] == "Supermercado Extra"
+
+
+def test_listar_sem_filtro_continua_retornando_tudo(client):
+    conta = _criar_conta_corrente(client)
+    categoria = client.post("/categorias", json={"nome": "Categoria Teste"}).json()
+    payload_base = {
+        "tipo_movimento": "despesa",
+        "conta_id": conta["id"],
+        "categoria_id": categoria["id"],
+        "estrutura_custo": "variavel",
+        "meio_pagamento": "pix",
+    }
+    client.post("/transacoes", json={**payload_base, "data_compra": "2026-09-05", "valor": 10})
+    client.post("/transacoes", json={**payload_base, "data_compra": "2026-09-06", "valor": 20})
+
+    assert len(client.get("/transacoes").json()) == 2
+
+
+def test_resumo_sem_filtro_soma_tudo(client):
+    conta = _criar_conta_corrente(client)
+    categoria = client.post("/categorias", json={"nome": "Categoria Teste"}).json()
+    client.post(
+        "/transacoes",
+        json={"data_compra": "2026-09-01", "valor": 5000, "tipo_movimento": "receita", "conta_id": conta["id"]},
+    )
+    client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-09-05",
+            "valor": 2000,
+            "tipo_movimento": "despesa",
+            "conta_id": conta["id"],
+            "categoria_id": categoria["id"],
+            "estrutura_custo": "variavel",
+            "meio_pagamento": "pix",
+        },
+    )
+
+    resumo = client.get("/transacoes/resumo").json()
+    assert resumo["total_lancamentos"] == 2
+    assert resumo["receitas"] == 5000
+    assert resumo["resultado_saude"] == 3000
+
+
+def test_resumo_respeita_filtro_de_categoria(client):
+    conta = _criar_conta_corrente(client)
+    mercado = client.post("/categorias", json={"nome": "Mercado"}).json()
+    lazer = client.post("/categorias", json={"nome": "Lazer"}).json()
+    client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-09-05",
+            "valor": 300,
+            "tipo_movimento": "despesa",
+            "conta_id": conta["id"],
+            "categoria_id": mercado["id"],
+            "estrutura_custo": "variavel",
+            "meio_pagamento": "pix",
+        },
+    )
+    client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-09-06",
+            "valor": 100,
+            "tipo_movimento": "despesa",
+            "conta_id": conta["id"],
+            "categoria_id": lazer["id"],
+            "estrutura_custo": "variavel",
+            "meio_pagamento": "pix",
+        },
+    )
+
+    resumo = client.get("/transacoes/resumo", params={"categoria_id": mercado["id"]}).json()
+    assert resumo["total_lancamentos"] == 1
+    assert resumo["despesas_brutas"] == 300
+
+
+def test_resumo_de_outro_usuario_nao_mistura(client, current_user):
+    conta = _criar_conta_corrente(client)
+    client.post(
+        "/transacoes",
+        json={"data_compra": "2026-09-05", "valor": 999, "tipo_movimento": "receita", "conta_id": conta["id"]},
+    )
+
+    current_user["id"] = OUTRO_USUARIO
+    resumo = client.get("/transacoes/resumo").json()
+    assert resumo["total_lancamentos"] == 0
+    assert resumo["receitas"] == 0
+
+
+def test_compra_parcelada_com_conta_de_outro_usuario_retorna_404(client, current_user):
+    cartao = _criar_conta_cartao(client)
+
+    current_user["id"] = OUTRO_USUARIO
+    resposta = client.post(
+        "/transacoes/parceladas",
+        json={
+            "descricao": "Notebook",
+            "valor_total": 300,
+            "parcela_total": 3,
+            "data_primeira_parcela": "2026-08-05",
+            "conta_id": cartao["id"],
+        },
+    )
+    assert resposta.status_code == 404
+
+
+def test_receita_com_categoria_de_despesa_retorna_422(client):
+    conta = _criar_conta_corrente(client)
+    mercado = client.post("/categorias", json={"nome": "Mercado"}).json()  # tipo despesa (default)
+
+    resposta = client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-09-05",
+            "valor": 100,
+            "tipo_movimento": "receita",
+            "conta_id": conta["id"],
+            "categoria_id": mercado["id"],
+        },
+    )
+    assert resposta.status_code == 422
+
+
+def test_aplicacao_com_categoria_de_investimento_e_aceita(client):
+    conta = _criar_conta_corrente(client)
+    investimentos = client.post("/categorias", json={"nome": "Investimentos", "tipo": "investimento"}).json()
+
+    resposta = client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-09-05",
+            "valor": 500,
+            "tipo_movimento": "aplicacao",
+            "conta_id": conta["id"],
+            "categoria_id": investimentos["id"],
+            "estrutura_custo": "investimentos",
+        },
+    )
+    assert resposta.status_code == 201
+
+
+def test_aplicacao_com_categoria_de_despesa_retorna_422(client):
+    conta = _criar_conta_corrente(client)
+    mercado = client.post("/categorias", json={"nome": "Mercado"}).json()
+
+    resposta = client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-09-05",
+            "valor": 500,
+            "tipo_movimento": "aplicacao",
+            "conta_id": conta["id"],
+            "categoria_id": mercado["id"],
+        },
+    )
+    assert resposta.status_code == 422
+
+
+def test_despesa_com_caixinha_retorna_422(client):
+    conta = _criar_conta_corrente(client)
+    caixinha = client.post("/caixinhas", json={"nome": "Reserva"}).json()
+
+    resposta = client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-09-05",
+            "valor": 50,
+            "tipo_movimento": "despesa",
+            "conta_id": conta["id"],
+            "caixinha_id": caixinha["id"],
+        },
+    )
+    assert resposta.status_code == 422
+
+
+def test_retirada_com_caixinha_e_aceita(client):
+    conta = _criar_conta_corrente(client)
+    caixinha = client.post("/caixinhas", json={"nome": "Reserva"}).json()
+
+    resposta = client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-09-05",
+            "valor": 50,
+            "tipo_movimento": "retirada",
+            "conta_id": conta["id"],
+            "caixinha_id": caixinha["id"],
+        },
+    )
+    assert resposta.status_code == 201
+
+
+def test_compra_parcelada_com_categoria_de_receita_retorna_422(client):
+    cartao = _criar_conta_cartao(client)
+    receita = client.post("/categorias", json={"nome": "Receita", "tipo": "receita"}).json()
+
+    resposta = client.post(
+        "/transacoes/parceladas",
+        json={
+            "descricao": "Notebook",
+            "valor_total": 300,
+            "parcela_total": 3,
+            "data_primeira_parcela": "2026-08-05",
+            "conta_id": cartao["id"],
+            "categoria_id": receita["id"],
+        },
+    )
+    assert resposta.status_code == 422
+
+
+def test_despesa_sem_categoria_estrutura_ou_meio_pagamento_retorna_422(client):
+    conta = _criar_conta_corrente(client)
+
+    resposta = client.post(
+        "/transacoes",
+        json={"data_compra": "2026-09-05", "valor": 50, "tipo_movimento": "despesa", "conta_id": conta["id"]},
+    )
+    assert resposta.status_code == 422
+    assert "categoria_id" in resposta.json()["detail"]
+    assert "estrutura_custo" in resposta.json()["detail"]
+    assert "meio_pagamento" in resposta.json()["detail"]
+
+
+def test_despesa_com_categoria_estrutura_e_meio_pagamento_e_aceita(client):
+    conta = _criar_conta_corrente(client)
+    mercado = client.post("/categorias", json={"nome": "Mercado"}).json()
+
+    resposta = client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-09-05",
+            "valor": 50,
+            "tipo_movimento": "despesa",
+            "conta_id": conta["id"],
+            "categoria_id": mercado["id"],
+            "estrutura_custo": "variavel",
+            "meio_pagamento": "pix",
+        },
+    )
+    assert resposta.status_code == 201
+
+
+def test_compra_parcelada_sem_categoria_estrutura_ou_meio_pagamento_retorna_422(client):
+    cartao = _criar_conta_cartao(client)
+
+    resposta = client.post(
+        "/transacoes/parceladas",
+        json={
+            "descricao": "Notebook",
+            "valor_total": 300,
+            "parcela_total": 3,
+            "data_primeira_parcela": "2026-08-05",
+            "conta_id": cartao["id"],
+        },
+    )
+    assert resposta.status_code == 422
+
+
+def test_aplicacao_sem_caixinha_e_sem_estrutura_custo_retorna_422(client):
+    conta = _criar_conta_corrente(client)
+
+    resposta = client.post(
+        "/transacoes",
+        json={"data_compra": "2026-09-05", "valor": 300, "tipo_movimento": "aplicacao", "conta_id": conta["id"]},
+    )
+    assert resposta.status_code == 422
+    assert "estrutura_custo" in resposta.json()["detail"]
+
+
+def test_aplicacao_com_estrutura_investimentos_e_aceita(client):
+    conta = _criar_conta_corrente(client)
+
+    resposta = client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-09-05",
+            "valor": 300,
+            "tipo_movimento": "aplicacao",
+            "conta_id": conta["id"],
+            "estrutura_custo": "investimentos",
+        },
+    )
+    assert resposta.status_code == 201
+
+
+def test_aplicacao_em_caixinha_sem_estrutura_custo_e_aceita(client):
+    conta = _criar_conta_corrente(client)
+    caixinha = client.post("/caixinhas", json={"nome": "Reserva"}).json()
+
+    resposta = client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-09-05",
+            "valor": 300,
+            "tipo_movimento": "aplicacao",
+            "conta_id": conta["id"],
+            "caixinha_id": caixinha["id"],
+        },
+    )
+    assert resposta.status_code == 201
+
+
+def test_retirada_com_conta_diferente_da_caixinha_retorna_422(client):
+    conta_da_caixinha = client.post("/contas", json={"nome": "Conta Reserva", "tipo_conta": "corrente"}).json()
+    outra_conta = client.post("/contas", json={"nome": "Outra Conta", "tipo_conta": "corrente"}).json()
+    caixinha = client.post(
+        "/caixinhas", json={"nome": "Emergência", "conta_id": conta_da_caixinha["id"]}
+    ).json()
+
+    resposta = client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-09-05",
+            "valor": 100,
+            "tipo_movimento": "retirada",
+            "conta_id": outra_conta["id"],
+            "caixinha_id": caixinha["id"],
+        },
+    )
+    assert resposta.status_code == 422
+
+
+def test_retirada_com_a_mesma_conta_da_caixinha_e_aceita(client):
+    conta = client.post("/contas", json={"nome": "Conta Reserva", "tipo_conta": "corrente"}).json()
+    caixinha = client.post("/caixinhas", json={"nome": "Emergência", "conta_id": conta["id"]}).json()
+
+    resposta = client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-09-05",
+            "valor": 100,
+            "tipo_movimento": "retirada",
+            "conta_id": conta["id"],
+            "caixinha_id": caixinha["id"],
+        },
+    )
+    assert resposta.status_code == 201
+
+
+def test_retirada_em_caixinha_sem_conta_vinculada_aceita_qualquer_conta(client):
+    conta = client.post("/contas", json={"nome": "Qualquer Conta", "tipo_conta": "corrente"}).json()
+    caixinha = client.post("/caixinhas", json={"nome": "Viagem"}).json()
+
+    resposta = client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-09-05",
+            "valor": 100,
+            "tipo_movimento": "retirada",
+            "conta_id": conta["id"],
+            "caixinha_id": caixinha["id"],
+        },
+    )
+    assert resposta.status_code == 201
+
+
+# ── sincronização reativa com o orçamento (itens aparecem a partir do lançamento) ──
+
+
+def _criar_orcamento_do_mes(client, vigencia_mes="2026-09-01"):
+    return client.post(
+        "/orcamentos", json={"vigencia_mes": vigencia_mes, "receita_base": 100000, "percentual_geral": 100}
+    ).json()
+
+
+def test_despesa_cria_item_de_orcamento_automaticamente_para_categoria_nova(client):
+    orcamento = _criar_orcamento_do_mes(client)
+    conta = _criar_conta_corrente(client)
+    categoria = client.post("/categorias", json={"nome": "Mercado"}).json()
+
+    client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-09-05",
+            "valor": 300,
+            "tipo_movimento": "despesa",
+            "conta_id": conta["id"],
+            "categoria_id": categoria["id"],
+            "estrutura_custo": "variavel",
+            "meio_pagamento": "pix",
+        },
+    )
+
+    itens = client.get(f"/orcamentos/{orcamento['id']}/itens").json()
+    assert len(itens) == 1
+    assert itens[0]["categoria_id"] == categoria["id"]
+    assert itens[0]["bucket"] == "custos_variaveis"
+    assert itens[0]["orcamento_mensal"] == 0  # só o valor-alvo é manual; o item em si aparece sozinho
+
+
+def test_despesa_com_subcategoria_cria_item_vinculado_a_subcategoria_nao_a_categoria(client):
+    orcamento = _criar_orcamento_do_mes(client)
+    conta = _criar_conta_corrente(client)
+    categoria = client.post("/categorias", json={"nome": "Casa"}).json()
+    subcategoria = client.post(
+        "/subcategorias", json={"categoria_id": categoria["id"], "nome": "Aluguel"}
+    ).json()
+
+    client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-09-05",
+            "valor": 1500,
+            "tipo_movimento": "despesa",
+            "conta_id": conta["id"],
+            "categoria_id": categoria["id"],
+            "subcategoria_id": subcategoria["id"],
+            "estrutura_custo": "fixo",
+            "meio_pagamento": "pix",
+        },
+    )
+
+    itens = client.get(f"/orcamentos/{orcamento['id']}/itens").json()
+    assert len(itens) == 1
+    assert itens[0]["subcategoria_id"] == subcategoria["id"]
+    assert itens[0]["categoria_id"] is None
+    assert itens[0]["bucket"] == "custos_fixos"
+
+
+def test_despesa_nao_duplica_item_quando_categoria_ja_tem_item_no_orcamento(client):
+    orcamento = _criar_orcamento_do_mes(client)
+    conta = _criar_conta_corrente(client)
+    categoria = client.post("/categorias", json={"nome": "Mercado"}).json()
+    client.post(
+        f"/orcamentos/{orcamento['id']}/itens",
+        json={"bucket": "custos_variaveis", "categoria_id": categoria["id"], "orcamento_mensal": 500},
+    )
+
+    client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-09-05",
+            "valor": 300,
+            "tipo_movimento": "despesa",
+            "conta_id": conta["id"],
+            "categoria_id": categoria["id"],
+            "estrutura_custo": "variavel",
+            "meio_pagamento": "pix",
+        },
+    )
+
+    itens = client.get(f"/orcamentos/{orcamento['id']}/itens").json()
+    assert len(itens) == 1
+    assert itens[0]["orcamento_mensal"] == 500  # valor já configurado não é mexido
+
+
+def test_despesa_sem_orcamento_no_mes_nao_cria_item_nem_da_erro(client):
+    conta = _criar_conta_corrente(client)
+    categoria = client.post("/categorias", json={"nome": "Mercado"}).json()
+
+    resposta = client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-09-05",
+            "valor": 300,
+            "tipo_movimento": "despesa",
+            "conta_id": conta["id"],
+            "categoria_id": categoria["id"],
+            "estrutura_custo": "variavel",
+            "meio_pagamento": "pix",
+        },
+    )
+    assert resposta.status_code == 201  # não trava, só não sincroniza nada
+
+
+def test_aplicacao_sem_caixinha_cria_item_bucket_investimentos(client):
+    orcamento = _criar_orcamento_do_mes(client)
+    conta = client.post("/contas", json={"nome": "Investimento", "tipo_conta": "investimento"}).json()
+    categoria = client.post("/categorias", json={"nome": "Aportes", "tipo": "investimento"}).json()
+
+    client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-09-05",
+            "valor": 500,
+            "tipo_movimento": "aplicacao",
+            "conta_id": conta["id"],
+            "categoria_id": categoria["id"],
+            "estrutura_custo": "investimentos",
+        },
+    )
+
+    itens = client.get(f"/orcamentos/{orcamento['id']}/itens").json()
+    assert len(itens) == 1
+    assert itens[0]["bucket"] == "investimentos"
+    assert itens[0]["categoria_id"] == categoria["id"]
+
+
+def test_aplicacao_com_caixinha_nao_cria_item_de_orcamento(client):
+    orcamento = _criar_orcamento_do_mes(client)
+    conta = _criar_conta_corrente(client)
+    caixinha = client.post("/caixinhas", json={"nome": "Emergência"}).json()
+
+    client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-09-05",
+            "valor": 500,
+            "tipo_movimento": "aplicacao",
+            "conta_id": conta["id"],
+            "caixinha_id": caixinha["id"],
+        },
+    )
+
+    itens = client.get(f"/orcamentos/{orcamento['id']}/itens").json()
+    assert itens == []  # reserva não é item de orçamento
+
+
+def test_estorno_nao_cria_item_de_orcamento(client):
+    orcamento = _criar_orcamento_do_mes(client)
+    conta = _criar_conta_corrente(client)
+    categoria = client.post("/categorias", json={"nome": "Mercado"}).json()
+    despesa = client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-09-05",
+            "valor": 300,
+            "tipo_movimento": "despesa",
+            "conta_id": conta["id"],
+            "categoria_id": categoria["id"],
+            "estrutura_custo": "variavel",
+            "meio_pagamento": "pix",
+        },
+    ).json()
+    # a despesa acima já cria 1 item — desativa ele pra testar só o estorno isoladamente
+    item_da_despesa = client.get(f"/orcamentos/{orcamento['id']}/itens").json()[0]
+    client.patch(f"/orcamentos/{orcamento['id']}/itens/{item_da_despesa['id']}/ativo", params={"ativo": False})
+
+    client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-09-10",
+            "valor": 100,
+            "tipo_movimento": "estorno",
+            "conta_id": conta["id"],
+            "ajuste_de_transacao_id": despesa["id"],
+        },
+    )
+
+    itens = client.get(f"/orcamentos/{orcamento['id']}/itens").json()
+    assert len(itens) == 1  # continua só o item da despesa (agora inativo) — estorno não criou outro
+
+
+def test_editar_transacao_trocando_categoria_sincroniza_item_da_categoria_nova(client):
+    orcamento = _criar_orcamento_do_mes(client)
+    conta = _criar_conta_corrente(client)
+    categoria_a = client.post("/categorias", json={"nome": "Mercado"}).json()
+    categoria_b = client.post("/categorias", json={"nome": "Lazer"}).json()
+    despesa = client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-09-05",
+            "valor": 300,
+            "tipo_movimento": "despesa",
+            "conta_id": conta["id"],
+            "categoria_id": categoria_a["id"],
+            "estrutura_custo": "variavel",
+            "meio_pagamento": "pix",
+        },
+    ).json()
+
+    client.patch(
+        f"/transacoes/{despesa['id']}",
+        json={
+            "data_compra": "2026-09-05",
+            "valor": 300,
+            "tipo_movimento": "despesa",
+            "conta_id": conta["id"],
+            "categoria_id": categoria_b["id"],
+            "estrutura_custo": "variavel",
+            "meio_pagamento": "pix",
+        },
+    )
+
+    itens = client.get(f"/orcamentos/{orcamento['id']}/itens").json()
+    categorias_com_item = {i["categoria_id"] for i in itens}
+    assert categoria_a["id"] in categorias_com_item  # item antigo continua (nunca é removido)
+    assert categoria_b["id"] in categorias_com_item  # item novo sincronizado na edição
