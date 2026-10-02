@@ -103,6 +103,13 @@ changelog já documenta quando e como cada um foi entregue).
 
 **Baixa**
 
+- **68.** **Compra parcelada não tem proteção real contra double-submit**
+  `tipo: Bug` (detalhe abaixo) — achado testando a Rodada 44
+  (2026-10-02): `hash_dedup` de cada parcela inclui `compra_parcelada_id`,
+  que é gerado novo a cada `POST /transacoes/parceladas` — 2 submissões
+  idênticas (ex: duplo clique) nunca colidem, e criam 2 grupos de
+  parcela inteiros duplicados silenciosamente. Diferente do item 35
+  (que bloqueava demais): aqui não bloqueia o suficiente. *(2026-10-02)*
 - **58.** **Marcador de origem caixinha** `tipo: Melhoria` — um
   marcador pra indicar, na lista de lançamentos, uma transação cuja
   origem é retirada de caixinha — facilita identificar uma compra/gasto
@@ -423,8 +430,9 @@ já documenta quando e como cada um foi entregue.
   implementação. Detalhe na subseção própria abaixo, ver changelog
   Rodada 43.
 - **35.** ~~`hash_dedup` não distingue 2 despesas reais idênticas no
-  mesmo dia~~ **feito 2026-10-02** — `POST /transacoes` ganhou
-  `forcar_duplicado`; o frontend oferece "Lançar mesmo assim" no 409.
+  mesmo dia~~ **feito 2026-10-02** — `POST /transacoes` e
+  `PATCH /transacoes/{id}` ganharam `forcar_duplicado`; o frontend
+  oferece "Lançar mesmo assim" no 409, em Novo Lançamento e em Editar.
   Detalhe na subseção própria abaixo, ver changelog Rodada 44.
 - **18.** ~~Janela de meses pra trás × ano civil (jan-dez) nos
   gráficos~~ **feito 2026-10-02** — decisão: manter trailing 12 meses
@@ -2022,8 +2030,7 @@ migração, não no uso normal do app.
 **Fix:** mesma técnica do script de migração (`gravar_avista_duplicado`),
 exposta pelo fluxo normal de criação. `TransacaoCreate` ganhou
 `forcar_duplicado: bool` (Pydantic `exclude=True` — nunca vira coluna
-na tabela, nunca afeta `PATCH` que reusa o mesmo schema).
-`_inserir_avista_com_desambiguacao()` (`backend/app/routers/
+na tabela). `_com_desambiguacao_de_duplicata()` (`backend/app/routers/
 transacoes.py`): sem forçar, comportamento idêntico a hoje (409 na
 colisão); com `forcar_duplicado=true`, soma um índice de ocorrência só
 ao cálculo do hash (nunca gravado na linha) e tenta de novo, até 20x.
@@ -2037,14 +2044,78 @@ pegar double-submit acidental — sem o flag explícito, o comportamento
 de hoje não muda em nada. O usuário só vê "lançar mesmo assim" quando a
 API já rejeitou, nunca antes.
 
-**Testes:** 2 testes novos — repetição com `forcar_duplicado` cria uma
-2ª transação idêntica; repetição 3x confirma que o índice de ocorrência
-continua funcionando além da 1ª desambiguação. Suíte completa: 367
-passed, 33 skipped. Frontend verificado via `tsc -b && vite build` +
-`oxlint` — sem erro, sem warning novo.
+**Achado testando a Rodada 44 (mesmo dia):** o fluxo de EDIÇÃO
+(`PATCH /transacoes/{id}`, usado por `EditarLancamento.tsx`) tinha o
+mesmo bug — editar uma transação pra ficar idêntica a outra já
+existente batia no mesmo 409, sem `forcar_duplicado` nem botão "Lançar
+mesmo assim". Estendido no mesmo dia: `_com_desambiguacao_de_
+duplicata()` generalizada (recebe a operação — inserir ou atualizar —
+como função) e reusada também em `atualizar()`; `EditarLancamento.tsx`
+ganhou o mesmo botão de `NovoLancamento.tsx`. Achado também expôs uma
+lacuna no fake de teste: `tests/fakes.py` só simulava a constraint
+UNIQUE em `insert`, nunca em `update` — o teste novo batia 200 onde
+devia bater 409. Corrigido (`update` agora checa `hash_dedup` e as
+constraints de `_UNIQUE_CONSTRAINTS` contra as outras linhas, excluindo
+a própria linha sendo atualizada) — espelha o Postgres real, que aplica
+UNIQUE em UPDATE tanto quanto em INSERT.
 
-**Status:** implementado 2026-10-02. Sem QA visual via Playwright —
-mesma limitação de sempre. Ver changelog Rodada 44.
+**Testes:** 3 testes novos — repetição com `forcar_duplicado` cria uma
+2ª transação idêntica; repetição 3x confirma que o índice de ocorrência
+continua funcionando além da 1ª desambiguação; editar uma transação pra
+ficar idêntica a outra dá 409 sem forçar e 200 com `forcar_duplicado`.
+Suíte completa: 368 passed, 33 skipped. Frontend verificado via
+`tsc -b && vite build` + `oxlint` — sem erro, sem warning novo.
+
+**Status:** implementado 2026-10-02 (criação + edição, mesmo dia). Sem
+QA visual via Playwright — mesma limitação de sempre. Ver changelog
+Rodada 44.
+
+### Compra parcelada não tem proteção real contra double-submit
+
+**Contexto:** usuário testando a Rodada 44 (checklist item 5 — "Tentar
+o mesmo cenário de duplicata em compra PARCELADA e confirmar que
+continua dando 409") reportou que a operação parcelada NÃO deu 409,
+criou normalmente. O checklist estava errado — não por regressão deste
+fix, mas porque a premissa (hash_dedup protege parceladas do mesmo
+jeito que avista) nunca foi verdade.
+
+**Causa raiz (lida no código):** `criar_parcelada()`
+(`backend/app/routers/transacoes.py`) sempre insere 1 linha nova em
+`compras_parceladas` primeiro (`grupo["id"]`, gerado pelo banco a cada
+chamada), e o `hash_dedup` de cada parcela inclui esse
+`compra_parcelada_id`. Duas submissões com o MESMO payload (mesma
+descrição/valor/parcelas/data/conta/categoria — ex: duplo clique no
+botão "Salvar") geram 2 `compra_parcelada_id` diferentes, logo hashes
+diferentes, logo nunca colidem — o `hash_dedup` nunca bloqueia nada
+aqui. Isso é o oposto do item 35 (hash bloqueando demais): aqui o hash
+não bloqueia o suficiente, e um duplo clique acidental cria 2 grupos de
+parcela inteiros (ex: 2x "Celular 12x de R$200") sem aviso nenhum.
+
+**Diferença do que o endpoint avista resolve:** em `POST /transacoes`,
+o hash é só da própria linha, então 2 submissões idênticas colidem
+naturalmente (é o comportamento "certo" por padrão) — o problema ali
+era não ter como confirmar uma exceção legítima. Em `/transacoes/
+parceladas`, o problema é o inverso: não existe proteção nenhuma contra
+o caso comum (double-submit acidental), porque a chave inclui um
+identificador que nunca se repete.
+
+**Proposta (não implementada ainda — registrando pra decisão):**
+checar duplicata ANTES de criar o grupo em `compras_parceladas`, com
+uma chave baseada só no que realmente identifica "a mesma compra
+parcelada": (`descricao`, `valor_total`, `parcela_total`,
+`data_primeira_parcela`, `conta_id`, `categoria_id`,
+`subcategoria_id`). Se já existir um grupo com essa mesma chave (ex:
+checando a 1ª parcela por esses campos, já que ela sempre existe), 409
+antes de criar nada — evita o grupo fantasma em `compras_parceladas`
+que o endpoint avista não tem (lá, o `INSERT` que falha nem chega a
+gravar nada parcial). Mesmo `forcar_duplicado` do item 35 poderia valer
+aqui também, pelo mesmo motivo (2 compras parceladas reais e diferentes
+podem coincidir nesses campos).
+
+**Status:** registrado 2026-10-02, acompanhando o achado da Rodada 44.
+Prioridade baixa (mesma classe de risco do item 35 original — exige
+double-submit real, não é um bug do dia a dia comum). Aguardando
+decisão sobre a proposta antes de implementar.
 
 ### Janela de meses pra trás × ano civil nos gráficos
 

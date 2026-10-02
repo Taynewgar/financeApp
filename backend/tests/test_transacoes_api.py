@@ -383,6 +383,38 @@ def test_editar_transacao_atualiza_campos(client):
     assert corpo["fatura_referencia"] is None  # saiu do cartão, não tem mais fatura
 
 
+def test_editar_transacao_para_ficar_identica_a_outra_retorna_409_e_forcar_aceita(client):
+    """Mesmo bug do item 35 (hash_dedup bloqueando lançamento legítimo),
+    achado 2026-10-02 no caminho de EDIÇÃO: editar uma transação pra
+    ficar idêntica a outra já existente batia no mesmo 409, sem como
+    confirmar e seguir adiante — forcar_duplicado precisa valer aqui
+    também, não só em POST /transacoes."""
+    cartao = _criar_conta_cartao(client)
+    categoria = client.post("/categorias", json={"nome": "Categoria Teste"}).json()
+    payload_existente = {
+        "data_compra": "2026-08-05",
+        "valor": 50,
+        "tipo_movimento": "despesa",
+        "conta_id": cartao["id"],
+        "descricao": "Mesma compra",
+        "categoria_id": categoria["id"],
+        "estrutura_custo": "variavel",
+        "meio_pagamento": "cartao_credito",
+    }
+    client.post("/transacoes", json=payload_existente)
+    outra = client.post(
+        "/transacoes",
+        json={**payload_existente, "data_compra": "2026-08-06", "descricao": "Outra coisa"},
+    ).json()
+
+    sem_forcar = client.patch(f"/transacoes/{outra['id']}", json=payload_existente)
+    assert sem_forcar.status_code == 409
+
+    com_forcar = client.patch(f"/transacoes/{outra['id']}", json={**payload_existente, "forcar_duplicado": True})
+    assert com_forcar.status_code == 200
+    assert com_forcar.json()["descricao"] == "Mesma compra"
+
+
 def test_editar_transacao_preserva_fatura_movida_manualmente(client):
     cartao = _criar_conta_cartao(client)
     categoria = client.post("/categorias", json={"nome": "Categoria Teste"}).json()

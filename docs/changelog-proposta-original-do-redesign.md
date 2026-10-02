@@ -3968,9 +3968,8 @@ resumo.
 
 **Fix:**
 - `TransacaoCreate` ganhou `forcar_duplicado: bool` (`Field(exclude=True)`
-  — nunca entra no `model_dump`, então nunca vira coluna na tabela nem
-  afeta `PATCH /transacoes/{id}`, que reusa o mesmo schema).
-- `_inserir_avista_com_desambiguacao()` (`backend/app/routers/
+  — nunca entra no `model_dump`, então nunca vira coluna na tabela).
+- `_com_desambiguacao_de_duplicata()` (`backend/app/routers/
   transacoes.py`): sem `forcar_duplicado`, nada muda (409 na colisão,
   mesma fórmula de hash de sempre). Com o flag, tenta de novo somando
   um índice de ocorrência ao cálculo do hash (nunca gravado na linha),
@@ -3979,7 +3978,7 @@ resumo.
   outro lançamento real)", que reenvia o mesmo payload com
   `forcar_duplicado: true`. Só no caminho avista — compra parcelada
   (`POST /transacoes/parceladas`) não ganhou esse fluxo (fora do
-  escopo do bug reportado).
+  escopo do bug reportado — ver achado novo abaixo).
 
 **Testes:** 2 testes novos — repetição com `forcar_duplicado` cria a
 2ª transação idêntica (confirma que sem o flag continua 409); repetição
@@ -3990,23 +3989,50 @@ completa: 367 passed, 33 skipped. Frontend: `tsc -b && vite build` +
 **Status:** implementado 2026-10-02. Sem QA visual via Playwright —
 mesma limitação de sempre.
 
+**Rodada 44, correção (mesmo dia) — PATCH também precisava do fix:**
+usuário testando o checklist achou que editar um lançamento existente
+pra ficar idêntico a outro (`PATCH /transacoes/{id}`, `Editar
+Lançamento`) batia no mesmo 409 sem nenhuma saída — o fix original só
+cobria criação. `_com_desambiguacao_de_duplicata()` generalizada pra
+receber a operação (inserir OU atualizar) como função, reusada em
+`atualizar()`; `EditarLancamento.tsx` ganhou o mesmo botão "Lançar
+mesmo assim" de `NovoLancamento.tsx`. Achado também expôs lacuna no
+fake de teste (`tests/fakes.py`): só simulava a constraint UNIQUE em
+`insert`, nunca em `update` — o Postgres real aplica UNIQUE nos dois;
+corrigido pra checar `hash_dedup`/`_UNIQUE_CONSTRAINTS` contra as
+outras linhas também no `update`, excluindo a própria linha. +1 teste
+(editar pra duplicata dá 409 sem forçar, 200 com `forcar_duplicado`).
+Suíte completa: 368 passed, 33 skipped.
+
 **Checklist de teste manual (usuário, localmente):**
-- [ ] Lançar uma despesa (ex: assinatura R$14,99 hoje, mesma conta/
+- [x] Lançar uma despesa (ex: assinatura R$14,99 hoje, mesma conta/
       categoria) e, em seguida, lançar outra IDÊNTICA (mesma data,
       valor, descrição, conta, tipo) — confirmar que aparece a mensagem
-      de 409 + o botão "Lançar mesmo assim".
-- [ ] Clicar em "Lançar mesmo assim" e confirmar que a 2ª transação é
+      de 409 + o botão "Lançar mesmo assim". — confirmado 2026-10-02.
+- [x] Clicar em "Lançar mesmo assim" e confirmar que a 2ª transação é
       criada normalmente (aparece em Lançamentos como um item distinto,
-      não substitui a 1ª).
-- [ ] Repetir o mesmo lançamento uma 3ª vez (idêntico à 1ª e à 2ª) e
+      não substitui a 1ª). — confirmado 2026-10-02.
+- [x] Repetir o mesmo lançamento uma 3ª vez (idêntico à 1ª e à 2ª) e
       confirmar que "Lançar mesmo assim" continua funcionando (não só
-      na 2ª tentativa).
-- [ ] Editar o formulário pra um valor diferente antes de reenviar e
+      na 2ª tentativa). — confirmado 2026-10-02.
+- [x] Editar o formulário pra um valor diferente antes de reenviar e
       confirmar que NÃO aparece o botão "Lançar mesmo assim" (não é
-      mais duplicata) — lança normal, sem 409.
-- [ ] Tentar o mesmo cenário de duplicata em compra PARCELADA e
+      mais duplicata) — lança normal, sem 409. — confirmado 2026-10-02
+      em Novo Lançamento. Achado à parte no mesmo teste: EDITAR um
+      lançamento JÁ EXISTENTE (`EditarLancamento.tsx`/`PATCH
+      /transacoes/{id}`) pra ficar idêntico a outro também batia 409,
+      sem o botão — esse caminho não tinha sido coberto pelo fix
+      original. Corrigido no mesmo dia, ver "Rodada 44, correção"
+      abaixo.
+- [ ] ~~Tentar o mesmo cenário de duplicata em compra PARCELADA e
       confirmar que continua dando 409 sem o botão "Lançar mesmo
-      assim" (fora do escopo deste fix, comportamento inalterado).
+      assim" (fora do escopo deste fix, comportamento inalterado).~~
+      **Checklist errado** — reportado 2026-10-02: não deu 409, criou
+      normalmente. Investigado: não é regressão, compra parcelada
+      nunca teve proteção real contra double-submit (hash inclui um id
+      gerado novo a cada chamada). Registrado como item novo (68) no
+      backlog, com causa raiz e proposta de fix — não implementado
+      ainda, fora do escopo desta rodada.
 
 ### Rodada 45 (2026-10-02) — Toggle "Ano civil" em Gráficos (item 18)
 

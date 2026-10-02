@@ -168,8 +168,29 @@ class FakeQuery:
 
         if self._op == "update":
             matched = [r for r in self._rows if self._matches(r)]
+            payload = self._payload or {}
+            # Postgres aplica UNIQUE em UPDATE tanto quanto em INSERT — sem
+            # isso aqui, um PATCH que deixa 2 linhas com o mesmo hash_dedup
+            # (ou outra constraint única) passava batido só no fake, achado
+            # 2026-10-02 testando forcar_duplicado em PATCH /transacoes/{id}
+            if "hash_dedup" in payload:
+                for r in matched:
+                    for existing in self._rows:
+                        if existing is not r and existing.get("hash_dedup") == payload["hash_dedup"]:
+                            raise Exception(
+                                "duplicate key value violates unique constraint \"transacoes_hash_dedup_key\""
+                            )
+            colunas_unicas = _UNIQUE_CONSTRAINTS.get(self._table)
+            if colunas_unicas:
+                for r in matched:
+                    chave = tuple(payload.get(c, r.get(c)) for c in colunas_unicas)
+                    for existing in self._rows:
+                        if existing is not r and tuple(existing.get(c) for c in colunas_unicas) == chave:
+                            raise Exception(
+                                f"duplicate key value violates unique constraint \"{self._table}_{'_'.join(colunas_unicas)}_key\""
+                            )
             for r in matched:
-                r.update(self._payload or {})
+                r.update(payload)
             return FakeResult([dict(r) for r in matched])
 
         if self._op == "delete":

@@ -73,6 +73,14 @@ export function EditarLancamento() {
 
   const [enviando, setEnviando] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
+  // mesmo fluxo de NovoLancamento.tsx — 409 de hash_dedup pode ser 2
+  // transações reais e diferentes que só coincidem em data/valor/
+  // descrição/conta/tipo, não necessariamente double-submit acidental
+  // (achado 2026-10-02, testando a Rodada 44: editar um lançamento pra
+  // ficar igual a outro já existente também batia nesse 409, sem como
+  // confirmar e seguir adiante — mesmo bug do item 35, só no caminho de
+  // edição em vez de criação)
+  const [duplicadoDetectado, setDuplicadoDetectado] = useState(false)
 
   const tipo = transacaoOriginal ? derivarTipo(transacaoOriginal) : null
 
@@ -116,9 +124,43 @@ export function EditarLancamento() {
     }
   }
 
+  function montarPayloadAvista(): Record<string, unknown> {
+    return {
+      data_compra: dataCompra,
+      valor: Number(valor),
+      descricao: descricao || null,
+      tipo_movimento: transacaoOriginal!.tipo_movimento,
+      conta_id: contaId,
+      categoria_id: categoriaId || null,
+      subcategoria_id: subcategoriaId || null,
+      estrutura_custo: estruturaCusto || null,
+      caixinha_id: tipo === 'reserva' ? caixinhaId : null,
+      meio_pagamento: tipo === 'despesa' || tipo === 'ajuste' ? meioPagamento || null : null,
+      ajuste_de_transacao_id: transacaoOriginal!.ajuste_de_transacao_id,
+    }
+  }
+
+  async function handleForcarDuplicado() {
+    if (!transacaoOriginal) return
+    setEnviando(true)
+    setErro(null)
+    try {
+      await apiFetch(`/transacoes/${transacaoOriginal.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ ...montarPayloadAvista(), forcar_duplicado: true }),
+      })
+      navigate('/lancamentos')
+    } catch (e) {
+      setErro(e instanceof ApiError ? (typeof e.detail === 'string' ? e.detail : e.message) : 'Falha ao salvar o lançamento.')
+    } finally {
+      setEnviando(false)
+    }
+  }
+
   async function handleSubmit(event: FormEvent) {
     event.preventDefault()
     setErro(null)
+    setDuplicadoDetectado(false)
     if (!transacaoOriginal || !tipo) return
 
     if (!contaId) {
@@ -144,25 +186,15 @@ export function EditarLancamento() {
 
     setEnviando(true)
     try {
-      await apiFetch(`/transacoes/${transacaoOriginal.id}`, {
-        method: 'PATCH',
-        body: JSON.stringify({
-          data_compra: dataCompra,
-          valor: Number(valor),
-          descricao: descricao || null,
-          tipo_movimento: transacaoOriginal.tipo_movimento,
-          conta_id: contaId,
-          categoria_id: categoriaId || null,
-          subcategoria_id: subcategoriaId || null,
-          estrutura_custo: estruturaCusto || null,
-          caixinha_id: tipo === 'reserva' ? caixinhaId : null,
-          meio_pagamento: tipo === 'despesa' || tipo === 'ajuste' ? meioPagamento || null : null,
-          ajuste_de_transacao_id: transacaoOriginal.ajuste_de_transacao_id,
-        }),
-      })
+      await apiFetch(`/transacoes/${transacaoOriginal.id}`, { method: 'PATCH', body: JSON.stringify(montarPayloadAvista()) })
       navigate('/lancamentos')
     } catch (e) {
-      setErro(e instanceof ApiError ? (typeof e.detail === 'string' ? e.detail : e.message) : 'Falha ao salvar o lançamento.')
+      if (e instanceof ApiError) {
+        setErro(typeof e.detail === 'string' ? e.detail : e.message)
+        setDuplicadoDetectado(e.status === 409)
+      } else {
+        setErro('Falha ao salvar o lançamento.')
+      }
     } finally {
       setEnviando(false)
     }
@@ -512,6 +544,13 @@ export function EditarLancamento() {
           <p role="alert" className="mensagem-erro">
             {erro}
           </p>
+        )}
+        {duplicadoDetectado && (
+          <div className="form-acoes">
+            <button type="button" className="botao-secundario" onClick={handleForcarDuplicado} disabled={enviando}>
+              Lançar mesmo assim (é outro lançamento real)
+            </button>
+          </div>
         )}
 
         <div className="form-acoes">

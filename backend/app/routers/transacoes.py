@@ -262,21 +262,39 @@ def obter(transacao_id: str, db: Client = Depends(get_db), user_id: str = Depend
 _MAX_OCORRENCIAS_DUPLICADO = 20
 
 
-def _inserir_avista_com_desambiguacao(db: Client, row: dict, campos_hash: dict, forcar_duplicado: bool) -> dict:
+def _com_desambiguacao_de_duplicata(tentar, row: dict, campos_hash: dict, forcar_duplicado: bool) -> dict:
+    """`tentar` é a operação (inserir OU atualizar) que lê `row["hash_dedup"]`
+    no momento em que roda — generaliza a técnica pros 2 pontos que
+    recalculam hash_dedup num lançamento avista (criar/atualizar)."""
     row["hash_dedup"] = compute_hash(**campos_hash)
     try:
-        return inserir_transacao(db, row)
+        return tentar()
     except HTTPException as exc:
         if exc.status_code != 409 or not forcar_duplicado:
             raise
         for ocorrencia in range(1, _MAX_OCORRENCIAS_DUPLICADO):
             row["hash_dedup"] = compute_hash(**campos_hash, ocorrencia=ocorrencia)
             try:
-                return inserir_transacao(db, row)
+                return tentar()
             except HTTPException as exc_ocorrencia:
                 if exc_ocorrencia.status_code != 409:
                     raise
         raise
+
+
+def _atualizar_avista(db: Client, user_id: str, transacao_id: str, row: dict) -> dict:
+    try:
+        return crud.update(db, TABLE, user_id, transacao_id, row)
+    except crud.NotFound:
+        raise HTTPException(status_code=404, detail="Transação não encontrada")
+    except Exception as exc:  # noqa: BLE001 — mesma tradução de unicidade usada em inserir_transacao
+        if "duplicate key value violates unique constraint" in str(exc) or "23505" in str(exc):
+            raise HTTPException(
+                status_code=409,
+                detail="Já existe um lançamento idêntico (mesma data, valor, conta e descrição).",
+            ) from exc
+        print(f"[transacoes] falha ao atualizar: {exc!r} — id={transacao_id}")
+        raise HTTPException(status_code=500, detail="Falha ao salvar a transação") from exc
 
 
 @router.post("", response_model=Transacao, status_code=201)
@@ -318,7 +336,9 @@ def criar(payload: TransacaoCreate, db: Client = Depends(get_db), user_id: str =
         parcela_total=None,
         compra_parcelada_id=None,
     )
-    criada = _inserir_avista_com_desambiguacao(db, row, campos_hash, payload.forcar_duplicado)
+    criada = _com_desambiguacao_de_duplicata(
+        lambda: inserir_transacao(db, row), row, campos_hash, payload.forcar_duplicado
+    )
     sincronizar_item_orcamento(db, user_id, criada)
     return criada
 
@@ -438,7 +458,7 @@ def atualizar(
     else:
         row["fatura_referencia"] = fatura_referencia_para(db, user_id, payload.conta_id, payload.data_compra)
         row["fatura_override"] = False
-    row["hash_dedup"] = compute_hash(
+    campos_hash = dict(
         user_id=user_id,
         data_compra=row["data_compra"],
         valor=row["valor"],
@@ -449,18 +469,9 @@ def atualizar(
         parcela_total=None,
         compra_parcelada_id=None,
     )
-    try:
-        atualizada = crud.update(db, TABLE, user_id, transacao_id, row)
-    except crud.NotFound:
-        raise HTTPException(status_code=404, detail="Transação não encontrada")
-    except Exception as exc:  # noqa: BLE001 — mesma tradução de unicidade usada em _insert
-        if "duplicate key value violates unique constraint" in str(exc) or "23505" in str(exc):
-            raise HTTPException(
-                status_code=409,
-                detail="Já existe um lançamento idêntico (mesma data, valor, conta e descrição).",
-            ) from exc
-        print(f"[transacoes] falha ao atualizar: {exc!r} — id={transacao_id}")
-        raise HTTPException(status_code=500, detail="Falha ao salvar a transação") from exc
+    atualizada = _com_desambiguacao_de_duplicata(
+        lambda: _atualizar_avista(db, user_id, transacao_id, row), row, campos_hash, payload.forcar_duplicado
+    )
     sincronizar_item_orcamento(db, user_id, atualizada)
     return atualizada
 
