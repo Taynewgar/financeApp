@@ -226,6 +226,15 @@ no backlog como consequência de testar aquela rodada (ex: itens 19/20/29/
 30/31/32, encontrados testando Rodadas 22/25/28-32). Rodadas 35+ só têm
 caixa marcada quando o usuário confirmar aquele item nominalmente.
 
+**Atualização (2026-10-02):** a diferença de 1 caractere entre `[ ]` e
+`[x]` passava batido numa leitura rápida — mesmo problema apontado pelo
+usuário no artifact interativo do backlog (ver commit da mesma data). Todo
+item confirmado (`[x]`) agora também vem com o texto inteiro riscado
+(`~~...~~`), reaproveitando a mesma convenção já usada pros itens
+concluídos do `backlog.md` — a caixa marcada deixa de ser o único sinal,
+e item pendente (`[ ]`, sem risco) e confirmado (`[x]`, riscado) ficam
+visualmente distintos mesmo sem reparar no conteúdo da caixa.
+
 ### 2026-09-13 — Dashboard: caixa/saúde, delta, patrimônio, compromissos, 3ª linha
 
 Pedido do usuário: o Dashboard entregue antes (só evolução + KPIs simples)
@@ -852,17 +861,17 @@ nova à tabela.
   cobrindo os 2 campos novos no item. Suíte offline: 206 passed.
 
 **Checklist de teste manual:**
-- [x] Estrutura de Custo e Planejamento: setas ←/→ trocam de mês; há
+- [x] ~~Estrutura de Custo e Planejamento: setas ←/→ trocam de mês; há
       respiro visível entre o subtítulo do cabeçalho e o bloco seguinte
-      (KPIs/resumo).
-- [x] Rolar uma lista comprida (ex: itens de um bucket): a scrollbar não
+      (KPIs/resumo).~~
+- [x] ~~Rolar uma lista comprida (ex: itens de um bucket): a scrollbar não
       mostra os botões ▲▼ clássicos, mas rolar com a roda do
-      mouse/trackpad e arrastar o thumb continuam funcionando normal.
-- [x] KPI "Orçado no mês" (topo de Estrutura de Custo) não inclui
-      Investimentos na soma — bate com Fixos+Variáveis+Sazonalidades só.
-- [x] Um item com sobra/furo do mês anterior mostra uma 2ª linha pequena
+      mouse/trackpad e arrastar o thumb continuam funcionando normal.~~
+- [x] ~~KPI "Orçado no mês" (topo de Estrutura de Custo) não inclui
+      Investimentos na soma — bate com Fixos+Variáveis+Sazonalidades só.~~
+- [x] ~~Um item com sobra/furo do mês anterior mostra uma 2ª linha pequena
       com o detalhamento ("R$X + R$Y sobra"/"− R$Y furo"), sem virar
-      coluna nova na tabela.
+      coluna nova na tabela.~~
 
 ## Rodada 14 (2026-09-15) — Categorias "mais usadas" + criação inline no Novo Lançamento
 
@@ -897,15 +906,15 @@ seleciona a categoria/subcategoria nova sem sair da tela.
   213 passed.
 
 **Checklist de teste manual:**
-- [x] Novo Lançamento: chips de categorias "mais usadas" aparecem acima
+- [x] ~~Novo Lançamento: chips de categorias "mais usadas" aparecem acima
       do select, na ordem certa (a mais frequente primeiro); clicar num
-      chip seleciona a categoria sem abrir o select.
-- [x] Escolher uma categoria muda os chips de subcategoria "mais usada"
-      pra refletir só as daquela categoria.
-- [x] "+ Nova categoria"/"+ Nova subcategoria": formulário inline abre,
-      cria e já seleciona o item novo, sem sair da tela.
-- [x] Uma categoria/subcategoria desativada não aparece nos chips de
-      "mais usadas".
+      chip seleciona a categoria sem abrir o select.~~
+- [x] ~~Escolher uma categoria muda os chips de subcategoria "mais usada"
+      pra refletir só as daquela categoria.~~
+- [x] ~~"+ Nova categoria"/"+ Nova subcategoria": formulário inline abre,
+      cria e já seleciona o item novo, sem sair da tela.~~
+- [x] ~~Uma categoria/subcategoria desativada não aparece nos chips de
+      "mais usadas".~~
 
 ### Rodada 14.1 (2026-09-16) — feedback de teste: estrutura de custo padrão no "+ Nova subcategoria"
 
@@ -935,16 +944,16 @@ extra necessária.
   tsc + build limpos; suíte offline: 213 passed (inalterada).
 
 **Checklist de teste manual:**
-- [x] Novo Lançamento → Despesa → "+ Nova subcategoria": o select
-      "Estrutura padrão (opcional)" aparece no formulário inline.
-- [x] Criar uma subcategoria nova escolhendo uma estrutura padrão (ex:
+- [x] ~~Novo Lançamento → Despesa → "+ Nova subcategoria": o select
+      "Estrutura padrão (opcional)" aparece no formulário inline.~~
+- [x] ~~Criar uma subcategoria nova escolhendo uma estrutura padrão (ex:
       "Fixo"), depois selecioná-la num lançamento novo: a estrutura de
-      custo do lançamento já vem pré-marcada sozinha.
-- [x] Trocar o tipo pra Receita ou Investimento: o select de estrutura
-      padrão some do formulário inline (não se aplica a esses tipos).
-- [x] Criar uma subcategoria a partir de um Estorno/Ressarcimento
+      custo do lançamento já vem pré-marcada sozinha.~~
+- [x] ~~Trocar o tipo pra Receita ou Investimento: o select de estrutura
+      padrão some do formulário inline (não se aplica a esses tipos).~~
+- [x] ~~Criar uma subcategoria a partir de um Estorno/Ressarcimento
       (tipo "ajuste"): o select de estrutura padrão aparece igual a uma
-      despesa comum.
+      despesa comum.~~
 
 ## Rodada 15 (2026-09-16) — Dashboard: 3 KPIs novos (item 6, entregue antes do item 5)
 
@@ -975,13 +984,13 @@ Os 3 vêm de dados que a tela já buscava, sem endpoint novo:
   tsc + build limpos; suíte offline: 213 passed (inalterada).
 
 **Checklist de teste manual:**
-- [x] Dashboard: card "Meses com resultado negativo" mostra a contagem
-      certa (de janeiro até o mês de referência, leitura de saúde).
-- [x] Card "Taxa de poupança" ganhou uma linha extra "Resultado
-      acumulado (R$)" abaixo do %, mesma janela.
-- [x] Card "Maior categoria de despesa" bate com a categoria no topo do
-      gráfico "Despesas por Categoria" do mesmo mês.
-- [x] Tooltips (ícone "?") dos 3 KPIs novos abrem com texto explicativo.
+- [x] ~~Dashboard: card "Meses com resultado negativo" mostra a contagem
+      certa (de janeiro até o mês de referência, leitura de saúde).~~
+- [x] ~~Card "Taxa de poupança" ganhou uma linha extra "Resultado
+      acumulado (R$)" abaixo do %, mesma janela.~~
+- [x] ~~Card "Maior categoria de despesa" bate com a categoria no topo do
+      gráfico "Despesas por Categoria" do mesmo mês.~~
+- [x] ~~Tooltips (ícone "?") dos 3 KPIs novos abrem com texto explicativo.~~
 
 ## Rodada 16 (2026-09-16) — Feature Gráficos, Rodada A: tela nova + migração + sparkline
 
@@ -1038,16 +1047,16 @@ anteriores) — validação é só estática (tsc/build/lint) até o usuário
 testar na tela de verdade.
 
 **Checklist de teste manual:**
-- [x] Item "Gráficos" aparece na navegação; a tela mostra Evolução
+- [x] ~~Item "Gráficos" aparece na navegação; a tela mostra Evolução
       Mensal, Taxa de Poupança Mensal e Despesas por Categoria, usando o
-      mesmo seletor de período (Mês/Intervalo/Todos) do Dashboard.
-- [x] Dashboard não mostra mais os gráficos completos — só o sparkline
+      mesmo seletor de período (Mês/Intervalo/Todos) do Dashboard.~~
+- [x] ~~Dashboard não mostra mais os gráficos completos — só o sparkline
       compacto ao lado do resultado principal, e um link "Ver gráficos
-      completos →" que leva pra `/graficos`.
-- [x] O sparkline do Dashboard acompanha o toggle Leitura de Caixa/
-      Saúde (muda a série mostrada).
-- [x] Trocar o período em Gráficos (Mês/Intervalo/Todos) atualiza os 3
-      gráficos juntos, sem precisar recarregar a página.
+      completos →" que leva pra `/graficos`.~~
+- [x] ~~O sparkline do Dashboard acompanha o toggle Leitura de Caixa/
+      Saúde (muda a série mostrada).~~
+- [x] ~~Trocar o período em Gráficos (Mês/Intervalo/Todos) atualiza os 3
+      gráficos juntos, sem precisar recarregar a página.~~
 
 ### Rodada 16.1 (2026-09-16) — feedback de teste da Rodada A: 2 bugs + 3 melhorias
 
@@ -1113,21 +1122,21 @@ compartilhada com Lançamentos, que não pode crescer sem necessidade).
   lista vazia. Suíte offline: 217 passed (213 + 4). tsc + build limpos.
 
 **Checklist de teste manual:**
-- [x] Gráficos, modo claro e escuro: "Taxa de Poupança Mensal" mostra
-      grade e eixo (não fica "apagado"/sem referência visual).
-- [x] Gráficos → "Despesas por Categoria" em modo Intervalo ou Todos os
+- [x] ~~Gráficos, modo claro e escuro: "Taxa de Poupança Mensal" mostra
+      grade e eixo (não fica "apagado"/sem referência visual).~~
+- [x] ~~Gráficos → "Despesas por Categoria" em modo Intervalo ou Todos os
       meses: o valor soma o período inteiro (não só o último mês), e o
       título mostra o período completo (ex: "julho de 2026 a setembro
-      de 2026").
-- [x] "Evolução Mensal" e "Taxa de poupança mensal" aparecem na mesma
-      seção, um como sub-título do outro (não 2 seções separadas).
-- [x] `EvolucaoChart` (Receitas/Despesas): linhas tracejadas de média
+      de 2026").~~
+- [x] ~~"Evolução Mensal" e "Taxa de poupança mensal" aparecem na mesma
+      seção, um como sub-título do outro (não 2 seções separadas).~~
+- [x] ~~`EvolucaoChart` (Receitas/Despesas): linhas tracejadas de média
       aparecem, com o valor na legenda ("Média receitas (R$X)"); somem/
-      viram "···" no modo privacidade.
-- [x] Dashboard: sparkline aparece nos cards de Receitas/Despesas (ou
+      viram "···" no modo privacidade.~~
+- [x] ~~Dashboard: sparkline aparece nos cards de Receitas/Despesas (ou
       Receita ajustada/Despesas líquidas, conforme o toggle Caixa/
       Saúde), Reservas, Investimentos e Taxa de poupança — acompanhando
-      o toggle Caixa/Saúde quando ele muda o KPI mostrado.
+      o toggle Caixa/Saúde quando ele muda o KPI mostrado.~~
 
 ### Rodada 16.2 (2026-09-16) — "Base da média" ganha efeito real, Intervalo aceita mês futuro, Taxa de Poupança vira coluna
 
@@ -1174,18 +1183,18 @@ número, não pede mais que isso). Gráficos é tela de análise dedicada;
 
 **Checklist de teste manual** (mudança só visual/de interação, sem
 teste automatizado — este projeto não tem suíte de frontend):
-- [x] `/graficos`, modo Intervalo: "Fim" aceita selecionar um mês
+- [x] ~~`/graficos`, modo Intervalo: "Fim" aceita selecionar um mês~~
   futuro (ex: 3 meses à frente).
-- [x] Com um mês futuro selecionado, alternar "Base da média" entre
+- [x] ~~Com um mês futuro selecionado, alternar "Base da média" entre~~
   "Até o mês" e "Ritmo anual" muda o valor das linhas tracejadas em
   Receitas/Despesas/Taxa de poupança (e o texto da legenda/tooltip).
-- [x] Sem mês futuro selecionado (período só com meses já lançados), os
+- [x] ~~Sem mês futuro selecionado (período só com meses já lançados), os~~
   2 modos de "Base da média" devem dar o mesmo resultado (não há mês
   vazio pra excluir).
-- [x] "Taxa de Poupança Mensal" renderiza como colunas (não mais linha),
+- [x] ~~"Taxa de Poupança Mensal" renderiza como colunas (não mais linha),~~
   com a linha de média tracejada atravessando o gráfico.
-- [x] Modo "Mês" em `/graficos` mostra 12 meses no eixo X (não 6).
-- [x] Dashboard: sparkline ao lado do resultado principal continua
+- [x] ~~Modo "Mês" em `/graficos` mostra 12 meses no eixo X (não 6).~~
+- [x] ~~Dashboard: sparkline ao lado do resultado principal continua~~
   igual (6 meses, sem mudança nessa tela).
 
 ### Rodada 17 (2026-09-16) — Pareto de despesas (Rodada B da feature Gráficos)
@@ -1230,15 +1239,15 @@ opcional de categoria pai, igual ao app original).
   tsc + build limpos.
 
 **Checklist de teste manual** (visual, sem cobertura automatizada):
-- [x] `/graficos` → seção "Pareto de Despesas" aparece logo abaixo do
+- [x] ~~`/graficos` → seção "Pareto de Despesas" aparece logo abaixo do~~
   seletor de período, antes de "Evolução Mensal".
-- [x] "Por categoria" mostra a mesma lista/valores de "Despesas por
+- [x] ~~"Por categoria" mostra a mesma lista/valores de "Despesas por~~
   Categoria" mais abaixo na mesma tela (mesma fonte de dado).
-- [x] "Por subcategoria" sem filtro mistura subcategorias de todas as
+- [x] ~~"Por subcategoria" sem filtro mistura subcategorias de todas as~~
   categorias; escolher uma "Categoria pai" restringe à lista dela.
-- [x] Linhas depois da marcação "80% do gasto acumulado até aqui"
+- [x] ~~Linhas depois da marcação "80% do gasto acumulado até aqui"~~
   aparecem visualmente esmaecidas.
-- [x] Trocar o período (Mês/Intervalo/Todos os meses) atualiza o Pareto
+- [x] ~~Trocar o período (Mês/Intervalo/Todos os meses) atualiza o Pareto~~
   nos dois níveis.
 
 ### Rodada 18 (2026-09-16) — Orçado × Realizado em vários meses (Rodada C, fecha o item 5)
@@ -1286,15 +1295,15 @@ migração de EvolucaoChart/Despesas por Categoria e sparkline no
 Dashboard, tudo entregue nas rodadas 16-18.
 
 **Checklist de teste manual** (visual, sem cobertura automatizada):
-- [x] `/graficos` → seção "Orçado × Realizado" aparece entre o Pareto e
+- [x] ~~`/graficos` → seção "Orçado × Realizado" aparece entre o Pareto e~~
   "Evolução Mensal", com as 2 sub-seções (barras + % executado).
-- [x] Barras "Orçado"/"Realizado" batem com o que Estrutura de Custo
+- [x] ~~Barras "Orçado"/"Realizado" batem com o que Estrutura de Custo~~
   mostra pro mesmo mês (soma dos 3 buckets de despesa, sem
   investimentos).
-- [x] Linha de meta (100%) aparece no gráfico de % executado.
-- [x] Mês sem orçamento configurado aparece sem coluna no gráfico de %
+- [x] ~~Linha de meta (100%) aparece no gráfico de % executado.~~
+- [x] ~~Mês sem orçamento configurado aparece sem coluna no gráfico de %~~
   (não uma coluna de 0%).
-- [x] O link "Ver detalhe de {mês} em Estrutura de Custo →" abre a tela
+- [x] ~~O link "Ver detalhe de {mês} em Estrutura de Custo →" abre a tela~~
   já no mês certo (não no mês atual).
 
 ### Rodada 19 (2026-09-22) — Rodada D: refinamento de Gráficos (Base da média, reordenação, curva de Pareto)
@@ -1358,22 +1367,22 @@ Cor reaproveita `--pareto-cor` (laranja, slot "despesas" da paleta) —
   de antes, nenhum novo nos arquivos tocados).
 
 **Checklist de teste manual** (visual, sem cobertura automatizada):
-- [x] `/graficos`, modo Mês: "Base da média" aparece no seletor (antes
+- [x] ~~`/graficos`, modo Mês: "Base da média" aparece no seletor (antes~~
   só aparecia em Intervalo/Todos os meses).
-- [x] Alternar "Até o mês" ↔ "Ritmo anual" com "Todos os meses"
+- [x] ~~Alternar "Até o mês" ↔ "Ritmo anual" com "Todos os meses"~~
   selecionado: as linhas/médias tracejadas de Evolução Mensal, Taxa de
   Poupança e Orçado×Realizado mudam de posição visivelmente (não mais
   "sem efeito").
-- [x] Ordem das seções em `/graficos`: Evolução Mensal → Orçado ×
+- [x] ~~Ordem das seções em `/graficos`: Evolução Mensal → Orçado ×~~
   Realizado → Pareto de Despesas → Despesas por Categoria (Despesas por
   Categoria por último).
-- [x] Seção Pareto mostra a curva de % acumulado (linha) acima da
+- [x] ~~Seção Pareto mostra a curva de % acumulado (linha) acima da~~
   tabela, com linha tracejada em 80%.
-- [x] Hover num ponto da curva do Pareto mostra tooltip com nome da
+- [x] ~~Hover num ponto da curva do Pareto mostra tooltip com nome da~~
   categoria, valor, % do período e % acumulado.
-- [x] Trocar "Por categoria" ↔ "Por subcategoria" no Pareto atualiza a
+- [x] ~~Trocar "Por categoria" ↔ "Por subcategoria" no Pareto atualiza a~~
   curva junto com a tabela.
-- [x] Modo oculto (ícone de privacidade) mascara valor/% na curva do
+- [x] ~~Modo oculto (ícone de privacidade) mascara valor/% na curva do~~
   Pareto também, igual já faz na tabela.
 
 ### Rodada 19.1 (2026-09-22) — fix: % não mascarado no modo oculto (Pareto e Despesas por Categoria)
@@ -1401,13 +1410,13 @@ mascarando os dois certo — o bug era só nos 2 componentes mais antigos.
   tsc + build + lint limpos (mesmos warnings pré-existentes).
 
 **Checklist de teste manual** (visual, sem cobertura automatizada):
-- [x] `/graficos` com modo oculto ligado: coluna `%` e `% acumulado` da
+- [x] ~~`/graficos` com modo oculto ligado: coluna `%` e `% acumulado` da~~
   tabela do Pareto aparecem como `•••`.
-- [x] Tooltip (hover) na barra segmentada de "Despesas por Categoria"
+- [x] ~~Tooltip (hover) na barra segmentada de "Despesas por Categoria"~~
   mostra "valores ocultos" em vez de nome + valor + %.
-- [x] `%` na lista de "Despesas por Categoria" aparece como `•••` com
+- [x] ~~`%` na lista de "Despesas por Categoria" aparece como `•••` com~~
   modo oculto ligado.
-- [x] Desligar o modo oculto volta a mostrar os percentuais normalmente
+- [x] ~~Desligar o modo oculto volta a mostrar os percentuais normalmente~~
   nos 2 componentes.
 
 ### Rodada 19.2 (2026-09-22) — fix: eixo do Pareto sem mascarar + perf de /graficos
@@ -1454,9 +1463,9 @@ query só em vez de 1 por mês — mudança maior no formato da função,
 só vale a pena se a v1 não resolver na prática.
 
 **Checklist de teste manual** (visual, sem cobertura automatizada):
-- [x] `/graficos`, seção Pareto, modo oculto ligado: rótulos do eixo Y
+- [x] ~~`/graficos`, seção Pareto, modo oculto ligado: rótulos do eixo Y~~
   da curva (0%/20%/.../100%) aparecem como `•••`.
-- [x] `/graficos` com um período de vários meses (Intervalo ou Todos os
+- [x] ~~`/graficos` com um período de vários meses (Intervalo ou Todos os~~
   meses, com orçamento configurado em vários deles) carrega
   perceptivelmente mais rápido que antes desta rodada.
 
@@ -1532,13 +1541,13 @@ do período. Se acontecer, o próximo suspeito é o cold start do Render
 query.
 
 **Checklist de teste manual** (visual, sem cobertura automatizada):
-- [x] `/graficos` com "Todos os meses" ou um Intervalo longo (vários
+- [x] ~~`/graficos` com "Todos os meses" ou um Intervalo longo (vários~~
   meses, com orçamento configurado neles) carrega visivelmente mais
   rápido que na Rodada 19.2.
-- [x] Os números batem com antes (Orçado × Realizado, % executado,
+- [x] ~~Os números batem com antes (Orçado × Realizado, % executado,~~
   Evolução Mensal, Taxa de Poupança) — o resultado não deve ter mudado,
   só a velocidade.
-- [x] `/estruturas-de-custo/{mês}` (leitura de 1 mês só) continua
+- [x] ~~`/estruturas-de-custo/{mês}` (leitura de 1 mês só) continua~~
   funcionando normalmente — não foi tocada por este refactor.
 
 ### Rodada 20 (2026-09-22) — Despesa fixa recorrente (item 7 do backlog): projeção virtual
@@ -1632,21 +1641,21 @@ pendente: `lancamentos_recorrentes`".
 - tsc + build + lint limpos (mesmos warnings pré-existentes, nenhum novo).
 
 **Checklist de teste manual** (visual, sem cobertura automatizada):
-- [x] Configurações → Despesas Fixas → criar um recorrente (ex: Aluguel,
+- [x] ~~Configurações → Despesas Fixas → criar um recorrente (ex: Aluguel,~~
   R$1500, dia 5, início neste mês) — aparece na lista.
-- [x] Editar o recorrente (ex: mudar valor) — lista atualiza.
-- [x] Desativar o recorrente — some de Compromissos Futuros no Dashboard,
+- [x] ~~Editar o recorrente (ex: mudar valor) — lista atualiza.~~
+- [x] ~~Desativar o recorrente — some de Compromissos Futuros no Dashboard,~~
   mas continua na lista de Configurações (marcado "inativo").
-- [x] Reativar — volta a aparecer em Compromissos Futuros.
-- [x] Dashboard → Compromissos Futuros mostra o recorrente com "Despesa
+- [x] ~~Reativar — volta a aparecer em Compromissos Futuros.~~
+- [x] ~~Dashboard → Compromissos Futuros mostra o recorrente com "Despesa~~
   fixa recorrente" e a data prevista (dia configurado do mês pendente).
-- [x] Clicar "Confirmar" — cria o lançamento de verdade (aparece em
+- [x] ~~Clicar "Confirmar" — cria o lançamento de verdade (aparece em~~
   Lançamentos), some de Compromissos Futuros até o próximo mês vencer.
-- [x] Tentar confirmar o mesmo mês de novo (ex: via chamada repetida) —
+- [x] ~~Tentar confirmar o mesmo mês de novo (ex: via chamada repetida) —~~
   bloqueado com erro claro.
-- [x] Excluir o recorrente em Configurações — o lançamento já confirmado
+- [x] ~~Excluir o recorrente em Configurações — o lançamento já confirmado~~
   continua existindo normalmente em Lançamentos.
-- [x] Compromissos Futuros mistura parcela de compra parcelada com
+- [x] ~~Compromissos Futuros mistura parcela de compra parcelada com~~
   recorrente pendente, ordenado por data.
 
 ### Rodada 20.1 (2026-09-22) — criação inline de categoria/subcategoria no formulário de recorrente
@@ -1680,15 +1689,15 @@ estrutura de custo padrão dela, mesmo comportamento do Novo Lançamento
   passed, sem alteração.
 
 **Checklist de teste manual** (visual, sem cobertura automatizada):
-- [x] Configurações → Despesas Fixas → Novo recorrente → "+ Nova
+- [x] ~~Configurações → Despesas Fixas → Novo recorrente → "+ Nova~~
   categoria" abre o mini-formulário, cria e já seleciona a categoria nova.
-- [x] Com uma categoria selecionada, "+ Nova subcategoria" cria e já
+- [x] ~~Com uma categoria selecionada, "+ Nova subcategoria" cria e já~~
   seleciona a subcategoria nova, respeitando a categoria pai escolhida.
-- [x] Selecionar uma subcategoria existente que tem estrutura de custo
+- [x] ~~Selecionar uma subcategoria existente que tem estrutura de custo~~
   padrão preenche o campo "Estrutura de custo" sozinho.
-- [x] Cancelar a criação inline limpa o mini-formulário sem afetar o
+- [x] ~~Cancelar a criação inline limpa o mini-formulário sem afetar o~~
   resto dos campos já preenchidos.
-- [x] Conta continua só por dropdown (sem "+ Nova conta") — comportamento
+- [x] ~~Conta continua só por dropdown (sem "+ Nova conta") — comportamento~~
   intencional, mesmo padrão do resto do app.
 
 ### Rodada 20.2 (2026-09-22) — pular um mês do recorrente (viagem, mês sem a despesa)
@@ -1750,13 +1759,13 @@ recorrente — hoje o desfazer só existe via API (`DELETE .../pular`), sem
 superfície na UI.
 
 **Checklist de teste manual** (visual, sem cobertura automatizada):
-- [x] Dashboard → Compromissos Futuros → recorrente pendente → "Pular
+- [x] ~~Dashboard → Compromissos Futuros → recorrente pendente → "Pular~~
   este mês" (com confirmação) → some da lista ou avança pro mês seguinte
   (se já houver outra pendência mais próxima).
-- [x] O mês pulado não vira lançamento em Lançamentos.
-- [x] Tentar confirmar um mês já pulado (via chamada repetida à API) —
+- [x] ~~O mês pulado não vira lançamento em Lançamentos.~~
+- [x] ~~Tentar confirmar um mês já pulado (via chamada repetida à API) —~~
   bloqueado com erro claro.
-- [x] Tentar pular um mês já confirmado (via chamada repetida à API) —
+- [x] ~~Tentar pular um mês já confirmado (via chamada repetida à API) —~~
   bloqueado com erro claro.
 
 ### Rodada 20.3 (2026-09-24) — bug: clique acidental em "Pular" some com o mês confirmado
@@ -1810,17 +1819,17 @@ Usuário aprovou os 3 fixes.
 - tsc + build + lint limpos (24 warnings, mesmo total de antes).
 
 **Checklist de teste manual** (visual, sem cobertura automatizada):
-- [x] Configurações → Lançamentos Recorrentes → recorrente com algum mês
+- [x] ~~Configurações → Lançamentos Recorrentes → recorrente com algum mês~~
   pulado → "Meses pulados" → lista aparece só depois do clique (checar
   Network: 1 request nesse momento, nenhum antes).
-- [x] "Desfazer" num mês pulado → some da lista e o mês volta a aparecer
+- [x] ~~"Desfazer" num mês pulado → some da lista e o mês volta a aparecer~~
   como pendente em Compromissos Futuros.
-- [x] Recorrente sem nenhum pulado → "Meses pulados" mostra lista vazia
+- [x] ~~Recorrente sem nenhum pulado → "Meses pulados" mostra lista vazia~~
   (sem erro).
-- [x] Dashboard → Compromissos Futuros → "Confirmar" e "Pular este mês"
+- [x] ~~Dashboard → Compromissos Futuros → "Confirmar" e "Pular este mês"~~
   aparecem empilhados, com espaço visível entre os dois e "Pular" em
   texto discreto — não dá pra confundir um clique num pelo outro.
-- [x] Provocar um erro em "Confirmar" (ex: chamar a API duas vezes rápido
+- [x] ~~Provocar um erro em "Confirmar" (ex: chamar a API duas vezes rápido~~
   pro mesmo mês) e depois clicar em "Pular" num outro item — confirmar
   que a mensagem de erro do primeiro continua visível até a segunda ação
   também terminar (e, se a segunda também falhar, que a mensagem cita o
@@ -1865,17 +1874,17 @@ não rodam em CI. Suíte offline sem alteração: 275 passed, 33 skipped.
 **Checklist de teste manual** (no terminal do usuário, única forma de
 testar — scripts de seed/limpeza não rodam contra o Supabase real
 nesta sessão):
-- [x] Rodar `limpar_dados_integracao.py --sim` seguido de
-      `seed_dados_teste.py`: terminam sem erro.
-- [x] Configurações → Categorias: aparecem as 9 categorias/13
+- [x] ~~Rodar `limpar_dados_integracao.py --sim` seguido de
+      `seed_dados_teste.py`: terminam sem erro.~~
+- [x] ~~Configurações → Categorias: aparecem as 9 categorias/13
       subcategorias novas (Moradia, Mercado, Lazer, Transporte, Saúde,
-      Renda Fixa, Ações e Fundos, Salário, Renda Extra).
-- [x] Lançamentos → Recorrentes: "Internet" aparece com histórico (2
+      Renda Fixa, Ações e Fundos, Salário, Renda Extra).~~
+- [x] ~~Lançamentos → Recorrentes: "Internet" aparece com histórico (2
       meses confirmados + 1 pulado) e "Assinatura Streaming" com o mês
       atual pendente — dá pra testar a tela de "Meses pulados" sem
-      simular nada manualmente.
-- [x] Rodar `seed_dados_teste.py --limpar`: os 2 recorrentes de seed
-      também somem (antes só apagava transações).
+      simular nada manualmente.~~
+- [x] ~~Rodar `seed_dados_teste.py --limpar`: os 2 recorrentes de seed
+      também somem (antes só apagava transações).~~
 
 ### Rodada 20.5 (2026-09-24) — feedback de progresso no seed + limpeza resiliente por tabela
 
@@ -1918,19 +1927,19 @@ Sem mudança em código de produção. Suíte offline sem alteração: 275
 passed, 33 skipped.
 
 **Checklist de teste manual** (no terminal do usuário):
-- [x] Rodar `seed_dados_teste.py`: aparece progresso por etapa
+- [x] ~~Rodar `seed_dados_teste.py`: aparece progresso por etapa
       (autenticação, contas/categorias, `[mês/4] (X%)` por mês, linha
       própria pra parcelada e pra recorrentes) — não fica "travado" em
-      silêncio durante as ~70 requisições.
-- [x] Rodar `limpar_dados_integracao.py --sim` num cenário onde alguma
+      silêncio durante as ~70 requisições.~~
+- [x] ~~Rodar `limpar_dados_integracao.py --sim` num cenário onde alguma
       tabela falhe (ex: migração de `lancamentos_recorrentes` ainda não
       aplicada nesse Supabase): o script imprime um aviso pra essa
       tabela e CONTINUA limpando as seguintes (orçamentos, categorias,
-      contas), em vez de abortar tudo.
-- [x] Depois de rodar limpar→seed→pytest, colar a saída do
+      contas), em vez de abortar tudo.~~
+- [x] ~~Depois de rodar limpar→seed→pytest, colar a saída do
       `limpar_dados_integracao.py` se a suíte de integração ainda
       falhar — confirma se as migrações de recorrentes estão mesmo
-      aplicadas nesse projeto Supabase.
+      aplicadas nesse projeto Supabase.~~
 
 ### Rodada 20.6 (2026-09-24) — fix real: nome duplicado em categoria/subcategoria/caixinha quebrava com 500
 
@@ -2020,16 +2029,16 @@ incidente, fica registrado como melhoria de robustez futura, não como
 correção urgente.
 
 **Checklist de teste manual (409 de nome duplicado):**
-- [x] Configurações → Categorias: criar uma categoria com nome já
+- [x] ~~Configurações → Categorias: criar uma categoria com nome já
       existente → mensagem "Já existe um registro com esse nome."
-      aparece no formulário (não trava a tela, não é um erro genérico).
-- [x] Configurações → Categorias: criar subcategoria com nome já usado
-      dentro da MESMA categoria pai → mesma mensagem de 409.
-- [x] Configurações → Categorias: criar subcategoria com o mesmo nome
+      aparece no formulário (não trava a tela, não é um erro genérico).~~
+- [x] ~~Configurações → Categorias: criar subcategoria com nome já usado
+      dentro da MESMA categoria pai → mesma mensagem de 409.~~
+- [x] ~~Configurações → Categorias: criar subcategoria com o mesmo nome
       de uma subcategoria que já existe em OUTRA categoria → aceita
-      normalmente (unique é por categoria, não global).
-- [x] Configurações → Caixinhas: criar caixinha com nome já existente →
-      mesma mensagem de 409.
+      normalmente (unique é por categoria, não global).~~
+- [x] ~~Configurações → Caixinhas: criar caixinha com nome já existente →
+      mesma mensagem de 409.~~
 
 ### Rodada 21 (2026-09-24) — edição de compra parcelada: metadado + exclusão em grupo
 
@@ -2083,23 +2092,23 @@ esta mudança).
 
 **Checklist de teste manual:** (item 1 corrigido na Rodada 21.1 — valor
 passou a ser editável, ver abaixo)
-- [x] Lançamentos: abrir "Editar" numa parcela → formulário reduzido
+- [x] ~~Lançamentos: abrir "Editar" numa parcela → formulário reduzido
       aparece (sem campos de data/conta), com os valores atuais
-      pré-preenchidos.
-- [x] Editar a descrição/categoria de uma parcela → salva, volta pra
+      pré-preenchidos.~~
+- [x] ~~Editar a descrição/categoria de uma parcela → salva, volta pra
       Lançamentos, e a data/conta da parcela continuam os mesmos de
-      antes.
-- [x] Trocar a categoria de uma parcela em cartão de crédito → meio de
+      antes.~~
+- [x] ~~Trocar a categoria de uma parcela em cartão de crédito → meio de
       pagamento continua travado em "Cartão de crédito" (mesma trava do
-      lançamento à vista).
-- [x] Deixar a descrição em branco e tentar salvar → mensagem de erro,
-      não salva.
-- [x] Lançamentos: no card de uma parcela, clicar "Excluir compra
+      lançamento à vista).~~
+- [x] ~~Deixar a descrição em branco e tentar salvar → mensagem de erro,
+      não salva.~~
+- [x] ~~Lançamentos: no card de uma parcela, clicar "Excluir compra
       inteira" → confirmação nomeia a quantidade de parcelas; confirmar
       → todas as parcelas da compra somem da lista, as de outras compras
-      continuam.
-- [x] "Excluir" (sem ser "inteira") numa parcela isolada → continua
-      apagando só aquela parcela, como já funcionava antes.
+      continuam.~~
+- [x] ~~"Excluir" (sem ser "inteira") numa parcela isolada → continua
+      apagando só aquela parcela, como já funcionava antes.~~
 
 ### Rodada 21.1 (2026-09-24) — edição de compra parcelada: valor também editável
 
@@ -2141,13 +2150,13 @@ as outras parcelas do mesmo grupo. Suíte offline: **288 passed** (287 +
 novos.
 
 **Checklist de teste manual:**
-- [x] Lançamentos: abrir "Editar" numa parcela → campo Valor aparece
-      pré-preenchido com o valor atual, editável.
-- [x] Trocar o valor de uma parcela (ex: de R$ 100,13 pra R$ 100,14) →
+- [x] ~~Lançamentos: abrir "Editar" numa parcela → campo Valor aparece
+      pré-preenchido com o valor atual, editável.~~
+- [x] ~~Trocar o valor de uma parcela (ex: de R$ 100,13 pra R$ 100,14) →
       salva; as outras parcelas da mesma compra continuam com o valor
-      original.
-- [x] Deixar o valor em branco ou zerado e tentar salvar → mensagem de
-      erro, não salva.
+      original.~~
+- [x] ~~Deixar o valor em branco ou zerado e tentar salvar → mensagem de
+      erro, não salva.~~
 
 ### Rodada 22 (2026-09-24) — indicador visual de tooltip
 
@@ -2179,17 +2188,17 @@ sem erros novos.
 
 **Checklist de teste manual:** (itens 2 e 4 corrigidos na Rodada 22.1 —
 clicar/tocar no ícone, não hover; "Base da média" só existe em Gráficos)
-- [x] Dashboard: cada card de resumo (Receitas, Despesas, Reservas,
+- [x] ~~Dashboard: cada card de resumo (Receitas, Despesas, Reservas,
       Investimentos, Taxa de poupança, Meses com resultado negativo,
       Maior categoria de despesa) e o texto "Resultado de caixa/saúde"
-      mostram um círculo pequeno com "?" ao lado do rótulo.
-- [x] Clicar/tocar no círculo → balão com a explicação aparece.
-- [x] Lançamentos: os 5 cards de resumo (Lançamentos, Receitas, Despesas
-      líquidas, Fluxo de caixa, Taxa de poupança) mostram o mesmo círculo.
-- [x] Gráficos → seletor de período → "Base da média" mostra o círculo,
-      com a explicação de "Até o mês" vs "Ritmo anual" ao clicar.
-- [x] Visual não quebra em mobile (< 720px) — círculo não estoura a
-      largura do card nem sobrepõe o valor.
+      mostram um círculo pequeno com "?" ao lado do rótulo.~~
+- [x] ~~Clicar/tocar no círculo → balão com a explicação aparece.~~
+- [x] ~~Lançamentos: os 5 cards de resumo (Lançamentos, Receitas, Despesas
+      líquidas, Fluxo de caixa, Taxa de poupança) mostram o mesmo círculo.~~
+- [x] ~~Gráficos → seletor de período → "Base da média" mostra o círculo,
+      com a explicação de "Até o mês" vs "Ritmo anual" ao clicar.~~
+- [x] ~~Visual não quebra em mobile (< 720px) — círculo não estoura a
+      largura do card nem sobrepõe o valor.~~
 
 ### Rodada 22.1 (2026-09-24) — ícone de info clicável (não depende de hover)
 
@@ -2212,14 +2221,14 @@ informação em dois mecanismos diferentes.
 automatizado. `tsc -b && vite build` e `oxlint` sem erros novos.
 
 **Checklist de teste manual:**
-- [x] No celular (ou DevTools em modo mobile): tocar num ícone "?" →
-      balão com a explicação aparece.
-- [x] Tocar em outro lugar da tela → balão fecha.
-- [x] No desktop: clicar no ícone → mesmo balão aparece; Esc fecha.
-- [x] Abrir o balão de um card, depois clicar direto no ícone de outro
+- [x] ~~No celular (ou DevTools em modo mobile): tocar num ícone "?" →
+      balão com a explicação aparece.~~
+- [x] ~~Tocar em outro lugar da tela → balão fecha.~~
+- [x] ~~No desktop: clicar no ícone → mesmo balão aparece; Esc fecha.~~
+- [x] ~~Abrir o balão de um card, depois clicar direto no ícone de outro
       card sem fechar o primeiro → comportamento não trava (balão do
       primeiro fecha, do segundo abre, ou os dois convivem sem quebrar
-      layout — qualquer um dos dois é aceitável, só não pode travar).
+      layout — qualquer um dos dois é aceitável, só não pode travar).~~
 
 ### Rodada 23 (2026-09-24) — barra lateral e cabeçalhos fixos ao rolar
 
@@ -2284,33 +2293,33 @@ teste automatizado (frontend não tem suíte). `tsc -b && vite build` e
 `oxlint` sem erros novos em nenhum dos 6 arquivos tocados.
 
 **Checklist de teste manual:**
-- [x] Desktop (>720px): em qualquer tela, rolar o conteúdo → a barra
-      lateral de navegação não se move, continua no lugar.
-- [x] Gráficos: rolar pelas 4 seções → o seletor de período (Mês/
+- [x] ~~Desktop (>720px): em qualquer tela, rolar o conteúdo → a barra
+      lateral de navegação não se move, continua no lugar.~~
+- [x] ~~Gráficos: rolar pelas 4 seções → o seletor de período (Mês/
       Intervalo/Todos + Base da média) continua visível e funcional no
-      topo; trocar de mês/intervalo enquanto rolado funciona normal.
-- [x] Dashboard: rolar até Patrimônio/Compromissos Futuros → toggle
+      topo; trocar de mês/intervalo enquanto rolado funciona normal.~~
+- [x] ~~Dashboard: rolar até Patrimônio/Compromissos Futuros → toggle
       Leitura de Caixa/Saúde, seletor de período e os 3 KPIs (Resultado/
       Despesas líquidas/Taxa de poupança) continuam visíveis no topo;
-      trocar de leitura enquanto rolado atualiza os 3 KPIs.
-- [x] Estrutura de Custo: rolar a tabela de buckets → mês e fita de KPIs
+      trocar de leitura enquanto rolado atualiza os 3 KPIs.~~
+- [x] ~~Estrutura de Custo: rolar a tabela de buckets → mês e fita de KPIs
       compacta continuam visíveis; navegar de mês enquanto rolado
-      funciona normal.
-- [x] Planejamento: rolar pelos 4 buckets → mês e as 4 barrinhas de
+      funciona normal.~~
+- [x] ~~Planejamento: rolar pelos 4 buckets → mês e as 4 barrinhas de
       alocação continuam visíveis; provocar um bucket estourado (alocar
       mais que o teto) → barrinha correspondente fica vermelha, tanto na
-      versão fixa quanto no card completo abaixo.
-- [x] Lançamentos desktop (>720px): painel de filtro completo aparece
-      sempre fixo no topo, sem barra resumida nem botão de expandir.
-- [x] Lançamentos mobile (≤720px, ou DevTools em modo mobile): painel de
+      versão fixa quanto no card completo abaixo.~~
+- [x] ~~Lançamentos desktop (>720px): painel de filtro completo aparece
+      sempre fixo no topo, sem barra resumida nem botão de expandir.~~
+- [x] ~~Lançamentos mobile (≤720px, ou DevTools em modo mobile): painel de
       filtro aparece escondido por padrão; barra resumida no
       topo mostra "Sem filtros" ou "N filtro(s) ativo(s)"; tocar nela
       expande o painel completo por cima da lista; tocar de novo
       recolhe. Aplicar um filtro com o painel aberto → lista atualiza
-      normalmente (mesmo comportamento de sempre).
-- [x] Redimensionar a janela do navegador de mobile pra desktop (ou
+      normalmente (mesmo comportamento de sempre).~~
+- [x] ~~Redimensionar a janela do navegador de mobile pra desktop (ou
       vice-versa) em Lançamentos com o painel aberto → não quebra o
-      layout (o painel deve continuar coerente com o breakpoint atual).
+      layout (o painel deve continuar coerente com o breakpoint atual).~~
 
 ### Rodada 23.1 (2026-09-24) — cabeçalho fixo: texto pequeno, números sobrepondo, painel alto demais
 
@@ -2361,17 +2370,17 @@ mais precisa do que acontece) antes de tentar outro fix às cegas.
 **Testes:** `tsc -b && vite build` e `oxlint` sem erros novos.
 
 **Checklist de teste manual:**
-- [x] Dashboard/Estrutura de Custo/Planejamento: texto dos KPIs/
+- [x] ~~Dashboard/Estrutura de Custo/Planejamento: texto dos KPIs/
       estatísticas fixas legível, proporção parecida com o resto da
-      página (não minúsculo).
-- [x] Planejamento mobile: os 4 valores de alocação (ex: "1,8 mil/1,95
+      página (não minúsculo).~~
+- [x] ~~Planejamento mobile: os 4 valores de alocação (ex: "1,8 mil/1,95
       mil") não se sobrepõem nem quebram estranho, mesmo com a tela
-      girada/estreita.
-- [x] Planejamento: grade de 4 colunas vira 2 colunas em telas bem
-      estreitas (≤480px) — sem espremer.
-- [x] Lançamentos desktop: painel de filtro fixo ocupa menos altura que
+      girada/estreita.~~
+- [x] ~~Planejamento: grade de 4 colunas vira 2 colunas em telas bem
+      estreitas (≤480px) — sem espremer.~~
+- [x] ~~Lançamentos desktop: painel de filtro fixo ocupa menos altura que
       antes (campos fluem em menos linhas, aproveitando a largura da
-      tela).
+      tela).~~
 
 ### Rodada 23.2 (2026-09-24) — causa raiz achada: Gráficos rolava de lado no mobile
 
@@ -2403,17 +2412,17 @@ já usado em `.pareto`/`crud.css` — não muda com essa rede de segurança).
 **Testes:** `tsc -b && vite build` e `oxlint` sem erros novos.
 
 **Checklist de teste manual:**
-- [x] Gráficos no mobile: rolar a tela não move mais de lado — só
-      verticalmente.
-- [x] Gráficos no mobile: a legenda de cada gráfico (Evolução Mensal,
+- [x] ~~Gráficos no mobile: rolar a tela não move mais de lado — só
+      verticalmente.~~
+- [x] ~~Gráficos no mobile: a legenda de cada gráfico (Evolução Mensal,
       Orçado×Realizado, etc.) quebra em 2+ linhas quando não cabe numa
-      só, sem cortar texto nem forçar rolagem.
-- [x] Gráficos: com a rolagem horizontal corrigida, o cabeçalho fixo
+      só, sem cortar texto nem forçar rolagem.~~
+- [x] ~~Gráficos: com a rolagem horizontal corrigida, o cabeçalho fixo
       (seletor de período) agora se comporta igual às outras telas
-      (fica no topo ao rolar verticalmente).
-- [x] Conferir rapidamente Lançamentos/Dashboard/Estrutura de Custo/
+      (fica no topo ao rolar verticalmente).~~
+- [x] ~~Conferir rapidamente Lançamentos/Dashboard/Estrutura de Custo/
       Planejamento no mobile → ainda sem rolagem lateral (a rede de
-      segurança não deveria mudar nada ali, só confirmar).
+      segurança não deveria mudar nada ali, só confirmar).~~
 
 ### Rodada 24 (2026-09-24) — filtro/período sobrevive à navegação entre telas
 
@@ -2458,22 +2467,22 @@ nos 4 arquivos novos são o mesmo padrão já aceito em `PrivacyContext.tsx`/
 `AuthContext.tsx` — Context sempre exporta hook junto do Provider).
 
 **Checklist de teste manual:**
-- [x] Lançamentos: aplicar um filtro (ex: Tipo = Despesa) → ir pra
-      Planejamento → voltar pra Lançamentos → filtro continua aplicado.
-- [x] Gráficos: trocar pra "Intervalo" (ou "Todos os meses") e mudar o
-      mês → ir pra outra tela → voltar → seleção continua.
-- [x] Estrutura de Custo: navegar pra outro mês (← →) → ir pra outra
-      tela → voltar → mês continua o navegado, não volta pro atual.
-- [x] Estrutura de Custo: entrar via link de drill-down de Gráficos
+- [x] ~~Lançamentos: aplicar um filtro (ex: Tipo = Despesa) → ir pra
+      Planejamento → voltar pra Lançamentos → filtro continua aplicado.~~
+- [x] ~~Gráficos: trocar pra "Intervalo" (ou "Todos os meses") e mudar o
+      mês → ir pra outra tela → voltar → seleção continua.~~
+- [x] ~~Estrutura de Custo: navegar pra outro mês (← →) → ir pra outra
+      tela → voltar → mês continua o navegado, não volta pro atual.~~
+- [x] ~~Estrutura de Custo: entrar via link de drill-down de Gráficos
       (Orçado×Realizado, clicar num ponto) → mês correto aparece; sair e
-      voltar sem usar o link de novo → mês do drill-down persiste.
-- [x] Planejamento: mesmo teste do mês de Estrutura de Custo.
-- [x] Lançamentos: painel de filtro mobile aberto → trocar de tela e
+      voltar sem usar o link de novo → mês do drill-down persiste.~~
+- [x] ~~Planejamento: mesmo teste do mês de Estrutura de Custo.~~
+- [x] ~~Lançamentos: painel de filtro mobile aberto → trocar de tela e
       voltar → painel aparece colapsado de novo (não persiste aberto,
-      comportamento esperado).
-- [x] Fechar a aba/app e abrir de novo → todos os filtros/períodos
+      comportamento esperado).~~
+- [x] ~~Fechar a aba/app e abrir de novo → todos os filtros/períodos
       voltam ao padrão (não persistem entre sessões — só durante a
-      navegação, por design).
+      navegação, por design).~~
 
 ### Rodada 24.1 (2026-09-24) — Dashboard entra no escopo + bug do drill-down
 
@@ -2503,12 +2512,12 @@ sem teste automatizado. `tsc -b && vite build` e `oxlint` sem erros
 novos.
 
 **Checklist de teste manual:**
-- [x] Estrutura de Custo: entrar via link de drill-down de Gráficos
+- [x] ~~Estrutura de Custo: entrar via link de drill-down de Gráficos
       (Orçado×Realizado, clicar num ponto) → navegar pro mês anterior
       (←) → mês muda e permanece no navegado (não volta pro mês do
-      link).
-- [x] Dashboard: trocar de mês/intervalo → ir pra outra tela → voltar →
-      seleção continua a mesma.
+      link).~~
+- [x] ~~Dashboard: trocar de mês/intervalo → ir pra outra tela → voltar →
+      seleção continua a mesma.~~
 
 **Checklist do usuário (2026-09-24):** item 1 (mês do drill-down)
 reportado como "continua voltando pro mês do link" — comportamento
@@ -2536,8 +2545,8 @@ montado no `AppShell`, não em `useState` do componente de rota
 e `oxlint` sem erros novos.
 
 **Checklist de teste manual:**
-- [x] Dashboard: trocar pra "Leitura de Caixa" → ir pra outra tela →
-      voltar → continua em "Leitura de Caixa" (não volta pra "Saúde").
+- [x] ~~Dashboard: trocar pra "Leitura de Caixa" → ir pra outra tela →
+      voltar → continua em "Leitura de Caixa" (não volta pra "Saúde").~~
 
 ### Rodada 25 (2026-09-24) — Lançamentos Recorrentes: receita/aplicação/
 retirada + filtro + nova aba
@@ -2620,30 +2629,30 @@ Sem teste manual no navegador nesta sessão — ambiente remoto sem
 suíte offline é a cobertura real disponível aqui.
 
 **Checklist de teste manual:**
-- [x] Lançamentos → aba "Recorrentes": criar um recorrente de Receita
+- [x] ~~Lançamentos → aba "Recorrentes": criar um recorrente de Receita
       (ex: "Salário", categoria de receita) → salvar → aparece na lista
       com rótulo "Receita" e sem campos de estrutura de custo/meio de
-      pagamento.
-- [x] Criar um recorrente de Aplicação (ex: "Aporte mensal", categoria
+      pagamento.~~
+- [x] ~~Criar um recorrente de Aplicação (ex: "Aporte mensal", categoria
       de investimento) → salvar → aparece na lista sem pedir estrutura
-      de custo/meio de pagamento no formulário.
-- [x] Confirmar o mês desse recorrente de aplicação (Dashboard →
+      de custo/meio de pagamento no formulário.~~
+- [x] ~~Confirmar o mês desse recorrente de aplicação (Dashboard →
       Compromissos Futuros → Confirmar) → a transação criada aparece em
       Lançamentos como Aplicação, valor em azul (cor de investimento) —
       e em Estrutura de Custo cai no bucket Investimentos, não nos
-      Custos Fixos/Variáveis.
-- [x] Dashboard → Compromissos Futuros: um recorrente de receita/
+      Custos Fixos/Variáveis.~~
+- [x] ~~Dashboard → Compromissos Futuros: um recorrente de receita/
       aplicação pendente mostra o rótulo certo ("Receita recorrente"/
       "Aplicação recorrente") com a cor certa (verde/azul), não mais
-      "Despesa fixa recorrente" em vermelho pra tudo.
-- [x] Filtro em Lançamentos → Recorrentes: filtrar por Status=Inativos,
+      "Despesa fixa recorrente" em vermelho pra tudo.~~
+- [x] ~~Filtro em Lançamentos → Recorrentes: filtrar por Status=Inativos,
       por Categoria, e por Tipo de lançamento — cada eixo isolado reduz
-      a lista corretamente; "Limpar filtros" volta a mostrar todos.
-- [x] Configurações não mostra mais a aba "Despesas Fixas".
-- [x] Um recorrente de despesa já existente (criado antes desta rodada)
+      a lista corretamente; "Limpar filtros" volta a mostrar todos.~~
+- [x] ~~Configurações não mostra mais a aba "Despesas Fixas".~~
+- [x] ~~Um recorrente de despesa já existente (criado antes desta rodada)
       continua aparecendo e editável normalmente (migração não quebrou
       dados antigos — depende de rodar a migração do README no Supabase
-      real do usuário).
+      real do usuário).~~
 
 ### Rodada 25.1 (2026-09-24) — Estrutura de Custo no mobile: ribbon
 duplicada + cabeçalho de colunas estourando a tela
@@ -2689,17 +2698,17 @@ problema persistir, preciso de um novo print/vídeo pra investigar mais.
 novos. Sem teste automatizado (frontend não tem suíte de componente).
 
 **Checklist de teste manual:**
-- [x] Estrutura de Custo no mobile: rolar até o cabeçalho fixo (Mês +
+- [x] ~~Estrutura de Custo no mobile: rolar até o cabeçalho fixo (Mês +
       KPIs) grudar no topo → não aparece mais nenhuma linha solta nem
       cabeçalho de coluna cortado entre o cabeçalho fixo e "Custos
-      Fixos".
-- [x] Estrutura de Custo no desktop: cabeçalho de colunas
+      Fixos".~~
+- [x] ~~Estrutura de Custo no desktop: cabeçalho de colunas
       ("Bucket/categoria/subcategoria", "Orçado", "Realizado"...)
       continua aparecendo normalmente acima da lista de buckets (só
-      sumiu no mobile).
-- [x] Confirmar que os números batem: só existe 1 lugar mostrando
+      sumiu no mobile).~~
+- [x] ~~Confirmar que os números batem: só existe 1 lugar mostrando
       Orçado/Realizado/Diferença/Execução do mês agora (o cabeçalho
-      fixo), não mais 2.
+      fixo), não mais 2.~~
 
 ### Rodada 26 (2026-09-24) — Meses pulados: acordeão por ano
 
@@ -2747,16 +2756,16 @@ meses na ordem certa, sem afetar os outros anos. `tsc -b && vite build`
 e `oxlint` sem erros novos.
 
 **Checklist de teste manual:**
-- [x] Um recorrente com pulados em anos diferentes: abrir "Meses
+- [x] ~~Um recorrente com pulados em anos diferentes: abrir "Meses
       pulados" → ano corrente já aparece aberto, anos anteriores
-      fechados com a contagem certa ("N meses"/"1 mês").
-- [x] Clicar num ano fechado → expande mostrando os meses daquele ano;
-      clicar de novo → fecha. Outros anos não são afetados.
-- [x] "Desfazer" num mês pulado continua funcionando normalmente
-      dentro do grupo do ano.
-- [x] Fechar "Meses pulados" (botão "Ocultar meses pulados") e abrir de
+      fechados com a contagem certa ("N meses"/"1 mês").~~
+- [x] ~~Clicar num ano fechado → expande mostrando os meses daquele ano;
+      clicar de novo → fecha. Outros anos não são afetados.~~
+- [x] ~~"Desfazer" num mês pulado continua funcionando normalmente
+      dentro do grupo do ano.~~
+- [x] ~~Fechar "Meses pulados" (botão "Ocultar meses pulados") e abrir de
       novo → ano corrente volta a aparecer aberto (não fica "lembrando"
-      qual ano você tinha aberto/fechado da vez anterior).
+      qual ano você tinha aberto/fechado da vez anterior).~~
 
 ### Rodada 27 (2026-09-24) — perf: Estrutura de Custo carregando devagar
 
@@ -2809,12 +2818,12 @@ que fazia a versão item-a-item direto no banco, foi removida.
 **Testes:** mudança 100% backend — tsc/build/lint não se aplicam.
 
 **Checklist de teste manual:**
-- [x] Estrutura de Custo, um mês com orçamento que já veio sendo gerado
+- [x] ~~Estrutura de Custo, um mês com orçamento que já veio sendo gerado
       há vários meses ("gerar próximo mês" repetido): a tela carrega
-      perceptivelmente mais rápido que antes desta rodada.
-- [x] Os números continuam batendo — Orçado/Realizado/saldo_anterior de
+      perceptivelmente mais rápido que antes desta rodada.~~
+- [x] ~~Os números continuam batendo — Orçado/Realizado/saldo_anterior de
       cada item, mesmos valores de antes do fix (o resultado não muda,
-      só como é calculado).
+      só como é calculado).~~
 
 ### Rodada 28 (2026-09-25) — barra de navegação mobile: 4 itens + menu
 
@@ -2887,19 +2896,19 @@ sumido), e desktop (`/configuracoes`, 1280px) confirmando que a sidebar
 não mudou.
 
 **Checklist de teste manual:**
-- [x] Mobile: tocar nos 4 itens diretos da barra (Dashboard, Lançamentos,
+- [x] ~~Mobile: tocar nos 4 itens diretos da barra (Dashboard, Lançamentos,
       Estruturas de Custo, Gráficos) navega normalmente, item ativo com
-      pílula de fundo.
-- [x] Tocar em "Menu" abre a sheet com Planejamento e Configurações
-      agrupados; tocar num item navega e a sheet fecha sozinha.
-- [x] Tocar no fundo escurecido (fora da sheet) ou no "✕" fecha o menu
-      sem navegar.
-- [x] Navegar direto pra Planejamento ou Configurações (ex: link
+      pílula de fundo.~~
+- [x] ~~Tocar em "Menu" abre a sheet com Planejamento e Configurações
+      agrupados; tocar num item navega e a sheet fecha sozinha.~~
+- [x] ~~Tocar no fundo escurecido (fora da sheet) ou no "✕" fecha o menu
+      sem navegar.~~
+- [x] ~~Navegar direto pra Planejamento ou Configurações (ex: link
       direto/recarregar a página) mostra o botão "Menu" já aceso, mesmo
-      com a sheet fechada.
-- [x] Abrir o menu esconde o "+" (FAB); fechar o menu traz ele de volta.
-- [x] Rotacionar/redimensionar pra desktop (>720px) volta pro layout de
-      sidebar de sempre, sem barra inferior nem menu.
+      com a sheet fechada.~~
+- [x] ~~Abrir o menu esconde o "+" (FAB); fechar o menu traz ele de volta.~~
+- [x] ~~Rotacionar/redimensionar pra desktop (>720px) volta pro layout de
+      sidebar de sempre, sem barra inferior nem menu.~~
 
 ### Rodada 29 (2026-09-25) — perf: Planejamento com o mesmo padrão de lentidão de Estrutura de Custo
 
@@ -2959,15 +2968,15 @@ item, agora 0).
 **Testes:** mudança 100% backend — tsc/build/lint não se aplicam.
 
 **Checklist de teste manual:**
-- [x] Planejamento, um orçamento com vários meses gerados via "gerar
+- [x] ~~Planejamento, um orçamento com vários meses gerados via "gerar
       próximo mês" e vários itens: a tela carrega perceptivelmente mais
-      rápido que antes desta rodada.
-- [x] Os números continuam batendo — saldo_anterior/disponível/percentual
+      rápido que antes desta rodada.~~
+- [x] ~~Os números continuam batendo — saldo_anterior/disponível/percentual
       de cada item, mesmos valores de antes do fix (o resultado não
-      muda, só como é calculado).
-- [x] Criar/editar/reativar um item que estoura o teto do bucket ainda
+      muda, só como é calculado).~~
+- [x] ~~Criar/editar/reativar um item que estoura o teto do bucket ainda
       bloqueia com a mensagem de erro esperada (validação de teto
-      continua funcionando com os dados vindos do contexto em lote).
+      continua funcionando com os dados vindos do contexto em lote).~~
 
 ### Rodada 30 (2026-09-25) — 2 fixes de layout mobile: tooltip perto da borda + cards de Lançamentos quebrando
 
@@ -3021,16 +3030,16 @@ visual via Playwright (harness de auth mockada, descartado ao final):
   overflow (mesmo componente compartilhado).
 
 **Checklist de teste manual:**
-- [x] Num celular de verdade, abrir um InfoIcon perto da borda direita
+- [x] ~~Num celular de verdade, abrir um InfoIcon perto da borda direita
       da tela (ex: KPI "Investimentos" no Dashboard) — balão aparece
-      inteiro, sem cortar.
-- [x] Abrir um InfoIcon perto do fim da tela (rolar até o fim antes) —
-      balão abre em cima do ícone em vez de embaixo.
-- [x] Rolar a página com um balão aberto — ele fecha.
-- [x] Lançamentos, mobile, um item de compra parcelada com descrição
-      longa — botões quebram linha dentro do card, sem vazar.
-- [x] Configurações → Contas/Categorias/Caixinhas e Lançamentos →
-      Recorrentes, mobile — sem regressão visual (mesmo componente).
+      inteiro, sem cortar.~~
+- [x] ~~Abrir um InfoIcon perto do fim da tela (rolar até o fim antes) —
+      balão abre em cima do ícone em vez de embaixo.~~
+- [x] ~~Rolar a página com um balão aberto — ele fecha.~~
+- [x] ~~Lançamentos, mobile, um item de compra parcelada com descrição
+      longa — botões quebram linha dentro do card, sem vazar.~~
+- [x] ~~Configurações → Contas/Categorias/Caixinhas e Lançamentos →
+      Recorrentes, mobile — sem regressão visual (mesmo componente).~~
 
 ### Rodada 31 (2026-09-25) — FAB colado na barra + tabela de Estrutura de Custo quebrando no mobile
 
@@ -3091,17 +3100,17 @@ final):
   `getBoundingClientRect()` não achou elemento nenhum passando da borda.
 
 **Checklist de teste manual:**
-- [x] Num celular de verdade, olhar o espaço entre o "+" e a barra
-      inferior — deve ter um respiro visível, não mais colado.
-- [x] Abrir o menu "•••" e conferir que a sheet nasce coladinha acima da
-      barra, sem sobrepor nem deixar um vão visível entre os dois.
-- [x] Estrutura de Custo, expandir um bucket com vários itens (algum com
+- [x] ~~Num celular de verdade, olhar o espaço entre o "+" e a barra
+      inferior — deve ter um respiro visível, não mais colado.~~
+- [x] ~~Abrir o menu "•••" e conferir que a sheet nasce coladinha acima da
+      barra, sem sobrepor nem deixar um vão visível entre os dois.~~
+- [x] ~~Estrutura de Custo, expandir um bucket com vários itens (algum com
       sobra/furo do mês anterior): nenhum número corta na borda da tela,
       rótulos "Orçado"/"Realizado"/"Diferença" aparecem antes de cada
-      valor.
-- [x] Um tablet ou celular grande em modo retrato (~500-700px): tabela
+      valor.~~
+- [x] ~~Um tablet ou celular grande em modo retrato (~500-700px): tabela
       de itens também no layout quebrado em linha, não mais a grade
-      "desktop".
+      "desktop".~~
 
 ### Rodada 32 (2026-09-25) — Menu "mais" mobile: destacar item mais usado (item 29)
 
@@ -3143,15 +3152,15 @@ promovem; 3 navegações a uma rota vs. 1 a outra promove e aponta pro
 link certo; aparência conferida em claro e escuro.
 
 **Checklist de teste manual:**
-- [x] Navegar pelo menu "•••" priorizando bem mais uma rota que a outra
+- [x] ~~Navegar pelo menu "•••" priorizando bem mais uma rota que a outra
       (ex: Configurações várias vezes, Planejamento só 1) num celular
       real: o atalho "Mais usado" aparece no topo da sheet, fora dos
-      grupos.
-- [x] Com uso ainda empatado ou abaixo do mínimo, o atalho não aparece.
-- [x] Fechar e reabrir o app: o destaque persiste (contador é local ao
-      aparelho, salvo em `localStorage`).
-- [x] Aba anônima/`localStorage` bloqueado: app não quebra, menu
-      funciona normalmente, só sem o atalho.
+      grupos.~~
+- [x] ~~Com uso ainda empatado ou abaixo do mínimo, o atalho não aparece.~~
+- [x] ~~Fechar e reabrir o app: o destaque persiste (contador é local ao
+      aparelho, salvo em `localStorage`).~~
+- [x] ~~Aba anônima/`localStorage` bloqueado: app não quebra, menu
+      funciona normalmente, só sem o atalho.~~
 
 ### Rodada 33 (2026-09-25) — Migração de dados: script + análise dos CSVs reais (item 9)
 
@@ -3223,20 +3232,20 @@ rodar o dry-run com os CSVs reais, resolver as pendências de estrutura
 de custo interativamente, e então `--executar`.
 
 **Checklist de teste manual (usuário, localmente):**
-- [x] Rodar o dry-run com os 3 CSVs reais — conferir se o relatório
+- [x] ~~Rodar o dry-run com os 3 CSVs reais — conferir se o relatório
       bate com os números discutidos na conversa (contas, categorias,
-      caixinhas, grupos de parcela, transações totais).
-- [x] Responder as perguntas interativas de estrutura de custo até o
-      relatório não apontar mais pendência.
-- [x] Rodar de novo o dry-run (sem `--executar`) e confirmar que as
-      respostas já dadas não são perguntadas de novo.
-- [x] Rodar com `--executar` e conferir no app (Configurações,
+      caixinhas, grupos de parcela, transações totais).~~
+- [x] ~~Responder as perguntas interativas de estrutura de custo até o
+      relatório não apontar mais pendência.~~
+- [x] ~~Rodar de novo o dry-run (sem `--executar`) e confirmar que as
+      respostas já dadas não são perguntadas de novo.~~
+- [x] ~~Rodar com `--executar` e conferir no app (Configurações,
       Lançamentos, Planejamento) que contas/categorias/caixinhas/
-      transações apareceram corretamente.
-- [x] Rodar `--executar` uma 2ª vez e confirmar que nada duplica
-      (idempotência) — checar em especial um grupo de compra parcelada.
-- [x] Conferir o relatório de reconciliação ao final — não deve apontar
-      divergência nenhuma entre a soma do CSV e a soma no banco.
+      transações apareceram corretamente.~~
+- [x] ~~Rodar `--executar` uma 2ª vez e confirmar que nada duplica
+      (idempotência) — checar em especial um grupo de compra parcelada.~~
+- [x] ~~Conferir o relatório de reconciliação ao final — não deve apontar
+      divergência nenhuma entre a soma do CSV e a soma no banco.~~
 
 ### Rodada 34 (2026-09-25) — Fix: transações reais idênticas descartadas na migração
 
@@ -3287,17 +3296,17 @@ transações que faltam entram) pra corrigir os 9 meses já divergentes no
 banco real, e conferir que a reconciliação fecha sem diferença.
 
 **Checklist de teste manual (usuário, localmente):**
-- [x] Rodar o dry-run de novo com os mesmos 3 CSVs — o relatório deve
+- [x] ~~Rodar o dry-run de novo com os mesmos 3 CSVs — o relatório deve
       mostrar a contagem de "transações com mesma data/valor/descrição/
-      conta/tipo de outra".
-- [x] Rodar com `--executar` de novo — as transações que já existiam
+      conta/tipo de outra".~~
+- [x] ~~Rodar com `--executar` de novo — as transações que já existiam
       são puladas (idempotente), só as que faltavam (as descartadas
-      antes) entram.
-- [x] Conferir o relatório de reconciliação final — os 9 meses que
-      antes divergiam devem bater exatamente agora.
-- [x] No app, conferir um dos casos específicos (ex: Comunicação/
+      antes) entram.~~
+- [x] ~~Conferir o relatório de reconciliação final — os 9 meses que
+      antes divergiam devem bater exatamente agora.~~
+- [x] ~~No app, conferir um dos casos específicos (ex: Comunicação/
       Serviços Digitais em março/2026) e contar se as 2 cobranças de
-      "Armazenamento Google. Apple" aparecem separadas em Lançamentos.
+      "Armazenamento Google. Apple" aparecem separadas em Lançamentos.~~
 
 ### Rodada 35 (2026-09-25) — Fix: limite de 1000 linhas do Supabase cortando queries sem paginação
 
@@ -3359,9 +3368,9 @@ lançamentos. Itens 1-3 ainda sem confirmação.
       totais de receita/despesa e o gráfico de Evolução.
 - [ ] Conferir Estrutura de Custo e Planejamento — saldo/realizado de
       pelo menos um bucket num mês qualquer.
-- [x] Em Lançamentos, limpar todos os filtros e confirmar que a lista/
+- [x] ~~Em Lançamentos, limpar todos os filtros e confirmar que a lista/
       resumo mostram o total real de transações (não truncado em
-      1000). — confirmado 2026-10-01, 1.956 lançamentos na conta.
+      1000). — confirmado 2026-10-01, 1.956 lançamentos na conta.~~
 
 ### Rodada 36 (2026-09-25) — Compromissos Futuros: "ver mais" + card compacto
 
@@ -3413,19 +3422,19 @@ compacto em telas maiores (desktop) — não é bug, registrado como
 sugestão de melhoria (`docs/backlog.md`, item 64).
 
 **Checklist de teste manual (usuário, localmente):**
-- [x] Abrir o Dashboard e confirmar que Compromissos Futuros mostra até
-      4 itens por padrão, com "Ver mais (N)" abaixo quando houver mais.
-- [x] Clicar em "Ver mais" e confirmar que a lista completa aparece
+- [x] ~~Abrir o Dashboard e confirmar que Compromissos Futuros mostra até
+      4 itens por padrão, com "Ver mais (N)" abaixo quando houver mais.~~
+- [x] ~~Clicar em "Ver mais" e confirmar que a lista completa aparece
       (até 50) sem precisar recarregar a página; "Ver menos" volta a
-      colapsar.
-- [x] Confirmar que o card ficou visualmente mais compacto (menos
+      colapsar.~~
+- [x] ~~Confirmar que o card ficou visualmente mais compacto (menos
       espaço por item) mas sem faltar nenhuma informação (descrição,
       parcela/tipo, data, valor, botões de recorrente). — confirmado
       2026-10-02; sugestão de compactar mais em desktop virou item 64
-      do backlog.
-- [x] Testar "Confirmar"/"Pular este mês" de um recorrente com a lista
+      do backlog.~~
+- [x] ~~Testar "Confirmar"/"Pular este mês" de um recorrente com a lista
       expandida e com a lista colapsada — os botões continuam
-      funcionando nos dois estados. — confirmado 2026-10-02.
+      funcionando nos dois estados. — confirmado 2026-10-02.~~
 
 ### Rodada 37 (2026-09-25) — Agregações que crescem pra sempre com o histórico movidas pra RPC
 
@@ -3507,9 +3516,9 @@ Dashboard, não saldo/realizado por bucket de Estrutura de Custo/
 Planejamento — precisaria ser estendida antes de servir pra isso.**
 
 **Checklist de teste manual (usuário, localmente):**
-- [x] Rodar o SQL das 3 funções no *SQL Editor* do Supabase (seção
+- [x] ~~Rodar o SQL das 3 funções no *SQL Editor* do Supabase (seção
       "Migração pendente" do `README.md`) antes de qualquer teste
-      abaixo.
+      abaixo.~~
 - [ ] Recarregar Caixinhas/Patrimônio e confirmar que os saldos
       continuam batendo com a coluna "Guardado" da planilha (mesmo
       resultado da Rodada 35, agora vindo do RPC). — pendente, usuário
@@ -3575,19 +3584,19 @@ Rodada 41: os 4 itens confirmados ok** — confirma de passagem que o
 fix da Rodada 41 resolveu a lentidão.
 
 **Checklist de teste manual (usuário, localmente):**
-- [x] Com um orçamento configurado com vários itens (o suficiente pra
+- [x] ~~Com um orçamento configurado com vários itens (o suficiente pra
       antes ter travado), clicar em "Gerar orçamento de [mês seguinte]"
       e confirmar que responde rápido, sem ficar preso em "Gerando…".
-      — confirmado ok após o fix da Rodada 41.
-- [x] Num mês sem orçamento, "Gerar a partir de [mês anterior]"
+      — confirmado ok após o fix da Rodada 41.~~
+- [x] ~~Num mês sem orçamento, "Gerar a partir de [mês anterior]"
       também deve responder rápido. — confirmado ok após o fix da
-      Rodada 41.
-- [x] Rolar a tela pra baixo (ver os itens dos buckets) e clicar em
+      Rodada 41.~~
+- [x] ~~Rolar a tela pra baixo (ver os itens dos buckets) e clicar em
       "Editar configuração" — a página deve rolar suavemente pro topo,
       mostrando o form imediatamente, sem precisar rolar manualmente
-      pra encontrá-lo.
-- [x] Mesmo teste ao clicar em "Criar do zero" (mês sem orçamento). —
-      confirmado ok após o fix da Rodada 41.
+      pra encontrá-lo.~~
+- [x] ~~Mesmo teste ao clicar em "Criar do zero" (mês sem orçamento). —
+      confirmado ok após o fix da Rodada 41.~~
 
 ### Rodada 39 (2026-09-30) — Planejamento: acordeão de 2 níveis igual Estrutura de Custo
 
@@ -3635,22 +3644,22 @@ mesma limitação de sempre (sem `backend/.env` com credenciais reais do
 Supabase nesta sessão remota).
 
 **Checklist de teste manual (usuário, localmente):**
-- [x] Abrir Planejamento com um mês que já tem itens em mais de 1
-      bucket — os 4 buckets devem nascer abertos (acordeão expandido).
-- [x] Clicar no cabeçalho de um bucket — deve recolher/expandir,
-      escondendo/mostrando as categorias dele.
-- [x] Clicar numa linha de categoria pai — deve expandir mostrando as
+- [x] ~~Abrir Planejamento com um mês que já tem itens em mais de 1
+      bucket — os 4 buckets devem nascer abertos (acordeão expandido).~~
+- [x] ~~Clicar no cabeçalho de um bucket — deve recolher/expandir,
+      escondendo/mostrando as categorias dele.~~
+- [x] ~~Clicar numa linha de categoria pai — deve expandir mostrando as
       subcategorias (e o item "Geral", se houver um item só-categoria
-      na mesma categoria).
-- [x] Criar um item novo numa categoria ainda não expandida — confirmar
+      na mesma categoria).~~
+- [x] ~~Criar um item novo numa categoria ainda não expandida — confirmar
       que o grupo dela abre sozinho, mostrando o item recém-criado sem
-      precisar clicar em nada.
-- [x] Editar/Desativar/Reativar um item, e o link "→" pra Busca de
+      precisar clicar em nada.~~
+- [x] ~~Editar/Desativar/Reativar um item, e o link "→" pra Busca de
       Lançamentos — devem continuar funcionando normalmente dentro do
-      novo layout.
-- [x] Testar em mobile (≤720px) — nome do item numa linha, valores
+      novo layout.~~
+- [x] ~~Testar em mobile (≤720px) — nome do item numa linha, valores
       rotulados (Orçado/Sobra/Disponível) fluindo depois, sem cortar
-      texto.
+      texto.~~
 
 ### Rodada 40 (2026-09-30) — Fix: recorrente de aplicação/retirada em caixinha não salvava
 
@@ -3709,25 +3718,25 @@ escopo original desta rodada — ver "Estrutura de Custo: subitem de
 reserva mostra nome da conta em vez da caixinha" em `docs/backlog.md`.
 
 **Checklist de teste manual (usuário, localmente):**
-- [x] Rodar a migração de `lancamentos_recorrentes.caixinha_id` no *SQL
+- [x] ~~Rodar a migração de `lancamentos_recorrentes.caixinha_id` no *SQL
       Editor* do Supabase (seção "Migração pendente" do `README.md`)
-      antes de qualquer teste abaixo.
-- [x] Criar um recorrente de aplicação escolhendo uma caixinha — o
-      formulário não deve mais pedir categoria, e deve salvar sem erro.
-- [x] Com a caixinha vinculada a uma conta fixa, confirmar que o campo
-      Conta trava sozinho nela ao escolher a caixinha.
-- [x] Criar um recorrente de retirada com a mesma caixinha — deve
-      salvar normalmente.
-- [x] Trocar de "Caixinha" pra "Nenhuma (investimento)" no mesmo
-      formulário — Categoria/Subcategoria devem voltar a aparecer.
-- [x] Confirmar o mês desse recorrente em "Compromissos Futuros" e
+      antes de qualquer teste abaixo.~~
+- [x] ~~Criar um recorrente de aplicação escolhendo uma caixinha — o
+      formulário não deve mais pedir categoria, e deve salvar sem erro.~~
+- [x] ~~Com a caixinha vinculada a uma conta fixa, confirmar que o campo
+      Conta trava sozinho nela ao escolher a caixinha.~~
+- [x] ~~Criar um recorrente de retirada com a mesma caixinha — deve
+      salvar normalmente.~~
+- [x] ~~Trocar de "Caixinha" pra "Nenhuma (investimento)" no mesmo
+      formulário — Categoria/Subcategoria devem voltar a aparecer.~~
+- [x] ~~Confirmar o mês desse recorrente em "Compromissos Futuros" e
       verificar em Caixinhas que o valor entrou como aporte/resgate da
-      reserva certa.
-- [x] Confirmar que esse mês confirmado **não** aparece em Estrutura de
+      reserva certa.~~
+- [x] ~~Confirmar que esse mês confirmado **não** aparece em Estrutura de
       Custo/Planejamento como item de investimento (reserva é só
       informativa, sem teto). — confirmado (aparece em Reservas, não em
       Investimentos); achado à parte sobre o rótulo do subitem, ver nota
-      de Status acima.
+      de Status acima.~~
 
 ### Rodada 41 (2026-09-30) — Fix: "Gerar orçamento"/"Criar do zero" continuavam lentos (2ª e 3ª N+1)
 
@@ -3796,18 +3805,18 @@ volume real de dados, que esta sessão não tem como reproduzir.
 mês novo) também veio ok.
 
 **Checklist de teste manual (usuário, localmente):**
-- [x] Com um orçamento configurado com dezenas de itens E o mês com
+- [x] ~~Com um orçamento configurado com dezenas de itens E o mês com
       centenas de transações lançadas, clicar em "Gerar orçamento de
       [mês seguinte]" e confirmar que agora responde rápido de verdade
-      (não só "menos lento"). — confirmado via revalidação da Rodada 38.
-- [x] "Criar a partir do mês anterior" e "Criar do zero" num mês sem
+      (não só "menos lento"). — confirmado via revalidação da Rodada 38.~~
+- [x] ~~"Criar a partir do mês anterior" e "Criar do zero" num mês sem
       orçamento — mesma confirmação de velocidade. — confirmado via
-      revalidação da Rodada 38.
-- [x] Depois de gerar, confirmar que os itens do mês novo têm os
+      revalidação da Rodada 38.~~
+- [x] ~~Depois de gerar, confirmar que os itens do mês novo têm os
       mesmos valores orçados do mês anterior, e que itens de categorias
       já lançadas no mês novo (mas sem item configurado ainda)
       aparecem com orçado R$ 0,00 — mesmo resultado de antes, só mais
-      rápido. — confirmado 2026-10-02.
+      rápido. — confirmado 2026-10-02.~~
 
 ### Rodada 42 (2026-10-02) — Fix: Estrutura de Custo mostrava nome da conta em vez da caixinha
 
@@ -3862,10 +3871,10 @@ Supabase nesta sessão remota).
       aparecem como 2 subitens separados dentro de "Reservas" (não
       agrupados num só pela conta em comum).~~ **Reportado errado
       2026-10-02**: mesmo motivo acima (a conta não aparece mais).
-- [x] Conferir que despesa e investimento (aplicação/retirada sem
+- [x] ~~Conferir que despesa e investimento (aplicação/retirada sem
       caixinha) continuam mostrando categoria/subcategoria normalmente
       — não regrediu pro fallback de conta nesses casos. — confirmado
-      2026-10-02.
+      2026-10-02.~~
 
 **Correção (mesmo dia, 2026-10-02):** a 1ª versão usava o nome da
 caixinha tanto no grupo (pai) quanto na folha (filho) — exatamente o
@@ -3884,16 +3893,16 @@ usa o nome da caixinha só na folha. Teste de regressão ajustado
 sem erro, sem warning novo.
 
 **Checklist de teste manual da correção (usuário, localmente):**
-- [x] Em Estrutura de Custo, num mês com aplicação/retirada em pelo
+- [x] ~~Em Estrutura de Custo, num mês com aplicação/retirada em pelo
       menos 1 caixinha, abrir o bucket "Reservas" e confirmar que o
       1º nível mostra o nome da CONTA (como antes) e o 2º nível mostra
       o nome da CAIXINHA (não repete o nome da conta). — confirmado
-      2026-10-02.
-- [x] Com 2 caixinhas diferentes na mesma conta, confirmar que aparecem
+      2026-10-02.~~
+- [x] ~~Com 2 caixinhas diferentes na mesma conta, confirmar que aparecem
       como 2 subitens dentro do MESMO grupo de conta (não 2 grupos
-      separados, nem agrupadas numa só). — confirmado 2026-10-02.
-- [x] Com caixinhas em contas diferentes, confirmar que aparecem em
-      grupos de conta diferentes. — confirmado 2026-10-02.
+      separados, nem agrupadas numa só). — confirmado 2026-10-02.~~
+- [x] ~~Com caixinhas em contas diferentes, confirmar que aparecem em
+      grupos de conta diferentes. — confirmado 2026-10-02.~~
 
 ### Rodada 43 (2026-10-02) — Bucket Reservas vira informativo (Saldo acumulado / Aportado no mês)
 
@@ -3937,20 +3946,20 @@ completa: 365 passed, 33 skipped. Frontend: `tsc -b && vite build` +
 mesma limitação de sempre.
 
 **Checklist de teste manual (usuário, localmente):**
-- [x] Em Estrutura de Custo, abrir o bucket "Reservas" e confirmar que
+- [x] ~~Em Estrutura de Custo, abrir o bucket "Reservas" e confirmar que
       o cabeçalho mostra "Saldo acumulado" e "Aportado no mês" (não
       "Orçado"/"Diferença"/"Status"), com o badge "Informativo" ao
-      lado do nome do bucket. — confirmado 2026-10-02.
-- [x] Confirmar que "Saldo acumulado" de uma caixinha bate com o
+      lado do nome do bucket. — confirmado 2026-10-02.~~
+- [x] ~~Confirmar que "Saldo acumulado" de uma caixinha bate com o
       patrimônio mostrado em Dashboard pra essa mesma caixinha, no
-      mesmo mês. — confirmado 2026-10-02.
-- [x] Com uma retirada líquida no mês (retirada > aplicação), confirmar
+      mesmo mês. — confirmado 2026-10-02.~~
+- [x] ~~Com uma retirada líquida no mês (retirada > aplicação), confirmar
       que "Aportado no mês" aparece negativo (com o sinal "−"), não só
-      um número sem contexto. — confirmado 2026-10-02.
-- [x] Confirmar que os outros buckets (Custos Fixos, Variáveis,
+      um número sem contexto. — confirmado 2026-10-02.~~
+- [x] ~~Confirmar que os outros buckets (Custos Fixos, Variáveis,
       Sazonalidades, Investimentos) continuam mostrando Orçado/
       Realizado/Diferença/Status normalmente — não regrediu. —
-      confirmado 2026-10-02.
+      confirmado 2026-10-02.~~
 
 ### Rodada 44 (2026-10-02) — Fix: hash_dedup bloqueava lançamento manual legítimo (item 35)
 
@@ -4005,17 +4014,17 @@ outras linhas também no `update`, excluindo a própria linha. +1 teste
 Suíte completa: 368 passed, 33 skipped.
 
 **Checklist de teste manual (usuário, localmente):**
-- [x] Lançar uma despesa (ex: assinatura R$14,99 hoje, mesma conta/
+- [x] ~~Lançar uma despesa (ex: assinatura R$14,99 hoje, mesma conta/
       categoria) e, em seguida, lançar outra IDÊNTICA (mesma data,
       valor, descrição, conta, tipo) — confirmar que aparece a mensagem
-      de 409 + o botão "Lançar mesmo assim". — confirmado 2026-10-02.
-- [x] Clicar em "Lançar mesmo assim" e confirmar que a 2ª transação é
+      de 409 + o botão "Lançar mesmo assim". — confirmado 2026-10-02.~~
+- [x] ~~Clicar em "Lançar mesmo assim" e confirmar que a 2ª transação é
       criada normalmente (aparece em Lançamentos como um item distinto,
-      não substitui a 1ª). — confirmado 2026-10-02.
-- [x] Repetir o mesmo lançamento uma 3ª vez (idêntico à 1ª e à 2ª) e
+      não substitui a 1ª). — confirmado 2026-10-02.~~
+- [x] ~~Repetir o mesmo lançamento uma 3ª vez (idêntico à 1ª e à 2ª) e
       confirmar que "Lançar mesmo assim" continua funcionando (não só
-      na 2ª tentativa). — confirmado 2026-10-02.
-- [x] Editar o formulário pra um valor diferente antes de reenviar e
+      na 2ª tentativa). — confirmado 2026-10-02.~~
+- [x] ~~Editar o formulário pra um valor diferente antes de reenviar e
       confirmar que NÃO aparece o botão "Lançar mesmo assim" (não é
       mais duplicata) — lança normal, sem 409. — confirmado 2026-10-02
       em Novo Lançamento. Achado à parte no mesmo teste: EDITAR um
@@ -4023,7 +4032,7 @@ Suíte completa: 368 passed, 33 skipped.
       /transacoes/{id}`) pra ficar idêntico a outro também batia 409,
       sem o botão — esse caminho não tinha sido coberto pelo fix
       original. Corrigido no mesmo dia, ver "Rodada 44, correção"
-      abaixo.
+      abaixo.~~
 - [ ] ~~Tentar o mesmo cenário de duplicata em compra PARCELADA e
       confirmar que continua dando 409 sem o botão "Lançar mesmo
       assim" (fora do escopo deste fix, comportamento inalterado).~~
