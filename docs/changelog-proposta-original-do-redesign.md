@@ -3852,12 +3852,44 @@ mesma limitação de sempre (sem `backend/.env` com credenciais reais do
 Supabase nesta sessão remota).
 
 **Checklist de teste manual (usuário, localmente):**
+- [ ] ~~Em Estrutura de Custo, num mês com aplicação/retirada em pelo
+      menos 1 caixinha, abrir o bucket "Reservas" e confirmar que o
+      subitem mostra o nome da caixinha, não o nome da conta.~~
+      **Reportado errado 2026-10-02**: inverteu demais — caixinha
+      virou o nível pai também (e a conta some do agrupamento). Ver
+      correção abaixo.
+- [ ] ~~Com 2 caixinhas diferentes na mesma conta, confirmar que
+      aparecem como 2 subitens separados dentro de "Reservas" (não
+      agrupados num só pela conta em comum).~~ **Reportado errado
+      2026-10-02**: mesmo motivo acima (a conta não aparece mais).
+- [x] Conferir que despesa e investimento (aplicação/retirada sem
+      caixinha) continuam mostrando categoria/subcategoria normalmente
+      — não regrediu pro fallback de conta nesses casos. — confirmado
+      2026-10-02.
+
+**Correção (mesmo dia, 2026-10-02):** a 1ª versão usava o nome da
+caixinha tanto no grupo (pai) quanto na folha (filho) — exatamente o
+mesmo bug de antes, só com caixinha no lugar de conta, e a conta deixou
+de aparecer (o item da API zerava `conta_id` sempre que tinha
+`caixinha_id`, porque `_chave()` retorna só 1 tipo de chave por vez). A
+intenção sempre foi: conta como 1º nível (inalterado), caixinha como
+2º. Fix: `_agregar_estrutura_custo` passou a rastrear, à parte da chave
+de dedup (caixinha, pra 2 caixinhas na mesma conta continuarem como 2
+itens), a conta de cada transação de reserva — o item da API agora
+expõe `conta_id` e `caixinha_id` juntos nesse caso. `EstruturaCusto.tsx`
+volta a agrupar reserva por conta (igual ao branch que já existia) e
+usa o nome da caixinha só na folha. Teste de regressão ajustado
+(`conta_id` esperado = a conta certa, não mais `None`). Suíte completa:
+363 passed, 33 skipped. Frontend: `tsc -b && vite build` + `oxlint` —
+sem erro, sem warning novo.
+
+**Checklist de teste manual da correção (usuário, localmente):**
 - [ ] Em Estrutura de Custo, num mês com aplicação/retirada em pelo
       menos 1 caixinha, abrir o bucket "Reservas" e confirmar que o
-      subitem mostra o nome da caixinha, não o nome da conta.
+      1º nível mostra o nome da CONTA (como antes) e o 2º nível mostra
+      o nome da CAIXINHA (não repete o nome da conta).
 - [ ] Com 2 caixinhas diferentes na mesma conta, confirmar que aparecem
-      como 2 subitens separados dentro de "Reservas" (não agrupados
-      num só pela conta em comum).
-- [ ] Conferir que despesa e investimento (aplicação/retirada sem
-      caixinha) continuam mostrando categoria/subcategoria normalmente
-      — não regrediu pro fallback de conta nesses casos.
+      como 2 subitens dentro do MESMO grupo de conta (não 2 grupos
+      separados, nem agrupadas numa só).
+- [ ] Com caixinhas em contas diferentes, confirmar que aparecem em
+      grupos de conta diferentes.

@@ -99,8 +99,14 @@ export function agruparPorCategoria(
     let folha: Folha
 
     if (item.caixinha_id) {
+      // conta é o 1º nível (igual ao branch `item.conta_id` abaixo), a
+      // caixinha é o 2º — API manda os dois campos preenchidos juntos só
+      // nesse caso (ver comentário em types.ts). Sem conta_id (não devia
+      // acontecer, toda aplicação/retirada tem conta obrigatória) cai num
+      // grupo à parte em vez de quebrar o agrupamento.
       const caixinhaNome = caixinhasPorId.get(item.caixinha_id)?.nome ?? 'Caixinha removida'
-      g = grupo(`caixinha-${item.caixinha_id}`, caixinhaNome)
+      const contaNome = item.conta_id ? contasPorId.get(item.conta_id)?.nome ?? 'Conta removida' : 'Sem conta'
+      g = grupo(item.conta_id ? `conta-${item.conta_id}` : 'caixinha-sem-conta', contaNome)
       folha = {
         chave: item.caixinha_id,
         nome: caixinhaNome,

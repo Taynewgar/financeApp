@@ -416,9 +416,11 @@ já documenta quando e como cada um foi entregue.
   Estrutura de Custo. Detalhe na subseção própria abaixo, ver changelog
   Rodada 39.
 - **65.** ~~Subitem do bucket Reservas mostra nome da conta em vez da
-  caixinha~~ **feito 2026-10-02** — `_chave()` passou a checar
-  `caixinha_id` antes do fallback de conta. Detalhe na subseção própria
-  abaixo, ver changelog Rodada 42.
+  caixinha~~ **feito 2026-10-02** — 1ª versão (Rodada 42) invertia a
+  hierarquia (caixinha virava o nível pai, conta desaparecia); corrigido
+  na mesma rodada (Rodada 42, correção) pra conta permanecer 1º nível e
+  caixinha ser o 2º. Detalhe na subseção própria abaixo, ver changelog
+  Rodada 42.
 
 Este arquivo não substitui o `README.md` da raiz (que descreve o que
 existe) nem o `/status-projeto` (relatório de andamento) — é o registro do
@@ -1914,21 +1916,36 @@ busca `/caixinhas` (já é feito em outras telas) e ganha um branch
 mantendo o nome da conta (ou agrupando por caixinha também no nível
 pai — a decidir) só como contexto.
 
-**Fix:** `_chave()` ganhou uma checagem de `caixinha_id` antes de
-subcategoria/categoria/conta (orçamento item nunca tem esse campo,
-então a checagem nova é inofensiva pro caminho que já funcionava).
-`ItemEstruturaCusto` (schema + tipo TS) ganhou `caixinha_id`.
-`EstruturaCusto.tsx` passou a buscar `/caixinhas` e ganhou o branch
-`item.caixinha_id` (prioridade antes de `conta_id`, mesma ordem do
-backend) — grupo e folha agora usam o nome da caixinha, não repetem o
-da conta.
+**Fix (1ª versão, Rodada 42):** `_chave()` ganhou uma checagem de
+`caixinha_id` antes de subcategoria/categoria/conta (orçamento item
+nunca tem esse campo, então a checagem nova é inofensiva pro caminho
+que já funcionava). `ItemEstruturaCusto` (schema + tipo TS) ganhou
+`caixinha_id`. `EstruturaCusto.tsx` ganhou o branch `item.caixinha_id`
+usando o nome da caixinha tanto pro grupo (pai) quanto pra folha
+(filho).
 
-**Status:** implementado 2026-10-02 — 1 teste novo de regressão (2
-caixinhas na mesma conta viram 2 itens distintos no bucket Reservas,
-cada um com o `caixinha_id` certo e `conta_id` nulo). Suíte completa
-363 passed, 33 skipped. Frontend verificado via `tsc -b && vite build`
-+ `oxlint` — sem erro, sem warning novo. Sem QA visual via Playwright
-— mesma limitação de sempre. Ver changelog Rodada 42.
+**Achado do usuário testando essa 1ª versão:** o branch novo tornava a
+CAIXINHA o nível pai também, não só o filho — a tela mostrava
+"Reservas" → caixinha → caixinha (nome repetido, mesmo bug de antes, só
+invertido) e a conta desaparecia inteiramente do agrupamento (`conta_id`
+sempre `None` no item, porque `_chave()` retorna só 1 tipo por vez). A
+intenção original era conta = 1º nível (sem alterar), caixinha = 2º.
+
+**Fix (correção, mesma Rodada 42):** `_agregar_estrutura_custo` passou
+a rastrear, à parte da chave de dedup (que continua sendo a caixinha —
+2 caixinhas na mesma conta não podem colapsar), a conta de cada
+transação de reserva (`conta_da_caixinha_por_chave`). O item retornado
+pela API agora carrega `conta_id` E `caixinha_id` juntos nesse caso
+(único caso em que os dois vêm preenchidos ao mesmo tempo).
+`EstruturaCusto.tsx` passou a agrupar reserva por `item.conta_id` (igual
+ao branch de conta já existente) e usar o nome da caixinha só na folha.
+
+**Status:** implementado 2026-10-02 — teste de regressão ajustado pra
+confirmar `conta_id` correto (não mais `None`) junto com `caixinha_id`
+em cada item. Suíte completa 363 passed, 33 skipped. Frontend
+verificado via `tsc -b && vite build` + `oxlint` — sem erro, sem
+warning novo. Sem QA visual via Playwright — mesma limitação de
+sempre. Ver changelog Rodada 42.
 
 ### Racional de testes com `/financeapp-ref`
 

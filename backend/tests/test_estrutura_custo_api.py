@@ -45,7 +45,10 @@ def test_item_de_reserva_identifica_pela_caixinha_nao_pela_conta(client):
     caía no fallback de conta — o subitem mostrava o nome da conta
     repetido em vez do nome da caixinha. 2 caixinhas na mesma conta
     precisam virar 2 itens distintos no bucket, não 1 só agrupado pela
-    conta comum."""
+    conta comum — mas CADA item continua trazendo o conta_id junto
+    (achado 2026-10-02, testando a Rodada 42: a 1ª versão do fix zerava
+    conta_id e a tela perdia o agrupamento por conta, que é o 1º nível
+    esperado — caixinha é só o 2º)."""
     conta = client.post("/contas", json={"nome": "Conta", "tipo_conta": "corrente"}).json()
     caixinha1 = client.post("/caixinhas", json={"nome": "Viagem"}).json()
     caixinha2 = client.post("/caixinhas", json={"nome": "Reforma"}).json()
@@ -74,7 +77,7 @@ def test_item_de_reserva_identifica_pela_caixinha_nao_pela_conta(client):
     assert len(reservas["itens"]) == 2
     caixinhas_nos_itens = {item["caixinha_id"] for item in reservas["itens"]}
     assert caixinhas_nos_itens == {caixinha1["id"], caixinha2["id"]}
-    assert all(item["conta_id"] is None for item in reservas["itens"])
+    assert all(item["conta_id"] == conta["id"] for item in reservas["itens"])
 
 
 def test_despesa_com_estrutura_fixo_aparece_em_custos_fixos(client):

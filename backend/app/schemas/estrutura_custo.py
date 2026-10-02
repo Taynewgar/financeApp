@@ -4,12 +4,11 @@ from pydantic import BaseModel
 
 
 class ItemEstruturaCusto(BaseModel):
-    # exatamente um destes é preenchido (ou nenhum, se a transação não tem
-    # categoria/subcategoria nem é de uma conta de investimento vinculada).
-    # caixinha_id só existe pra item do bucket "reservas" — prioridade
-    # sobre conta_id (reserva não tem categoria/subcategoria, então sem
-    # caixinha_id cairia em conta_id e mostraria o nome da conta em vez
-    # da caixinha, achado 2026-10-02 testando a Rodada 40)
+    # exatamente um destes é preenchido, EXCETO no caso de reserva: aí
+    # caixinha_id E conta_id vêm preenchidos juntos (conta é a 1ª camada
+    # de agrupamento na UI, caixinha a 2ª — ver EstruturaCusto.tsx), e
+    # nenhum dos dois quando a transação não tem categoria/subcategoria
+    # nem é de uma conta de investimento vinculada.
     categoria_id: str | None = None
     subcategoria_id: str | None = None
     conta_id: str | None = None

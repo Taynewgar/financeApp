@@ -57,7 +57,11 @@ def _chave(registro: dict, campo_conta: str) -> tuple[str, str | None]:
     caixinha) nunca tem categoria/subcategoria (regra de negócio), então
     sem essa checagem cairia direto no fallback de conta e mostraria o
     nome da CONTA em vez da caixinha (achado 2026-10-02, testando a
-    Rodada 40). Subcategoria vem antes de categoria porque, num
+    Rodada 40). Essa chave decide dedup/agrupamento (2 caixinhas na mesma
+    conta são 2 itens, não 1) — a UI quer conta como 1º nível e caixinha
+    como 2º, então o item final expõe os dois campos juntos nesse caso só
+    (ver conta_da_caixinha_por_chave em _agregar_estrutura_custo), mesmo a
+    chave de dedup sendo só a caixinha. Subcategoria vem antes de categoria porque, num
     lançamento, categoria_id e subcategoria_id não são mutuamente
     exclusivos — escolher uma subcategoria sempre grava a categoria pai
     junto (NovoLancamento.tsx), então checar categoria primeiro faria
@@ -114,12 +118,20 @@ def _agregar_estrutura_custo(
         )
 
     realizado_por_chave: dict[tuple, float] = {}
+    # conta de cada item do tipo "caixinha" — toda aplicação/retirada tem
+    # conta_id obrigatório, então dá pra guardar aqui e expor junto no item
+    # (ver uso abaixo). Isso é só exibição: o agrupamento/dedup em si usa
+    # caixinha_id (chave acima), nunca conta_id, senão 2 caixinhas na mesma
+    # conta voltariam a colapsar num item só (bug original da Rodada 40).
+    conta_da_caixinha_por_chave: dict[tuple, str] = {}
     for t in transacoes:
         if t["tipo_movimento"] == "receita":
             continue
         chave_completa = (_bucket_da_transacao(t), _chave(t, "conta_id"))
         sinal = _SINAL_REALIZADO.get(t["tipo_movimento"], 0)
         realizado_por_chave[chave_completa] = realizado_por_chave.get(chave_completa, 0) + sinal * t["valor"]
+        if chave_completa[1][0] == "caixinha" and t.get("conta_id"):
+            conta_da_caixinha_por_chave[chave_completa] = t["conta_id"]
 
     buckets = {
         b: {
@@ -140,7 +152,13 @@ def _agregar_estrutura_custo(
             {
                 "categoria_id": valor_chave if tipo_chave == "categoria" else None,
                 "subcategoria_id": valor_chave if tipo_chave == "subcategoria" else None,
-                "conta_id": valor_chave if tipo_chave == "conta" else None,
+                "conta_id": (
+                    valor_chave
+                    if tipo_chave == "conta"
+                    else conta_da_caixinha_por_chave.get(chave_completa)
+                    if tipo_chave == "caixinha"
+                    else None
+                ),
                 "caixinha_id": valor_chave if tipo_chave == "caixinha" else None,
                 "orcado": orcado,
                 "realizado": realizado,

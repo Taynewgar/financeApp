@@ -220,10 +220,10 @@ export type OrcamentoItem = {
 export type BucketEstruturaCusto = Bucket | 'reservas' | 'sem_estrutura'
 
 export type ItemEstruturaCusto = {
-  // exatamente um destes vem preenchido (ou nenhum, se o lançamento não
-  // tem categoria/subcategoria nem conta de investimento vinculada).
-  // caixinha_id só existe pra item do bucket "reservas", com prioridade
-  // sobre conta_id (reserva não tem categoria/subcategoria).
+  // exatamente um destes vem preenchido, EXCETO reserva: caixinha_id e
+  // conta_id vêm preenchidos JUNTOS (conta é o 1º nível de agrupamento
+  // na tela, caixinha o 2º) — e nenhum dos dois quando o lançamento não
+  // tem categoria/subcategoria nem conta de investimento vinculada.
   categoria_id: string | null
   subcategoria_id: string | null
   conta_id: string | null
