@@ -158,7 +158,7 @@ changelog já documenta quando e como cada um foi entregue).
 **Média**
 
 - **65.** **Subitem do bucket Reservas mostra nome da conta em vez da
-  caixinha** (detalhe abaixo) — achado testando a Rodada 40
+  caixinha** `tipo: Bug` (detalhe abaixo) — achado testando a Rodada 40
   (2026-10-02): uma aplicação/retirada vinculada a caixinha cai
   corretamente no bucket "Reservas", mas o subitem dentro dele (o 2º
   nível do acordeão) mostra o nome da CONTA repetido (ex: "Mercado
@@ -225,6 +225,16 @@ changelog já documenta quando e como cada um foi entregue).
   (Rodadas 35-37) que a skill resolve, as que ela não resolve, e os
   pontos de cálculo que merecem atenção extra. **Fila: só depois do
   usuário verificar a Rodada 40.** *(2026-10-01)*
+- **66.** **Avaliar atualização reativa entre telas após inserção de
+  dados** (detalhe abaixo) `tipo: Melhoria` — hoje cada tela busca seus
+  próprios dados só no próprio `useEffect` (sem cache nem invalidação
+  entre telas); uma ação numa tela não atualiza dado dependente
+  mostrado em outra parte da mesma tela ou de outra, só reload manual
+  resolve. Exemplo concreto: confirmar no Dashboard uma transação
+  recorrente de aplicação em caixinha não atualiza o saldo da caixinha
+  mostrado no mesmo Dashboard (só a lista de Compromissos Futuros é
+  re-buscada). Avaliar caso a caso, por feature, se vale a pena.
+  *(2026-10-02)*
 
 **Baixa**
 
@@ -1817,6 +1827,62 @@ de um grupo ainda fechado).
 **Status:** implementado 2026-09-30. Sem QA visual via Playwright —
 mesma limitação de sempre (sem `backend/.env` com credenciais reais do
 Supabase nesta sessão remota). Ver changelog Rodada 39.
+
+### Avaliar atualização reativa entre telas após inserção de dados
+
+**Contexto:** pedido do usuário (2026-10-02), a partir de um exemplo
+concreto notado testando o Dashboard: clicar em "Confirmar" numa
+transação recorrente de aplicação em caixinha (em Compromissos
+Futuros) não atualiza o saldo daquela caixinha mostrado mais acima, na
+mesma tela do Dashboard — só reaparece certo depois de recarregar a
+página inteira.
+
+**Arquitetura atual (por que isso acontece):** não existe cache nem
+camada de invalidação compartilhada entre telas (nada tipo React
+Query/SWR) — cada tela busca seus próprios dados num `useEffect` ao
+montar, e cada ação local (criar/editar/confirmar) só atualiza, na
+melhor das hipóteses, o próprio pedaço de estado que ela mesma mexeu.
+No exemplo citado: `Dashboard.tsx::confirmarRecorrente()` chama `POST
+/lancamentos-recorrentes/{id}/confirmar` e depois só re-busca
+`buscarCompromissos()` — nunca `/dashboard/patrimonio/{mes}` (saldo das
+caixinhas), nem o resumo mensal/evolução/despesas por categoria, mesmo
+quando a transação confirmada afeta esses números no mesmo mês.
+
+**Avaliação pedida, por feature (ponto de partida, não um levantamento
+completo ainda):**
+
+- **Dashboard** — o exemplo acima é o caso mais claro: confirmar/pular
+  um recorrente (`confirmarRecorrente`/`pularRecorrente`) deveria
+  também re-buscar patrimônio de caixinhas e o resumo do mês, quando o
+  recorrente confirmado cai dentro do período exibido.
+- **Lançamentos (Busca)** — criar/editar/excluir uma transação atualiza
+  a própria lista; não atualiza cartões de resumo de outras telas (não
+  aplicável dentro da mesma tela, já que Busca não mostra resumo de
+  outras seções).
+- **Planejamento/Estrutura de Custo** — uma despesa nova cria
+  reativamente um item de orçamento no servidor
+  (`sincronizar_item_orcamento`); se o usuário estiver com a tela de
+  Planejamento aberta e a transação entrar por outro caminho (outra
+  aba, Novo Lançamento em nova navegação), o item novo só aparece após
+  recarregar — candidato a revisão, mas prioridade menor (cenário de
+  múltiplas abas é incomum no uso real relatado até aqui).
+- **Caixinhas (Configurações)** — criar/editar uma caixinha não
+  precisa propagar pra Dashboard em tempo real, porque navegar pro
+  Dashboard já é um novo `useEffect`/fetch — só é um problema se as
+  duas telas coexistirem na mesma visão (não coexistem hoje).
+
+**Decisão em aberto, não tomada:** a correção pontual (ex: Dashboard
+re-buscar mais 1-2 endpoints depois de confirmar) é barata e resolve o
+exemplo citado, mas não escala — cada novo cruzamento de dado exigiria
+lembrar de atualizar manualmente o lugar certo. Uma camada de cache
+compartilhado com invalidação por chave (React Query ou similar)
+resolve de forma genérica, mas é uma mudança de arquitetura maior,
+tocando toda tela que busca dado hoje. Avaliar o custo-benefício
+feature a feature, como pedido, antes de decidir qual caminho.
+
+**Status:** registrado 2026-10-02, prioridade média — levantamento
+inicial feito (Dashboard é o caso mais claro), avaliação completa
+feature a feature ainda não foi feita.
 
 ### Subitem do bucket Reservas mostra nome da conta em vez da caixinha
 
