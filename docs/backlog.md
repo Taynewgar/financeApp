@@ -162,10 +162,6 @@ changelog já documenta quando e como cada um foi entregue).
 
 **Média**
 
-- **18.** **Janela de meses pra trás × ano civil (jan-dez) nos
-  gráficos** `tipo: Decisão` — hoje o modo "Mês" em `/graficos` mostra N meses pra
-  trás contando do mês selecionado (12, ver Rodada 16.2). Repensar se
-  um ano civil fixo (janeiro-dezembro) seria mais legível.
 - **51.** **Gráfico de despesa por categoria/subcategoria no tempo**
   `tipo: Implementação` — similar ao de evolução mensal, mas com filtros de
   categoria/subcategoria (incluindo receitas, investimentos etc.) e/ou
@@ -430,6 +426,12 @@ já documenta quando e como cada um foi entregue.
   mesmo dia~~ **feito 2026-10-02** — `POST /transacoes` ganhou
   `forcar_duplicado`; o frontend oferece "Lançar mesmo assim" no 409.
   Detalhe na subseção própria abaixo, ver changelog Rodada 44.
+- **18.** ~~Janela de meses pra trás × ano civil (jan-dez) nos
+  gráficos~~ **feito 2026-10-02** — decisão: manter trailing 12 meses
+  como padrão (sempre 12 pontos preenchidos) e adicionar toggle opt-in
+  "Ano civil" pra quem quiser essa leitura sem trocar pro modo
+  Intervalo. Detalhe na subseção própria abaixo, ver changelog Rodada
+  45.
 
 Este arquivo não substitui o `README.md` da raiz (que descreve o que
 existe) nem o `/status-projeto` (relatório de andamento) — é o registro do
@@ -2043,6 +2045,50 @@ passed, 33 skipped. Frontend verificado via `tsc -b && vite build` +
 
 **Status:** implementado 2026-10-02. Sem QA visual via Playwright —
 mesma limitação de sempre. Ver changelog Rodada 44.
+
+### Janela de meses pra trás × ano civil nos gráficos
+
+**Contexto:** modo "Mês" em `/graficos` sempre mostrou uma janela
+trailing de 12 meses terminando no mês selecionado (Evolução Mensal +
+Orçado × Realizado). Pergunta registrada 2026-09-16 (Rodada 16.2):
+repensar se um ano civil fixo (jan-dez) seria mais legível.
+
+**Discussão (2026-10-02):** prós/contras levantados e decisão tomada
+com o usuário, antes de implementar.
+
+- Trailing 12 meses (atual): sempre 12 pontos preenchidos qualquer mês
+  escolhido; é o padrão de análise financeira pra "como estou
+  evoluindo" (TTM); sem o "penhasco" visual de dezembro→janeiro.
+- Ano civil fixo: bate com o jeito mais comum de pensar (extrato,
+  IRPF, "quanto gastei esse ano"); mas em janeiro/fevereiro mostraria
+  um gráfico quase vazio (só 1-2 meses com dado real).
+
+**Decisão:** não trocar o padrão (trailing 12 meses continua sendo o
+que abre por default) — ano civil fixo já existia como alternativa via
+modo "Intervalo" (escolher jan-dez manualmente), então a única lacuna
+real era não ter um atalho de 1 clique pra isso no modo "Mês". Fix
+escolhido: toggle opt-in "Últimos 12 meses" / "Ano civil (AAAA)" dentro
+do modo "Mês", que só troca a janela de `/dashboard/evolucao` e
+`/estrutura-custo/evolucao/tendencia` (Evolução Mensal + Orçado ×
+Realizado) — não afeta Pareto/despesas por categoria, que já são só do
+mês de referência selecionado, com ou sem o toggle.
+
+**Fix:** `Graficos.tsx` ganhou `verAnoCivil` (estado local, não
+persistido entre navegações — como `nivelPareto`, mesma classe de
+estado "barato" já usada na tela) e um segmentado "Últimos 12 meses" /
+"Ano civil (AAAA)" ao lado do seletor de período, visível só no modo
+"Mês". Quando ligado, `evolucaoInicio`/`evolucaoFim` passam a ser
+jan-dez do ano do mês selecionado, em vez de `mesesAntes(vigenciaMes,
+11)`. Nenhuma mudança de backend — os 2 endpoints já aceitam qualquer
+intervalo arbitrário (é o mesmo contrato que o modo "Intervalo" já usa
+hoje, inclusive com fim no futuro, dentro do ano em curso).
+
+**Status:** implementado 2026-10-02 — só frontend. `tsc -b && vite
+build` + `oxlint` sem erro, sem warning novo. Sem teste automatizado
+novo (troca de janela de busca, sem lógica de cálculo nova — mesmo
+padrão de cobertura dos outros toggles de período da tela). Sem QA
+visual via Playwright — mesma limitação de sempre. Ver changelog
+Rodada 45.
 
 ### Racional de testes com `/financeapp-ref`
 

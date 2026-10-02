@@ -36,6 +36,14 @@ export function Graficos() {
   const [tendenciaOrcamento, setTendenciaOrcamento] = useState<TendenciaOrcamento | null>(null)
   const [erro, setErro] = useState<string | null>(null)
 
+  // trailing 12 meses é o padrão (sempre 12 pontos, sem o "penhasco" de
+  // virar o ano) — ano civil é opt-in pra quem quer ler "quanto gastei
+  // esse ano" sem trocar pra Intervalo e digitar jan-dez manualmente.
+  // Só existe no modo "Mês" (Intervalo/Todos já deixam o período livre).
+  // Local e não-persistido de propósito (como nivelPareto abaixo) — item
+  // 18 do backlog, registrado como "barato, usa se quiser".
+  const [verAnoCivil, setVerAnoCivil] = useState(false)
+
   const [nivelPareto, setNivelPareto] = useState<NivelPareto>('categoria')
   const [categoriaFiltro, setCategoriaFiltro] = useState('')
   const [categoriasDespesa, setCategoriasDespesa] = useState<Categoria[]>([])
@@ -53,9 +61,11 @@ export function Graficos() {
     setErro(null)
 
     // tela dedicada de análise — janela maior que o sparkline do Dashboard
-    // (6 meses); 12 meses dá leitura de trailing-year no modo "Mês"
-    const evolucaoInicio = modoData === 'mes' ? mesesAntes(vigenciaMes, 11) : periodoInicio
-    const evolucaoFim = periodoFim
+    // (6 meses); 12 meses dá leitura de trailing-year no modo "Mês", ou
+    // o ano civil do mês selecionado quando o usuário liga esse toggle
+    const ano = vigenciaMes.slice(0, 4)
+    const evolucaoInicio = modoData === 'mes' ? (verAnoCivil ? `${ano}-01` : mesesAntes(vigenciaMes, 11)) : periodoInicio
+    const evolucaoFim = modoData === 'mes' && verAnoCivil ? `${ano}-12` : periodoFim
 
     // "Mês" olha só o mês de referência; Intervalo/Todos somam o período
     // inteiro, não só o último mês (mesmo padrão de /mensal vs /resumo-periodo)
@@ -77,7 +87,7 @@ export function Graficos() {
         setTendenciaOrcamento(t)
       })
       .catch((e) => setErro(e instanceof ApiError ? e.message : 'Falha ao carregar os gráficos'))
-  }, [modoData, vigenciaMes, periodoInicio, periodoFim, mesReferencia, primeiroMes])
+  }, [modoData, vigenciaMes, periodoInicio, periodoFim, mesReferencia, primeiroMes, verAnoCivil])
 
   // Pareto por categoria reaproveita despesasCategoria (mesmo endpoint já
   // buscado acima pro gráfico "Despesas por Categoria") — só o nível
@@ -122,6 +132,21 @@ export function Graficos() {
 
       <div className="cabecalho-fixo">
         <SeletorPeriodo {...periodo} />
+        {modoData === 'mes' && (
+          <div className="campo" style={{ marginTop: 10 }}>
+            <span style={{ fontSize: 12, color: 'var(--cor-texto-suave)' }}>
+              Janela de Evolução Mensal/Orçado × Realizado
+            </span>
+            <div className="segmentado">
+              <button type="button" className={verAnoCivil ? '' : 'ativo'} onClick={() => setVerAnoCivil(false)}>
+                Últimos 12 meses
+              </button>
+              <button type="button" className={verAnoCivil ? 'ativo' : ''} onClick={() => setVerAnoCivil(true)}>
+                Ano civil ({vigenciaMes.slice(0, 4)})
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {erro && <p className="mensagem-erro">{erro}</p>}

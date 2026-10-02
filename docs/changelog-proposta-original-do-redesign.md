@@ -4007,3 +4007,46 @@ mesma limitação de sempre.
 - [ ] Tentar o mesmo cenário de duplicata em compra PARCELADA e
       confirmar que continua dando 409 sem o botão "Lançar mesmo
       assim" (fora do escopo deste fix, comportamento inalterado).
+
+### Rodada 45 (2026-10-02) — Toggle "Ano civil" em Gráficos (item 18)
+
+Pergunta registrada desde 2026-09-16 (Rodada 16.2): o modo "Mês" em
+`/graficos` sempre usou janela trailing de 12 meses (Evolução Mensal +
+Orçado × Realizado) — repensar se ano civil fixo seria mais legível.
+Discussão completa (prós/contras de cada abordagem) e decisão em
+`docs/backlog.md` ("Janela de meses pra trás × ano civil nos
+gráficos") — aqui só o resumo.
+
+**Decisão:** manter trailing 12 meses como padrão (evita gráfico quase
+vazio em janeiro/fevereiro) e adicionar um toggle opt-in pra quem quer
+ano civil sem trocar pro modo Intervalo e digitar jan-dez manualmente.
+
+**Fix:** `Graficos.tsx` ganhou `verAnoCivil` (estado local, não
+persistido — mesma classe de `nivelPareto`, já existente na tela) e um
+segmentado "Últimos 12 meses" / "Ano civil (AAAA)" junto ao seletor de
+período, só no modo "Mês". Troca só `evolucaoInicio`/`evolucaoFim` (os
+2 endpoints que alimentam Evolução Mensal e Orçado × Realizado) — não
+toca em Pareto/despesas por categoria, que já ficam presas ao mês de
+referência. Sem mudança de backend — os endpoints já aceitam qualquer
+intervalo (mesmo contrato do modo Intervalo).
+
+**Status:** implementado 2026-10-02 — só frontend. `tsc -b && vite
+build` + `oxlint` sem erro, sem warning novo. Sem teste automatizado
+novo (troca de janela de busca, sem lógica de cálculo nova). Sem QA
+visual via Playwright — mesma limitação de sempre.
+
+**Checklist de teste manual (usuário, localmente):**
+- [ ] Em Gráficos, modo "Mês", confirmar que o toggle "Últimos 12
+      meses" / "Ano civil (AAAA)" aparece ao lado do seletor de
+      período, com "Últimos 12 meses" selecionado por padrão.
+- [ ] Clicar em "Ano civil" e confirmar que Evolução Mensal e Orçado ×
+      Realizado passam a mostrar jan-dez do ano do mês selecionado
+      (não mais os 12 meses terminando nele).
+- [ ] Confirmar que o Pareto de Despesas (categoria/subcategoria) NÃO
+      muda ao ligar o toggle — continua mostrando só o mês de
+      referência selecionado.
+- [ ] Trocar pro modo "Intervalo" ou "Todos os meses" e confirmar que
+      o toggle desaparece (só existe no modo "Mês").
+- [ ] Selecionar um mês do ano em curso com "Ano civil" ligado e
+      confirmar que meses futuros daquele ano aparecem zerados no
+      gráfico, sem erro.
