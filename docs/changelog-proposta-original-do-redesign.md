@@ -3401,13 +3401,16 @@ existentes). Frontend verificado via `tsc -b && vite build` e
 remota não tem (mesma limitação de `backend/.env` documentada em
 `CLAUDE.md` pros testes de integração). Verificação ficou restrita a
 tipo/build; o usuário precisa confirmar visualmente. **Testado pelo
-usuário em 2026-10-01:** itens 1-2 confirmados ok. **Item 3 — achado
-real:** o card ficou mais compacto, mas mostra só parcela/data/valor —
-falta descrição e botões de recorrente, que o checklist original
-previa continuar visíveis. Usuário decidiu manter pendente por ora,
-pra investigar junto da Rodada 40 (recorrentes/caixinha) — pode ser o
-mesmo caminho de código. Item 4 (Confirmar/Pular com lista expandida/
-colapsada) também adiado pro mesmo motivo.
+usuário em 2026-10-01 (1ª rodada):** itens 1-2 ok. Item 3 reportado com
+achado (faltava descrição/botões de recorrente) — mantido pendente de
+propósito, pra reconferir junto da Rodada 40. **Retestado em
+2026-10-02, depois da Rodada 40: os 4 itens confirmados ok** —
+descrição, parcela/tipo, data, valor e os botões de recorrente aparecem
+e funcionam (o achado da 1ª rodada não se repetiu; não ficou claro se
+era um estado desatualizado da tela ou dependia mesmo do fix da Rodada
+40). Observação nova do usuário: o card dá pra ficar ainda mais
+compacto em telas maiores (desktop) — não é bug, registrado como
+sugestão de melhoria (`docs/backlog.md`, item 64).
 
 **Checklist de teste manual (usuário, localmente):**
 - [x] Abrir o Dashboard e confirmar que Compromissos Futuros mostra até
@@ -3415,15 +3418,14 @@ colapsada) também adiado pro mesmo motivo.
 - [x] Clicar em "Ver mais" e confirmar que a lista completa aparece
       (até 50) sem precisar recarregar a página; "Ver menos" volta a
       colapsar.
-- [ ] Confirmar que o card ficou visualmente mais compacto (menos
+- [x] Confirmar que o card ficou visualmente mais compacto (menos
       espaço por item) mas sem faltar nenhuma informação (descrição,
-      parcela/tipo, data, valor, botões de recorrente). — **achado
-      2026-10-01: só mostra parcela/data/valor, falta descrição e
-      botões de recorrente.** Pendente — investigar junto da Rodada 40.
-- [ ] Testar "Confirmar"/"Pular este mês" de um recorrente com a lista
+      parcela/tipo, data, valor, botões de recorrente). — confirmado
+      2026-10-02; sugestão de compactar mais em desktop virou item 64
+      do backlog.
+- [x] Testar "Confirmar"/"Pular este mês" de um recorrente com a lista
       expandida e com a lista colapsada — os botões continuam
-      funcionando nos dois estados. Pendente — adiado pro mesmo motivo
-      do item acima.
+      funcionando nos dois estados. — confirmado 2026-10-02.
 
 ### Rodada 37 (2026-09-25) — Agregações que crescem pra sempre com o histórico movidas pra RPC
 
@@ -3701,26 +3703,31 @@ sem warning novo.
 
 **Status:** implementado nesta sessão. Sem QA visual via Playwright —
 mesma limitação de sempre (sem `backend/.env` com credenciais reais do
-Supabase nesta sessão remota).
+Supabase nesta sessão remota). **Testado pelo usuário em 2026-10-02: os
+7 itens confirmados ok.** Item 7 veio com um achado novo, fora do
+escopo original desta rodada — ver "Estrutura de Custo: subitem de
+reserva mostra nome da conta em vez da caixinha" em `docs/backlog.md`.
 
 **Checklist de teste manual (usuário, localmente):**
-- [ ] Rodar a migração de `lancamentos_recorrentes.caixinha_id` no *SQL
+- [x] Rodar a migração de `lancamentos_recorrentes.caixinha_id` no *SQL
       Editor* do Supabase (seção "Migração pendente" do `README.md`)
       antes de qualquer teste abaixo.
-- [ ] Criar um recorrente de aplicação escolhendo uma caixinha — o
+- [x] Criar um recorrente de aplicação escolhendo uma caixinha — o
       formulário não deve mais pedir categoria, e deve salvar sem erro.
-- [ ] Com a caixinha vinculada a uma conta fixa, confirmar que o campo
+- [x] Com a caixinha vinculada a uma conta fixa, confirmar que o campo
       Conta trava sozinho nela ao escolher a caixinha.
-- [ ] Criar um recorrente de retirada com a mesma caixinha — deve
+- [x] Criar um recorrente de retirada com a mesma caixinha — deve
       salvar normalmente.
-- [ ] Trocar de "Caixinha" pra "Nenhuma (investimento)" no mesmo
+- [x] Trocar de "Caixinha" pra "Nenhuma (investimento)" no mesmo
       formulário — Categoria/Subcategoria devem voltar a aparecer.
-- [ ] Confirmar o mês desse recorrente em "Compromissos Futuros" e
+- [x] Confirmar o mês desse recorrente em "Compromissos Futuros" e
       verificar em Caixinhas que o valor entrou como aporte/resgate da
       reserva certa.
-- [ ] Confirmar que esse mês confirmado **não** aparece em Estrutura de
+- [x] Confirmar que esse mês confirmado **não** aparece em Estrutura de
       Custo/Planejamento como item de investimento (reserva é só
-      informativa, sem teto).
+      informativa, sem teto). — confirmado (aparece em Reservas, não em
+      Investimentos); achado à parte sobre o rótulo do subitem, ver nota
+      de Status acima.
 
 ### Rodada 41 (2026-09-30) — Fix: "Gerar orçamento"/"Criar do zero" continuavam lentos (2ª e 3ª N+1)
 

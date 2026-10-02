@@ -44,6 +44,11 @@ changelog já documenta quando e como cada um foi entregue).
   `tipo: Melhoria` — os cards de Caixinhas/Patrimônio trazem pouca
   informação (nome + saldo), ocupando espaço desproporcional ao
   conteúdo. *(2026-10-01)*
+- **64.** **Compromissos Futuros: card ainda mais compacto em telas
+  maiores** `tipo: Melhoria` — achado testando a Rodada 36 (2026-10-02):
+  o card já ficou compacto no fix original, mas em desktop (mais
+  espaço horizontal disponível) ainda dá pra reduzir mais a altura por
+  item. *(2026-10-02)*
 
 **Baixa**
 
@@ -149,6 +154,16 @@ changelog já documenta quando e como cada um foi entregue).
 
 - **10.** Exportação de relatório mensal/anual (detalhe abaixo) —
   próximo passo depois do MVP fechado (itens 1-8 acima).
+
+**Média**
+
+- **65.** **Subitem do bucket Reservas mostra nome da conta em vez da
+  caixinha** (detalhe abaixo) — achado testando a Rodada 40
+  (2026-10-02): uma aplicação/retirada vinculada a caixinha cai
+  corretamente no bucket "Reservas", mas o subitem dentro dele (o 2º
+  nível do acordeão) mostra o nome da CONTA repetido (ex: "Mercado
+  Pago Josi" tanto no nível pai quanto no filho), não o nome da
+  caixinha. *(2026-10-02)*
 
 **Baixa**
 
@@ -1802,6 +1817,46 @@ de um grupo ainda fechado).
 **Status:** implementado 2026-09-30. Sem QA visual via Playwright —
 mesma limitação de sempre (sem `backend/.env` com credenciais reais do
 Supabase nesta sessão remota). Ver changelog Rodada 39.
+
+### Subitem do bucket Reservas mostra nome da conta em vez da caixinha
+
+**Contexto:** achado testando o checklist da Rodada 40 (2026-10-02) —
+item 7 pedia só pra confirmar que uma aplicação/retirada com caixinha
+NÃO aparece em Estrutura de Custo como item de investimento, e isso bate
+(aparece em "Reservas", correto). Mas ao expandir o bucket "Reservas",
+o usuário notou que o subitem (2º nível do acordeão) repete o nome da
+CONTA ("Mercado Pago Josi") tanto no nível pai quanto no filho, em vez
+de mostrar o nome da caixinha (ex: "Viagem").
+
+**Causa raiz (lida no código, não só inferida):** `_agregar_estrutura_
+custo()` (`backend/app/routers/estrutura_custo.py`) agrupa cada
+transação por `_chave(t, "conta_id")`, que checa só
+`subcategoria_id` → `categoria_id` → `conta_id`, nessa ordem —
+`caixinha_id` nunca é olhado. Uma transação de reserva (aplicação/
+retirada com `caixinha_id`) não tem categoria nem subcategoria (regra
+de negócio, ver "Lançamentos Recorrentes"/transações avulsas), então
+cai direto no fallback "conta" — o item de orçamento/resposta da API
+carrega só `conta_id`, nunca `caixinha_id` (o campo não existe no
+dict do item nem no schema `EstruturaCustoMes`). No frontend
+(`EstruturaCusto.tsx`, função que agrupa os itens), o branch `else if
+(item.conta_id)` usa `contaNome` tanto pro nome do grupo quanto pro
+nome da folha — daí o nome da conta aparecer duplicado onde deveria
+aparecer conta (pai, correto hoje) e caixinha (filho, errado hoje).
+
+**O que precisaria:** backend passar a checar `caixinha_id` antes de
+cair no fallback de conta em `_chave()` (ou numa checagem própria,
+já que hoje `_chave()` é genérica pra orçamento e transação — caixinha
+só existe em transação), incluir `caixinha_id` no item retornado por
+`_agregar_estrutura_custo`, e no schema `EstruturaCustoMes`. Frontend
+busca `/caixinhas` (já é feito em outras telas) e ganha um branch
+`else if (item.caixinha_id)` que usa o nome da caixinha pra folha,
+mantendo o nome da conta (ou agrupando por caixinha também no nível
+pai — a decidir) só como contexto.
+
+**Status:** registrado 2026-10-02, prioridade média — não é um bug que
+trava nada (a classificação de bucket em si está certa, "Reservas" não
+"Investimentos"), é só um rótulo errado que pode confundir quando o
+usuário tiver mais de 1 caixinha associada à mesma conta.
 
 ### Racional de testes com `/financeapp-ref`
 
