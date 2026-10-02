@@ -3884,15 +3884,16 @@ usa o nome da caixinha só na folha. Teste de regressão ajustado
 sem erro, sem warning novo.
 
 **Checklist de teste manual da correção (usuário, localmente):**
-- [ ] Em Estrutura de Custo, num mês com aplicação/retirada em pelo
+- [x] Em Estrutura de Custo, num mês com aplicação/retirada em pelo
       menos 1 caixinha, abrir o bucket "Reservas" e confirmar que o
       1º nível mostra o nome da CONTA (como antes) e o 2º nível mostra
-      o nome da CAIXINHA (não repete o nome da conta).
-- [ ] Com 2 caixinhas diferentes na mesma conta, confirmar que aparecem
+      o nome da CAIXINHA (não repete o nome da conta). — confirmado
+      2026-10-02.
+- [x] Com 2 caixinhas diferentes na mesma conta, confirmar que aparecem
       como 2 subitens dentro do MESMO grupo de conta (não 2 grupos
-      separados, nem agrupadas numa só).
-- [ ] Com caixinhas em contas diferentes, confirmar que aparecem em
-      grupos de conta diferentes.
+      separados, nem agrupadas numa só). — confirmado 2026-10-02.
+- [x] Com caixinhas em contas diferentes, confirmar que aparecem em
+      grupos de conta diferentes. — confirmado 2026-10-02.
 
 ### Rodada 43 (2026-10-02) — Bucket Reservas vira informativo (Saldo acumulado / Aportado no mês)
 
@@ -3936,16 +3937,17 @@ completa: 365 passed, 33 skipped. Frontend: `tsc -b && vite build` +
 mesma limitação de sempre.
 
 **Checklist de teste manual (usuário, localmente):**
-- [ ] Em Estrutura de Custo, abrir o bucket "Reservas" e confirmar que
+- [x] Em Estrutura de Custo, abrir o bucket "Reservas" e confirmar que
       o cabeçalho mostra "Saldo acumulado" e "Aportado no mês" (não
       "Orçado"/"Diferença"/"Status"), com o badge "Informativo" ao
-      lado do nome do bucket.
-- [ ] Confirmar que "Saldo acumulado" de uma caixinha bate com o
+      lado do nome do bucket. — confirmado 2026-10-02.
+- [x] Confirmar que "Saldo acumulado" de uma caixinha bate com o
       patrimônio mostrado em Dashboard pra essa mesma caixinha, no
-      mesmo mês.
-- [ ] Com uma retirada líquida no mês (retirada > aplicação), confirmar
+      mesmo mês. — confirmado 2026-10-02.
+- [x] Com uma retirada líquida no mês (retirada > aplicação), confirmar
       que "Aportado no mês" aparece negativo (com o sinal "−"), não só
-      um número sem contexto.
-- [ ] Confirmar que os outros buckets (Custos Fixos, Variáveis,
+      um número sem contexto. — confirmado 2026-10-02.
+- [x] Confirmar que os outros buckets (Custos Fixos, Variáveis,
       Sazonalidades, Investimentos) continuam mostrando Orçado/
-      Realizado/Diferença/Status normalmente — não regrediu.
+      Realizado/Diferença/Status normalmente — não regrediu. —
+      confirmado 2026-10-02.
