@@ -52,9 +52,10 @@ changelog já documenta quando e como cada um foi entregue).
 
 **Baixa**
 
-- **25.** Saldo atual de contas — hoje só caixinhas têm saldo calculado
-  (`GET /dashboard/patrimonio/{mes}`); dar saldo a `contas` também
-  seria a extensão natural, mas não é urgente. *(2026-09-15)*
+- **25.** **Saldo atual de contas** `tipo: Implementação` — hoje só
+  caixinhas têm saldo calculado (`GET /dashboard/patrimonio/{mes}`); dar
+  saldo a `contas` também seria a extensão natural, mas não é urgente.
+  *(2026-09-15)*
 
 #### Lançamentos
 
@@ -78,7 +79,7 @@ changelog já documenta quando e como cada um foi entregue).
 **Média**
 
 - **31.** **Lançamentos: painel de filtros muito alto no mobile em
-  paisagem** — reportado pelo usuário testando a Rodada 28 num celular
+  paisagem** `tipo: Melhoria` — reportado pelo usuário testando a Rodada 28 num celular
   real girado pra paisagem: o painel de filtros expandido (`Tipo`,
   `Descrição`, `Mês`, `Ano`, `De`/`Até`, `Conta`, `Caixinha`,
   `Categoria`, `Subcategoria`, `Estrutura de custo`, `Meio de
@@ -86,8 +87,9 @@ changelog já documenta quando e como cada um foi entregue).
   menor que em retrato) e esconde a lista de lançamentos abaixo, sem
   indicar que há mais conteúdo pra rolar. Print anexado pelo usuário.
   Sem causa raiz investigada ainda.
-- **33.** **Lançamento com mais de 1 categoria** (detalhe abaixo) —
-  surgiu durante a análise do item 9 (migração de dados).
+- **33.** **Lançamento com mais de 1 categoria** `tipo: Implementação`
+  (detalhe abaixo) — surgiu durante a análise do item 9 (migração de
+  dados).
 - **53.** **Filtro por tipo de transação: parcelado ou à vista**
   `tipo: Melhoria` — novo filtro na busca de lançamentos. *(trazido em
   CSV, 2026-09-30)*
@@ -102,11 +104,16 @@ changelog já documenta quando e como cada um foi entregue).
 **Baixa**
 
 - **35.** **`hash_dedup` não distingue 2 despesas reais idênticas no
-  mesmo dia** (detalhe na seção "Migração de dados do app antigo",
-  achado rodando a migração pra valer) — lançar manualmente 2 despesas
-  com mesma data/valor/descrição/conta/tipo esbarra num 409 que o
-  frontend não trata hoje. Raro no uso manual do dia a dia.
-  *(2026-09-25)*
+  mesmo dia** `tipo: Bug` (detalhe na seção "Migração de dados do app
+  antigo", achado rodando a migração pra valer) — lançar manualmente 2
+  despesas com mesma data/valor/descrição/conta/tipo esbarra num 409 que
+  o frontend não trata hoje. Raro no uso manual do dia a dia. **Não
+  resolvido** — o fix de 2026-09-25 (`agrupar_por_chave_hash`) cobriu só
+  o script de migração; o app em uso normal continua rejeitando a 2ª
+  transação real idêntica com um 409 que o frontend não trata.
+  Classificado como Bug (não Melhoria) porque a API rejeita um
+  lançamento legítimo por engano — não é um recurso faltando, é uma
+  validação incorreta. *(2026-09-25)*
 - **58.** **Marcador de origem caixinha** `tipo: Melhoria` — um
   marcador pra indicar, na lista de lançamentos, uma transação cuja
   origem é retirada de caixinha — facilita identificar uma compra/gasto
@@ -152,8 +159,9 @@ changelog já documenta quando e como cada um foi entregue).
 
 **Alta**
 
-- **10.** Exportação de relatório mensal/anual (detalhe abaixo) —
-  próximo passo depois do MVP fechado (itens 1-8 acima).
+- **10.** **Exportação de relatório mensal/anual** `tipo: Implementação`
+  (detalhe abaixo) — próximo passo depois do MVP fechado (itens 1-8
+  acima).
 
 **Baixa**
 
@@ -166,11 +174,11 @@ changelog já documenta quando e como cada um foi entregue).
 **Média**
 
 - **18.** **Janela de meses pra trás × ano civil (jan-dez) nos
-  gráficos** — hoje o modo "Mês" em `/graficos` mostra N meses pra
+  gráficos** `tipo: Decisão` — hoje o modo "Mês" em `/graficos` mostra N meses pra
   trás contando do mês selecionado (12, ver Rodada 16.2). Repensar se
   um ano civil fixo (janeiro-dezembro) seria mais legível.
 - **51.** **Gráfico de despesa por categoria/subcategoria no tempo**
-  `tipo: Criação` — similar ao de evolução mensal, mas com filtros de
+  `tipo: Implementação` — similar ao de evolução mensal, mas com filtros de
   categoria/subcategoria (incluindo receitas, investimentos etc.) e/ou
   possibilidade de gráfico comparativo com elementos dinâmicos
   selecionados na hora (ex: comparar receitas mensais excluindo
@@ -187,16 +195,17 @@ changelog já documenta quando e como cada um foi entregue).
 
 **Baixa**
 
-- **28.** Aba Bancos em Configurações — hoje resolvido como campo de
-  texto em Conta, sem perda funcional real. *(2026-09-15, renumerado de
-  24 pra 28 em 2026-09-24 — colidia com o item 24 de média prioridade)*
+- **28.** **Aba Bancos em Configurações** `tipo: Implementação` — hoje
+  resolvido como campo de texto em Conta, sem perda funcional real.
+  *(2026-09-15, renumerado de 24 pra 28 em 2026-09-24 — colidia com o
+  item 24 de média prioridade)*
 
 #### Geral
 
 **Alta**
 
-- **32.** **Melhoria geral de layout da aplicação (V2, pós-MVP)** —
-  reportado pelo usuário testando a Rodada 28-31: alguns elementos
+- **32.** **Melhoria geral de layout da aplicação (V2, pós-MVP)**
+  `tipo: Implantação` — reportado pelo usuário testando a Rodada 28-31: alguns elementos
   fora de escala, cabeçalho fixo um pouco desproporcional em algumas
   telas. Pedido explícito do usuário: não é pra corrigir ponto a ponto
   agora — é uma passada de revisão geral de layout depois do MVP
@@ -229,7 +238,7 @@ changelog já documenta quando e como cada um foi entregue).
 
 **Baixa**
 
-- **26.** **Changelog estruturado** — trocar a prosa narrativa de
+- **26.** **Changelog estruturado** `tipo: Melhoria` — trocar a prosa narrativa de
   `changelog-proposta-original-do-redesign.md` pelo formato [Keep a
   Changelog](https://keepachangelog.com) (seções `Added/Changed/Fixed/
   Removed` por versão datada, amarrada a tag git). Ganho: escaneável e
@@ -238,16 +247,17 @@ changelog já documenta quando e como cada um foi entregue).
   — por isso fica de baixa prioridade enquanto o projeto for de um
   usuário só. Sugestão minha (Claude), confirmada como baixa prioridade
   pelo usuário. *(2026-09-16)*
-- **27.** **ADRs (Architecture Decision Records)** — trocar o Q&A único
+- **27.** **ADRs (Architecture Decision Records)** `tipo: Melhoria` — trocar o Q&A único
   de `sugestoes-e-decisoes-do-redesign.md` por um arquivo curto e
   imutável por decisão relevante (formato Nygard: contexto/decisão/
   consequências). Decisão revista vira um ADR novo que supersede o
   antigo, em vez de editar o `> Status:` por cima como hoje — histórico
   fica honesto, mas com mais arquivos pra navegar. Mesma origem e
   confirmação do item 26. *(2026-09-16)*
-- **34.** **Fluxo de criação de usuário (cadastro)** (detalhe abaixo) —
-  hoje só existe login; criar usuário é feito manualmente pelo painel
-  do Supabase, sem tela/endpoint no app. *(2026-09-25)*
+- **34.** **Fluxo de criação de usuário (cadastro)** `tipo: Implantação`
+  (detalhe abaixo) — hoje só existe login; criar usuário é feito
+  manualmente pelo painel do Supabase, sem tela/endpoint no app.
+  *(2026-09-25)*
 
 #### Agenda Contas
 
