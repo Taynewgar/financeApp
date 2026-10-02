@@ -39,6 +39,44 @@ def test_aplicacao_em_caixinha_vai_para_bucket_reservas_nao_investimentos(client
     assert _bucket(resposta, "investimentos")["realizado"] == 0
 
 
+def test_item_de_reserva_identifica_pela_caixinha_nao_pela_conta(client):
+    """Regressão (achado 2026-10-02, testando a Rodada 40): uma reserva
+    não tem categoria/subcategoria, então sem checar caixinha_id o item
+    caía no fallback de conta — o subitem mostrava o nome da conta
+    repetido em vez do nome da caixinha. 2 caixinhas na mesma conta
+    precisam virar 2 itens distintos no bucket, não 1 só agrupado pela
+    conta comum."""
+    conta = client.post("/contas", json={"nome": "Conta", "tipo_conta": "corrente"}).json()
+    caixinha1 = client.post("/caixinhas", json={"nome": "Viagem"}).json()
+    caixinha2 = client.post("/caixinhas", json={"nome": "Reforma"}).json()
+    client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-09-05",
+            "valor": 200,
+            "tipo_movimento": "aplicacao",
+            "conta_id": conta["id"],
+            "caixinha_id": caixinha1["id"],
+        },
+    )
+    client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-09-06",
+            "valor": 300,
+            "tipo_movimento": "aplicacao",
+            "conta_id": conta["id"],
+            "caixinha_id": caixinha2["id"],
+        },
+    )
+
+    reservas = _bucket(client.get("/estrutura-custo/2026-09-01"), "reservas")
+    assert len(reservas["itens"]) == 2
+    caixinhas_nos_itens = {item["caixinha_id"] for item in reservas["itens"]}
+    assert caixinhas_nos_itens == {caixinha1["id"], caixinha2["id"]}
+    assert all(item["conta_id"] is None for item in reservas["itens"])
+
+
 def test_despesa_com_estrutura_fixo_aparece_em_custos_fixos(client):
     conta = client.post("/contas", json={"nome": "Conta", "tipo_conta": "corrente"}).json()
     categoria = client.post("/categorias", json={"nome": "Moradia"}).json()

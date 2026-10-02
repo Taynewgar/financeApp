@@ -51,12 +51,20 @@ def _bucket_da_transacao(t: dict) -> str:
 
 def _chave(registro: dict, campo_conta: str) -> tuple[str, str | None]:
     """Identifica a que item um lançamento ou item de orçamento pertence,
-    na ordem subcategoria > categoria > conta vinculada. Subcategoria vem
-    primeiro porque, num lançamento, categoria_id e subcategoria_id não são
-    mutuamente exclusivos — escolher uma subcategoria sempre grava a
-    categoria pai junto (NovoLancamento.tsx), então checar categoria
-    primeiro faria todo lançamento com subcategoria cair na categoria pai e
-    a subcategoria nunca aparecer como item próprio."""
+    na ordem caixinha > subcategoria > categoria > conta vinculada.
+    Caixinha vem primeiro e só existe em lançamento (item de orçamento
+    nunca tem `caixinha_id`) — uma reserva (aplicação/retirada com
+    caixinha) nunca tem categoria/subcategoria (regra de negócio), então
+    sem essa checagem cairia direto no fallback de conta e mostraria o
+    nome da CONTA em vez da caixinha (achado 2026-10-02, testando a
+    Rodada 40). Subcategoria vem antes de categoria porque, num
+    lançamento, categoria_id e subcategoria_id não são mutuamente
+    exclusivos — escolher uma subcategoria sempre grava a categoria pai
+    junto (NovoLancamento.tsx), então checar categoria primeiro faria
+    todo lançamento com subcategoria cair na categoria pai e a
+    subcategoria nunca aparecer como item próprio."""
+    if registro.get("caixinha_id"):
+        return ("caixinha", registro["caixinha_id"])
     if registro.get("subcategoria_id"):
         return ("subcategoria", registro["subcategoria_id"])
     if registro.get("categoria_id"):
@@ -133,6 +141,7 @@ def _agregar_estrutura_custo(
                 "categoria_id": valor_chave if tipo_chave == "categoria" else None,
                 "subcategoria_id": valor_chave if tipo_chave == "subcategoria" else None,
                 "conta_id": valor_chave if tipo_chave == "conta" else None,
+                "caixinha_id": valor_chave if tipo_chave == "caixinha" else None,
                 "orcado": orcado,
                 "realizado": realizado,
                 "orcamento_mensal": round(orcamento_mensal_por_chave.get(chave_completa, 0), 2),

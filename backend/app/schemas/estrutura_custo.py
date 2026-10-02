@@ -5,10 +5,15 @@ from pydantic import BaseModel
 
 class ItemEstruturaCusto(BaseModel):
     # exatamente um destes é preenchido (ou nenhum, se a transação não tem
-    # categoria/subcategoria nem é de uma conta de investimento vinculada)
+    # categoria/subcategoria nem é de uma conta de investimento vinculada).
+    # caixinha_id só existe pra item do bucket "reservas" — prioridade
+    # sobre conta_id (reserva não tem categoria/subcategoria, então sem
+    # caixinha_id cairia em conta_id e mostraria o nome da conta em vez
+    # da caixinha, achado 2026-10-02 testando a Rodada 40)
     categoria_id: str | None = None
     subcategoria_id: str | None = None
     conta_id: str | None = None
+    caixinha_id: str | None = None
     # orcado = orcamento_mensal + saldo_anterior (o que dá pra gastar no mês
     # considerando a sobra/furo do mês anterior) — segue sendo o valor usado
     # pra comparar com "realizado". orcamento_mensal e saldo_anterior vêm

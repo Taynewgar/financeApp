@@ -155,16 +155,6 @@ changelog já documenta quando e como cada um foi entregue).
 - **10.** Exportação de relatório mensal/anual (detalhe abaixo) —
   próximo passo depois do MVP fechado (itens 1-8 acima).
 
-**Média**
-
-- **65.** **Subitem do bucket Reservas mostra nome da conta em vez da
-  caixinha** `tipo: Bug` (detalhe abaixo) — achado testando a Rodada 40
-  (2026-10-02): uma aplicação/retirada vinculada a caixinha cai
-  corretamente no bucket "Reservas", mas o subitem dentro dele (o 2º
-  nível do acordeão) mostra o nome da CONTA repetido (ex: "Mercado
-  Pago Josi" tanto no nível pai quanto no filho), não o nome da
-  caixinha. *(2026-10-02)*
-
 **Baixa**
 
 - **60.** **Ordenação das subcategorias dentro dos envelopes**
@@ -223,8 +213,9 @@ changelog já documenta quando e como cada um foi entregue).
 - **63.** **Racional de testes com `/financeapp-ref`** (detalhe abaixo)
   `tipo: Validação` — roteiro consolidando as pendências de checklist
   (Rodadas 35-37) que a skill resolve, as que ela não resolve, e os
-  pontos de cálculo que merecem atenção extra. **Fila: só depois do
-  usuário verificar a Rodada 40.** *(2026-10-01)*
+  pontos de cálculo que merecem atenção extra. **Liberado 2026-10-02**
+  — a Rodada 40 (condição da fila) já foi verificada pelo usuário.
+  *(2026-10-01)*
 - **66.** **Avaliar atualização reativa entre telas após inserção de
   dados** (detalhe abaixo) `tipo: Melhoria` — hoje cada tela busca seus
   próprios dados só no próprio `useEffect` (sem cache nem invalidação
@@ -424,6 +415,10 @@ já documenta quando e como cada um foi entregue.
   acordeão de 2 níveis (bucket → categoria pai → subcategoria), igual
   Estrutura de Custo. Detalhe na subseção própria abaixo, ver changelog
   Rodada 39.
+- **65.** ~~Subitem do bucket Reservas mostra nome da conta em vez da
+  caixinha~~ **feito 2026-10-02** — `_chave()` passou a checar
+  `caixinha_id` antes do fallback de conta. Detalhe na subseção própria
+  abaixo, ver changelog Rodada 42.
 
 Este arquivo não substitui o `README.md` da raiz (que descreve o que
 existe) nem o `/status-projeto` (relatório de andamento) — é o registro do
@@ -1919,10 +1914,21 @@ busca `/caixinhas` (já é feito em outras telas) e ganha um branch
 mantendo o nome da conta (ou agrupando por caixinha também no nível
 pai — a decidir) só como contexto.
 
-**Status:** registrado 2026-10-02, prioridade média — não é um bug que
-trava nada (a classificação de bucket em si está certa, "Reservas" não
-"Investimentos"), é só um rótulo errado que pode confundir quando o
-usuário tiver mais de 1 caixinha associada à mesma conta.
+**Fix:** `_chave()` ganhou uma checagem de `caixinha_id` antes de
+subcategoria/categoria/conta (orçamento item nunca tem esse campo,
+então a checagem nova é inofensiva pro caminho que já funcionava).
+`ItemEstruturaCusto` (schema + tipo TS) ganhou `caixinha_id`.
+`EstruturaCusto.tsx` passou a buscar `/caixinhas` e ganhou o branch
+`item.caixinha_id` (prioridade antes de `conta_id`, mesma ordem do
+backend) — grupo e folha agora usam o nome da caixinha, não repetem o
+da conta.
+
+**Status:** implementado 2026-10-02 — 1 teste novo de regressão (2
+caixinhas na mesma conta viram 2 itens distintos no bucket Reservas,
+cada um com o `caixinha_id` certo e `conta_id` nulo). Suíte completa
+363 passed, 33 skipped. Frontend verificado via `tsc -b && vite build`
++ `oxlint` — sem erro, sem warning novo. Sem QA visual via Playwright
+— mesma limitação de sempre. Ver changelog Rodada 42.
 
 ### Racional de testes com `/financeapp-ref`
 
@@ -1933,7 +1939,8 @@ dava pra usar a skill `/financeapp-ref` pra esses casos — resposta:
 parcial, e esta seção organiza exatamente o que ela cobre, o que não
 cobre, e o que merece atenção extra. **Fila: só entrar nisso depois do
 usuário terminar de verificar a Rodada 40** (ordem pedida
-explicitamente).
+explicitamente) — **liberado 2026-10-02**, a Rodada 40 já foi
+verificada por completo (7/7 itens ok).
 
 **Extensão feita em 2026-10-01:** `backend/scripts/referencia_dashboard.py`
 ganhou `realizado_por_bucket` (por mês) — reimplementação independente

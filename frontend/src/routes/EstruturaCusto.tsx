@@ -10,6 +10,7 @@ import { usePrivacidade } from '../lib/PrivacyContext'
 import type {
   BucketDaEstrutura,
   BucketEstruturaCusto,
+  Caixinha,
   Categoria,
   Conta,
   EstruturaCustoMes,
@@ -76,10 +77,12 @@ export function agruparPorCategoria(
   categorias: Categoria[],
   subcategorias: Subcategoria[],
   contas: Conta[],
+  caixinhas: Caixinha[],
 ): GrupoCategoria[] {
   const categoriasPorId = new Map(categorias.map((c) => [c.id, c]))
   const subcategoriasPorId = new Map(subcategorias.map((s) => [s.id, s]))
   const contasPorId = new Map(contas.map((c) => [c.id, c]))
+  const caixinhasPorId = new Map(caixinhas.map((c) => [c.id, c]))
   const grupos = new Map<string, GrupoCategoria>()
 
   function grupo(chave: string, nome: string): GrupoCategoria {
@@ -95,7 +98,20 @@ export function agruparPorCategoria(
     let g: GrupoCategoria
     let folha: Folha
 
-    if (item.subcategoria_id) {
+    if (item.caixinha_id) {
+      const caixinhaNome = caixinhasPorId.get(item.caixinha_id)?.nome ?? 'Caixinha removida'
+      g = grupo(`caixinha-${item.caixinha_id}`, caixinhaNome)
+      folha = {
+        chave: item.caixinha_id,
+        nome: caixinhaNome,
+        orcado: item.orcado,
+        realizado: item.realizado,
+        orcamentoMensal: item.orcamento_mensal,
+        saldoAnterior: item.saldo_anterior,
+        categoriaIdDrillDown: null,
+        subcategoriaIdDrillDown: null,
+      }
+    } else if (item.subcategoria_id) {
       const sub = subcategoriasPorId.get(item.subcategoria_id)
       const catId = sub?.categoria_id ?? `sub-orfa-${item.subcategoria_id}`
       const catNome = (sub && categoriasPorId.get(sub.categoria_id)?.nome) ?? 'Categoria removida'
@@ -300,6 +316,7 @@ export function EstruturaCusto() {
   const [categorias, setCategorias] = useState<Categoria[]>([])
   const [subcategorias, setSubcategorias] = useState<Subcategoria[]>([])
   const [contas, setContas] = useState<Conta[]>([])
+  const [caixinhas, setCaixinhas] = useState<Caixinha[]>([])
   const [erro, setErro] = useState<string | null>(null)
   const [bucketsAbertos, setBucketsAbertos] = useState<Set<BucketEstruturaCusto>>(new Set())
   // chave composta "bucket|categoria" — uma categoria pode ter o mesmo id
@@ -313,11 +330,13 @@ export function EstruturaCusto() {
       apiFetch<Categoria[]>('/categorias'),
       apiFetch<Subcategoria[]>('/subcategorias'),
       apiFetch<Conta[]>('/contas'),
+      apiFetch<Caixinha[]>('/caixinhas'),
     ])
-      .then(([cat, sub, c]) => {
+      .then(([cat, sub, c, cx]) => {
         setCategorias(cat)
         setSubcategorias(sub)
         setContas(c)
+        setCaixinhas(cx)
       })
       .catch((e) => setErro(e instanceof ApiError ? e.message : 'Falha ao carregar categorias/contas'))
   }, [])
@@ -348,10 +367,10 @@ export function EstruturaCusto() {
         saldo_anterior_acumulado: bucket?.saldo_anterior_acumulado ?? 0,
         rotulo: meta.rotulo,
         cor: meta.cor,
-        grupos: agruparPorCategoria(itens, categorias, subcategorias, contas),
+        grupos: agruparPorCategoria(itens, categorias, subcategorias, contas, caixinhas),
       }
     })
-  }, [dados, categorias, subcategorias, contas])
+  }, [dados, categorias, subcategorias, contas, caixinhas])
 
   const resumoOrcamento = useMemo(() => {
     if (!dados) return null

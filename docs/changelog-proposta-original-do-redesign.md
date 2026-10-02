@@ -3792,6 +3792,8 @@ Supabase nesta sessão remota); esta classe de bug só fica visível com
 volume real de dados, que esta sessão não tem como reproduzir.
 **Confirmado indiretamente em 2026-10-01** — a revalidação da Rodada
 38 (itens 1/2/4, antes "muito lento") voltou "ok" depois deste fix.
+**Confirmado por completo em 2026-10-02** — item 3 (valores orçados do
+mês novo) também veio ok.
 
 **Checklist de teste manual (usuário, localmente):**
 - [x] Com um orçamento configurado com dezenas de itens E o mês com
@@ -3801,9 +3803,61 @@ volume real de dados, que esta sessão não tem como reproduzir.
 - [x] "Criar a partir do mês anterior" e "Criar do zero" num mês sem
       orçamento — mesma confirmação de velocidade. — confirmado via
       revalidação da Rodada 38.
-- [ ] Depois de gerar, confirmar que os itens do mês novo têm os
+- [x] Depois de gerar, confirmar que os itens do mês novo têm os
       mesmos valores orçados do mês anterior, e que itens de categorias
       já lançadas no mês novo (mas sem item configurado ainda)
       aparecem com orçado R$ 0,00 — mesmo resultado de antes, só mais
-      rápido. — ainda sem confirmação explícita (a retestagem foi só de
-      velocidade, não de valores).
+      rápido. — confirmado 2026-10-02.
+
+### Rodada 42 (2026-10-02) — Fix: Estrutura de Custo mostrava nome da conta em vez da caixinha
+
+Achado testando o checklist da Rodada 40 (item 7): uma aplicação/
+retirada vinculada a caixinha cai corretamente no bucket "Reservas" de
+Estrutura de Custo, mas o subitem dentro dele (2º nível do acordeão)
+mostrava o nome da CONTA repetido no pai e no filho, em vez do nome da
+caixinha. Detalhe técnico completo em `docs/backlog.md` ("Subitem do
+bucket Reservas mostra nome da conta em vez da caixinha") — aqui só o
+resumo.
+
+**Causa raiz:** `_chave()` (`backend/app/routers/estrutura_custo.py`),
+usada tanto pra item de orçamento quanto pra transação, checava só
+subcategoria → categoria → conta — nunca `caixinha_id`. Uma reserva
+não tem categoria/subcategoria (regra de negócio), então caía direto
+no fallback de conta; o item retornado pela API nem carregava
+`caixinha_id` (campo não existia no schema). No frontend
+(`EstruturaCusto.tsx`), o branch de conta usava o mesmo nome pro grupo
+(pai) e pra folha (filho) — daí a repetição.
+
+**Fix:**
+- `_chave()` ganhou uma checagem de `caixinha_id`, antes de
+  subcategoria/categoria/conta — item de orçamento nunca tem esse
+  campo, então a checagem nova não muda nada no caminho que já
+  funcionava (despesa, investimento puro).
+- `ItemEstruturaCusto` (schema Pydantic + tipo TS) ganhou o campo
+  `caixinha_id`.
+- `EstruturaCusto.tsx` passou a buscar `/caixinhas` (mesmo padrão já
+  usado em outras telas) e ganhou um branch `item.caixinha_id`, com
+  prioridade sobre `conta_id` (mesma ordem do backend) — grupo e folha
+  usam o nome da caixinha.
+
+**Testes:** 1 teste novo — 2 caixinhas na mesma conta geram 2 itens
+distintos no bucket Reservas, cada um com `caixinha_id` certo e
+`conta_id` nulo (prova que o agrupamento não volta a colapsar as duas
+numa só por causa da conta compartilhada). Suíte completa: 363 passed,
+33 skipped. Frontend verificado via `tsc -b && vite build` + `oxlint`
+— sem erro, sem warning novo.
+
+**Status:** implementado nesta sessão. Sem QA visual via Playwright —
+mesma limitação de sempre (sem `backend/.env` com credenciais reais do
+Supabase nesta sessão remota).
+
+**Checklist de teste manual (usuário, localmente):**
+- [ ] Em Estrutura de Custo, num mês com aplicação/retirada em pelo
+      menos 1 caixinha, abrir o bucket "Reservas" e confirmar que o
+      subitem mostra o nome da caixinha, não o nome da conta.
+- [ ] Com 2 caixinhas diferentes na mesma conta, confirmar que aparecem
+      como 2 subitens separados dentro de "Reservas" (não agrupados
+      num só pela conta em comum).
+- [ ] Conferir que despesa e investimento (aplicação/retirada sem
+      caixinha) continuam mostrando categoria/subcategoria normalmente
+      — não regrediu pro fallback de conta nesses casos.
