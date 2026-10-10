@@ -2182,7 +2182,17 @@ lista de pontos extras abaixo já cobre esse tipo de inconsistência).
 **Status:** registrado 2026-10-10, aguardando decisão de fix. Acompanha
 a correção já feita e publicada no `referencia_saldo_anterior.py`
 (chave de cache com `bucket`, achado e corrigido no mesmo
-levantamento).
+levantamento). Rodada real pós-fix: 625 itens verificados, 0
+divergências de `saldo_anterior` — confirma que o bug 1 (cache) era a
+causa raiz dos 2 itens flagados antes, e valida a lógica da cadeia de
+rollover inteira. Isso NÃO descarta este item: o script usa a mesma
+fórmula de `realizado` do app (sem filtrar por bucket), então, se este
+bug estiver presente nos dados reais, script e app errariam juntos e a
+comparação bateria mesmo assim. Adicionada checagem estrutural
+separada (`detectar_vinculo_em_buckets_diferentes`) que varre os itens
+e aponta categoria/subcategoria em mais de 1 bucket no mesmo mês,
+independente de bater ou não com o app — é essa checagem que confirma
+ou descarta este item de fato.
 
 ### Janela de meses pra trás × ano civil nos gráficos
 

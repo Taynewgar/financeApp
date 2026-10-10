@@ -263,6 +263,29 @@ def tracar_cadeia(
     return passos
 
 
+def detectar_vinculo_em_buckets_diferentes(itens_por_mes: dict[str, list[dict]]) -> list[dict]:
+    """Checagem independente da comparação script×app: acha categoria/
+    subcategoria vinculada a itens de BUCKETS diferentes no mesmo mês —
+    o pré-requisito pro achado 2026-10-10 (calcular_realizado_item não
+    filtra por bucket/estrutura_custo, então um vínculo em 2 buckets faz
+    o realizado de um vazar pro outro). Isso pode existir mesmo quando
+    saldo_anterior recalculado bate 100% com o app, porque o script usa
+    a MESMA fórmula de realizado do app (replica o vazamento, não o
+    detecta) — só uma varredura estrutural dos vínculos pega esse caso."""
+    achados = []
+    for mes_str, itens in sorted(itens_por_mes.items()):
+        por_vinculo: dict[tuple, set[str]] = {}
+        for item in itens:
+            chave = chave_vinculo(item)
+            if chave is None:
+                continue
+            por_vinculo.setdefault(chave, set()).add(item["bucket"])
+        for chave, buckets in por_vinculo.items():
+            if len(buckets) > 1:
+                achados.append({"mes": mes_str[:7], "vinculo": chave, "buckets": sorted(buckets)})
+    return achados
+
+
 def nome_do_item(item: dict, categorias: dict, subcategorias: dict, contas: dict) -> str:
     if item.get("subcategoria_id"):
         sub = subcategorias.get(item["subcategoria_id"], {})
@@ -301,6 +324,26 @@ def main() -> None:
         ).json()
 
     print(f"{len(orcamentos)} orçamento(s), de {orcamentos[0]['vigencia_mes'][:7]} a {orcamentos[-1]['vigencia_mes'][:7]}.\n")
+
+    risco_vazamento = detectar_vinculo_em_buckets_diferentes(itens_por_mes)
+    if risco_vazamento:
+        print(
+            f"=== {len(risco_vazamento)} vínculo(s) em mais de 1 bucket no mesmo mês "
+            "(risco de vazamento de realizado — achado 2026-10-10, ver docs/backlog.md) ==="
+        )
+        for a in risco_vazamento:
+            campo, valor = a["vinculo"]
+            nome = (
+                categorias.get(valor, {}).get("nome", valor)
+                if campo == "categoria_id"
+                else subcategorias.get(valor, {}).get("nome", valor)
+                if campo == "subcategoria_id"
+                else contas.get(valor, {}).get("nome", valor)
+            )
+            print(f"  {a['mes']} — {nome} ({campo}) em: {', '.join(a['buckets'])}")
+        print()
+    else:
+        print("Nenhum vínculo em mais de 1 bucket no mesmo mês — achado 2026-10-10 não se aplica a esta conta.\n")
 
     divergencias: list[dict[str, Any]] = []
     so_sem_restricao: list[dict[str, Any]] = []
