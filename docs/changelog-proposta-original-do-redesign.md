@@ -4013,6 +4013,13 @@ outras linhas também no `update`, excluindo a própria linha. +1 teste
 (editar pra duplicata dá 409 sem forçar, 200 com `forcar_duplicado`).
 Suíte completa: 368 passed, 33 skipped.
 
+**Checklist de teste manual da correção (usuário, localmente):**
+- [x] ~~Editar um lançamento existente pra ficar idêntico a outro já
+      existente (mesma data/valor/descrição/conta/tipo) e confirmar que
+      aparece o 409 + o botão "Lançar mesmo assim" na tela Editar
+      Lançamento, igual já acontecia em Novo Lançamento. — confirmado
+      2026-10-10, testado junto com a Rodada 46.~~
+
 **Checklist de teste manual (usuário, localmente):**
 - [x] ~~Lançar uma despesa (ex: assinatura R$14,99 hoje, mesma conta/
       categoria) e, em seguida, lançar outra IDÊNTICA (mesma data,
@@ -4071,20 +4078,46 @@ novo (troca de janela de busca, sem lógica de cálculo nova). Sem QA
 visual via Playwright — mesma limitação de sempre.
 
 **Checklist de teste manual (usuário, localmente):**
-- [ ] Em Gráficos, modo "Mês", confirmar que o toggle "Últimos 12
+- [ ] ~~Em Gráficos, modo "Mês", confirmar que o toggle "Últimos 12
       meses" / "Ano civil (AAAA)" aparece ao lado do seletor de
-      período, com "Últimos 12 meses" selecionado por padrão.
-- [ ] Clicar em "Ano civil" e confirmar que Evolução Mensal e Orçado ×
+      período, com "Últimos 12 meses" selecionado por padrão.~~
+      **Reportado errado 2026-10-10**: o toggle aparecia, mas fora do
+      card do seletor de período — ao rolar a tela, ele "flutuava"
+      transparente sobre o gráfico atrás (print anexado pelo usuário).
+      Ver correção abaixo.
+- [x] ~~Clicar em "Ano civil" e confirmar que Evolução Mensal e Orçado ×
       Realizado passam a mostrar jan-dez do ano do mês selecionado
-      (não mais os 12 meses terminando nele).
-- [ ] Confirmar que o Pareto de Despesas (categoria/subcategoria) NÃO
+      (não mais os 12 meses terminando nele). — confirmado 2026-10-10.~~
+- [x] ~~Confirmar que o Pareto de Despesas (categoria/subcategoria) NÃO
       muda ao ligar o toggle — continua mostrando só o mês de
-      referência selecionado.
-- [ ] Trocar pro modo "Intervalo" ou "Todos os meses" e confirmar que
-      o toggle desaparece (só existe no modo "Mês").
-- [ ] Selecionar um mês do ano em curso com "Ano civil" ligado e
+      referência selecionado. — confirmado 2026-10-10.~~
+- [x] ~~Trocar pro modo "Intervalo" ou "Todos os meses" e confirmar que
+      o toggle desaparece (só existe no modo "Mês"). — confirmado
+      2026-10-10.~~
+- [x] ~~Selecionar um mês do ano em curso com "Ano civil" ligado e
       confirmar que meses futuros daquele ano aparecem zerados no
-      gráfico, sem erro.
+      gráfico, sem erro. — confirmado 2026-10-10.~~
+
+**Correção (2026-10-10) — toggle flutuando sobre o gráfico ao rolar:**
+causa raiz: `.cabecalho-fixo` (`position: sticky`) não tem fundo
+próprio — quem desenha o card opaco é `.dashboard-seletor`, dentro de
+`SeletorPeriodo`. O toggle tinha sido colocado como irmão de
+`<SeletorPeriodo>`, fora desse card — ao rolar a página, o conteúdo
+passava por trás dele com fundo transparente. Fix: `SeletorPeriodo`
+ganhou suporte a `children`, renderizado DENTRO do mesmo
+`.dashboard-seletor` (mesmo fundo opaco dos outros controles — Mês/
+Intervalo/Todos, Base da média); `Graficos.tsx` passa o toggle como
+filho em vez de elemento irmão. Resolve o pedido do usuário de quebra
+("colocar dentro do cabeçalho pra ficar fácil de acessar ao rolar") e
+o bug visual ao mesmo tempo — mesmo mecanismo. Sem mudança de
+comportamento funcional, só de posicionamento. `tsc -b && vite build` +
+`oxlint` sem erro, sem warning novo.
+
+**Checklist de teste manual da correção (usuário, localmente):**
+- [ ] Em Gráficos, modo "Mês", com "Ano civil" ligado, rolar a página
+      pra baixo e confirmar que o toggle não aparece mais sobreposto/
+      transparente sobre o gráfico — fica dentro do card do seletor de
+      período, com fundo opaco igual aos outros controles.
 
 ### Rodada 46 (2026-10-02) — Fix: compra parcelada sem proteção contra double-submit (item 68)
 
@@ -4113,14 +4146,16 @@ novo.
 mesma limitação de sempre.
 
 **Checklist de teste manual (usuário, localmente):**
-- [ ] Lançar uma compra parcelada (ex: "Celular", R$1200 em 12x) e, em
+- [x] ~~Lançar uma compra parcelada (ex: "Celular", R$1200 em 12x) e, em
       seguida, lançar outra IDÊNTICA (mesma descrição, valor total,
       parcelas, data da 1ª parcela, conta) — confirmar 409 + botão
-      "Lançar mesmo assim".
-- [ ] Clicar em "Lançar mesmo assim" e confirmar que o 2º grupo de
+      "Lançar mesmo assim". — confirmado 2026-10-10.~~
+- [x] ~~Clicar em "Lançar mesmo assim" e confirmar que o 2º grupo de
       parcelas é criado normalmente (12 parcelas novas, grupo distinto
-      do 1º).
-- [ ] Mudar só o valor total (ou só o nº de parcelas) antes de
-      reenviar e confirmar que NÃO dá 409 — lança normal.
-- [ ] Confirmar que compra parcelada "normal" (sem nenhuma duplicata
-      por perto) continua funcionando sem pedir confirmação nenhuma.
+      do 1º). — confirmado 2026-10-10.~~
+- [x] ~~Mudar só o valor total (ou só o nº de parcelas) antes de
+      reenviar e confirmar que NÃO dá 409 — lança normal. — confirmado
+      2026-10-10.~~
+- [x] ~~Confirmar que compra parcelada "normal" (sem nenhuma duplicata
+      por perto) continua funcionando sem pedir confirmação nenhuma. —
+      confirmado 2026-10-10.~~

@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import './dashboard.css'
 import { InfoIcon } from './InfoIcon'
 import { hojeAnoMes, rotuloMesLongo, type Periodo } from '../lib/periodo'
@@ -8,8 +9,13 @@ const EXPLICACAO_BASE_MEDIA =
 /** Mês / Intervalo / Todos os meses + Base da média — mesmo seletor
  * reaproveitado pelo Dashboard e pela tela de Gráficos (ver usePeriodo).
  * `mostrarBaseMedia` fica desligado no Dashboard (nenhum KPI lá consome
- * baseMedia — os gráficos que consomem migraram pra Gráficos). */
-export function SeletorPeriodo(periodo: Periodo & { mostrarBaseMedia?: boolean }) {
+ * baseMedia — os gráficos que consomem migraram pra Gráficos). `children`
+ * (ex: toggle de Ano civil em Gráficos) entra DENTRO do mesmo card —
+ * esse card é quem desenha o fundo opaco; um controle extra fora dele,
+ * dentro só do wrapper .cabecalho-fixo (sticky, sem fundo próprio),
+ * flutua transparente sobre o conteúdo rolado atrás (bug reportado
+ * 2026-10-10, Rodada 45 item 1). */
+export function SeletorPeriodo(periodo: Periodo & { mostrarBaseMedia?: boolean; children?: ReactNode }) {
   const {
     modoData, setModoData,
     vigenciaMes, setVigenciaMes,
@@ -18,6 +24,7 @@ export function SeletorPeriodo(periodo: Periodo & { mostrarBaseMedia?: boolean }
     baseMedia, setBaseMedia,
     primeiroMes,
     mostrarBaseMedia = true,
+    children,
   } = periodo
 
   return (
@@ -92,6 +99,8 @@ export function SeletorPeriodo(periodo: Periodo & { mostrarBaseMedia?: boolean }
           </div>
         </div>
       )}
+
+      {children}
     </div>
   )
 }

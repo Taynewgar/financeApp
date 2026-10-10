@@ -2171,6 +2171,17 @@ padrão de cobertura dos outros toggles de período da tela). Sem QA
 visual via Playwright — mesma limitação de sempre. Ver changelog
 Rodada 45.
 
+**Achado testando a Rodada 45 (2026-10-10):** o toggle tinha sido
+colocado como irmão de `<SeletorPeriodo>`, fora do card
+`.dashboard-seletor` que desenha o fundo opaco — `.cabecalho-fixo`
+(`position: sticky`) não tem fundo próprio, então ao rolar a página o
+toggle "flutuava" transparente sobre o gráfico atrás (print anexado
+pelo usuário). Fix: `SeletorPeriodo` ganhou suporte a `children`,
+renderizado dentro do mesmo `.dashboard-seletor` — mesmo mecanismo que
+atende o pedido do usuário de quebra ("colocar dentro do cabeçalho pra
+ficar fácil de acessar ao rolar"). Ver changelog Rodada 45, seção
+"Correção".
+
 ### Racional de testes com `/financeapp-ref`
 
 **Origem:** o usuário vinha testando os checklists manuais das Rodadas

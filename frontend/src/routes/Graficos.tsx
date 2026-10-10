@@ -131,22 +131,23 @@ export function Graficos() {
       <h1 style={{ fontSize: 22, marginTop: 0, marginBottom: 12 }}>Gráficos</h1>
 
       <div className="cabecalho-fixo">
-        <SeletorPeriodo {...periodo} />
-        {modoData === 'mes' && (
-          <div className="campo" style={{ marginTop: 10 }}>
-            <span style={{ fontSize: 12, color: 'var(--cor-texto-suave)' }}>
-              Janela de Evolução Mensal/Orçado × Realizado
-            </span>
-            <div className="segmentado">
-              <button type="button" className={verAnoCivil ? '' : 'ativo'} onClick={() => setVerAnoCivil(false)}>
-                Últimos 12 meses
-              </button>
-              <button type="button" className={verAnoCivil ? 'ativo' : ''} onClick={() => setVerAnoCivil(true)}>
-                Ano civil ({vigenciaMes.slice(0, 4)})
-              </button>
+        <SeletorPeriodo {...periodo}>
+          {modoData === 'mes' && (
+            <div className="campo">
+              <span style={{ fontSize: 12, color: 'var(--cor-texto-suave)' }}>
+                Janela de Evolução Mensal/Orçado × Realizado
+              </span>
+              <div className="segmentado">
+                <button type="button" className={verAnoCivil ? '' : 'ativo'} onClick={() => setVerAnoCivil(false)}>
+                  Últimos 12 meses
+                </button>
+                <button type="button" className={verAnoCivil ? 'ativo' : ''} onClick={() => setVerAnoCivil(true)}>
+                  Ano civil ({vigenciaMes.slice(0, 4)})
+                </button>
+              </div>
             </div>
-          </div>
-        )}
+          )}
+        </SeletorPeriodo>
       </div>
 
       {erro && <p className="mensagem-erro">{erro}</p>}
