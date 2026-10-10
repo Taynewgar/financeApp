@@ -235,21 +235,24 @@ concluídos do `backlog.md` — a caixa marcada deixa de ser o único sinal,
 e item pendente (`[ ]`, sem risco) e confirmado (`[x]`, riscado) ficam
 visualmente distintos mesmo sem reparar no conteúdo da caixa.
 
-**Atualização (2026-10-10):** risco só pode existir numa linha com caixa
-marcada — `[ ]` riscado (mesmo que só em parte) é um estado contraditório
-("confirmado" e "não confirmado" ao mesmo tempo) e não deve acontecer.
-Quando um item testado se revela errado, a caixa correspondente continua
-`[ ]`, o texto do item **não é riscado**, e a explicação do erro entra
-como texto normal logo abaixo (ou ao lado) dele — nunca editando o texto
-original pra riscar um trecho dele. A correção em si vira um checklist
-novo, com seu próprio item `- [ ]` (viram `[x]` riscado só quando o
-usuário confirmar aquele item especificamente, igual qualquer outro).
-Achado revisando as Rodadas 42, 44 e 45, que tinham esse padrão
-inconsistente (caixa desmarcada com texto riscado) — corrigidas na mesma
-rodada de documentação que registrou esta regra. A mesma regra vale em
-qualquer outro documento do projeto onde um checklist de teste manual for
-registrado (hoje, além deste arquivo, alguns "Checklist de teste manual"
-dentro do `docs/backlog.md`).
+**Atualização (2026-10-10):** quando um item de checklist é reprovado
+(testado e achado errado), a reprovação e o erro são registrados na
+própria linha do item — texto normal, logo depois da frase original.
+Feito isso, a linha inteira (frase original + explicação do erro) é
+riscada e a caixa é marcada (`[x]`). Risco + caixa marcada aqui não
+significa "confirmado certo": significa "ciclo deste item de teste
+encerrado" — o resultado, seja ele qual for, já está escrito ali, então
+não sobra motivo pra deixar a caixa desmarcada. O que precisa ser
+reverificado depois da correção vira um checklist/checkbox **novo**,
+começando `[ ]` sem risco, até o usuário confirmar aquele item
+especificamente (aí sim vira `[x]` riscado, igual qualquer outro).
+(Corrige a versão desta regra publicada mais cedo hoje, que tinha
+entendido a diretriz do usuário ao contrário — caixa desmarcada e sem
+risco pro item reprovado; o usuário apontou o engano.) Rodadas 42, 44 e
+45 reajustadas pra esse formato. A mesma regra vale em qualquer outro
+documento do projeto onde um checklist de teste manual for registrado
+(hoje, além deste arquivo, alguns "Checklist de teste manual" dentro do
+`docs/backlog.md`).
 
 ### 2026-09-13 — Dashboard: caixa/saúde, delta, patrimônio, compromissos, 3ª linha
 
@@ -3877,16 +3880,16 @@ mesma limitação de sempre (sem `backend/.env` com credenciais reais do
 Supabase nesta sessão remota).
 
 **Checklist de teste manual (usuário, localmente):**
-- [ ] Em Estrutura de Custo, num mês com aplicação/retirada em pelo
+- [x] ~~Em Estrutura de Custo, num mês com aplicação/retirada em pelo
       menos 1 caixinha, abrir o bucket "Reservas" e confirmar que o
       subitem mostra o nome da caixinha, não o nome da conta.
       **Reportado errado 2026-10-02**: inverteu demais — caixinha
       virou o nível pai também (e a conta some do agrupamento). Ver
-      correção abaixo.
-- [ ] Com 2 caixinhas diferentes na mesma conta, confirmar que
+      correção abaixo.~~
+- [x] ~~Com 2 caixinhas diferentes na mesma conta, confirmar que
       aparecem como 2 subitens separados dentro de "Reservas" (não
       agrupados num só pela conta em comum). **Reportado errado
-      2026-10-02**: mesmo motivo acima (a conta não aparece mais).
+      2026-10-02**: mesmo motivo acima (a conta não aparece mais).~~
 - [x] ~~Conferir que despesa e investimento (aplicação/retirada sem
       caixinha) continuam mostrando categoria/subcategoria normalmente
       — não regrediu pro fallback de conta nesses casos. — confirmado
@@ -4056,7 +4059,7 @@ Suíte completa: 368 passed, 33 skipped.
       sem o botão — esse caminho não tinha sido coberto pelo fix
       original. Corrigido no mesmo dia, ver "Rodada 44, correção"
       abaixo.~~
-- [ ] Tentar o mesmo cenário de duplicata em compra PARCELADA e
+- [x] ~~Tentar o mesmo cenário de duplicata em compra PARCELADA e
       confirmar que continua dando 409 sem o botão "Lançar mesmo
       assim" (fora do escopo deste fix, comportamento inalterado).
       **Checklist errado** — reportado 2026-10-02: não deu 409, criou
@@ -4064,7 +4067,7 @@ Suíte completa: 368 passed, 33 skipped.
       nunca teve proteção real contra double-submit (hash inclui um id
       gerado novo a cada chamada). Registrado como item novo (68) no
       backlog, com causa raiz e proposta de fix — não implementado
-      ainda, fora do escopo desta rodada.
+      ainda, fora do escopo desta rodada.~~
 
 ### Rodada 45 (2026-10-02) — Toggle "Ano civil" em Gráficos (item 18)
 
@@ -4094,13 +4097,13 @@ novo (troca de janela de busca, sem lógica de cálculo nova). Sem QA
 visual via Playwright — mesma limitação de sempre.
 
 **Checklist de teste manual (usuário, localmente):**
-- [ ] Em Gráficos, modo "Mês", confirmar que o toggle "Últimos 12
+- [x] ~~Em Gráficos, modo "Mês", confirmar que o toggle "Últimos 12
       meses" / "Ano civil (AAAA)" aparece ao lado do seletor de
       período, com "Últimos 12 meses" selecionado por padrão.
       **Reportado errado 2026-10-10**: o toggle aparecia, mas fora do
       card do seletor de período — ao rolar a tela, ele "flutuava"
       transparente sobre o gráfico atrás (print anexado pelo usuário).
-      Ver correção abaixo.
+      Ver correção abaixo.~~
 - [x] ~~Clicar em "Ano civil" e confirmar que Evolução Mensal e Orçado ×
       Realizado passam a mostrar jan-dez do ano do mês selecionado
       (não mais os 12 meses terminando nele). — confirmado 2026-10-10.~~
