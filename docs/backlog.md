@@ -124,20 +124,12 @@ changelog já documenta quando e como cada um foi entregue).
 
 **Média**
 
-- **56.** **Botão de apagar orçamento** `tipo: Melhoria` — avaliar a
-  necessidade. *(trazido em CSV, 2026-09-30)*
+- **56.** **Botão de apagar orçamento** `tipo: Implementação` ✅ — ver
+  detalhe abaixo. *(trazido em CSV, 2026-09-30; implementado
+  2026-10-10)*
 - **62.** **Decisão: criação manual de item em Planejamento ainda é
-  necessária?** `tipo: Decisão` — hoje a maioria dos itens de
-  orçamento já nasce automaticamente a partir dos lançamentos
-  (`sincronizar_item_orcamento`, reativo a toda despesa/investimento
-  sem caixinha que usa uma categoria/subcategoria ainda sem item no
-  mês). Avaliar se o botão "+ Novo item" (criação manual, `POST
-  /orcamentos/{id}/itens`) ainda se justifica, ou se é redundante — e
-  se sim, em qual cenário real (ex: planejar um gasto futuro ainda não
-  lançado, ou um item "nome livre" sem vínculo). Precisa de um
-  racional coerente antes de decidir manter, simplificar ou remover —
-  registrado como decisão a tomar, não como mudança já aprovada.
-  *(2026-10-01)*
+  necessária?** `tipo: Decisão` ✅ **removida** — ver detalhe abaixo.
+  *(2026-10-01, decidido e implementado 2026-10-10)*
 
 **Baixa**
 
@@ -2206,17 +2198,115 @@ lista de pontos extras abaixo já cobre esse tipo de inconsistência).
    ver `_check_campos_obrigatorios`) — item de bucket `investimentos`
    usa `conta_vinculada_id`, não cai nesse filtro, não é afetado.
 
-**Status:** registrado e confirmado nos dados reais em 2026-10-10,
-aguardando decisão de fix (qual das 2 frentes, ou as duas). Acompanha a
-correção já feita e publicada no `referencia_saldo_anterior.py` (chave
-de cache com `bucket`, achado e corrigido no mesmo levantamento).
-Rodada real pós-fix: 625 itens verificados, 0 divergências de
-`saldo_anterior` — confirma que o bug 1 (cache) era a causa raiz dos 2
-itens flagados antes, e valida a lógica da cadeia de rollover inteira.
-A checagem estrutural separada (`detectar_vinculo_em_buckets_diferentes`)
-foi o que de fato confirmou este item nos dados reais, já que a
+**Rodada real pós-fix do cache:** 625 itens verificados, 0 divergências
+de `saldo_anterior` — confirma que o bug 1 (cache) era a causa raiz dos
+2 itens flagados antes, e valida a lógica da cadeia de rollover
+inteira. A checagem estrutural separada
+(`detectar_vinculo_em_buckets_diferentes`) foi o que de fato confirmou
+este item nos dados reais (2026-06 Livros Técnicos e 2026-10 Outros
+Cartões de Crédito, os 2 mesmos itens — ambos com uma duplicata ATIVA
+de `custos_fixos` sem lançamento real, orçado R$50/R$5), já que a
 comparação script×app bate mesmo com o vazamento presente (mesma
 fórmula nos dois lados).
+
+**Status:** resolvido 2026-10-10 — frente (b) escolhida (bloquear o
+vínculo duplicado na origem, não filtrar `calcular_realizado_item` por
+`estrutura_custo`). Ver detalhe em "Criação manual de item em
+Planejamento removida" logo abaixo — a mesma mudança fecha este item e
+o item 62 do backlog, já que a causa dos 2 era exatamente a criação
+manual sem essa validação. Os 2 itens duplicados nos dados reais do
+usuário continuam existindo (ativos) até serem desativados manualmente
+pela tela — a validação nova impede um **novo** caso, não limpa os 2
+já existentes.
+
+### Criação manual de item em Planejamento removida
+
+**Contexto:** o item 62 do backlog pedia uma decisão sobre manter ou
+remover o botão "+ Novo item" em Planejamento. A investigação do achado
+acima deu o racional que faltava: os 2 itens duplicados reais do
+usuário (`eb959aed-...`, `3f8c8ebe-...`) foram criados manualmente
+("itens que fiz para teste"), e `criar_item()` nunca validou vínculo
+duplicado — foi essa falta de validação, não o automático
+(`sincronizar_item_orcamento`), que causou o vazamento de `realizado`.
+
+Avaliados os usos reais possíveis da criação manual (meta de poupança
+sem categoria → já coberto, melhor, por caixinha; investimento futuro
+sem categoria ainda cadastrada → convida a recriar este mesmo bug
+quando a categoria for enfim criada; buffer/margem sem destino → baixa
+utilidade prática) — usuário não reconheceu ter pedido a feature
+originalmente (não está em `sugestoes-e-decisoes-do-redesign.md`; foi
+adicionada numa rodada anterior como CRUD simétrico aos 4 tipos de
+vínculo possíveis, não por pedido explícito) e decidiu remover.
+
+**Implementado:**
+
+- **Frontend** (`Planejamento.tsx`): removido o botão "+ Novo item" e
+  `iniciarCriacaoItem()`. `handleSubmitItem()` simplificado — só edita
+  item existente (`itemEditando` sempre presente; o `else` que fazia
+  `POST` saiu). O formulário (categoria/subcategoria/nome livre/conta
+  vinculada/valor) continua disponível só pra **editar** um item que já
+  existe — essa capacidade não foi removida, só a de criar um novo do
+  zero.
+- **Backend** (`orcamentos.py`): criação manual (`POST .../itens`)
+  continua existindo como endpoint — usada internamente por
+  `sincronizar_item_orcamento`/`_popular_itens_de_transacoes_existentes`
+  como padrão de dado, e por boa parte da suíte de testes como
+  infraestrutura de fixture (~90 call sites; reescrever tudo pra outro
+  mecanismo só pra "apagar o endpoint" seria custo alto sem ganho real,
+  já que o endpoint não é mais alcançável pela tela). Em vez de apagar
+  o endpoint, **corrigida a causa raiz**: `_check_vinculo_duplicado()`
+  (nova função) bloqueia com 409 qualquer tentativa de ativar 2 itens
+  com o mesmo vínculo (categoria/subcategoria/conta) no mesmo
+  orçamento, **em qualquer bucket** (inclusive o mesmo bucket) — plugada
+  em `criar_item()`, `atualizar_item()` (editar vínculo de item
+  existente) e `alternar_item_ativo()` (reativar não pode reintroduzir
+  uma colisão que surgiu enquanto o item estava inativo). Item sem
+  vínculo (nome livre) nunca colide — não tem o que comparar. Só
+  considera itens ATIVOS (mesmo critério do cálculo ao vivo,
+  `carregar_dados_periodo`) — duplicar vínculo com um item inativo
+  continua permitido, sem risco (inativo não entra no cálculo).
+
+**Testes:** 8 novos em `test_orcamentos_api.py` — bloqueio na criação
+(mesmo bucket e bucket diferente), permitido contra item inativo,
+nome-livre não é bloqueado por outro nome-livre, bloqueio na edição
+(vínculo novo colide) e não-bloqueio (editar mantendo o próprio
+vínculo), bloqueio na reativação. Suíte completa: 380 passed, 33
+skipped. Frontend: `tsc -b` + `vite build` + `oxlint` sem erro novo.
+
+**Status:** implementado 2026-10-10. Os 2 itens duplicados que já
+existem na conta real do usuário não foram tocados por este fix (a
+validação só impede um caso **novo** — os 2 existentes continuam
+ativos até o usuário desativá-los manualmente pela tela, ação dele,
+fora do escopo desta mudança).
+
+### Botão de apagar orçamento
+
+**Contexto:** item 56 do backlog, decisão de implementar junto com o
+item 62 acima (mesma rodada de conversa). Antes só existia uma forma
+indireta de apagar um orçamento: `POST /orcamentos/{id}/proximo-mes?
+substituir=true`, que apaga o orçamento do mês **seguinte** como efeito
+colateral de regenerá-lo a partir de outro — não serve pra apagar um
+mês específico isoladamente, nem pra apagar sem recriar.
+
+**Implementado:**
+
+- **Backend:** `DELETE /orcamentos/{id}` (`orcamentos.py`) — apaga os
+  itens do orçamento e o orçamento em si. Não mexe em lançamentos reais
+  nem em outro mês (`saldo_anterior` do mês seguinte, se existir, fica
+  congelado com o valor já gravado até alguém gerar esse mês de novo —
+  mesma limitação documentada em `gerar_proximo_mes`).
+- **Frontend** (`Planejamento.tsx`): botão "Apagar orçamento" ao lado
+  de "Editar configuração", com confirmação (`window.confirm`, mesmo
+  padrão já usado em "substituir"). Depois de apagar, a tela volta pro
+  estado "Nenhum orçamento configurado para este mês" — que já oferece
+  as duas formas de recriar (criar do zero, ou a partir do mês
+  anterior), ambas pré-existentes.
+
+**Testes:** 3 novos em `test_orcamentos_api.py` — apaga orçamento e
+itens, 404 em orçamento inexistente, 404 (não apaga) orçamento de outro
+usuário.
+
+**Status:** implementado 2026-10-10.
 
 ### Janela de meses pra trás × ano civil nos gráficos
 

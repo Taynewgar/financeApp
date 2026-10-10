@@ -128,6 +128,37 @@ def test_usuario_nao_ve_orcamento_de_outro_usuario(client, current_user):
     assert busca.status_code == 404
 
 
+def test_apagar_orcamento_remove_orcamento_e_itens(client):
+    """Item 56 do backlog: apagar o mês inteiro, não como efeito colateral
+    de proximo-mes?substituir=true (que só cobre o mês seguinte de um
+    específico), e sim uma ação direta em qualquer orçamento."""
+    orcamento = _criar_orcamento(client)
+    client.post(f"/orcamentos/{orcamento['id']}/itens", json={"bucket": "custos_fixos", "nome": "Aluguel"})
+
+    resposta = client.delete(f"/orcamentos/{orcamento['id']}")
+    assert resposta.status_code == 204
+
+    assert client.get(f"/orcamentos/{orcamento['id']}").status_code == 404
+    listagem = client.get("/orcamentos")
+    assert not any(o["id"] == orcamento["id"] for o in listagem.json())
+
+
+def test_apagar_orcamento_inexistente_retorna_404(client):
+    resposta = client.delete("/orcamentos/00000000-0000-0000-0000-000000000000")
+    assert resposta.status_code == 404
+
+
+def test_usuario_nao_apaga_orcamento_de_outro_usuario(client, current_user):
+    orcamento = _criar_orcamento(client)
+
+    current_user["id"] = OUTRO_USUARIO
+    resposta = client.delete(f"/orcamentos/{orcamento['id']}")
+    assert resposta.status_code == 404
+
+    current_user["id"] = "11111111-1111-1111-1111-111111111111"
+    assert client.get(f"/orcamentos/{orcamento['id']}").status_code == 200
+
+
 def test_criar_item_vinculado_a_categoria_existente(client):
     orcamento = _criar_orcamento(client)
     categoria = client.post("/categorias", json={"nome": "Moradia"}).json()
@@ -152,6 +183,106 @@ def test_criar_item_sem_categoria_com_nome_livre_e_valido(client):
     )
     assert resposta.status_code == 201
     assert resposta.json()["categoria_id"] is None
+
+
+def test_criar_item_com_vinculo_ja_usado_em_outro_bucket_retorna_409(client):
+    """Achado 2026-10-10 (docs/backlog.md): calcular_realizado_item não
+    filtra por bucket, só por categoria/subcategoria/conta — 2 itens
+    ativos com o mesmo vínculo em buckets diferentes vazam realizado um
+    pro outro. Bloqueado na origem."""
+    orcamento = _criar_orcamento(client)
+    categoria = client.post("/categorias", json={"nome": "Educação"}).json()
+    client.post(
+        f"/orcamentos/{orcamento['id']}/itens",
+        json={"bucket": "custos_fixos", "categoria_id": categoria["id"], "orcamento_mensal": 50},
+    )
+
+    resposta = client.post(
+        f"/orcamentos/{orcamento['id']}/itens",
+        json={"bucket": "sazonalidades", "categoria_id": categoria["id"], "orcamento_mensal": 0},
+    )
+    assert resposta.status_code == 409
+
+
+def test_criar_item_com_vinculo_de_item_inativo_e_permitido(client):
+    orcamento = _criar_orcamento(client)
+    categoria = client.post("/categorias", json={"nome": "Educação"}).json()
+    item_antigo = client.post(
+        f"/orcamentos/{orcamento['id']}/itens", json={"bucket": "custos_fixos", "categoria_id": categoria["id"]}
+    ).json()
+    client.patch(f"/orcamentos/{orcamento['id']}/itens/{item_antigo['id']}/ativo?ativo=false")
+
+    resposta = client.post(
+        f"/orcamentos/{orcamento['id']}/itens",
+        json={"bucket": "sazonalidades", "categoria_id": categoria["id"]},
+    )
+    assert resposta.status_code == 201
+
+
+def test_criar_item_com_mesmo_vinculo_no_mesmo_bucket_tambem_retorna_409(client):
+    orcamento = _criar_orcamento(client)
+    categoria = client.post("/categorias", json={"nome": "Educação"}).json()
+    client.post(f"/orcamentos/{orcamento['id']}/itens", json={"bucket": "custos_fixos", "categoria_id": categoria["id"]})
+
+    resposta = client.post(
+        f"/orcamentos/{orcamento['id']}/itens",
+        json={"bucket": "custos_fixos", "categoria_id": categoria["id"]},
+    )
+    assert resposta.status_code == 409
+
+
+def test_criar_item_nome_livre_nao_e_bloqueado_por_outro_nome_livre(client):
+    orcamento = _criar_orcamento(client)
+    client.post(f"/orcamentos/{orcamento['id']}/itens", json={"bucket": "investimentos", "nome": "Meta A"})
+
+    resposta = client.post(
+        f"/orcamentos/{orcamento['id']}/itens",
+        json={"bucket": "investimentos", "nome": "Meta B"},
+    )
+    assert resposta.status_code == 201
+
+
+def test_atualizar_item_para_vinculo_ja_usado_em_outro_bucket_retorna_409(client):
+    orcamento = _criar_orcamento(client)
+    categoria = client.post("/categorias", json={"nome": "Educação"}).json()
+    client.post(f"/orcamentos/{orcamento['id']}/itens", json={"bucket": "custos_fixos", "categoria_id": categoria["id"]})
+    item_livre = client.post(
+        f"/orcamentos/{orcamento['id']}/itens", json={"bucket": "sazonalidades", "nome": "Temp"}
+    ).json()
+
+    resposta = client.patch(
+        f"/orcamentos/{orcamento['id']}/itens/{item_livre['id']}",
+        json={"categoria_id": categoria["id"], "nome": None},
+    )
+    assert resposta.status_code == 409
+
+
+def test_atualizar_item_mantendo_o_proprio_vinculo_nao_e_bloqueado(client):
+    orcamento = _criar_orcamento(client)
+    categoria = client.post("/categorias", json={"nome": "Educação"}).json()
+    item = client.post(
+        f"/orcamentos/{orcamento['id']}/itens", json={"bucket": "custos_fixos", "categoria_id": categoria["id"]}
+    ).json()
+
+    resposta = client.patch(
+        f"/orcamentos/{orcamento['id']}/itens/{item['id']}",
+        json={"categoria_id": categoria["id"], "orcamento_mensal": 200},
+    )
+    assert resposta.status_code == 200
+    assert resposta.json()["orcamento_mensal"] == 200
+
+
+def test_reativar_item_com_vinculo_ja_assumido_por_outro_item_retorna_409(client):
+    orcamento = _criar_orcamento(client)
+    categoria = client.post("/categorias", json={"nome": "Educação"}).json()
+    item_antigo = client.post(
+        f"/orcamentos/{orcamento['id']}/itens", json={"bucket": "custos_fixos", "categoria_id": categoria["id"]}
+    ).json()
+    client.patch(f"/orcamentos/{orcamento['id']}/itens/{item_antigo['id']}/ativo?ativo=false")
+    client.post(f"/orcamentos/{orcamento['id']}/itens", json={"bucket": "sazonalidades", "categoria_id": categoria["id"]})
+
+    resposta = client.patch(f"/orcamentos/{orcamento['id']}/itens/{item_antigo['id']}/ativo?ativo=true")
+    assert resposta.status_code == 409
 
 
 def test_criar_item_com_categoria_inexistente_retorna_404(client):

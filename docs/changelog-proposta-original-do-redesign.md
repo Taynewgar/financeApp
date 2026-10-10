@@ -4179,3 +4179,39 @@ mesma limitação de sempre.
 - [x] ~~Confirmar que compra parcelada "normal" (sem nenhuma duplicata
       por perto) continua funcionando sem pedir confirmação nenhuma. —
       confirmado 2026-10-10.~~
+
+### Rodada 47 (2026-10-10) — Vínculo duplicado em Planejamento (itens 56 e 62)
+
+Achado investigando a validação de `saldo_anterior` (`referencia_saldo_anterior.py` — ver racional completo em `docs/backlog.md`, "`realizado` de item de Planejamento soma transação de outro bucket quando a categoria é a mesma"): 2 itens reais do usuário tinham a mesma subcategoria vinculada a 2 buckets diferentes, ambos ativos, sem validação nenhuma impedindo isso — criados manualmente pelo botão "+ Novo item" ("itens que fiz para teste", segundo o usuário). Como `calcular_realizado_item(_em_lote)` nunca filtrou por bucket, os 2 itens vazavam `realizado` um pro outro.
+
+Decisão (item 62 do backlog): avaliados os usos reais da criação manual de item (meta de poupança → já coberto melhor por caixinha; investimento futuro sem categoria → convida a recriar este mesmo bug; buffer sem destino → baixa utilidade), usuário decidiu remover — a feature nunca foi pedida explicitamente (não está em `sugestoes-e-decisoes-do-redesign.md`, foi adicionada numa rodada anterior por simetria de CRUD).
+
+**Fix:**
+- Frontend (`Planejamento.tsx`): removido o botão "+ Novo item"/`iniciarCriacaoItem()`. Formulário continua servindo só pra editar item existente.
+- Backend (`orcamentos.py`): endpoint `POST /orcamentos/{id}/itens` mantido (usado internamente por `sincronizar_item_orcamento`/testes), mas agora `_check_vinculo_duplicado()` bloqueia com 409 qualquer item ATIVO que colida em vínculo (categoria/subcategoria/conta) com outro já ativo no mesmo orçamento, em qualquer bucket — plugada em `criar_item`, `atualizar_item` e `alternar_item_ativo` (reativar).
+
+Junto (item 56 do backlog, mesma rodada): `DELETE /orcamentos/{id}` — apaga o orçamento do mês e seus itens. Antes só existia como efeito colateral de `proximo-mes?substituir=true`, que só cobre o mês seguinte de um específico. Botão "Apagar orçamento" ao lado de "Editar configuração" em Planejamento, com confirmação.
+
+**Testes:** 11 testes novos (`test_orcamentos_api.py`) — vínculo duplicado bloqueado na criação/edição/reativação (mesmo bucket e bucket diferente), item inativo não bloqueia, nome-livre não bloqueia nome-livre; apagar orçamento remove itens, 404 em inexistente/de outro usuário. Suíte completa: 380 passed, 33 skipped. Frontend: `tsc -b && vite build` + `oxlint` — sem erro, sem warning novo.
+
+**Status:** implementado 2026-10-10. Os 2 itens duplicados já existentes na conta real do usuário não foram tocados (a validação impede um caso novo, não limpa os existentes — desativação é ação manual do usuário). Sem QA visual via Playwright — mesma limitação de sempre.
+
+**Checklist de teste manual (usuário, localmente):**
+- [ ] Em Planejamento, confirmar que o botão "+ Novo item" não aparece
+      mais em nenhum bucket — só "Editar"/"Desativar" nos itens
+      existentes.
+- [ ] Editar um item existente (ex: mudar o valor mensal) e confirmar
+      que salva normalmente.
+- [ ] Editar um item pra apontar pra uma categoria/subcategoria já
+      usada por OUTRO item ativo (de qualquer bucket) e confirmar que
+      dá erro (409) em vez de salvar.
+- [ ] No mês atual, clicar "Apagar orçamento", confirmar o diálogo, e
+      verificar que a tela volta para "Nenhum orçamento configurado
+      para este mês" — com as opções de criar do zero ou a partir do
+      mês anterior.
+- [ ] Desativar manualmente os 2 itens duplicados reais (Livros
+      Técnicos em `custos_fixos`, junho; Outros Cartões de Crédito em
+      `custos_fixos`, outubro) e, depois, rodar
+      `scripts/referencia_saldo_anterior.py` de novo — confirmar que a
+      seção "vínculo(s) em mais de 1 bucket" não aponta mais esses 2
+      casos.

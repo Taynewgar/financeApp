@@ -193,6 +193,57 @@ def _check_refs_item(
         raise HTTPException(status_code=404, detail="Conta vinculada não encontrada")
 
 
+def _chave_vinculo(categoria_id: str | None, subcategoria_id: str | None, conta_vinculada_id: str | None):
+    """Mesma prioridade de orcamento_saldo.py (subcategoria > categoria >
+    conta vinculada). None = item nome-livre, sem vínculo — nunca colide
+    com outro (não há o que comparar)."""
+    if subcategoria_id:
+        return ("subcategoria_id", subcategoria_id)
+    if categoria_id:
+        return ("categoria_id", categoria_id)
+    if conta_vinculada_id:
+        return ("conta_vinculada_id", conta_vinculada_id)
+    return None
+
+
+def _check_vinculo_duplicado(
+    db: Client,
+    orcamento_id: str,
+    categoria_id: str | None,
+    subcategoria_id: str | None,
+    conta_vinculada_id: str | None,
+    item_id_excluir: str | None,
+) -> None:
+    """Acha 2026-10-10: nada impedia vincular a mesma categoria/
+    subcategoria/conta a 2 itens ATIVOS do mesmo orçamento (em qualquer
+    bucket, inclusive o mesmo) — e calcular_realizado_item(_em_lote)
+    (orcamento_saldo.py) soma transação só por esse vínculo, sem olhar o
+    bucket do item, então os 2 itens duplicados vazam realizado um pro
+    outro (ver docs/backlog.md). Bloqueado aqui, na origem, pros dois
+    pontos de entrada (criar_item/atualizar_item) — item inativo não
+    conta (não participa do cálculo ao vivo, ver carregar_dados_periodo)."""
+    chave = _chave_vinculo(categoria_id, subcategoria_id, conta_vinculada_id)
+    if chave is None:
+        return
+    campo, valor = chave
+    itens_ativos = (
+        db.table(ITENS_TABLE)
+        .select("id,categoria_id,subcategoria_id,conta_vinculada_id")
+        .eq("orcamento_id", orcamento_id)
+        .eq("ativo", True)
+        .execute()
+        .data
+    )
+    for item in itens_ativos:
+        if item_id_excluir and item["id"] == item_id_excluir:
+            continue
+        if item.get(campo) == valor:
+            raise HTTPException(
+                status_code=409,
+                detail="Já existe um item ativo para esse vínculo neste orçamento (em algum bucket).",
+            )
+
+
 def _insert_orcamento(db: Client, row: dict) -> dict:
     try:
         result = db.table(TABLE).insert(row).execute()
@@ -216,6 +267,19 @@ def listar(db: Client = Depends(get_db), user_id: str = Depends(get_current_user
 @router.get("/{orcamento_id}", response_model=Orcamento)
 def obter(orcamento_id: str, db: Client = Depends(get_db), user_id: str = Depends(get_current_user_id)):
     return _get_orcamento_ou_404(db, user_id, orcamento_id)
+
+
+@router.delete("/{orcamento_id}", status_code=204)
+def apagar(orcamento_id: str, db: Client = Depends(get_db), user_id: str = Depends(get_current_user_id)):
+    """Apaga o orçamento do mês e seus itens. Não mexe nos lançamentos reais
+    (transações) nem em outro mês — `saldo_anterior` do mês seguinte, se
+    existir, fica congelado com o valor já gravado até alguém gerar esse
+    mês de novo. Item 56 do backlog: antes só era possível apagar como
+    efeito colateral de `proximo-mes?substituir=true` (e só pro mês
+    seguinte de um específico) — isto aqui é a ação direta, qualquer mês."""
+    _get_orcamento_ou_404(db, user_id, orcamento_id)
+    db.table(ITENS_TABLE).delete().eq("orcamento_id", orcamento_id).execute()
+    db.table(TABLE).delete().eq("id", orcamento_id).eq("user_id", user_id).execute()
 
 
 @router.post("", response_model=Orcamento, status_code=201)
@@ -259,6 +323,9 @@ def criar_item(
 ):
     orcamento = _get_orcamento_ou_404(db, user_id, orcamento_id)
     _check_refs_item(db, user_id, payload.categoria_id, payload.subcategoria_id, payload.conta_vinculada_id)
+    _check_vinculo_duplicado(
+        db, orcamento_id, payload.categoria_id, payload.subcategoria_id, payload.conta_vinculada_id, item_id_excluir=None
+    )
     contexto_saldo = _carregar_contexto_saldo(db, user_id, orcamento)
     _validar_teto_bucket(orcamento, payload.bucket, item_id_excluir=None, novo_valor=payload.orcamento_mensal, contexto_saldo=contexto_saldo)
     row = payload.model_dump()
@@ -281,6 +348,15 @@ def atualizar_item(
     _check_refs_item(
         db, user_id, dados.get("categoria_id"), dados.get("subcategoria_id"), dados.get("conta_vinculada_id")
     )
+    if any(campo in dados for campo in ("categoria_id", "subcategoria_id", "conta_vinculada_id")):
+        _check_vinculo_duplicado(
+            db,
+            orcamento_id,
+            dados.get("categoria_id", item_atual.get("categoria_id")),
+            dados.get("subcategoria_id", item_atual.get("subcategoria_id")),
+            dados.get("conta_vinculada_id", item_atual.get("conta_vinculada_id")),
+            item_id_excluir=item_id,
+        )
     contexto_saldo = _carregar_contexto_saldo(db, user_id, orcamento)
     if "orcamento_mensal" in dados or "bucket" in dados:
         _validar_teto_bucket(
@@ -306,7 +382,17 @@ def alternar_item_ativo(
     item_atual = _get_item_ou_404(db, orcamento_id, item_id)
     contexto_saldo = _carregar_contexto_saldo(db, user_id, orcamento)
     if ativo:
-        # reativar um item pode fazer a soma do bucket passar do teto de novo
+        # reativar pode reintroduzir vínculo duplicado (outro item ativo já
+        # assumiu essa categoria/subcategoria/conta enquanto este estava
+        # inativo) ou fazer a soma do bucket passar do teto de novo
+        _check_vinculo_duplicado(
+            db,
+            orcamento_id,
+            item_atual.get("categoria_id"),
+            item_atual.get("subcategoria_id"),
+            item_atual.get("conta_vinculada_id"),
+            item_id_excluir=item_id,
+        )
         _validar_teto_bucket(
             orcamento,
             item_atual["bucket"],

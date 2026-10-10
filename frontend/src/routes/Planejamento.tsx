@@ -305,6 +305,24 @@ export function Planejamento() {
     }
   }
 
+  async function apagarOrcamento() {
+    if (!orcamentoAtual) return
+    if (!window.confirm(`Apagar o orçamento de ${vigenciaMes} e todos os seus itens? Essa ação não pode ser desfeita.`)) {
+      return
+    }
+    setSalvando(true)
+    setErro(null)
+    try {
+      await apiFetch(`/orcamentos/${orcamentoAtual.id}`, { method: 'DELETE' })
+      setOrcamentos((atual) => (atual ?? []).filter((o) => o.id !== orcamentoAtual.id))
+      setItens([])
+    } catch (e) {
+      setErro(e instanceof ApiError ? (typeof e.detail === 'string' ? e.detail : e.message) : 'Falha ao apagar orçamento')
+    } finally {
+      setSalvando(false)
+    }
+  }
+
   async function gerarComRollover(orcamentoOrigemId: string, avancarVigencia: boolean, substituir = false) {
     setGerandoProximoMes(true)
     setErro(null)
@@ -337,12 +355,6 @@ export function Planejamento() {
   async function gerarProximoMes() {
     if (!orcamentoAtual) return
     await gerarComRollover(orcamentoAtual.id, true)
-  }
-
-  function iniciarCriacaoItem(bucket: Bucket) {
-    setFormItem(FORM_ITEM_VAZIO)
-    setItemEditando(null)
-    setItemFormAberto(bucket)
   }
 
   function alternarBucket(bucket: Bucket) {
@@ -395,37 +407,24 @@ export function Planejamento() {
     }
   }
 
-  async function handleSubmitItem(event: FormEvent, bucket: Bucket) {
+  async function handleSubmitItem(event: FormEvent) {
     event.preventDefault()
-    if (!orcamentoAtual) return
+    if (!orcamentoAtual || !itemEditando) return
     setSalvando(true)
     setErro(null)
     try {
       const payload = {
-        bucket,
         categoria_id: formItem.categoria_id || null,
         subcategoria_id: formItem.subcategoria_id || null,
         nome: formItem.nome || null,
         conta_vinculada_id: formItem.conta_vinculada_id || null,
         orcamento_mensal: Number(formItem.orcamento_mensal) || 0,
       }
-      if (itemEditando) {
-        const atualizado = await apiFetch<OrcamentoItem>(`/orcamentos/${orcamentoAtual.id}/itens/${itemEditando.id}`, {
-          method: 'PATCH',
-          body: JSON.stringify(payload),
-        })
-        setItens((atual) => atual!.map((i) => (i.id === atualizado.id ? atualizado : i)))
-      } else {
-        const criado = await apiFetch<OrcamentoItem>(`/orcamentos/${orcamentoAtual.id}/itens`, {
-          method: 'POST',
-          body: JSON.stringify(payload),
-        })
-        setItens((atual) => [...(atual ?? []), criado])
-        // sem isso, o item recém-criado nasce dentro de um grupo de
-        // categoria ainda fechado (categoriasAbertas não sabia dele) —
-        // some da vista até o usuário abrir manualmente
-        setCategoriasAbertas((atual) => new Set(atual).add(chaveCategoria(bucket, chaveGrupoItem(criado, subcategorias))))
-      }
+      const atualizado = await apiFetch<OrcamentoItem>(`/orcamentos/${orcamentoAtual.id}/itens/${itemEditando.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(payload),
+      })
+      setItens((atual) => atual!.map((i) => (i.id === atualizado.id ? atualizado : i)))
       setItemFormAberto(null)
     } catch (e) {
       setErro(e instanceof ApiError ? (typeof e.detail === 'string' ? e.detail : e.message) : 'Falha ao salvar item')
@@ -620,9 +619,14 @@ export function Planejamento() {
               Renda base {formatarMoeda(orcamentoAtual.receita_base, oculto)} · {orcamentoAtual.percentual_geral}%
               destinado ao orçamento · disponível mensal {formatarMoeda(disponivelMensal, oculto)}
             </p>
-            <button type="button" className="botao-secundario" onClick={iniciarEdicaoConfig}>
-              Editar configuração
-            </button>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button type="button" className="botao-secundario" onClick={iniciarEdicaoConfig}>
+                Editar configuração
+              </button>
+              <button type="button" className="botao-secundario" onClick={apagarOrcamento} disabled={salvando}>
+                Apagar orçamento
+              </button>
+            </div>
           </div>
 
           <div className="planejamento-alocacao">
@@ -778,9 +782,9 @@ export function Planejamento() {
                         </div>
                       )}
 
-                      <div style={{ padding: '12px 14px 14px 30px' }}>
-                        {itemFormAberto === b.valor ? (
-                          <form className="form" onSubmit={(e) => handleSubmitItem(e, b.valor)}>
+                      {itemFormAberto === b.valor && (
+                        <div style={{ padding: '12px 14px 14px 30px' }}>
+                          <form className="form" onSubmit={handleSubmitItem}>
                             <div className="campo-linha">
                               <label className="campo">
                                 Categoria
@@ -853,19 +857,15 @@ export function Planejamento() {
                             </label>
                             <div className="form-acoes">
                               <button type="submit" className="botao-primario" disabled={salvando}>
-                                {salvando ? 'Salvando…' : itemEditando ? 'Salvar alterações' : 'Criar item'}
+                                {salvando ? 'Salvando…' : 'Salvar alterações'}
                               </button>
                               <button type="button" className="botao-secundario" onClick={() => setItemFormAberto(null)}>
                                 Cancelar
                               </button>
                             </div>
                           </form>
-                        ) : (
-                          <button type="button" className="botao-link" onClick={() => iniciarCriacaoItem(b.valor)}>
-                            + Novo item
-                          </button>
-                        )}
-                      </div>
+                        </div>
+                      )}
                     </>
                   )}
                 </div>
