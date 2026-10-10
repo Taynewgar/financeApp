@@ -2133,8 +2133,8 @@ mesma limitação de sempre. Ver changelog Rodada 46.
 apontou como divergentes (ver seção "Racional de testes com
 `/financeapp-ref`" abaixo — este é o item de validação do Orçado,
 mesmo racional, método diferente), encontrei primeiro um bug no próprio
-script (chave de cache sem o `bucket` — corrigido, commit
-`<próximo commit>`, não afeta o app). Mas, reproduzindo o cenário pra
+script (chave de cache sem o `bucket` — corrigido, commit `7e80642`,
+não afeta o app). Mas, reproduzindo o cenário pra
 testar esse fix (mesma categoria vinculada a 2 itens de buckets
 diferentes no mesmo mês — algo que o app permite, não há constraint de
 unicidade), descobri que o PRÓPRIO APP também tem um bug ali, e é mais
@@ -2158,13 +2158,25 @@ teste offline (`FakeSupabaseClient`): 2 itens, mesma categoria, buckets
 sazonal no mês seguinte saiu 690 (deveria ser 1000−300=700; 690 =
 1000−310, ou seja, somou a despesa de 10 do outro item também).
 
-**Ainda não confirmado:** se isso é de fato a causa dos 2 itens
-divergentes do usuário (`2026-06 sazonalidades/Educação/Livros
-Técnicos` e `2026-10 custos_variaveis/Outros Gastos/Outros Cartões de
-Crédito`) — pra confirmar, precisa checar se a categoria/subcategoria
-de cada um está vinculada a outro item, de outro bucket, em algum mês
-da cadeia (o `tracar_cadeia()` do script já corrigido ajuda a ver isso
-na próxima rodada real).
+**Confirmado nos dados reais do usuário (2026-10-10):** rodada real da
+checagem estrutural (`detectar_vinculo_em_buckets_diferentes`) achou
+exatamente os 2 vínculos que batem com os itens divergentes originais,
+e os dois pares estão **ATIVOS** nos dois lados — não é item esquecido/
+inativo:
+
+- 2026-06, subcategoria "Livros Técnicos": `custos_fixos` (orçado
+  R$50, item `eb959aed-...`, ativo) **e** `sazonalidades` (orçado R$0,
+  item `ef7bc455-...`, ativo).
+- 2026-10, subcategoria "Outros Cartões de Crédito": `custos_fixos`
+  (orçado R$5, item `3f8c8ebe-...`, ativo) **e** `custos_variaveis`
+  (orçado R$0, item `d27cc0d6-...`, ativo).
+
+Usuário confirma não ter lançamento algum com `estrutura_custo=fixo`
+pra essas subcategorias — ou seja, o item de `custos_fixos` nos dois
+casos é uma duplicata sem uso real (orçado baixo, provavelmente criado
+num teste/reorganização e nunca desativado), mas por estar ATIVO e
+compartilhar a mesma subcategoria do item correto, está vazando
+`realizado` pra ele de verdade, agora — não é só risco teórico.
 
 **Decisão de fix pendente — não implementado ainda:** a correção óbvia
 é filtrar `calcular_realizado_item(_em_lote)` também por
@@ -2179,20 +2191,32 @@ tem `estrutura_custo` "errado" em relação ao bucket do item de
 Planejamento que hoje usa aquela categoria (improvável, mas item e) da
 lista de pontos extras abaixo já cobre esse tipo de inconsistência).
 
-**Status:** registrado 2026-10-10, aguardando decisão de fix. Acompanha
-a correção já feita e publicada no `referencia_saldo_anterior.py`
-(chave de cache com `bucket`, achado e corrigido no mesmo
-levantamento). Rodada real pós-fix: 625 itens verificados, 0
-divergências de `saldo_anterior` — confirma que o bug 1 (cache) era a
-causa raiz dos 2 itens flagados antes, e valida a lógica da cadeia de
-rollover inteira. Isso NÃO descarta este item: o script usa a mesma
-fórmula de `realizado` do app (sem filtrar por bucket), então, se este
-bug estiver presente nos dados reais, script e app errariam juntos e a
-comparação bateria mesmo assim. Adicionada checagem estrutural
-separada (`detectar_vinculo_em_buckets_diferentes`) que varre os itens
-e aponta categoria/subcategoria em mais de 1 bucket no mesmo mês,
-independente de bater ou não com o app — é essa checagem que confirma
-ou descarta este item de fato.
+**2 frentes de fix, independentes:**
+
+1. **Dado do usuário (imediato, manual):** desativar os 2 itens
+   duplicados de `custos_fixos` (`eb959aed-...` e `3f8c8ebe-...`) em
+   Planejamento, já que não têm lançamento real associado — some o
+   vazamento pra esses 2 casos sem precisar de deploy.
+2. **App (estrutural):** (a) filtrar `calcular_realizado_item(_em_lote)`
+   também por `estrutura_custo` da transação == bucket do item, e/ou
+   (b) impedir na criação/edição de item de Planejamento vincular a
+   mesma categoria/subcategoria a 2 buckets no mesmo orçamento (hoje
+   não há validação nenhuma pra isso). Ressalvas da opção (a): aplicação/
+   retirada/estorno não preenchem `estrutura_custo` (só despesa tem,
+   ver `_check_campos_obrigatorios`) — item de bucket `investimentos`
+   usa `conta_vinculada_id`, não cai nesse filtro, não é afetado.
+
+**Status:** registrado e confirmado nos dados reais em 2026-10-10,
+aguardando decisão de fix (qual das 2 frentes, ou as duas). Acompanha a
+correção já feita e publicada no `referencia_saldo_anterior.py` (chave
+de cache com `bucket`, achado e corrigido no mesmo levantamento).
+Rodada real pós-fix: 625 itens verificados, 0 divergências de
+`saldo_anterior` — confirma que o bug 1 (cache) era a causa raiz dos 2
+itens flagados antes, e valida a lógica da cadeia de rollover inteira.
+A checagem estrutural separada (`detectar_vinculo_em_buckets_diferentes`)
+foi o que de fato confirmou este item nos dados reais, já que a
+comparação script×app bate mesmo com o vazamento presente (mesma
+fórmula nos dois lados).
 
 ### Janela de meses pra trás × ano civil nos gráficos
 
