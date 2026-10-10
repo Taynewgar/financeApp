@@ -274,15 +274,16 @@ def detectar_vinculo_em_buckets_diferentes(itens_por_mes: dict[str, list[dict]])
     detecta) — só uma varredura estrutural dos vínculos pega esse caso."""
     achados = []
     for mes_str, itens in sorted(itens_por_mes.items()):
-        por_vinculo: dict[tuple, set[str]] = {}
+        por_vinculo: dict[tuple, list[dict]] = {}
         for item in itens:
             chave = chave_vinculo(item)
             if chave is None:
                 continue
-            por_vinculo.setdefault(chave, set()).add(item["bucket"])
-        for chave, buckets in por_vinculo.items():
+            por_vinculo.setdefault(chave, []).append(item)
+        for chave, itens_do_vinculo in por_vinculo.items():
+            buckets = {i["bucket"] for i in itens_do_vinculo}
             if len(buckets) > 1:
-                achados.append({"mes": mes_str[:7], "vinculo": chave, "buckets": sorted(buckets)})
+                achados.append({"mes": mes_str[:7], "vinculo": chave, "itens": itens_do_vinculo})
     return achados
 
 
@@ -340,7 +341,12 @@ def main() -> None:
                 if campo == "subcategoria_id"
                 else contas.get(valor, {}).get("nome", valor)
             )
-            print(f"  {a['mes']} — {nome} ({campo}) em: {', '.join(a['buckets'])}")
+            print(f"  {a['mes']} — {nome} ({campo}):")
+            for item in sorted(a["itens"], key=lambda i: i["bucket"]):
+                print(
+                    f"    bucket={item['bucket']:<16} ativo={item.get('ativo')!s:<5} "
+                    f"orcamento_mensal={item.get('orcamento_mensal', 0):.2f} id={item.get('id')}"
+                )
         print()
     else:
         print("Nenhum vínculo em mais de 1 bucket no mesmo mês — achado 2026-10-10 não se aplica a esta conta.\n")
