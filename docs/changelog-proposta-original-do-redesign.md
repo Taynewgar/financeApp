@@ -235,6 +235,22 @@ concluídos do `backlog.md` — a caixa marcada deixa de ser o único sinal,
 e item pendente (`[ ]`, sem risco) e confirmado (`[x]`, riscado) ficam
 visualmente distintos mesmo sem reparar no conteúdo da caixa.
 
+**Atualização (2026-10-10):** risco só pode existir numa linha com caixa
+marcada — `[ ]` riscado (mesmo que só em parte) é um estado contraditório
+("confirmado" e "não confirmado" ao mesmo tempo) e não deve acontecer.
+Quando um item testado se revela errado, a caixa correspondente continua
+`[ ]`, o texto do item **não é riscado**, e a explicação do erro entra
+como texto normal logo abaixo (ou ao lado) dele — nunca editando o texto
+original pra riscar um trecho dele. A correção em si vira um checklist
+novo, com seu próprio item `- [ ]` (viram `[x]` riscado só quando o
+usuário confirmar aquele item especificamente, igual qualquer outro).
+Achado revisando as Rodadas 42, 44 e 45, que tinham esse padrão
+inconsistente (caixa desmarcada com texto riscado) — corrigidas na mesma
+rodada de documentação que registrou esta regra. A mesma regra vale em
+qualquer outro documento do projeto onde um checklist de teste manual for
+registrado (hoje, além deste arquivo, alguns "Checklist de teste manual"
+dentro do `docs/backlog.md`).
+
 ### 2026-09-13 — Dashboard: caixa/saúde, delta, patrimônio, compromissos, 3ª linha
 
 Pedido do usuário: o Dashboard entregue antes (só evolução + KPIs simples)
@@ -3861,15 +3877,15 @@ mesma limitação de sempre (sem `backend/.env` com credenciais reais do
 Supabase nesta sessão remota).
 
 **Checklist de teste manual (usuário, localmente):**
-- [ ] ~~Em Estrutura de Custo, num mês com aplicação/retirada em pelo
+- [ ] Em Estrutura de Custo, num mês com aplicação/retirada em pelo
       menos 1 caixinha, abrir o bucket "Reservas" e confirmar que o
-      subitem mostra o nome da caixinha, não o nome da conta.~~
+      subitem mostra o nome da caixinha, não o nome da conta.
       **Reportado errado 2026-10-02**: inverteu demais — caixinha
       virou o nível pai também (e a conta some do agrupamento). Ver
       correção abaixo.
-- [ ] ~~Com 2 caixinhas diferentes na mesma conta, confirmar que
+- [ ] Com 2 caixinhas diferentes na mesma conta, confirmar que
       aparecem como 2 subitens separados dentro de "Reservas" (não
-      agrupados num só pela conta em comum).~~ **Reportado errado
+      agrupados num só pela conta em comum). **Reportado errado
       2026-10-02**: mesmo motivo acima (a conta não aparece mais).
 - [x] ~~Conferir que despesa e investimento (aplicação/retirada sem
       caixinha) continuam mostrando categoria/subcategoria normalmente
@@ -4040,9 +4056,9 @@ Suíte completa: 368 passed, 33 skipped.
       sem o botão — esse caminho não tinha sido coberto pelo fix
       original. Corrigido no mesmo dia, ver "Rodada 44, correção"
       abaixo.~~
-- [ ] ~~Tentar o mesmo cenário de duplicata em compra PARCELADA e
+- [ ] Tentar o mesmo cenário de duplicata em compra PARCELADA e
       confirmar que continua dando 409 sem o botão "Lançar mesmo
-      assim" (fora do escopo deste fix, comportamento inalterado).~~
+      assim" (fora do escopo deste fix, comportamento inalterado).
       **Checklist errado** — reportado 2026-10-02: não deu 409, criou
       normalmente. Investigado: não é regressão, compra parcelada
       nunca teve proteção real contra double-submit (hash inclui um id
@@ -4078,9 +4094,9 @@ novo (troca de janela de busca, sem lógica de cálculo nova). Sem QA
 visual via Playwright — mesma limitação de sempre.
 
 **Checklist de teste manual (usuário, localmente):**
-- [ ] ~~Em Gráficos, modo "Mês", confirmar que o toggle "Últimos 12
+- [ ] Em Gráficos, modo "Mês", confirmar que o toggle "Últimos 12
       meses" / "Ano civil (AAAA)" aparece ao lado do seletor de
-      período, com "Últimos 12 meses" selecionado por padrão.~~
+      período, com "Últimos 12 meses" selecionado por padrão.
       **Reportado errado 2026-10-10**: o toggle aparecia, mas fora do
       card do seletor de período — ao rolar a tela, ele "flutuava"
       transparente sobre o gráfico atrás (print anexado pelo usuário).
