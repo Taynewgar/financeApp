@@ -2127,6 +2127,63 @@ não é bloqueado. Suíte completa: 370 passed, 33 skipped. Frontend:
 **Status:** implementado 2026-10-02. Sem QA visual via Playwright —
 mesma limitação de sempre. Ver changelog Rodada 46.
 
+### `realizado` de item de Planejamento soma transação de outro bucket quando a categoria é a mesma
+
+**Contexto:** investigando os 2 itens que `scripts/referencia_saldo_anterior.py`
+apontou como divergentes (ver seção "Racional de testes com
+`/financeapp-ref`" abaixo — este é o item de validação do Orçado,
+mesmo racional, método diferente), encontrei primeiro um bug no próprio
+script (chave de cache sem o `bucket` — corrigido, commit
+`<próximo commit>`, não afeta o app). Mas, reproduzindo o cenário pra
+testar esse fix (mesma categoria vinculada a 2 itens de buckets
+diferentes no mesmo mês — algo que o app permite, não há constraint de
+unicidade), descobri que o PRÓPRIO APP também tem um bug ali, e é mais
+sério que o do script.
+
+**Causa raiz (lida no código):** `calcular_realizado_item` e
+`calcular_realizado_item_em_lote` (`backend/app/services/
+orcamento_saldo.py`) filtram as transações do período só por
+`subcategoria_id`/`categoria_id`/`conta_vinculada_id` do item — nunca
+pelo `bucket` do item nem pelo `estrutura_custo` da transação. Já
+`_item_equivalente_no_mes_em_lote` (mesmo arquivo), que acha o item
+"equivalente" no mês anterior pra rolar o `saldo_anterior`, EXIGE
+`bucket` igual. Essa assimetria faz: se a mesma categoria está
+vinculada a um item de `custos_variaveis` E a um item de
+`sazonalidades` no mesmo mês, o `realizado` de CADA UM dos dois conta
+TODAS as transações da categoria, inclusive as que "pertencem" ao
+outro item — nenhum dos dois fecha certo, mesmo isolado. Confirmado com
+teste offline (`FakeSupabaseClient`): 2 itens, mesma categoria, buckets
+`sazonalidades` (orçado 1000, despesa real 300) e `custos_variaveis`
+(orçado 50, despesa real 10) no mesmo mês — `saldo_anterior` do item
+sazonal no mês seguinte saiu 690 (deveria ser 1000−300=700; 690 =
+1000−310, ou seja, somou a despesa de 10 do outro item também).
+
+**Ainda não confirmado:** se isso é de fato a causa dos 2 itens
+divergentes do usuário (`2026-06 sazonalidades/Educação/Livros
+Técnicos` e `2026-10 custos_variaveis/Outros Gastos/Outros Cartões de
+Crédito`) — pra confirmar, precisa checar se a categoria/subcategoria
+de cada um está vinculada a outro item, de outro bucket, em algum mês
+da cadeia (o `tracar_cadeia()` do script já corrigido ajuda a ver isso
+na próxima rodada real).
+
+**Decisão de fix pendente — não implementado ainda:** a correção óbvia
+é filtrar `calcular_realizado_item(_em_lote)` também por
+`estrutura_custo` da transação == bucket do item (hoje o campo existe
+em `transacoes` e já é usado pra agregação em Estrutura de Custo). Mas
+isso precisa de decisão antes de implementar: (1) transação de
+aplicação/retirada/estorno não tem `estrutura_custo` preenchido (só
+despesa tem, ver `_check_campos_obrigatorios`) — item de bucket
+`investimentos` usa `conta_vinculada_id`, não cai nesse filtro, então
+não é afetado; (2) precisa confirmar que nenhum dado histórico migrado
+tem `estrutura_custo` "errado" em relação ao bucket do item de
+Planejamento que hoje usa aquela categoria (improvável, mas item e) da
+lista de pontos extras abaixo já cobre esse tipo de inconsistência).
+
+**Status:** registrado 2026-10-10, aguardando decisão de fix. Acompanha
+a correção já feita e publicada no `referencia_saldo_anterior.py`
+(chave de cache com `bucket`, achado e corrigido no mesmo
+levantamento).
+
 ### Janela de meses pra trás × ano civil nos gráficos
 
 **Contexto:** modo "Mês" em `/graficos` sempre mostrou uma janela

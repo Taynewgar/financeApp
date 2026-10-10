@@ -24,6 +24,17 @@ silenciosamente, não é um 0 real). Este script roda a reimplementação
 2x por item — uma restrita a itens ativos (igual o app faz hoje) e outra
 sem essa restrição — pra isolar exatamente esse caso, se existir.
 
+Achado em 2026-10-10: a suspeita de item desativado/reativado (acima) foi
+contradita por uma rodada real — a API acertava o saldo_anterior em casos
+que o recálculo "restrito" deste script errava. Causa real: a chave de
+cache em `saldo_anterior_independente` não incluía o `bucket`, só o
+vínculo (categoria/subcategoria/conta) — então um item de um bucket (ex.:
+"sazonalidades", que por natureza não aparece todo mês) podia reaproveitar
+o valor cacheado de outro item de bucket diferente com a mesma categoria,
+já calculado num mês anterior. `achar_candidatos` sempre exigiu bucket +
+vínculo batendo; o cache não respeitava essa mesma restrição. Corrigido
+incluindo `bucket` na chave de cache.
+
 Roda contra o Supabase REAL (precisa de backend/.env preenchido) — não
 roda nesta sessão remota, mesma limitação dos testes de integração e do
 script de migração. Só GET: não cria, edita nem apaga nada em nenhuma
@@ -167,7 +178,7 @@ def saldo_anterior_independente(
     if chave_vinculo(item) is None:
         return None
 
-    chave_cache = (chave_vinculo(item), vigencia_mes.isoformat(), restringir_ativos)
+    chave_cache = (item["bucket"], chave_vinculo(item), vigencia_mes.isoformat(), restringir_ativos)
     if chave_cache in cache:
         return cache[chave_cache]
 
