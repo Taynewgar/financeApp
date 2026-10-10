@@ -126,17 +126,29 @@ def realizado_independente(headers: dict, item: dict, mes_inicio: date) -> float
     return round(sum(_SINAL_REALIZADO.get(t["tipo_movimento"], 0) * t["valor"] for t in linhas), 2)
 
 
-def achar_equivalente(itens_mes_anterior: list[dict], item: dict, restringir_ativos: bool) -> dict | None:
+def achar_candidatos(itens_mes_anterior: list[dict], item: dict, restringir_ativos: bool) -> list[dict]:
+    """Todos os itens do mês anterior que batem (bucket, vínculo) — não só
+    o 1º. Mais de 1 candidato é ambiguidade real (2 itens de orçamento
+    pro mesmo bucket/categoria no mesmo mês) — quem desempata é a ordem
+    de retorno da query, que pode não ser a mesma entre este script (via
+    GET /orcamentos/{id}/itens, ordenado por bucket) e o cálculo ao vivo
+    do app (sem ordenação explícita) — ver achado 2026-10-10."""
     chave = chave_vinculo(item)
     if chave is None:
-        return None
+        return []
     campo, valor = chave
+    candidatos = []
     for candidato in itens_mes_anterior:
         if restringir_ativos and not candidato.get("ativo", True):
             continue
         if candidato.get("bucket") == item["bucket"] and candidato.get(campo) == valor:
-            return candidato
-    return None
+            candidatos.append(candidato)
+    return candidatos
+
+
+def achar_equivalente(itens_mes_anterior: list[dict], item: dict, restringir_ativos: bool) -> dict | None:
+    candidatos = achar_candidatos(itens_mes_anterior, item, restringir_ativos)
+    return candidatos[0] if candidatos else None
 
 
 def saldo_anterior_independente(
@@ -179,6 +191,65 @@ def saldo_anterior_independente(
     resultado = round(disponivel_anterior - realizado_anterior, 2)
     cache[chave_cache] = resultado
     return resultado
+
+
+def tracar_cadeia(
+    headers: dict,
+    item: dict,
+    vigencia_mes: date,
+    itens_por_mes: dict[str, list[dict]],
+    restringir_ativos: bool,
+) -> list[dict]:
+    """Mesma recursão de saldo_anterior_independente, mas em vez de só
+    devolver o número final, devolve 1 registro por mês andado pra trás —
+    pra inspecionar visualmente onde a cadeia diverge do esperado (qual
+    item foi achado como equivalente, se havia mais de 1 candidato, se
+    estava ativo, orçamento mensal e realizado usados em cada passo)."""
+    passos: list[dict] = []
+    atual = item
+    mes_atual = vigencia_mes
+    while True:
+        chave = chave_vinculo(atual)
+        if chave is None:
+            passos.append({"mes": mes_atual.isoformat()[:7], "motivo": "item sem vínculo — fim da cadeia"})
+            break
+
+        mes_anterior = somar_meses(mes_atual, -1)
+        itens_mes_anterior = itens_por_mes.get(mes_anterior.isoformat())
+        if itens_mes_anterior is None:
+            passos.append(
+                {"mes": mes_anterior.isoformat()[:7], "motivo": "sem orçamento neste mês — cadeia termina aqui (0.0)"}
+            )
+            break
+
+        candidatos = achar_candidatos(itens_mes_anterior, atual, restringir_ativos)
+        if not candidatos:
+            passos.append(
+                {
+                    "mes": mes_anterior.isoformat()[:7],
+                    "motivo": "nenhum item equivalente achado — cadeia termina aqui (0.0)",
+                    "restringindo_a_ativos": restringir_ativos,
+                }
+            )
+            break
+
+        item_anterior = candidatos[0]
+        realizado = realizado_independente(headers, item_anterior, mes_anterior)
+        passos.append(
+            {
+                "mes": mes_anterior.isoformat()[:7],
+                "ambiguo": len(candidatos) > 1,
+                "n_candidatos": len(candidatos),
+                "item_id": item_anterior.get("id"),
+                "ativo": item_anterior.get("ativo"),
+                "orcamento_mensal": item_anterior.get("orcamento_mensal"),
+                "realizado_recalculado": realizado,
+                "saldo_anterior_do_app_nesse_item": item_anterior.get("saldo_anterior"),
+            }
+        )
+        atual = item_anterior
+        mes_atual = mes_anterior
+    return passos
 
 
 def nome_do_item(item: dict, categorias: dict, subcategorias: dict, contas: dict) -> str:
@@ -251,6 +322,7 @@ def main() -> None:
                 "app": app_valor,
                 "recalculado_restrito": meu_restrito,
                 "recalculado_livre": meu_livre,
+                "_item": item,
             }
             if round(meu_livre, 2) == round(app_valor, 2):
                 # recalculado SEM restrição bate com o app — raro, indicaria
@@ -266,6 +338,21 @@ def main() -> None:
         print("Nenhuma divergência — saldo_anterior recalculado bate com o que a API retorna em todos os itens.")
         return
 
+    def _imprimir_rastro(d: dict) -> None:
+        mes = date.fromisoformat(d["mes"] + "-01")
+        print("    rastro (restrito a ativos, mês a mês pra trás):")
+        for passo in tracar_cadeia(headers, d["_item"], mes, itens_por_mes, True):
+            if "motivo" in passo:
+                print(f"      {passo['mes']}: {passo['motivo']}")
+                continue
+            marca = " <<< AMBÍGUO, " + str(passo["n_candidatos"]) + " candidatos" if passo["ambiguo"] else ""
+            print(
+                f"      {passo['mes']}: item {passo['item_id']} "
+                f"(ativo={passo['ativo']}) orçamento_mensal={passo['orcamento_mensal']:.2f} "
+                f"realizado_recalc={passo['realizado_recalculado']:.2f} "
+                f"saldo_anterior_do_app_nesse_item={passo['saldo_anterior_do_app_nesse_item']:.2f}{marca}"
+            )
+
     if divergencias:
         print(f"=== {len(divergencias)} divergência(s) real(is) (recalculado ≠ app, com ou sem restrição) ===")
         for d in divergencias:
@@ -274,6 +361,7 @@ def main() -> None:
                 f"app={d['app']:.2f} | recalc(restrito)={d['recalculado_restrito']:.2f} | "
                 f"recalc(livre)={d['recalculado_livre']:.2f}"
             )
+            _imprimir_rastro(d)
         print()
 
     if so_sem_restricao:
@@ -287,6 +375,7 @@ def main() -> None:
                 f"app={d['app']:.2f} | recalc(restrito)={d['recalculado_restrito']:.2f} | "
                 f"recalc(livre)={d['recalculado_livre']:.2f}"
             )
+            _imprimir_rastro(d)
 
 
 if __name__ == "__main__":
