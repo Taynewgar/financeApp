@@ -4130,10 +4130,11 @@ comportamento funcional, só de posicionamento. `tsc -b && vite build` +
 `oxlint` sem erro, sem warning novo.
 
 **Checklist de teste manual da correção (usuário, localmente):**
-- [ ] Em Gráficos, modo "Mês", com "Ano civil" ligado, rolar a página
+- [x] ~~Em Gráficos, modo "Mês", com "Ano civil" ligado, rolar a página
       pra baixo e confirmar que o toggle não aparece mais sobreposto/
       transparente sobre o gráfico — fica dentro do card do seletor de
-      período, com fundo opaco igual aos outros controles.
+      período, com fundo opaco igual aos outros controles. — confirmado
+      2026-10-10.~~
 
 ### Rodada 46 (2026-10-02) — Fix: compra parcelada sem proteção contra double-submit (item 68)
 
