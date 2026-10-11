@@ -44,6 +44,16 @@ export function NovoLancamento() {
   // campos que acabaram de ser preenchidos por "Duplicar" quando o tipo
   // duplicado é diferente do padrão ('despesa')
   const pularResetDeTipoRef = useRef(false)
+  // garante que o efeito de "Duplicar" só processa location.state.duplicar
+  // uma vez — sem isso, o StrictMode (roda todo efeito 2x em dev, de
+  // propósito) dispara a busca da despesa original 2x e o `navigate` que
+  // limpa o state corre com a 2ª chamada; achado testando a Rodada 55
+  // (despesa original do Estorno/Ressarcimento vinha vazia)
+  const duplicarProcessadoRef = useRef(false)
+  // destino do "Cancelar": /dashboard por padrão, /lancamentos se chegou
+  // aqui duplicando (não faz sentido mandar de volta pro Dashboard quem
+  // estava em Lançamentos duplicando algo)
+  const [veioDeLancamentos, setVeioDeLancamentos] = useState(false)
 
   const [contas, setContas] = useState<Conta[]>([])
   const [categorias, setCategorias] = useState<Categoria[]>([])
@@ -388,8 +398,11 @@ export function NovoLancamento() {
   // (repetir o parcelamento exigiria recalcular valor_total/parcelas,
   // fora de escopo — usuário escolhe "Parcelado" de novo se quiser)
   useEffect(() => {
+    if (duplicarProcessadoRef.current) return
     const duplicar = (location.state as { duplicar?: Transacao } | null)?.duplicar
     if (!duplicar) return
+    duplicarProcessadoRef.current = true
+    setVeioDeLancamentos(true)
 
     const tipoDuplicado = derivarTipoLancamento(duplicar)
     // só pula o reset se o tipo for realmente mudar — setTipo com o mesmo
@@ -1134,7 +1147,7 @@ export function NovoLancamento() {
           <button type="submit" className="botao-primario" disabled={enviando}>
             {enviando ? 'Salvando…' : 'Salvar lançamento'}
           </button>
-          <Link to="/dashboard" className="botao-secundario">
+          <Link to={veioDeLancamentos ? '/lancamentos' : '/dashboard'} className="botao-secundario">
             Cancelar
           </Link>
         </div>

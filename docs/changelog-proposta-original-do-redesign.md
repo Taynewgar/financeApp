@@ -4440,21 +4440,22 @@ Item 44 do backlog ("agilidade na inserção"): usuário apontou que a tela de s
 **Status:** implementado 2026-10-11. Detalhe em `docs/backlog.md` ("Agilidade na inserção de transações").
 
 **Checklist de teste manual (usuário, localmente):**
-- [ ] Lançar uma despesa qualquer e, na tela de sucesso, confirmar que
+- [x] Lançar uma despesa qualquer e, na tela de sucesso, confirmar que
       o recap mostra descrição, valor e os detalhes corretos (conta,
-      categoria›subcategoria, estrutura de custo, meio de pagamento).
-- [ ] Clicar "Lançar outro igual" e confirmar que o formulário volta
+      categoria›subcategoria, estrutura de custo, meio de pagamento). —
+      confirmado 2026-10-11.
+- [x] Clicar "Lançar outro igual" e confirmar que o formulário volta
       preenchido com tudo igual, exceto o Valor (vazio) — e que o
       aviso "Copiado do lançamento anterior..." aparece acima do
-      formulário.
-- [ ] Preencher só o valor (e opcionalmente a data) e salvar — confirmar
-      que funciona normalmente.
-- [ ] Repetir o teste de "Lançar outro igual" numa Reserva (aplicação/
+      formulário. — confirmado 2026-10-11.
+- [x] Preencher só o valor (e opcionalmente a data) e salvar — confirmar
+      que funciona normalmente. — confirmado 2026-10-11.
+- [x] Repetir o teste de "Lançar outro igual" numa Reserva (aplicação/
       retirada de caixinha) e confirmar que a caixinha continua
-      selecionada.
-- [ ] Clicar "Lançar outro" (não o "igual") e confirmar que o
+      selecionada. — confirmado 2026-10-11.
+- [x] Clicar "Lançar outro" (não o "igual") e confirmar que o
       formulário volta 100% vazio, sem nenhum aviso — comportamento
-      de antes, sem mudança.
+      de antes, sem mudança. — confirmado 2026-10-11.
 
 ### Rodada 55 (2026-10-11) — Fix de layout + "Duplicar" na lista de Lançamentos (item 44)
 
@@ -4474,19 +4475,54 @@ Usuário reportou (print) que os botões da tela de sucesso da Rodada 54 ficavam
 **Status:** implementado 2026-10-11. Detalhe em `docs/backlog.md` ("Agilidade na inserção de transações").
 
 **Checklist de teste manual (usuário, localmente):**
-- [ ] Na tela de sucesso, confirmar que os 3 botões ("Lançar outro
+- [x] Na tela de sucesso, confirmar que os 3 botões ("Lançar outro
       igual"/"Lançar outro"/"Ver Dashboard") não ficam mais esticados
-      a largura total da tela — mesma largura do formulário/recap.
-- [ ] Em Lançamentos, clicar "Duplicar" numa despesa e confirmar que o
+      a largura total da tela — mesma largura do formulário/recap. —
+      confirmado 2026-10-11.
+- [x] Em Lançamentos, clicar "Duplicar" numa despesa e confirmar que o
       Novo Lançamento abre com tudo preenchido igual, exceto o Valor.
-- [ ] Clicar "Duplicar" numa RECEITA (tipo diferente do padrão
+      — confirmado 2026-10-11.
+- [x] Clicar "Duplicar" numa RECEITA (tipo diferente do padrão
       'despesa') e confirmar que o tipo também vem selecionado
-      corretamente, sem precisar trocar manualmente.
-- [ ] Depois de usar "Duplicar", trocar o tipo manualmente (ex: de
+      corretamente, sem precisar trocar manualmente. — confirmado
+      2026-10-11.
+- [x] Depois de usar "Duplicar", trocar o tipo manualmente (ex: de
       Receita pra Despesa) e confirmar que a categoria/subcategoria
-      são limpas normalmente — não ficam "grudadas" da duplicação.
-- [ ] Clicar "Duplicar" numa parcela de compra parcelada e confirmar
+      são limpas normalmente — não ficam "grudadas" da duplicação. —
+      confirmado 2026-10-11. Usuário notou que a CONTA continua a
+      mesma depois da troca — comportamento esperado, não é bug: conta
+      nunca foi amarrada ao tipo no formulário (só reserva força a
+      conta da caixinha), então não faz parte do reset.
+- [x] Clicar "Duplicar" numa parcela de compra parcelada e confirmar
       que abre como lançamento à vista (não parcelado), com
-      conta/categoria/descrição preenchidos.
+      conta/categoria/descrição preenchidos. — confirmado 2026-10-11.
 - [ ] Clicar "Duplicar" num Estorno/Ressarcimento e confirmar que a
-      despesa original também vem selecionada.
+      despesa original também vem selecionada. — reportado 2026-10-11:
+      tudo preenchia menos a despesa original (ficava vazia). Corrigido
+      na Rodada 56 — testar de novo.
+
+### Rodada 56 (2026-10-11) — 2 bugs da Rodada 55: "Cancelar" e despesa original vazia
+
+Dois bugs reportados testando a Rodada 55.
+
+**Bug 1 — "Cancelar" manda pro Dashboard mesmo duplicando a partir de Lançamentos:** o link "Cancelar" do formulário sempre apontava pra `/dashboard`, fixo — fazia sentido quando o Novo Lançamento só era aberto pela nav principal, mas não depois que "Duplicar" passou a abrir a tela a partir de Lançamentos (Rodada 55). `EditarLancamento.tsx`, pra comparação, já aponta fixo pra `/lancamentos` (só é aberto de lá).
+
+**Fix 1:** novo estado `veioDeLancamentos`, setado quando o efeito de "Duplicar" processa `location.state.duplicar`. "Cancelar" aponta condicionalmente: `/lancamentos` se veio duplicando, `/dashboard` nos outros casos (comportamento de antes, sem mudança). "Ver Dashboard" da tela de sucesso não mudou — continua sempre `/dashboard`, é uma ação diferente de "Cancelar".
+
+**Bug 2 — despesa original vem vazia ao duplicar Estorno/Ressarcimento:** tipo, conta, categoria, descrição etc. vinham certos, só a despesa original (buscada à parte, de forma assíncrona, via `ajuste_de_transacao_id`) ficava vazia. Causa suspeita: o `StrictMode` do React (ativo em `main.tsx`, roda todo efeito 2x em desenvolvimento de propósito, pra pegar efeito não-idempotente) disparava o efeito de "Duplicar" 2 vezes — a 2ª chamada corria com o `navigate(replace)` que limpa `location.state` logo depois, numa janela de tempo imprevisível em relação à busca assíncrona da despesa original, deixando o resultado dependente de timing. Não reproduzido localmente nesta sessão (sem backend/Supabase configurado aqui — ver `CLAUDE.md`), mas o padrão de causa é um caso clássico e bem documentado de efeito que lê/limpa estado externo sem proteção contra chamada dupla do StrictMode.
+
+**Fix 2:** nova ref `duplicarProcessadoRef` — o efeito de "Duplicar" só processa `location.state.duplicar` na primeira chamada; qualquer repetição (StrictMode ou não) vira no-op. Isso também elimina o efeito colateral de disparar a busca da despesa original e o `navigate(replace)` duas vezes.
+
+**Testes:** mudança de frontend puro. `tsc -b && vite build` — sem erro novo; `oxlint` — sem warning novo.
+
+**Status:** implementado 2026-10-11, sem reprodução local (ambiente sem Supabase configurado) — pede reteste do usuário. Detalhe em `docs/backlog.md` ("Agilidade na inserção de transações").
+
+**Checklist de teste manual (usuário, localmente):**
+- [ ] Duplicar um lançamento a partir de Lançamentos, clicar "Cancelar"
+      no formulário (sem salvar) e confirmar que volta pra Lançamentos,
+      não pro Dashboard.
+- [ ] Abrir "Novo Lançamento" pela navegação normal (não duplicando),
+      clicar "Cancelar" e confirmar que continua indo pro Dashboard —
+      comportamento de antes, sem mudança.
+- [ ] Repetir o item 6 da Rodada 55: duplicar um Estorno/Ressarcimento
+      e confirmar que a despesa original agora vem preenchida também.
