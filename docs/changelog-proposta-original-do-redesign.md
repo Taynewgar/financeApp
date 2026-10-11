@@ -4286,14 +4286,14 @@ Reportado ao vivo: "edição de item do bucket em Planejamento não está funcio
       confirmar que salva normalmente, sem erro.~~ — **superado pela
       Rodada 50**: voltou a pedir confirmação (não salva mais direto).
       Fechado a pedido do usuário.
-- [x] Conferir que o cabeçalho do bucket (e o resumo fixo do topo)
+- [x] ~~Conferir que o cabeçalho do bucket (e o resumo fixo do topo)
       mostram "acima do teto" em vermelho quando a soma dos itens
       ativos (já considerando a sobra/furo acumulado) passa do teto. —
-      confirmado 2026-10-11.
-- [x] Provocar um erro real no formulário de edição (ex: deixar um
+      confirmado 2026-10-11.~~
+- [x] ~~Provocar um erro real no formulário de edição (ex: deixar um
       campo obrigatório vazio, se aplicável) e confirmar que a
       mensagem aparece perto dos botões "Salvar"/"Cancelar", visível
-      sem precisar rolar a página. — confirmado 2026-10-11.
+      sem precisar rolar a página. — confirmado 2026-10-11.~~
 
 ### Rodada 50 (2026-10-11) — Teto de bucket volta a confirmar antes de estourar
 
@@ -4306,15 +4306,15 @@ Pedida avaliação de ter removido o bloqueio por completo (Rodada 49). Ressalva
 **Status:** implementado 2026-10-11. Detalhe completo em `docs/backlog.md` ("Teto de bucket volta a confirmar antes de estourar").
 
 **Checklist de teste manual (usuário, localmente):**
-- [x] Editar o valor orçado de um item num bucket já acima do teto —
+- [x] ~~Editar o valor orçado de um item num bucket já acima do teto —
       confirmar que dá erro com botão "Salvar mesmo assim", e que
-      clicar nele salva o valor. — confirmado 2026-10-11.
-- [x] Reativar um item desativado cuja soma do bucket estouraria o
+      clicar nele salva o valor. — confirmado 2026-10-11.~~
+- [x] ~~Reativar um item desativado cuja soma do bucket estouraria o
       teto — confirmar que aparece um `window.confirm` com a mensagem
       do estouro, e que confirmar reativa mesmo assim. — confirmado
-      2026-10-11.
-- [x] Editar/criar um item SEM estourar o teto e confirmar que salva
-      direto, sem pedir confirmação nenhuma. — confirmado 2026-10-11.
+      2026-10-11.~~
+- [x] ~~Editar/criar um item SEM estourar o teto e confirmar que salva
+      direto, sem pedir confirmação nenhuma. — confirmado 2026-10-11.~~
 
 ### Rodada 51 (2026-10-11) — Criação automática de item ignorava bucket
 
@@ -4331,18 +4331,18 @@ Reportado testando a Rodada 48: categoria com despesa fixa todo mês não ganhav
 **Status:** implementado 2026-10-11. Detalhe completo em `docs/backlog.md` ("Criação automática de item ignorava bucket — despesa ficava sem item em Planejamento").
 
 **Checklist de teste manual (usuário, localmente):**
-- [x] Nos meses já afetados (categoria com despesa real em bucket sem
+- [x] ~~Nos meses já afetados (categoria com despesa real em bucket sem
       item), clicar "Sincronizar itens com lançamentos" em Planejamento
       e confirmar que os itens que faltavam aparecem. — confirmado
-      2026-10-11.
-- [x] Lançar uma despesa nova numa categoria que já tem item em outro
+      2026-10-11.~~
+- [x] ~~Lançar uma despesa nova numa categoria que já tem item em outro
       bucket (ex: Flamengo variável, já tendo Flamengo fixo) e
       confirmar que o item do bucket novo aparece sozinho em
       Planejamento, sem precisar sincronizar manualmente. — confirmado
-      2026-10-11.
-- [x] Repetir os itens 1-3 da Rodada 48 (agora que os itens existem de
+      2026-10-11.~~
+- [x] ~~Repetir os itens 1-3 da Rodada 48 (agora que os itens existem de
       verdade nos dois buckets). — confirmado 2026-10-11, ver itens 1-3
-      da Rodada 48 atualizados acima.
+      da Rodada 48 atualizados acima.~~
 
 ### Rodada 52 (2026-10-11) — Consulta rápida ao preencher a Descrição (item 43)
 
@@ -4362,34 +4362,34 @@ Item 43 do backlog ("consulta rápida durante a inserção"): necessidade real d
 **Status:** implementado 2026-10-11. Mockups interativos (canvas de design) usados pra calibrar a decisão antes de codar — não fazem parte do repositório.
 
 **Checklist de teste manual (usuário, localmente):**
-- [x] No Novo Lançamento, escolher uma categoria/subcategoria que já
+- [x] ~~No Novo Lançamento, escolher uma categoria/subcategoria que já
       tenha pelo menos 2 despesas lançadas com descrições diferentes e
       confirmar que os chips aparecem abaixo do campo Descrição, com as
       descrições mais usadas. — confirmado 2026-10-11 (texto original
       dizia "acima"; os chips aparecem abaixo do campo, mesmo padrão
       visual dos chips de Categoria/Subcategoria — confirmado como
-      esperado, não é bug).
-- [x] Clicar num chip e confirmar que o campo Descrição é preenchido
-      com o texto exato do chip. — confirmado 2026-10-11.
-- [x] Digitar uma descrição já usada só com case/espaço diferente (ex:
+      esperado, não é bug).~~
+- [x] ~~Clicar num chip e confirmar que o campo Descrição é preenchido
+      com o texto exato do chip. — confirmado 2026-10-11.~~
+- [x] ~~Digitar uma descrição já usada só com case/espaço diferente (ex:
       "supermercado extra" minúsculo, se "Supermercado Extra" já foi
       usado) e confirmar que aparece o aviso "Você já usou... Quis
-      dizer isso?". — confirmado 2026-10-11.
-- [x] Digitar uma descrição com um erro de digitação pequeno em
+      dizer isso?". — confirmado 2026-10-11.~~
+- [x] ~~Digitar uma descrição com um erro de digitação pequeno em
       relação a uma já usada (ex: faltando 1-2 letras) e confirmar que
-      o aviso também aparece. — confirmado 2026-10-11.
-- [x] Digitar uma descrição claramente diferente (ex: trocar
+      o aviso também aparece. — confirmado 2026-10-11.~~
+- [x] ~~Digitar uma descrição claramente diferente (ex: trocar
       completamente o texto) e confirmar que NENHUM aviso aparece. —
-      confirmado 2026-10-11.
-- [x] Clicar "Usar essa" no aviso e confirmar que o campo é preenchido
+      confirmado 2026-10-11.~~
+- [x] ~~Clicar "Usar essa" no aviso e confirmar que o campo é preenchido
       com a descrição sugerida e o aviso desaparece. — confirmado
-      2026-10-11.
-- [x] Clicar "Manter a minha" e confirmar que o aviso desaparece e o
+      2026-10-11.~~
+- [x] ~~Clicar "Manter a minha" e confirmar que o aviso desaparece e o
       texto digitado continua no campo, sem reaparecer enquanto não
-      digitar de novo. — confirmado 2026-10-11.
-- [x] Repetir o teste do chip/aviso numa compra PARCELADA (mesma
+      digitar de novo. — confirmado 2026-10-11.~~
+- [x] ~~Repetir o teste do chip/aviso numa compra PARCELADA (mesma
       categoria/subcategoria de uma despesa à vista já lançada) e
-      confirmar que funciona igual. — confirmado 2026-10-11.
+      confirmar que funciona igual. — confirmado 2026-10-11.~~
 
 ### Rodada 53 (2026-10-11) — Consulta rápida também pra Reserva/caixinha
 
@@ -4416,13 +4416,13 @@ Suíte completa: 391 passed, 33 skipped. Frontend: `tsc -b && vite build`
 ("Consulta rápida ao preencher a Descrição").
 
 **Checklist de teste manual (usuário, localmente):**
-- [x] Lançar uma Reserva (Aplicação) numa caixinha que já tenha pelo
+- [x] ~~Lançar uma Reserva (Aplicação) numa caixinha que já tenha pelo
       menos 2 lançamentos com descrições diferentes e confirmar que os
-      chips aparecem abaixo do campo Descrição. — confirmado 2026-10-11.
-- [x] Trocar o tipo de Reserva pra Despesa (ou outro) com a caixinha já
+      chips aparecem abaixo do campo Descrição. — confirmado 2026-10-11.~~
+- [x] ~~Trocar o tipo de Reserva pra Despesa (ou outro) com a caixinha já
       escolhida, depois escolher uma categoria — confirmar que os
       chips mostrados são os da categoria, não os da caixinha que
-      ficou selecionada antes. — confirmado 2026-10-11.
+      ficou selecionada antes. — confirmado 2026-10-11.~~
 
 ### Rodada 54 (2026-10-11) — "Lançar outro igual" na tela de sucesso (item 44)
 
@@ -4440,22 +4440,22 @@ Item 44 do backlog ("agilidade na inserção"): usuário apontou que a tela de s
 **Status:** implementado 2026-10-11. Detalhe em `docs/backlog.md` ("Agilidade na inserção de transações").
 
 **Checklist de teste manual (usuário, localmente):**
-- [x] Lançar uma despesa qualquer e, na tela de sucesso, confirmar que
+- [x] ~~Lançar uma despesa qualquer e, na tela de sucesso, confirmar que
       o recap mostra descrição, valor e os detalhes corretos (conta,
       categoria›subcategoria, estrutura de custo, meio de pagamento). —
-      confirmado 2026-10-11.
-- [x] Clicar "Lançar outro igual" e confirmar que o formulário volta
+      confirmado 2026-10-11.~~
+- [x] ~~Clicar "Lançar outro igual" e confirmar que o formulário volta
       preenchido com tudo igual, exceto o Valor (vazio) — e que o
       aviso "Copiado do lançamento anterior..." aparece acima do
-      formulário. — confirmado 2026-10-11.
-- [x] Preencher só o valor (e opcionalmente a data) e salvar — confirmar
-      que funciona normalmente. — confirmado 2026-10-11.
-- [x] Repetir o teste de "Lançar outro igual" numa Reserva (aplicação/
+      formulário. — confirmado 2026-10-11.~~
+- [x] ~~Preencher só o valor (e opcionalmente a data) e salvar — confirmar
+      que funciona normalmente. — confirmado 2026-10-11.~~
+- [x] ~~Repetir o teste de "Lançar outro igual" numa Reserva (aplicação/
       retirada de caixinha) e confirmar que a caixinha continua
-      selecionada. — confirmado 2026-10-11.
-- [x] Clicar "Lançar outro" (não o "igual") e confirmar que o
+      selecionada. — confirmado 2026-10-11.~~
+- [x] ~~Clicar "Lançar outro" (não o "igual") e confirmar que o
       formulário volta 100% vazio, sem nenhum aviso — comportamento
-      de antes, sem mudança. — confirmado 2026-10-11.
+      de antes, sem mudança. — confirmado 2026-10-11.~~
 
 ### Rodada 55 (2026-10-11) — Fix de layout + "Duplicar" na lista de Lançamentos (item 44)
 
@@ -4475,30 +4475,30 @@ Usuário reportou (print) que os botões da tela de sucesso da Rodada 54 ficavam
 **Status:** implementado 2026-10-11. Detalhe em `docs/backlog.md` ("Agilidade na inserção de transações").
 
 **Checklist de teste manual (usuário, localmente):**
-- [x] Na tela de sucesso, confirmar que os 3 botões ("Lançar outro
+- [x] ~~Na tela de sucesso, confirmar que os 3 botões ("Lançar outro
       igual"/"Lançar outro"/"Ver Dashboard") não ficam mais esticados
       a largura total da tela — mesma largura do formulário/recap. —
-      confirmado 2026-10-11.
-- [x] Em Lançamentos, clicar "Duplicar" numa despesa e confirmar que o
+      confirmado 2026-10-11.~~
+- [x] ~~Em Lançamentos, clicar "Duplicar" numa despesa e confirmar que o
       Novo Lançamento abre com tudo preenchido igual, exceto o Valor.
-      — confirmado 2026-10-11.
-- [x] Clicar "Duplicar" numa RECEITA (tipo diferente do padrão
+      — confirmado 2026-10-11.~~
+- [x] ~~Clicar "Duplicar" numa RECEITA (tipo diferente do padrão
       'despesa') e confirmar que o tipo também vem selecionado
       corretamente, sem precisar trocar manualmente. — confirmado
-      2026-10-11.
-- [x] Depois de usar "Duplicar", trocar o tipo manualmente (ex: de
+      2026-10-11.~~
+- [x] ~~Depois de usar "Duplicar", trocar o tipo manualmente (ex: de
       Receita pra Despesa) e confirmar que a categoria/subcategoria
       são limpas normalmente — não ficam "grudadas" da duplicação. —
       confirmado 2026-10-11. Usuário notou que a CONTA continua a
       mesma depois da troca — comportamento esperado, não é bug: conta
       nunca foi amarrada ao tipo no formulário (só reserva força a
-      conta da caixinha), então não faz parte do reset.
-- [x] Clicar "Duplicar" numa parcela de compra parcelada e confirmar
+      conta da caixinha), então não faz parte do reset.~~
+- [x] ~~Clicar "Duplicar" numa parcela de compra parcelada e confirmar
       que abre como lançamento à vista (não parcelado), com
-      conta/categoria/descrição preenchidos. — confirmado 2026-10-11.
-- [x] Clicar "Duplicar" num Estorno/Ressarcimento e confirmar que a
+      conta/categoria/descrição preenchidos. — confirmado 2026-10-11.~~
+- [x] ~~Clicar "Duplicar" num Estorno/Ressarcimento e confirmar que a
       despesa original também vem selecionada. — reportado 2026-10-11
-      como vazio, corrigido na Rodada 56, confirmado 2026-10-11.
+      como vazio, corrigido na Rodada 56, confirmado 2026-10-11.~~
 
 ### Rodada 56 (2026-10-11) — 2 bugs da Rodada 55: "Cancelar" e despesa original vazia
 
@@ -4517,9 +4517,9 @@ Dois bugs reportados testando a Rodada 55.
 **Status:** implementado 2026-10-11, sem reprodução local (ambiente sem Supabase configurado) — pede reteste do usuário. Detalhe em `docs/backlog.md` ("Agilidade na inserção de transações").
 
 **Checklist de teste manual (usuário, localmente):**
-- [x] Duplicar um lançamento a partir de Lançamentos, clicar "Cancelar"
+- [x] ~~Duplicar um lançamento a partir de Lançamentos, clicar "Cancelar"
       no formulário (sem salvar) e confirmar que volta pra Lançamentos,
-      não pro Dashboard. — confirmado 2026-10-11.
+      não pro Dashboard. — confirmado 2026-10-11.~~
 - [ ] ~~Abrir "Novo Lançamento" pela navegação normal (não duplicando),
       clicar "Cancelar" e confirmar que continua indo pro Dashboard —
       comportamento de antes, sem mudança.~~ — **achado 2026-10-11**: o
@@ -4528,9 +4528,9 @@ Dois bugs reportados testando a Rodada 55.
       Dashboard em vez de voltar pra Lançamentos. Generalizado na
       Rodada 57 (`navigate(-1)`, volta sempre pra onde estava, qualquer
       tela de origem) — ver checklist lá.
-- [x] Repetir o item 6 da Rodada 55: duplicar um Estorno/Ressarcimento
+- [x] ~~Repetir o item 6 da Rodada 55: duplicar um Estorno/Ressarcimento
       e confirmar que a despesa original agora vem preenchida também. —
-      confirmado 2026-10-11.
+      confirmado 2026-10-11.~~
 
 ### Rodada 57 (2026-10-11) — "Cancelar" generalizado + trocar despesa original na edição
 
