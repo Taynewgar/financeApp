@@ -4362,29 +4362,34 @@ Item 43 do backlog ("consulta rápida durante a inserção"): necessidade real d
 **Status:** implementado 2026-10-11. Mockups interativos (canvas de design) usados pra calibrar a decisão antes de codar — não fazem parte do repositório.
 
 **Checklist de teste manual (usuário, localmente):**
-- [ ] No Novo Lançamento, escolher uma categoria/subcategoria que já
+- [x] No Novo Lançamento, escolher uma categoria/subcategoria que já
       tenha pelo menos 2 despesas lançadas com descrições diferentes e
-      confirmar que os chips aparecem acima do campo Descrição, com as
-      descrições mais usadas.
-- [ ] Clicar num chip e confirmar que o campo Descrição é preenchido
-      com o texto exato do chip.
-- [ ] Digitar uma descrição já usada só com case/espaço diferente (ex:
+      confirmar que os chips aparecem abaixo do campo Descrição, com as
+      descrições mais usadas. — confirmado 2026-10-11 (texto original
+      dizia "acima"; os chips aparecem abaixo do campo, mesmo padrão
+      visual dos chips de Categoria/Subcategoria — confirmado como
+      esperado, não é bug).
+- [x] Clicar num chip e confirmar que o campo Descrição é preenchido
+      com o texto exato do chip. — confirmado 2026-10-11.
+- [x] Digitar uma descrição já usada só com case/espaço diferente (ex:
       "supermercado extra" minúsculo, se "Supermercado Extra" já foi
       usado) e confirmar que aparece o aviso "Você já usou... Quis
-      dizer isso?".
-- [ ] Digitar uma descrição com um erro de digitação pequeno em
+      dizer isso?". — confirmado 2026-10-11.
+- [x] Digitar uma descrição com um erro de digitação pequeno em
       relação a uma já usada (ex: faltando 1-2 letras) e confirmar que
-      o aviso também aparece.
-- [ ] Digitar uma descrição claramente diferente (ex: trocar
-      completamente o texto) e confirmar que NENHUM aviso aparece.
-- [ ] Clicar "Usar essa" no aviso e confirmar que o campo é preenchido
-      com a descrição sugerida e o aviso desaparece.
-- [ ] Clicar "Manter a minha" e confirmar que o aviso desaparece e o
+      o aviso também aparece. — confirmado 2026-10-11.
+- [x] Digitar uma descrição claramente diferente (ex: trocar
+      completamente o texto) e confirmar que NENHUM aviso aparece. —
+      confirmado 2026-10-11.
+- [x] Clicar "Usar essa" no aviso e confirmar que o campo é preenchido
+      com a descrição sugerida e o aviso desaparece. — confirmado
+      2026-10-11.
+- [x] Clicar "Manter a minha" e confirmar que o aviso desaparece e o
       texto digitado continua no campo, sem reaparecer enquanto não
-      digitar de novo.
-- [ ] Repetir o teste do chip/aviso numa compra PARCELADA (mesma
+      digitar de novo. — confirmado 2026-10-11.
+- [x] Repetir o teste do chip/aviso numa compra PARCELADA (mesma
       categoria/subcategoria de uma despesa à vista já lançada) e
-      confirmar que funciona igual.
+      confirmar que funciona igual. — confirmado 2026-10-11.
 
 ### Rodada 53 (2026-10-11) — Consulta rápida também pra Reserva/caixinha
 
@@ -4411,10 +4416,10 @@ Suíte completa: 391 passed, 33 skipped. Frontend: `tsc -b && vite build`
 ("Consulta rápida ao preencher a Descrição").
 
 **Checklist de teste manual (usuário, localmente):**
-- [ ] Lançar uma Reserva (Aplicação) numa caixinha que já tenha pelo
+- [x] Lançar uma Reserva (Aplicação) numa caixinha que já tenha pelo
       menos 2 lançamentos com descrições diferentes e confirmar que os
-      chips aparecem acima do campo Descrição.
-- [ ] Trocar o tipo de Reserva pra Despesa (ou outro) com a caixinha já
+      chips aparecem abaixo do campo Descrição. — confirmado 2026-10-11.
+- [x] Trocar o tipo de Reserva pra Despesa (ou outro) com a caixinha já
       escolhida, depois escolher uma categoria — confirmar que os
       chips mostrados são os da categoria, não os da caixinha que
-      ficou selecionada antes.
+      ficou selecionada antes. — confirmado 2026-10-11.
