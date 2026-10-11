@@ -2452,6 +2452,23 @@ build` + `oxlint` sem erro novo. `README.md` atualizado.
 
 **Status:** implementado 2026-10-11.
 
+### Criação automática de item ignorava bucket — despesa ficava sem item em Planejamento
+
+**Contexto:** usuário testando a Rodada 48 (vínculo duplicado entre buckets) reportou não conseguir testar porque "os itens não estão se repetindo entre buckets" — categoria com despesa fixa todo mês (ex: Flamengo) não ganhava item em `custos_variaveis` quando surgia uma despesa variável da mesma categoria; Estrutura de Custo mostrava o valor certo (soma direto dos lançamentos), Planejamento não mostrava nada (depende do item existir). Confirmado com teste controlado: 3 despesas mesma subcategoria, mesmo dia, `estrutura_custo` diferente (fixo/variável/sazonal) — só apareceu em Planejamento o bucket que já tinha item antes do teste.
+
+**Causa raiz:** `sincronizar_item_orcamento()` (`orcamento_sync.py`, reativo — roda a cada despesa nova) e `_popular_itens_de_transacoes_existentes()` (`orcamentos.py`, retroativo — roda ao criar orçamento) checam "já existe item pra essa categoria/subcategoria" só por categoria/subcategoria, **sem olhar o bucket** — mesma classe de bug do achado de `calcular_realizado_item` (2026-10-10), só que na criação automática do item, não no cálculo do realizado. Resultado: categoria com item em QUALQUER bucket nunca ganhava item nos outros, mesmo tendo despesa real lá.
+
+**Fix:**
+- `sincronizar_item_orcamento()`: `itens_existentes` passou a selecionar `bucket` também, e `ja_existe` passou a comparar `(bucket, vínculo)` em vez de só vínculo.
+- `_popular_itens_de_transacoes_existentes()`: mesmo ajuste — chave de `chaves_existentes`/`chaves_novas` ganhou `bucket`.
+- Esses 2 fixes só valem daqui pra frente (não retroagem em orçamento já criado com o bug). Novo endpoint `POST /orcamentos/{id}/sincronizar-itens` (idempotente — roda `_popular_itens_de_transacoes_existentes` de novo contra um orçamento já existente) cobre o retroativo. Botão "Sincronizar itens com lançamentos" em Planejamento, ao lado de "Editar configuração"/"Apagar orçamento".
+
+**Esclarecimento (item 4 do teste do usuário):** o `409` de vínculo duplicado (Rodada 48) é sobre **itens de orçamento** (editar um item em Planejamento apontando pra vínculo já usado no mesmo bucket), não sobre lançamentos — 2 despesas reais com a mesma categoria/`estrutura_custo` são normais e nunca deveriam dar erro. Checklist mal redigido, não é bug.
+
+**Testes:** 4 novos — despesa cria item próprio mesmo com a categoria já tendo item em outro bucket (reativo e retroativo), sincronizar-itens preenche o buraco que o bug antigo deixaria (simulado removendo o item direto do "banco" de teste), 404 em orçamento de outro usuário. Suíte completa: 385 passed, 33 skipped. Frontend: `tsc -b` + `vite build` + `oxlint` sem erro novo.
+
+**Status:** implementado 2026-10-11. Usuário ainda precisa clicar "Sincronizar itens com lançamentos" nos meses já afetados (os que já tinham despesa real de categoria com item em outro bucket) pra ver os itens que faltam.
+
 ### Janela de meses pra trás × ano civil nos gráficos
 
 **Contexto:** modo "Mês" em `/graficos` sempre mostrou uma janela

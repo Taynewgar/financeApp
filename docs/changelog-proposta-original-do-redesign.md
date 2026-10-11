@@ -4252,14 +4252,22 @@ Os 2 itens duplicados reais da conta do usuário foram apagados por ele via "Apa
 - [ ] Editar só o valor orçado de um item cuja categoria também existe
       em OUTRO bucket (ex: um item de "Espiritualidade" em
       `custos_fixos` e outro em `sazonalidades`) e confirmar que salva
-      normalmente, sem 409.
+      normalmente, sem 409. — **bloqueado por outro bug** até a Rodada
+      51 (itens não nasciam sozinhos em bucket diferente); testar de
+      novo agora.
 - [ ] Criar (via lançamento real, não manual) ou confirmar que 2 itens
-      da mesma categoria em buckets diferentes convivem sem erro.
+      da mesma categoria em buckets diferentes convivem sem erro. —
+      mesmo bloqueio da Rodada 51, testar de novo.
 - [ ] Lançar uma despesa `estrutura_custo="fixo"` numa categoria que
       também tem item `sazonalidades`, e confirmar que o realizado
-      aparece só no item `custos_fixos`, não nos dois.
+      aparece só no item `custos_fixos`, não nos dois. — mesmo
+      bloqueio da Rodada 51, testar de novo.
 - [ ] Tentar criar/editar 2 itens com a mesma categoria no MESMO
-      bucket e confirmar que ainda dá 409 (essa regra não mudou).
+      bucket e confirmar que ainda dá 409 (essa regra não mudou). —
+      **item mal redigido**: usuário testou lançando 2 TRANSAÇÕES (não
+      itens de orçamento) com a mesma categoria, que normalmente nunca
+      dá 409 — o `409` é só pra itens de Planejamento. Não é bug, ver
+      Rodada 51.
 
 ### Rodada 49 (2026-10-11) — Teto de bucket deixa de bloquear a gravação, vira aviso visual
 
@@ -4302,3 +4310,28 @@ Pedida avaliação de ter removido o bloqueio por completo (Rodada 49). Ressalva
       do estouro, e que confirmar reativa mesmo assim.
 - [ ] Editar/criar um item SEM estourar o teto e confirmar que salva
       direto, sem pedir confirmação nenhuma.
+
+### Rodada 51 (2026-10-11) — Criação automática de item ignorava bucket
+
+Reportado testando a Rodada 48: categoria com despesa fixa todo mês não ganhava item em `custos_variaveis` quando surgia despesa variável da mesma categoria — Estrutura de Custo mostrava certo (soma direto dos lançamentos), Planejamento não mostrava nada. Confirmado com teste controlado (3 despesas mesma subcategoria, mesmo dia, `estrutura_custo` diferente — só apareceu o bucket que já tinha item antes do teste).
+
+**Causa raiz:** `sincronizar_item_orcamento()` e `_popular_itens_de_transacoes_existentes()` checavam "já existe item pra essa categoria" sem olhar o bucket — mesma classe do achado de `calcular_realizado_item` (2026-10-10), agora na criação automática do item.
+
+**Fix:** as duas funções passaram a comparar `(bucket, vínculo)`. Como isso só vale daqui pra frente, novo `POST /orcamentos/{id}/sincronizar-itens` (idempotente) + botão "Sincronizar itens com lançamentos" em Planejamento cobrem o retroativo nos meses já afetados.
+
+**Esclarecimento:** o `409` de vínculo duplicado (Rodada 48, item 4 do teste) é sobre itens de Planejamento, não sobre lançamentos — 2 despesas reais com a mesma categoria são normais. Checklist mal redigido, não bug.
+
+**Testes:** 4 novos. Suíte completa: 385 passed, 33 skipped. Frontend sem erro novo.
+
+**Status:** implementado 2026-10-11. Detalhe completo em `docs/backlog.md` ("Criação automática de item ignorava bucket — despesa ficava sem item em Planejamento").
+
+**Checklist de teste manual (usuário, localmente):**
+- [ ] Nos meses já afetados (categoria com despesa real em bucket sem
+      item), clicar "Sincronizar itens com lançamentos" em Planejamento
+      e confirmar que os itens que faltavam aparecem.
+- [ ] Lançar uma despesa nova numa categoria que já tem item em outro
+      bucket (ex: Flamengo variável, já tendo Flamengo fixo) e
+      confirmar que o item do bucket novo aparece sozinho em
+      Planejamento, sem precisar sincronizar manualmente.
+- [ ] Repetir os itens 1-3 da Rodada 48 (agora que os itens existem de
+      verdade nos dois buckets).

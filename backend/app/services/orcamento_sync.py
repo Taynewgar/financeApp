@@ -68,16 +68,26 @@ def sincronizar_item_orcamento(db: Client, user_id: str, transacao: dict) -> Non
 
     itens_existentes = (
         db.table("orcamento_itens")
-        .select("categoria_id,subcategoria_id")
+        .select("bucket,categoria_id,subcategoria_id")
         .eq("orcamento_id", orcamento_id)
         .execute()
         .data
     )
+    # achado 2026-10-11: "já existe" tem que considerar o bucket — mesma
+    # categoria/subcategoria pode legitimamente estar em 2 buckets (ex:
+    # "Flamengo" fixo todo mês + variável ocasional). Sem checar bucket, um
+    # item ativo de OUTRO bucket fazia essa função achar que "já existe" e
+    # nunca criar o item do bucket certo — a despesa ficava sem item
+    # nenhum em Planejamento (Estrutura de Custo não depende de item, por
+    # isso só lá aparecia certo).
     if subcategoria_id:
-        ja_existe = any(i.get("subcategoria_id") == subcategoria_id for i in itens_existentes)
+        ja_existe = any(
+            i.get("bucket") == bucket and i.get("subcategoria_id") == subcategoria_id for i in itens_existentes
+        )
     else:
         ja_existe = any(
-            i.get("categoria_id") == categoria_id and not i.get("subcategoria_id") for i in itens_existentes
+            i.get("bucket") == bucket and i.get("categoria_id") == categoria_id and not i.get("subcategoria_id")
+            for i in itens_existentes
         )
     if ja_existe:
         return

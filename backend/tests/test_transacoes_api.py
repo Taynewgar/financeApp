@@ -1371,6 +1371,48 @@ def test_despesa_cria_item_de_orcamento_automaticamente_para_categoria_nova(clie
     assert itens[0]["orcamento_mensal"] == 0  # só o valor-alvo é manual; o item em si aparece sozinho
 
 
+def test_despesa_cria_item_proprio_mesmo_com_categoria_ja_tendo_item_em_outro_bucket(client):
+    """Achado 2026-10-11: "já existe item pra essa categoria" checava só
+    categoria/subcategoria, sem olhar o bucket — categoria com item em
+    custos_fixos (ex: Flamengo, mensalidade todo mês) fazia uma despesa
+    variável da MESMA categoria (ex: Flamengo, compra avulsa) nunca ganhar
+    item próprio em custos_variaveis, ficando invisível em Planejamento
+    mesmo com o lançamento real existindo (Estrutura de Custo, que soma
+    direto do lançamento sem depender de item, mostrava certo)."""
+    orcamento = _criar_orcamento_do_mes(client)
+    conta = _criar_conta_corrente(client)
+    categoria = client.post("/categorias", json={"nome": "Flamengo"}).json()
+
+    client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-09-05",
+            "valor": 50,
+            "tipo_movimento": "despesa",
+            "conta_id": conta["id"],
+            "categoria_id": categoria["id"],
+            "estrutura_custo": "fixo",
+            "meio_pagamento": "pix",
+        },
+    )
+    client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-09-10",
+            "valor": 200,
+            "tipo_movimento": "despesa",
+            "conta_id": conta["id"],
+            "categoria_id": categoria["id"],
+            "estrutura_custo": "variavel",
+            "meio_pagamento": "pix",
+        },
+    )
+
+    itens = client.get(f"/orcamentos/{orcamento['id']}/itens").json()
+    buckets = {i["bucket"] for i in itens if i["categoria_id"] == categoria["id"]}
+    assert buckets == {"custos_fixos", "custos_variaveis"}
+
+
 def test_despesa_com_subcategoria_cria_item_vinculado_a_subcategoria_nao_a_categoria(client):
     orcamento = _criar_orcamento_do_mes(client)
     conta = _criar_conta_corrente(client)

@@ -321,6 +321,21 @@ export function Planejamento() {
     }
   }
 
+  async function sincronizarItens() {
+    if (!orcamentoAtual) return
+    setSalvando(true)
+    setErro(null)
+    try {
+      await apiFetch(`/orcamentos/${orcamentoAtual.id}/sincronizar-itens`, { method: 'POST' })
+      const itensAtualizados = await apiFetch<OrcamentoItem[]>(`/orcamentos/${orcamentoAtual.id}/itens`)
+      setItens(itensAtualizados)
+    } catch (e) {
+      setErro(e instanceof ApiError ? (typeof e.detail === 'string' ? e.detail : e.message) : 'Falha ao sincronizar itens')
+    } finally {
+      setSalvando(false)
+    }
+  }
+
   async function apagarOrcamento() {
     if (!orcamentoAtual) return
     if (!window.confirm(`Apagar o orçamento de ${vigenciaMes} e todos os seus itens? Essa ação não pode ser desfeita.`)) {
@@ -684,6 +699,15 @@ export function Planejamento() {
             <div style={{ display: 'flex', gap: 8 }}>
               <button type="button" className="botao-secundario" onClick={iniciarEdicaoConfig}>
                 Editar configuração
+              </button>
+              <button
+                type="button"
+                className="botao-secundario"
+                onClick={sincronizarItens}
+                disabled={salvando}
+                title="Cria os itens que faltam a partir dos lançamentos já feitos neste mês"
+              >
+                Sincronizar itens com lançamentos
               </button>
               <button type="button" className="botao-secundario" onClick={apagarOrcamento} disabled={salvando}>
                 Apagar orçamento

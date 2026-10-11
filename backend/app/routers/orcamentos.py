@@ -134,21 +134,28 @@ def _popular_itens_de_transacoes_existentes(db: Client, user_id: str, orcamento:
         return
 
     itens_existentes = (
-        db.table(ITENS_TABLE).select("categoria_id,subcategoria_id").eq("orcamento_id", orcamento["id"]).execute().data
+        db.table(ITENS_TABLE)
+        .select("bucket,categoria_id,subcategoria_id")
+        .eq("orcamento_id", orcamento["id"])
+        .execute()
+        .data
     )
+    # achado 2026-10-11 (mesmo bug de sincronizar_item_orcamento): a chave
+    # de "já existe" precisa incluir o bucket, senão um item de outro
+    # bucket com a mesma categoria/subcategoria impedia criar o item certo
     chaves_existentes = {
-        (i["subcategoria_id"], None) if i.get("subcategoria_id") else (None, i.get("categoria_id"))
+        (i["bucket"], i["subcategoria_id"], None) if i.get("subcategoria_id") else (i["bucket"], None, i.get("categoria_id"))
         for i in itens_existentes
     }
 
-    chaves_novas: set[tuple[str | None, str | None]] = set()
+    chaves_novas: set[tuple[str, str | None, str | None]] = set()
     novos_itens = []
     for transacao in transacoes:
         classificacao = classificar_transacao_para_orcamento(transacao)
         if classificacao is None:
             continue
         bucket, subcategoria_id, categoria_id = classificacao
-        chave = (subcategoria_id, None) if subcategoria_id else (None, categoria_id)
+        chave = (bucket, subcategoria_id, None) if subcategoria_id else (bucket, None, categoria_id)
         if chave in chaves_existentes or chave in chaves_novas:
             continue
         chaves_novas.add(chave)
@@ -314,6 +321,24 @@ def atualizar(
         return crud.update(db, TABLE, user_id, orcamento_id, payload.model_dump(exclude_unset=True))
     except crud.NotFound:
         raise HTTPException(status_code=404, detail="Orçamento não encontrado")
+
+
+@router.post("/{orcamento_id}/sincronizar-itens", response_model=Orcamento)
+def sincronizar_itens(orcamento_id: str, db: Client = Depends(get_db), user_id: str = Depends(get_current_user_id)):
+    """Recalcula os itens de um orçamento JÁ EXISTENTE a partir dos
+    lançamentos reais do mês — mesma lógica que roda automático ao criar
+    o orçamento (`_popular_itens_de_transacoes_existentes`), exposta aqui
+    pra rodar de novo em orçamentos antigos. Preenche retroativo (idempotente
+    — só cria o que falta) o buraco deixado pelo bug achado 2026-10-11:
+    `sincronizar_item_orcamento`/`_popular_itens_de_transacoes_existentes`
+    não olhavam o bucket ao checar "já existe item" — uma despesa de bucket
+    diferente de um vínculo que já tinha item em OUTRO bucket nunca ganhava
+    item próprio. Corrigido na origem (ambas as funções agora comparam por
+    bucket também), mas não retroage sozinho nos meses já criados antes do
+    fix — esta ação cobre esse retroativo."""
+    orcamento = _get_orcamento_ou_404(db, user_id, orcamento_id)
+    _popular_itens_de_transacoes_existentes(db, user_id, orcamento)
+    return orcamento
 
 
 @router.get("/{orcamento_id}/itens", response_model=list[OrcamentoItem])

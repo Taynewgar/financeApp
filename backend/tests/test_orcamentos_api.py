@@ -61,6 +61,88 @@ def test_criar_orcamento_alimenta_itens_das_categorias_ja_lancadas_no_mes(client
     assert itens[0]["orcamento_mensal"] == 0
 
 
+def test_criar_orcamento_alimenta_item_proprio_por_bucket_mesma_categoria(client):
+    """Mesmo achado 2026-10-11 de
+    test_despesa_cria_item_proprio_mesmo_com_categoria_ja_tendo_item_em_outro_bucket,
+    só que no caminho retroativo (transação já existia antes do orçamento
+    ser criado) — _popular_itens_de_transacoes_existentes tinha o mesmo
+    bug de ignorar o bucket na checagem de "já existe"."""
+    conta = client.post("/contas", json={"nome": "Conta", "tipo_conta": "corrente"}).json()
+    categoria = client.post("/categorias", json={"nome": "Flamengo"}).json()
+    client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-09-05", "valor": 50, "tipo_movimento": "despesa",
+            "conta_id": conta["id"], "categoria_id": categoria["id"],
+            "estrutura_custo": "fixo", "meio_pagamento": "pix",
+        },
+    )
+    client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-09-10", "valor": 200, "tipo_movimento": "despesa",
+            "conta_id": conta["id"], "categoria_id": categoria["id"],
+            "estrutura_custo": "variavel", "meio_pagamento": "pix",
+        },
+    )
+
+    orcamento = _criar_orcamento(client)
+    itens = client.get(f"/orcamentos/{orcamento['id']}/itens").json()
+    buckets = {i["bucket"] for i in itens if i["categoria_id"] == categoria["id"]}
+    assert buckets == {"custos_fixos", "custos_variaveis"}
+
+
+def test_sincronizar_itens_preenche_retroativo_item_que_o_bug_antigo_deixou_faltando(client, db_store):
+    """O fix de bucket (acima) só vale pra orçamento criado/sincronizado
+    DEPOIS dele — orçamento que já existia com o bug continua sem o item
+    que deveria ter nascido sozinho. POST /orcamentos/{id}/sincronizar-itens
+    roda a mesma checagem de novo, idempotente — só cria o que ainda
+    falta. Simula o buraco que o bug antigo deixaria removendo o item
+    direto do "banco" (não pelo toggle ativo=false — item inativo também
+    conta como "já existe" pra _popular_itens_de_transacoes_existentes,
+    não reproduziria o cenário certo)."""
+    conta = client.post("/contas", json={"nome": "Conta", "tipo_conta": "corrente"}).json()
+    categoria = client.post("/categorias", json={"nome": "Flamengo"}).json()
+    orcamento = _criar_orcamento(client)
+    client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-09-05", "valor": 50, "tipo_movimento": "despesa",
+            "conta_id": conta["id"], "categoria_id": categoria["id"],
+            "estrutura_custo": "fixo", "meio_pagamento": "pix",
+        },
+    )
+    client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-09-10", "valor": 200, "tipo_movimento": "despesa",
+            "conta_id": conta["id"], "categoria_id": categoria["id"],
+            "estrutura_custo": "variavel", "meio_pagamento": "pix",
+        },
+    )
+    itens_antes = client.get(f"/orcamentos/{orcamento['id']}/itens").json()
+    item_variavel = next(i for i in itens_antes if i["bucket"] == "custos_variaveis")
+    db_store["orcamento_itens"][:] = [i for i in db_store["orcamento_itens"] if i["id"] != item_variavel["id"]]
+
+    resposta = client.post(f"/orcamentos/{orcamento['id']}/sincronizar-itens")
+    assert resposta.status_code == 200
+
+    itens_depois = client.get(f"/orcamentos/{orcamento['id']}/itens").json()
+    item_variavel_novo = [
+        i for i in itens_depois if i["bucket"] == "custos_variaveis" and i["categoria_id"] == categoria["id"]
+    ]
+    assert len(item_variavel_novo) == 1
+    assert item_variavel_novo[0]["ativo"] is True
+
+
+def test_sincronizar_itens_em_orcamento_de_outro_usuario_retorna_404(client, current_user):
+    orcamento = _criar_orcamento(client)
+
+    current_user["id"] = OUTRO_USUARIO
+    resposta = client.post(f"/orcamentos/{orcamento['id']}/sincronizar-itens")
+    assert resposta.status_code == 404
+
+
 def test_criar_orcamento_nao_duplica_item_de_transacao_de_outro_mes(client):
     conta = client.post("/contas", json={"nome": "Conta", "tipo_conta": "corrente"}).json()
     categoria = client.post("/categorias", json={"nome": "Moradia"}).json()
