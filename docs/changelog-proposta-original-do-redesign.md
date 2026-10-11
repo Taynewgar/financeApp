@@ -3382,11 +3382,18 @@ lançamentos. Itens 1-3 ainda sem confirmação.
 - [ ] Recarregar o Dashboard e conferir que todas as caixinhas em
       Caixinhas/Patrimônio batem com a coluna "Guardado" da planilha
       (não a "Real", que inclui rendimento de banco — divergência
-      esperada).
-- [ ] Conferir Dashboard no modo "Todos os meses" e no modo Intervalo —
-      totais de receita/despesa e o gráfico de Evolução.
-- [ ] Conferir Estrutura de Custo e Planejamento — saldo/realizado de
-      pelo menos um bucket num mês qualquer.
+      esperada). — pendente, usuário precisa atualizar os lançamentos
+      antes de testar.
+- [x] ~~Conferir Dashboard no modo "Todos os meses" e no modo Intervalo —
+      totais de receita/despesa e o gráfico de Evolução. — confirmado
+      2026-10-11, via `/financeapp-ref` + screenshots do gráfico
+      Evolução Mensal (jan-mai/26, dentro da janela jan-jul já validada
+      contra o CSV).~~
+- [x] ~~Conferir Estrutura de Custo e Planejamento — saldo/realizado de
+      pelo menos um bucket num mês qualquer. — confirmado 2026-10-11,
+      via `referencia_saldo_anterior.py` contra a conta real (625
+      itens, 0 divergências pós-fix do cache — mesmas funções usadas
+      por Estrutura de Custo).~~
 - [x] ~~Em Lançamentos, limpar todos os filtros e confirmar que a lista/
       resumo mostram o total real de transações (não truncado em
       1000). — confirmado 2026-10-01, 1.956 lançamentos na conta.~~
@@ -3541,14 +3548,17 @@ Planejamento — precisaria ser estendida antes de servir pra isso.**
 - [ ] Recarregar Caixinhas/Patrimônio e confirmar que os saldos
       continuam batendo com a coluna "Guardado" da planilha (mesmo
       resultado da Rodada 35, agora vindo do RPC). — pendente, usuário
-      precisa lançar/atualizar dados pra verificar.
-- [ ] Dashboard no modo "Todos os meses" e Intervalo — confirmar que os
+      precisa atualizar os lançamentos antes de testar.
+- [x] ~~Dashboard no modo "Todos os meses" e Intervalo — confirmar que os
       totais de receita/despesa/resultado continuam os mesmos de antes.
-      — pendente; usuário não lembra os valores antigos pra comparar,
-      plano é usar `/financeapp-ref` futuramente (ver nota acima).
-- [ ] Estrutura de Custo e Planejamento — confirmar saldo/realizado de
+      — confirmado 2026-10-11, via `/financeapp-ref` + screenshots do
+      gráfico Evolução Mensal (jan-mai/26, dentro da janela jan-jul já
+      validada contra o CSV).~~
+- [x] ~~Estrutura de Custo e Planejamento — confirmar saldo/realizado de
       um bucket com histórico de vários meses (a cadeia de
-      `saldo_anterior`). — pendente, mesmo motivo do item acima.
+      `saldo_anterior`). — confirmado 2026-10-11, via
+      `referencia_saldo_anterior.py` contra a conta real (625 itens, 0
+      divergências pós-fix do cache).~~
 
 ### Rodada 38 (2026-09-29) — Fix: Planejamento travando ao gerar orçamento + form fora de vista
 
@@ -4197,21 +4207,31 @@ Junto (item 56 do backlog, mesma rodada): `DELETE /orcamentos/{id}` — apaga o 
 **Status:** implementado 2026-10-10. Os 2 itens duplicados já existentes na conta real do usuário não foram tocados (a validação impede um caso novo, não limpa os existentes — desativação é ação manual do usuário). Sem QA visual via Playwright — mesma limitação de sempre.
 
 **Checklist de teste manual (usuário, localmente):**
-- [ ] Em Planejamento, confirmar que o botão "+ Novo item" não aparece
+- [x] ~~Em Planejamento, confirmar que o botão "+ Novo item" não aparece
       mais em nenhum bucket — só "Editar"/"Desativar" nos itens
-      existentes.
-- [ ] Editar um item existente (ex: mudar o valor mensal) e confirmar
-      que salva normalmente.
+      existentes. — confirmado 2026-10-11.~~
+- [x] ~~Editar um item existente (ex: mudar o valor mensal) e confirmar
+      que salva normalmente. — confirmado 2026-10-11. Usuário notou que
+      o campo "Nome livre" não faz sentido mais na edição de um item
+      vinculado — ver fix de acompanhamento nesta mesma rodada.~~
 - [ ] Editar um item pra apontar pra uma categoria/subcategoria já
       usada por OUTRO item ativo (de qualquer bucket) e confirmar que
-      dá erro (409) em vez de salvar.
-- [ ] No mês atual, clicar "Apagar orçamento", confirmar o diálogo, e
+      dá erro (409) em vez de salvar. — **Checklist errado**: reportado
+      2026-10-11 que a regra de negócio está errada — categoria PODE se
+      repetir entre buckets (ex: "Espiritualidade" fixo + sazonal,
+      "Flamengo" fixo + variável). O bloqueio deveria valer só dentro do
+      MESMO bucket. Correção em andamento (ver abaixo).
+- [x] ~~No mês atual, clicar "Apagar orçamento", confirmar o diálogo, e
       verificar que a tela volta para "Nenhum orçamento configurado
       para este mês" — com as opções de criar do zero ou a partir do
-      mês anterior.
-- [ ] Desativar manualmente os 2 itens duplicados reais (Livros
+      mês anterior. — confirmado 2026-10-11.~~
+- [x] ~~Desativar manualmente os 2 itens duplicados reais (Livros
       Técnicos em `custos_fixos`, junho; Outros Cartões de Crédito em
       `custos_fixos`, outubro) e, depois, rodar
       `scripts/referencia_saldo_anterior.py` de novo — confirmar que a
       seção "vínculo(s) em mais de 1 bucket" não aponta mais esses 2
-      casos.
+      casos. — confirmado 2026-10-11, porém via "Apagar orçamento"
+      (não desativação pontual) — apagou o orçamento inteiro de
+      junho/outubro, não só os 2 itens; usuário avisado do efeito
+      colateral (os outros itens desses meses também somem, precisam
+      ser recriados se ainda não foram).~~

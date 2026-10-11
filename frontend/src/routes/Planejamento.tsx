@@ -818,15 +818,17 @@ export function Planejamento() {
                               )}
                             </div>
                             <div className="campo-linha">
-                              <label className="campo">
-                                Nome livre
-                                <input
-                                  type="text"
-                                  placeholder="usado se não tiver categoria"
-                                  value={formItem.nome}
-                                  onChange={(e) => setFormItem({ ...formItem, nome: e.target.value })}
-                                />
-                              </label>
+                              {!formItem.categoria_id && !formItem.subcategoria_id && (
+                                <label className="campo">
+                                  Nome livre
+                                  <input
+                                    type="text"
+                                    placeholder="usado se não tiver categoria"
+                                    value={formItem.nome}
+                                    onChange={(e) => setFormItem({ ...formItem, nome: e.target.value })}
+                                  />
+                                </label>
+                              )}
                               {b.valor === 'investimentos' && (
                                 <label className="campo">
                                   Conta vinculada

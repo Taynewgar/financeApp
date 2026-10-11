@@ -1,10 +1,14 @@
 import { useState } from 'react'
 import './evolucaoChart.css'
+import { InfoIcon } from './InfoIcon'
 import { escalaY } from '../lib/escala'
 import { formatarMoeda } from '../lib/formatar'
 import { media, type BaseMedia } from '../lib/periodo'
 import { usePrivacidade } from '../lib/PrivacyContext'
 import type { PontoEvolucaoMensal } from '../lib/types'
+
+const EXPLICACAO_RESULTADO =
+  'Receitas e Despesas aqui são os totais brutos do mês. Resultado não é Receitas − Despesas direto: é o mesmo cálculo da "Leitura de Saúde" do Dashboard, que desconta estorno/ressarcimento vinculado a uma transação e aportes/resgates de caixinha — por isso pode não bater com a conta simples.'
 
 const LARGURA = 600
 const ALTURA = 220
@@ -70,6 +74,7 @@ export function EvolucaoChart({ meses, baseMedia = 'ate_mes' }: { meses: PontoEv
           </span>
           <span className="evolucao-legenda-item">
             <span className="evolucao-legenda-linha serie-resultado" /> Resultado
+            <InfoIcon texto={EXPLICACAO_RESULTADO} />
           </span>
           <span className="evolucao-legenda-item">
             <span className="evolucao-legenda-linha-tracejada serie-receitas" /> Média receitas (
