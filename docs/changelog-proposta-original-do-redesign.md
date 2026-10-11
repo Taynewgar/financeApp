@@ -4860,14 +4860,85 @@ novo; `oxlint` — sem warning novo (diff completo antes/depois).
 **Status:** implementado 2026-10-11.
 
 **Checklist de teste manual (usuário, localmente):**
-- [ ] Em Lançamentos, confirmar que aparece uma legenda com as 4 cores
-      acima da lista principal, explicando o que cada uma significa.
-- [ ] Expandir "últimos lançamentos" de uma conta e confirmar que cada
+- [x] ~~Em Lançamentos, confirmar que aparece uma legenda com as 4 cores
+      acima da lista principal, explicando o que cada uma significa. —
+      **achado 2026-10-11**: legenda correta, mas o usuário pediu pra
+      ficar sempre visível (não só acima da lista, que rola pra fora de
+      vista). Movida pra dentro do `cabecalho-fixo` (sticky) na Rodada
+      63.~~
+- [x] ~~Expandir "últimos lançamentos" de uma conta e confirmar que cada
       linha mostra "dd/mm — descrição" primeiro, com o valor ao lado (não
-      mais espalhado em 3 colunas).
-- [ ] Nessa mesma lista, confirmar que um lançamento parcelado mostra
-      "· parcela N/T" depois da descrição.
-- [ ] Com Mês/Ano selecionados nos filtros, clicar "Ver tudo em
+      mais espalhado em 3 colunas). — confirmado 2026-10-11.~~
+- [x] ~~Nessa mesma lista, confirmar que um lançamento parcelado mostra
+      "· parcela N/T" depois da descrição. — confirmado 2026-10-11.~~
+- [x] ~~Com Mês/Ano selecionados nos filtros, clicar "Ver tudo em
       Lançamentos, filtrado por..." num chip de conta e confirmar que os
       selects de Mês/Ano voltam pro estado vazio/padrão, não só o filtro
-      de conta.
+      de conta. — **achado 2026-10-11**: Mês voltou, Ano não (ficava com
+      a seleção anterior). Corrigido na Rodada 63.~~
+
+### Rodada 63 (2026-10-11) — 4 ajustes: legenda fixa, card espremido, reset de Ano, limite 10
+
+4 achados testando a Rodada 62, mais um pedido de aumento de limite.
+
+**Achado 1 — legenda devia ficar sempre visível:** vivia só acima da
+lista principal, sumia da tela ao rolar.
+
+**Fix 1:** legenda movida pra dentro de `.cabecalho-fixo` (já `position:
+sticky`, mesmo bloco onde moram os filtros), como último item, com uma
+borda separando do painel de filtros. Fica visível o tempo todo em
+Lançamentos, igual ao painel de filtros no desktop (no mobile, fica
+visível mesmo com o painel de filtros recolhido — é irmã dele, não filha).
+
+**Achado 2 — valor do card de "últimos por conta" espremido na borda
+direita:** `.ultimo-conta-info` (bloco data+descrição) não tinha
+`flex-grow`, então só ocupava a largura do próprio texto — o
+`justify-content: space-between` da linha empurrava o valor pra ponta
+direita do card, deixando um vão vazio no meio.
+
+**Fix 2:** `.ultimo-conta-info` ganhou `flex: 1 1 auto` (ocupa o espaço
+disponível, trunca com reticências se precisar) e a linha perdeu o
+`justify-content: space-between` — o valor passa a ficar logo depois do
+texto, só com o `gap` entre eles.
+
+**Achado 3 — "Ver tudo" só resetava o Mês, não o Ano:** `mesRapido` e
+`anoRapido` são 2 estados separados do objeto `filtros`; o fix da Rodada
+62 só zerava `mesRapido`. O Ano continuava mostrando a seleção anterior
+na tela (sem efeito prático — só tem efeito combinado com um mês — mas
+visualmente parecia filtro ainda ativo).
+
+**Fix 3:** tanto "Ver tudo" quanto "Limpar filtros" (mesmo problema,
+mesma causa) agora também chamam `setAnoRapido(String(new
+Date().getFullYear()))`, voltando o seletor de Ano pro ano atual.
+
+**Pedido — aumentar limite de 5 pra 10:** "pra não ter erro" — folga
+maior antes de a lista de últimos lançamentos de uma conta ficar sem
+mostrar algo relevante.
+
+**Fix 4:** `limite=10` na chamada do frontend
+(`/transacoes/ultimos-por-conta?limite=10`) e no default do parâmetro no
+backend (`backend/app/routers/transacoes.py`), mantendo os dois em sync.
+
+**Testes:** mudança de frontend puro + 1 linha de default no backend.
+`tsc -b && vite build` — sem erro novo; `oxlint` — sem warning novo
+(diff completo antes/depois). Suíte do backend: 394 passed, 33 skipped
+(o teste de `ultimos-por-conta` já passava `limite` explícito, sem
+depender do default).
+
+**Status:** implementado 2026-10-11.
+
+**Checklist de teste manual (usuário, localmente):**
+- [ ] Em Lançamentos, rolar a lista principal pra baixo e confirmar que
+      a legenda de cores continua visível (dentro do bloco fixo do
+      topo), não some ao rolar.
+- [ ] Expandir "últimos lançamentos" de uma conta e confirmar que o
+      valor fica logo depois da descrição/data, sem vão vazio nem
+      encostado na borda direita do card.
+- [ ] Selecionar um Mês e um Ano nos filtros, depois clicar "Ver tudo em
+      Lançamentos, filtrado por..." num chip de conta — confirmar que
+      AMBOS os selects (Mês e Ano) voltam pro estado padrão.
+- [ ] Repetir o teste anterior com o botão "Limpar filtros" (não só o
+      "Ver tudo") — confirmar que também reseta Mês e Ano.
+- [ ] Expandir "últimos lançamentos" de uma conta com mais de 5
+      lançamentos raiz recentes e confirmar que agora mostra até 10, não
+      mais só 5.

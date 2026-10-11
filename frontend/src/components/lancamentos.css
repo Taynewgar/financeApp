@@ -117,13 +117,18 @@
  * valor na ponta), ficava ruim de ler. */
 .ultimo-conta-linha {
   display: flex;
-  justify-content: space-between;
   align-items: baseline;
   gap: 10px;
   font-size: 12px;
 }
 
+/* flex:1 pra ocupar o espaço disponível (truncando com reticências) —
+ * achado testando a Rodada 62: sem isso, o bloco data+descrição só
+ * ocupava a largura do próprio texto e o `justify-content: space-between`
+ * da linha empurrava o valor pra ponta direita do card, deixando um vão
+ * vazio no meio e "espremendo" o valor na borda. */
 .ultimo-conta-info {
+  flex: 1 1 auto;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -145,14 +150,18 @@
   flex-shrink: 0;
 }
 
-/* legenda de cores acima da lista de lançamentos — achado testando a
- * Rodada 61: as cores (item 55 do backlog) apareciam certas, mas sem
- * explicação de qual é qual. */
+/* legenda de cores — achado testando a Rodada 61 (cores do item 55
+ * apareciam certas, mas sem explicação de qual é qual) + achado testando
+ * a Rodada 62 (usuário pediu que ficasse sempre visível, não só acima da
+ * lista) — por isso mora dentro de `.cabecalho-fixo` (sticky), como
+ * último bloco, depois dos filtros. */
 .legenda-cores-transacao {
   display: flex;
   flex-wrap: wrap;
   gap: 8px 16px;
-  margin-bottom: 10px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--cor-borda);
   font-size: 11px;
   color: var(--cor-texto-suave);
 }

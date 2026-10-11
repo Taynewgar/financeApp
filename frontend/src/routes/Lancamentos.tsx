@@ -76,7 +76,7 @@ export function Lancamentos() {
       apiFetch<Categoria[]>('/categorias'),
       apiFetch<Subcategoria[]>('/subcategorias'),
       apiFetch<Caixinha[]>('/caixinhas'),
-      apiFetch<Record<string, Transacao[]>>('/transacoes/ultimos-por-conta?limite=5'),
+      apiFetch<Record<string, Transacao[]>>('/transacoes/ultimos-por-conta?limite=10'),
     ])
       .then(([c, cat, sub, cx, ultimos]) => {
         setContas(c)
@@ -315,6 +315,7 @@ export function Lancamentos() {
                 style={{ alignSelf: 'flex-start', padding: '4px 0' }}
                 onClick={() => {
                   setMesRapido('')
+                  setAnoRapido(String(new Date().getFullYear()))
                   setFiltros({ ...FILTROS_VAZIOS, contaId: contaExpandidaId })
                 }}
               >
@@ -541,12 +542,21 @@ export function Lancamentos() {
             className="botao-secundario"
             onClick={() => {
               setMesRapido('')
+              setAnoRapido(String(new Date().getFullYear()))
               setFiltros(FILTROS_VAZIOS)
             }}
           >
             Limpar filtros
           </button>
         </div>
+        </div>
+
+        <div className="legenda-cores-transacao">
+          <span className="legenda-item"><span className="legenda-swatch" style={{ background: '#146c2e' }} />Receita / estorno / ressarcimento</span>
+          <span className="legenda-item"><span className="legenda-swatch" style={{ background: '#b3261e' }} />Despesa</span>
+          <span className="legenda-item"><span className="legenda-swatch" style={{ background: '#2563eb' }} />Investimento</span>
+          <span className="legenda-item"><span className="legenda-swatch" style={{ background: '#7c3aed' }} />Reserva (caixinha)</span>
+          <span className="legenda-item">Pílula cheia = aplicação · contorno = retirada</span>
         </div>
       </div>
 
@@ -555,14 +565,6 @@ export function Lancamentos() {
       {transacoes === null && <p>Carregando…</p>}
       {transacoes?.length === 0 && <p>Nenhum lançamento encontrado com esses filtros.</p>}
       {transacoes && transacoes.length > 0 && (
-        <>
-        <div className="legenda-cores-transacao">
-          <span className="legenda-item"><span className="legenda-swatch" style={{ background: '#146c2e' }} />Receita / estorno / ressarcimento</span>
-          <span className="legenda-item"><span className="legenda-swatch" style={{ background: '#b3261e' }} />Despesa</span>
-          <span className="legenda-item"><span className="legenda-swatch" style={{ background: '#2563eb' }} />Investimento</span>
-          <span className="legenda-item"><span className="legenda-swatch" style={{ background: '#7c3aed' }} />Reserva (caixinha)</span>
-          <span className="legenda-item">Pílula cheia = aplicação · contorno = retirada</span>
-        </div>
         <ul className="lista-crud">
           {transacoes.map((t) => {
             const conta = contasPorId.get(t.conta_id)
@@ -638,7 +640,6 @@ export function Lancamentos() {
             )
           })}
         </ul>
-        </>
       )}
         </>
       )}

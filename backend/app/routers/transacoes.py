@@ -300,7 +300,7 @@ def descricoes_mais_usadas(
 # precisa vir antes de GET /{transacao_id} — mesmo motivo de /resumo acima
 @router.get("/ultimos-por-conta", response_model=dict[str, list[Transacao]])
 def ultimos_por_conta(
-    limite: int = 5,
+    limite: int = 10,
     db: Client = Depends(get_db),
     user_id: str = Depends(get_current_user_id),
 ):
