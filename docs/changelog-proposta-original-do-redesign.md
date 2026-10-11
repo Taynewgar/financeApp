@@ -4520,14 +4520,14 @@ Dois bugs reportados testando a Rodada 55.
 - [x] ~~Duplicar um lançamento a partir de Lançamentos, clicar "Cancelar"
       no formulário (sem salvar) e confirmar que volta pra Lançamentos,
       não pro Dashboard. — confirmado 2026-10-11.~~
-- [ ] ~~Abrir "Novo Lançamento" pela navegação normal (não duplicando),
+- [x] ~~Abrir "Novo Lançamento" pela navegação normal (não duplicando),
       clicar "Cancelar" e confirmar que continua indo pro Dashboard —
-      comportamento de antes, sem mudança.~~ — **achado 2026-10-11**: o
+      comportamento de antes, sem mudança. — **achado 2026-10-11**: o
       próprio comportamento esperado aqui estava incompleto — abrindo
       pelo "+" estando em Lançamentos, "Cancelar" ainda mandava pro
       Dashboard em vez de voltar pra Lançamentos. Generalizado na
       Rodada 57 (`navigate(-1)`, volta sempre pra onde estava, qualquer
-      tela de origem) — ver checklist lá.
+      tela de origem) — ver checklist lá.~~
 - [x] ~~Repetir o item 6 da Rodada 55: duplicar um Estorno/Ressarcimento
       e confirmar que a despesa original agora vem preenchida também. —
       confirmado 2026-10-11.~~
@@ -4549,16 +4549,20 @@ Dois bugs reportados testando a Rodada 55.
 **Status:** implementado 2026-10-11. Detalhe em `docs/backlog.md` ("Agilidade na inserção de transações").
 
 **Checklist de teste manual (usuário, localmente):**
-- [ ] Estando em Lançamentos (ou qualquer outra tela que não Dashboard),
+- [x] ~~Estando em Lançamentos (ou qualquer outra tela que não Dashboard),
       clicar no "+" pra abrir Novo Lançamento, clicar "Cancelar" e
-      confirmar que volta pra tela de onde veio, não pro Dashboard.
-- [ ] Duplicar um lançamento a partir de Lançamentos e clicar
-      "Cancelar" — confirmar que continua voltando pra Lançamentos.
-- [ ] Editar um Estorno/Ressarcimento existente e confirmar que agora
-      aparece o texto da despesa original com um botão "Trocar".
-- [ ] Clicar "Trocar", buscar e escolher uma despesa diferente,
+      confirmar que volta pra tela de onde veio, não pro Dashboard. —
+      confirmado 2026-10-11.~~
+- [x] ~~Duplicar um lançamento a partir de Lançamentos e clicar
+      "Cancelar" — confirmar que continua voltando pra Lançamentos. —
+      confirmado 2026-10-11.~~
+- [x] ~~Editar um Estorno/Ressarcimento existente e confirmar que agora
+      aparece o texto da despesa original com um botão "Trocar". —
+      confirmado 2026-10-11 (lançamento sem associação ainda não mostra
+      o botão — comportamento esperado, não é o mesmo caso).~~
+- [x] ~~Clicar "Trocar", buscar e escolher uma despesa diferente,
       salvar — confirmar que salva sem erro e que reabrir a edição
-      mostra a nova despesa vinculada.
-- [ ] Depois de trocar a despesa original na edição, confirmar que
+      mostra a nova despesa vinculada. — confirmado 2026-10-11.~~
+- [x] ~~Depois de trocar a despesa original na edição, confirmar que
       conta/categoria/subcategoria/estrutura de custo do lançamento
-      NÃO mudaram — só o vínculo trocou.
+      NÃO mudaram — só o vínculo trocou. — confirmado 2026-10-11.~~
