@@ -4423,3 +4423,35 @@ Suíte completa: 391 passed, 33 skipped. Frontend: `tsc -b && vite build`
       escolhida, depois escolher uma categoria — confirmar que os
       chips mostrados são os da categoria, não os da caixinha que
       ficou selecionada antes. — confirmado 2026-10-11.
+
+### Rodada 54 (2026-10-11) — "Lançar outro igual" na tela de sucesso (item 44)
+
+Item 44 do backlog ("agilidade na inserção"): usuário apontou que a tela de sucesso do Novo Lançamento só oferece "Lançar outro" (formulário do zero) ou "Ver Dashboard" (sair) — sem meio-termo pra repetir o que acabou de ser lançado, já que essa tela não mostra a lista de lançamentos. Mockup (canvas de design) com 2 estados — sucesso→cópia e sucesso→vazio — aprovado antes de implementar: https://claude.ai/artifact/FHKfVknzVa8GrzvcAVF1Kh.
+
+**Fix (`NovoLancamento.tsx`):**
+- Tela de sucesso ganhou um recap do lançamento salvo (descrição, valor, tipo/categoria›subcategoria/caixinha/conta/meio de pagamento/estrutura de custo) — `resumoUltimoLancamento`, calculado a partir do próprio estado do formulário (nenhum campo é limpo depois de um submit bem-sucedido, então o estado atual já É o que foi enviado).
+- Novo botão **"Lançar outro igual"** (`lancarOutroIgual()`) — limpa só `valor`/`valorTotal`, mantém todo o resto (tipo, conta, categoria, subcategoria, estrutura de custo, meio de pagamento, descrição, data) e volta pro formulário. Funciona pra Reserva também (mantém a caixinha). Aviso `.aviso-copiado` aparece acima do formulário nesse caso, lembrando de ajustar valor/data.
+- "Lançar outro" (reset completo) e "Ver Dashboard" continuam como estavam — decidido não adicionar mais atalhos de navegação na tela de sucesso, já que o app tem nav persistente (sidebar/barra inferior) pra todas as áreas sempre a 1 toque.
+
+**Decisão de acompanhamento:** CRUD em lote (3º caminho do item 44) rebaixado pra baixa prioridade a pedido do usuário — ver `docs/backlog.md` item 69. "Duplicar" na lista de Lançamentos (pra repetir algo que não foi o último) segue em aberto, sem decisão se ainda é necessário.
+
+**Testes:** mudança é só de UI/estado local, sem endpoint novo — cobertura é o checklist manual abaixo. Frontend: `tsc -b && vite build` — sem erro novo; `oxlint` — mesma contagem de warnings de antes (nenhum `useEffect` novo).
+
+**Status:** implementado 2026-10-11. Detalhe em `docs/backlog.md` ("Agilidade na inserção de transações").
+
+**Checklist de teste manual (usuário, localmente):**
+- [ ] Lançar uma despesa qualquer e, na tela de sucesso, confirmar que
+      o recap mostra descrição, valor e os detalhes corretos (conta,
+      categoria›subcategoria, estrutura de custo, meio de pagamento).
+- [ ] Clicar "Lançar outro igual" e confirmar que o formulário volta
+      preenchido com tudo igual, exceto o Valor (vazio) — e que o
+      aviso "Copiado do lançamento anterior..." aparece acima do
+      formulário.
+- [ ] Preencher só o valor (e opcionalmente a data) e salvar — confirmar
+      que funciona normalmente.
+- [ ] Repetir o teste de "Lançar outro igual" numa Reserva (aplicação/
+      retirada de caixinha) e confirmar que a caixinha continua
+      selecionada.
+- [ ] Clicar "Lançar outro" (não o "igual") e confirmar que o
+      formulário volta 100% vazio, sem nenhum aviso — comportamento
+      de antes, sem mudança.

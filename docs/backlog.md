@@ -64,12 +64,10 @@ changelog já documenta quando e como cada um foi entregue).
 - **43.** **Consulta rápida durante a inserção** `tipo: Melhoria` ✅ —
   ver detalhe abaixo. *(trazido em CSV, 2026-09-30; implementado
   2026-10-11)*
-- **44.** **Agilidade na inserção de transações** `tipo: Melhoria` — 3
-  caminhos avaliados: duplicar transação (evitar duplicidade real com
-  algum termo/caractere no campo descrição), copiar informações da
-  última transação lançada, ou CRUD em lote (avaliar custo de
-  implementação). Levar UX em consideração. *(trazido em CSV,
-  2026-09-30)*
+- **44.** **Agilidade na inserção de transações** `tipo: Melhoria` 🔶
+  parcialmente implementado — ver detalhe abaixo. CRUD em lote
+  rebaixado pra baixa prioridade (item 69). *(trazido em CSV,
+  2026-09-30; "Lançar outro igual" implementado 2026-10-11)*
 - **45.** **Busca por descrição parcial** `tipo: Melhoria` — no campo
   busca por descrição, permitir que a descrição contenha a frase/palavra
   escrita, em vez de exigir correspondência exata palavra a palavra.
@@ -106,6 +104,12 @@ changelog já documenta quando e como cada um foi entregue).
   marcador pra indicar, na lista de lançamentos, uma transação cuja
   origem é retirada de caixinha — facilita identificar uma compra/gasto
   já reservado ao longo do ano. *(trazido em CSV, 2026-09-30)*
+- **69.** **CRUD em lote de transações** `tipo: Melhoria` — criar/
+  editar/excluir várias transações de uma vez. Desmembrado do item 44;
+  rebaixado pra baixa prioridade a pedido do usuário — inserir uma
+  transação já está mais ágil (item 44) e vai ficar mais ainda, sem um
+  caso de uso concreto que justifique o custo de uma UI de lote agora.
+  *(2026-10-11)*
 
 #### Planejamento
 
@@ -839,6 +843,51 @@ caixinha), que não usa categoria/subcategoria — agrupa por `caixinha_id`.
 em `NovoLancamento.tsx`, lógica de distância em `frontend/src/lib/texto.ts`.
 Ver changelog Rodadas 52 e 53 pro detalhe técnico completo e os
 checklists de teste manual.
+
+### Agilidade na inserção de transações
+
+**3 caminhos avaliados:**
+1. Duplicar transação — botão na lista de Lançamentos pra duplicar
+   qualquer transação já existente (não só a última), reabrindo o Novo
+   Lançamento pré-preenchido.
+2. Copiar da última transação lançada.
+3. CRUD em lote — avaliar custo de implementação.
+
+**Decisão original:** ir só com o caminho 1 (Duplicar) — ele é
+estritamente mais flexível que o 2 (deixa escolher qualquer transação
+passada como modelo, não só a cronologicamente mais recente) pelo mesmo
+custo, então absorve o caso de uso do 2 sem precisar construir os dois.
+
+**Mudança de escopo (mesma conversa):** usuário apontou que a dor real
+é na tela de SUCESSO do Novo Lançamento — depois de salvar, só existe
+"Lançar outro" (do zero) ou "Ver Dashboard" (sair), sem ver a lista de
+lançamentos pra duplicar o que acabou de inserir. Isso é efetivamente o
+caminho 2, mas resolvido no lugar certo: a própria tela de sucesso, sem
+precisar navegar pra lista.
+
+**Fix (mockup aprovado antes de implementar — canvas de design):**
+3º botão **"Lançar outro igual"** na tela de sucesso, ao lado de
+"Lançar outro"/"Ver Dashboard". Copia tudo do lançamento que acabou de
+ser salvo (tipo, conta, categoria, subcategoria, estrutura de custo,
+meio de pagamento, descrição, data) e limpa só o Valor — campo que
+quase sempre muda entre lançamentos repetidos. Funciona pra Reserva
+também (mantém a caixinha escolhida). Tela de sucesso ganhou um recap
+do que foi salvo, pra dar contexto a essa decisão.
+
+**Decisão de acompanhamento:** usuário concordou em rebaixar CRUD em
+lote (caminho 3) pra baixa prioridade — ver item 69. O "Duplicar" na
+lista de Lançamentos (caminho 1, pra repetir algo que NÃO foi o último
+lançamento) continua em aberto — não decidido se ainda é necessário
+depois do "Lançar outro igual" cobrir o caso mais comum.
+
+**Status:** "Lançar outro igual" implementado 2026-10-11 em
+`NovoLancamento.tsx` (`lancarOutroIgual()`, estado `avisoCopiado`,
+recap via `resumoUltimoLancamento`). Mockup interativo (canvas de
+design, não faz parte do repositório):
+https://claude.ai/artifact/FHKfVknzVa8GrzvcAVF1Kh — demonstra a tela de
+sucesso com recap + as 2 transições ("Lançar outro igual" vs "Lançar
+outro"). Ver changelog Rodada 54 pro detalhe técnico e o checklist de
+teste manual.
 
 ### Caixinhas com saldo errado / limite de 1000 linhas do Supabase
 

@@ -68,6 +68,47 @@
   align-items: center;
 }
 
+/* tela de sucesso do Novo Lançamento (item 44) — "Lançar outro igual"
+ * precisa de mais destaque que "Lançar outro"/"Ver Dashboard", então os 3
+ * ficam em coluna em vez de lado a lado */
+.form-acoes-coluna {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.form-acoes-coluna > * {
+  justify-content: center;
+  text-align: center;
+}
+
+.recap-lancamento {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 12px 0;
+  padding: 12px 14px;
+  border: 1px solid var(--cor-borda);
+  border-radius: 8px;
+  background: var(--cor-superficie);
+  font-size: 13px;
+  max-width: 560px;
+}
+
+.recap-lancamento span {
+  color: var(--cor-texto-suave);
+}
+
+.aviso-copiado {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--cor-acento);
+  border-radius: 8px;
+  background: var(--cor-superficie);
+  color: var(--cor-acento);
+  font-size: 13px;
+  max-width: 560px;
+}
+
 .botao-primario {
   padding: 10px 20px;
   border-radius: 8px;

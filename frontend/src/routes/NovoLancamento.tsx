@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import '../components/forms.css'
 import { ApiError, apiFetch } from '../lib/api'
-import { ESTRUTURAS, MEIOS_PAGAMENTO } from '../lib/rotulos'
+import { ESTRUTURAS, MEIOS_PAGAMENTO, rotuloEstruturaCusto, rotuloMeioPagamento, rotuloTipoMovimento } from '../lib/rotulos'
 import { encontrarQuaseDuplicata } from '../lib/texto'
 import type {
   Caixinha,
@@ -93,6 +93,9 @@ export function NovoLancamento() {
   // migrando dados reais, ver backend)
   const [duplicadoDetectado, setDuplicadoDetectado] = useState(false)
   const [sucesso, setSucesso] = useState(false)
+  // true só depois de "Lançar outro igual" (item 44) — mostra o aviso
+  // "copiado do lançamento anterior" acima do formulário
+  const [avisoCopiado, setAvisoCopiado] = useState(false)
 
   // categoria é escolhida entre as do tipo compatível (receita/despesa/
   // investimento) — igual pra qualquer tipo de lançamento, sem parentesco
@@ -245,6 +248,50 @@ export function NovoLancamento() {
   const contaSelecionada = useMemo(() => contas.find((c) => c.id === contaId), [contas, contaId])
   const caixinhaSelecionada = useMemo(() => caixinhas.find((c) => c.id === caixinhaId), [caixinhas, caixinhaId])
 
+  // recap do que foi salvo, pra tela de sucesso (item 44) — os campos não
+  // são limpos depois de um submit bem-sucedido, então o estado atual já
+  // É o que acabou de ser enviado
+  const resumoUltimoLancamento = useMemo(() => {
+    const tipoMovimento: TipoMovimento =
+      tipo === 'ajuste' ? ajusteTipo : tipo === 'investimento' || tipo === 'reserva' ? direcao : tipo
+    const nomeCategoria = categoriaId ? categorias.find((c) => c.id === categoriaId)?.nome : undefined
+    const nomeSubcategoria = subcategoriaId ? subcategorias.find((s) => s.id === subcategoriaId)?.nome : undefined
+    const nomeCaixinha = caixinhaId ? caixinhas.find((c) => c.id === caixinhaId)?.nome : undefined
+    const valorExibido = tipo === 'despesa' && pagamento === 'parcelado' ? valorTotal : valor
+
+    const detalhes = [
+      rotuloTipoMovimento(tipoMovimento),
+      nomeCategoria && nomeSubcategoria ? `${nomeCategoria} › ${nomeSubcategoria}` : nomeCategoria,
+      nomeCaixinha,
+      contaSelecionada?.nome,
+      meioPagamento ? rotuloMeioPagamento(meioPagamento) : null,
+      estruturaCusto ? rotuloEstruturaCusto(estruturaCusto) : null,
+    ].filter(Boolean)
+
+    return {
+      titulo: descricao.trim() || '(sem descrição)',
+      valor: valorExibido,
+      detalhes: detalhes.join(' · '),
+    }
+  }, [
+    tipo,
+    ajusteTipo,
+    direcao,
+    pagamento,
+    categoriaId,
+    subcategoriaId,
+    caixinhaId,
+    categorias,
+    subcategorias,
+    caixinhas,
+    contaSelecionada,
+    meioPagamento,
+    estruturaCusto,
+    descricao,
+    valor,
+    valorTotal,
+  ])
+
   // ao trocar o tipo, a categoria elegível muda — limpa a escolha anterior;
   // investimento tem estrutura de custo fixa, independente da categoria
   useEffect(() => {
@@ -255,6 +302,7 @@ export function NovoLancamento() {
     setCriandoSubcategoria(false)
     setNovaSubcategoriaEstrutura('')
     setAvisoQuaseDuplicataDescartado(false)
+    setAvisoCopiado(false)
   }, [tipo])
 
   // despesa numa conta de cartão de crédito só pode ter sido paga no
@@ -340,6 +388,22 @@ export function NovoLancamento() {
     setSucesso(false)
     setDuplicadoDetectado(false)
     setAvisoQuaseDuplicataDescartado(false)
+    setAvisoCopiado(false)
+  }
+
+  // item 44: ao contrário de resetarFormulario, mantém tudo (tipo, conta,
+  // categoria/subcategoria, estrutura de custo, meio de pagamento,
+  // descrição, data) exatamente como foi submetido — já que nenhum desses
+  // campos é limpo depois de salvar com sucesso — e limpa só o valor, o
+  // campo que quase sempre muda entre lançamentos repetidos
+  function lancarOutroIgual() {
+    setValor('')
+    setValorTotal('')
+    setSucesso(false)
+    setErro(null)
+    setDuplicadoDetectado(false)
+    setAvisoQuaseDuplicataDescartado(false)
+    setAvisoCopiado(true)
   }
 
   function montarPayloadAvista(): Record<string, unknown> {
@@ -468,8 +532,18 @@ export function NovoLancamento() {
       <div>
         <h1 style={{ fontSize: 22, marginTop: 0 }}>Lançamento salvo</h1>
         <p className="mensagem-sucesso">Tudo certo — o lançamento foi registrado.</p>
-        <div className="form-acoes">
-          <button type="button" className="botao-primario" onClick={resetarFormulario}>
+        <div className="recap-lancamento">
+          <strong>
+            {resumoUltimoLancamento.titulo}
+            {resumoUltimoLancamento.valor && ` · R$ ${resumoUltimoLancamento.valor}`}
+          </strong>
+          <span>{resumoUltimoLancamento.detalhes}</span>
+        </div>
+        <div className="form-acoes form-acoes-coluna">
+          <button type="button" className="botao-primario" onClick={lancarOutroIgual}>
+            Lançar outro igual
+          </button>
+          <button type="button" className="botao-secundario" onClick={resetarFormulario}>
             Lançar outro
           </button>
           <Link to="/dashboard" className="botao-secundario">
@@ -495,6 +569,10 @@ export function NovoLancamento() {
   return (
     <div>
       <h1 style={{ fontSize: 22, marginTop: 0 }}>Novo Lançamento</h1>
+
+      {avisoCopiado && (
+        <p className="aviso-copiado">Copiado do lançamento anterior — ajuste o valor (e a data, se for outro dia).</p>
+      )}
 
       <form className="form" onSubmit={handleSubmit}>
         <div className="campo">
