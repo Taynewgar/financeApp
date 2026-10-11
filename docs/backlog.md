@@ -2409,6 +2409,47 @@ que não tem suíte automatizada neste repo). Suíte completa: 381
 passed, 33 skipped. Frontend: `tsc -b` + `vite build` + `oxlint` sem
 erro novo. `README.md` atualizado (regra de negócio documentada).
 
+**Status:** implementado 2026-10-10 (aviso puramente passivo), ajustado
+2026-10-11 — ver "Teto de bucket volta a confirmar antes de estourar"
+abaixo.
+
+### Teto de bucket volta a confirmar antes de estourar
+
+**Contexto:** pedi avaliação de ter removido o bloqueio por completo
+(seção acima). Ressalvas levantadas: (1) zero rede de segurança contra
+erro de digitação — nada impede salvar um valor absurdo por engano; (2)
+aviso 100% passivo (cor no cabeçalho do bucket) tem o mesmo risco de
+passar despercebido que já causou a confusão original ("não recebo
+feedback"); (3) existia um meio-termo não usado — o padrão
+`forcar_duplicado` já estabelecido no app pra duplicata de transação
+(bloqueia a 1ª tentativa com confirmação explícita, aceita a 2ª com a
+flag). Usuário concordou e pediu pra trocar pro padrão de confirmação.
+
+**Fix:** `_validar_teto_bucket()` restaurada em `orcamentos.py`, agora
+com parâmetro `forcar` — se estourado e não forçado, `409` (não mais
+`422` — alinhado ao `409` de `forcar_duplicado`); com `forcar=true`,
+sempre permite. `OrcamentoItemCreate`/`OrcamentoItemUpdate` ganharam
+`forcar_estouro: bool = Field(default=False, exclude=True)`, mesmo
+padrão de `TransacaoCreate.forcar_duplicado`. `alternar_item_ativo`
+(reativação) ganhou `forcar_estouro` como query param, já que não tem
+corpo de requisição.
+
+Frontend (`Planejamento.tsx`): formulário de edição — 1ª tentativa que
+estoura mostra o erro + botão "Salvar mesmo assim (acima do teto do
+bucket)" (`handleForcarEstouroItem`), mesmo padrão visual de "Lançar
+mesmo assim" em Novo Lançamento. Reativação (botão rápido "Reativar",
+fora do formulário) usa `window.confirm()` em vez de um botão extra na
+lista — mesmo padrão já usado em "substituir orçamento" nesta mesma
+tela, mais adequado pra uma ação de 1 clique.
+`tetoEfetivoBucket()`/o aviso visual passivo da seção anterior
+continuam existindo — a confirmação cobre o MOMENTO de salvar, o aviso
+visual continua mostrando o estado mesmo depois de confirmado.
+
+**Testes:** os 3 testes que afirmavam `201`/`200` sem condição viraram
+`409` sem `forcar_estouro` + `201`/`200` com `forcar_estouro=true`.
+Suíte completa: 381 passed, 33 skipped. Frontend: `tsc -b` + `vite
+build` + `oxlint` sem erro novo. `README.md` atualizado.
+
 **Status:** implementado 2026-10-11.
 
 ### Janela de meses pra trás × ano civil nos gráficos

@@ -157,18 +157,22 @@ PWA com backend hospedado (Render) e banco Supabase.
     percentual de cada item (`percentual_da_renda` = sobre a renda total;
     `percentual_do_teto` = sobre o teto do próprio bucket) — nenhuma delas é
     aceita como entrada, são sempre calculadas. Criar/editar/reativar um
-    item que faz a soma do bucket ultrapassar o teto é **permitido** (não
-    há bloqueio no backend desde 2026-10-11) — orçamento é planejamento,
-    não um limite rígido: tem categoria que precisa de valor mesmo
-    estourado (ex: supermercado continua existindo mesmo acima do teto do
-    bucket). O aviso é só visual, no frontend — soma dos itens ativos do
-    bucket contra o teto efetivo (teto puro + a soma do `saldo_anterior` de
-    todos os itens ativos daquele bucket, a sobra/furo acumulado do
-    envelope) mostra "acima do teto" em vermelho quando estourado. Essa
-    mesma soma por bucket (sem misturar com os outros) também aparece em
-    `GET /estrutura-custo/{vigencia_mes}`, campo `saldo_anterior_acumulado`
-    de cada bucket — o detalhe por item continua disponível em `GET
-    /orcamentos/{id}/itens`, isso é só a visão agregada.
+    item que faz a soma do bucket ultrapassar o teto **não bloqueia direto**
+    (não é limite rígido — orçamento é planejamento, tem categoria que
+    precisa de valor mesmo estourado, ex: supermercado), mas avisa: 1ª
+    tentativa retorna `409`, e confirma de novo com `forcar_estouro=true`
+    no payload (`POST`/`PATCH .../itens`) ou na query string
+    (`PATCH .../itens/{id}/ativo`) pra salvar mesmo assim — mesmo padrão de
+    `forcar_duplicado` em transações. O teto usado nessa validação já é o
+    efetivo: teto puro + a soma do `saldo_anterior` de todos os itens
+    ativos daquele bucket (a sobra acumulada do envelope) — se Custos Fixos
+    sobrou R$200 no total do mês passado, o teto pra alocar itens novos
+    esse mês já nasce R$200 maior. O frontend usa essa mesma conta (teto
+    efetivo) pra pintar "acima do teto" em vermelho no cabeçalho do bucket,
+    mesmo sem tentar salvar. Essa soma por bucket (sem misturar com os
+    outros) também aparece em `GET /estrutura-custo/{vigencia_mes}`, campo
+    `saldo_anterior_acumulado` de cada bucket — o detalhe por item continua
+    disponível em `GET /orcamentos/{id}/itens`, isso é só a visão agregada.
 
     **Pool de despesas e piso de investimentos** (`GET
     /estrutura-custo/{vigencia_mes}`, campos `pool_despesas` e

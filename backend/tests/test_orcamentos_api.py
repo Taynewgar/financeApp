@@ -996,26 +996,32 @@ def test_itens_dentro_do_teto_do_bucket_sao_aceitos(client):
     assert condominio.status_code == 201  # soma 2500, teto do bucket é 5400
 
 
-def test_criar_item_que_estoura_teto_do_bucket_e_permitido(client):
-    """Removido 2026-10-11: orçamento é planejamento, não um limite rígido
-    — tem categoria que precisa de valor mesmo estourado (ex: supermercado
-    continua existindo mesmo acima do teto do bucket). O aviso de "acima
-    do teto" passou a ser só visual, no frontend (soma dos itens do
-    bucket contra o teto), não mais um bloqueio no backend."""
+def test_criar_item_que_estoura_teto_do_bucket_retorna_409_e_forcar_aceita(client):
+    """Removido como bloqueio rígido em 2026-10-11 (orçamento é
+    planejamento, tem categoria que precisa de valor mesmo estourado, ex:
+    supermercado) e trazido de volta como confirmação — mesmo padrão de
+    forcar_duplicado em transacoes.py: 1ª tentativa dá 409, confirma com
+    forcar_estouro=true pra salvar mesmo assim."""
     orcamento = _criar_orcamento_do_exemplo(client)
     client.post(
         f"/orcamentos/{orcamento['id']}/itens",
         json={"bucket": "custos_fixos", "nome": "Aluguel", "orcamento_mensal": 5000},
     )
 
-    resposta = client.post(
+    sem_forcar = client.post(
         f"/orcamentos/{orcamento['id']}/itens",
         json={"bucket": "custos_fixos", "nome": "Condomínio", "orcamento_mensal": 500},
     )
-    assert resposta.status_code == 201  # 5000 + 500 = 5500 > teto de 5400, mas permitido
+    assert sem_forcar.status_code == 409  # 5000 + 500 = 5500 > teto de 5400
+
+    com_forcar = client.post(
+        f"/orcamentos/{orcamento['id']}/itens",
+        json={"bucket": "custos_fixos", "nome": "Condomínio", "orcamento_mensal": 500, "forcar_estouro": True},
+    )
+    assert com_forcar.status_code == 201
 
 
-def test_atualizar_item_que_estoura_teto_do_bucket_e_permitido(client):
+def test_atualizar_item_que_estoura_teto_do_bucket_retorna_409_e_forcar_aceita(client):
     orcamento = _criar_orcamento_do_exemplo(client)
     client.post(
         f"/orcamentos/{orcamento['id']}/itens",
@@ -1026,13 +1032,19 @@ def test_atualizar_item_que_estoura_teto_do_bucket_e_permitido(client):
         json={"bucket": "custos_fixos", "nome": "Condomínio", "orcamento_mensal": 1000},
     ).json()
 
-    resposta = client.patch(
+    sem_forcar = client.patch(
         f"/orcamentos/{orcamento['id']}/itens/{condominio['id']}", json={"orcamento_mensal": 3000}
     )
-    assert resposta.status_code == 200  # 3000 (aluguel) + 3000 (novo condomínio) = 6000 > 5400, mas permitido
+    assert sem_forcar.status_code == 409  # 3000 (aluguel) + 3000 (novo condomínio) = 6000 > 5400
+
+    com_forcar = client.patch(
+        f"/orcamentos/{orcamento['id']}/itens/{condominio['id']}",
+        json={"orcamento_mensal": 3000, "forcar_estouro": True},
+    )
+    assert com_forcar.status_code == 200
 
 
-def test_reativar_item_que_estoura_teto_do_bucket_e_permitido(client):
+def test_reativar_item_que_estoura_teto_do_bucket_retorna_409_e_forcar_aceita(client):
     orcamento = _criar_orcamento_do_exemplo(client)
     antigo = client.post(
         f"/orcamentos/{orcamento['id']}/itens",
@@ -1044,8 +1056,14 @@ def test_reativar_item_que_estoura_teto_do_bucket_e_permitido(client):
         json={"bucket": "custos_fixos", "nome": "Novo", "orcamento_mensal": 5000},
     )
 
-    resposta = client.patch(f"/orcamentos/{orcamento['id']}/itens/{antigo['id']}/ativo", params={"ativo": True})
-    assert resposta.status_code == 200  # 5000 (novo) + 5000 (reativado) = 10000 > 5400, mas permitido
+    sem_forcar = client.patch(f"/orcamentos/{orcamento['id']}/itens/{antigo['id']}/ativo", params={"ativo": True})
+    assert sem_forcar.status_code == 409  # 5000 (novo) + 5000 (reativado) = 10000 > 5400
+
+    com_forcar = client.patch(
+        f"/orcamentos/{orcamento['id']}/itens/{antigo['id']}/ativo",
+        params={"ativo": True, "forcar_estouro": True},
+    )
+    assert com_forcar.status_code == 200
 
 
 def test_item_com_orcamento_zero_e_receita_base_zero_nao_gera_erro_de_divisao(client):

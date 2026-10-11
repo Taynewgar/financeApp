@@ -4272,8 +4272,9 @@ Reportado ao vivo: "edição de item do bucket em Planejamento não está funcio
 **Status:** implementado 2026-10-11. Detalhe completo em `docs/backlog.md` ("Teto de bucket deixa de bloquear a gravação, vira aviso visual").
 
 **Checklist de teste manual (usuário, localmente):**
-- [ ] Editar o valor orçado de um item num bucket já acima do teto e
-      confirmar que salva normalmente, sem erro.
+- [ ] ~~Editar o valor orçado de um item num bucket já acima do teto e
+      confirmar que salva normalmente, sem erro.~~ — **superado pela
+      Rodada 50**: voltou a pedir confirmação (não salva mais direto).
 - [ ] Conferir que o cabeçalho do bucket (e o resumo fixo do topo)
       mostram "acima do teto" em vermelho quando a soma dos itens
       ativos (já considerando a sobra/furo acumulado) passa do teto.
@@ -4281,3 +4282,23 @@ Reportado ao vivo: "edição de item do bucket em Planejamento não está funcio
       campo obrigatório vazio, se aplicável) e confirmar que a
       mensagem aparece perto dos botões "Salvar"/"Cancelar", visível
       sem precisar rolar a página.
+
+### Rodada 50 (2026-10-11) — Teto de bucket volta a confirmar antes de estourar
+
+Pedida avaliação de ter removido o bloqueio por completo (Rodada 49). Ressalvas: zero rede de segurança contra erro de digitação; aviso 100% passivo tem o mesmo risco de passar despercebido que já causou a confusão original; existia um meio-termo não usado — o padrão `forcar_duplicado` já estabelecido pra duplicata de transação. Usuário concordou e pediu a troca.
+
+**Fix:** `_validar_teto_bucket()` restaurada com parâmetro `forcar` — estourado e não forçado dá `409` (antes era `422`, agora alinhado ao padrão de confirmação); com `forcar_estouro=true` no payload (criação/edição) ou query string (reativação), salva mesmo assim. `Planejamento.tsx`: formulário de edição ganhou botão "Salvar mesmo assim (acima do teto do bucket)" quando detecta o `409`, mesmo padrão visual de "Lançar mesmo assim". Reativação (ação de 1 clique na lista) usa `window.confirm()`, mesmo padrão já usado em "substituir orçamento". O aviso visual passivo da Rodada 49 (`tetoEfetivoBucket`) continua existindo — cobre o estado permanente, a confirmação cobre o momento de salvar.
+
+**Testes:** suíte completa: 381 passed, 33 skipped. Frontend: `tsc -b && vite build` — sem erro novo. `README.md` atualizado.
+
+**Status:** implementado 2026-10-11. Detalhe completo em `docs/backlog.md` ("Teto de bucket volta a confirmar antes de estourar").
+
+**Checklist de teste manual (usuário, localmente):**
+- [ ] Editar o valor orçado de um item num bucket já acima do teto —
+      confirmar que dá erro com botão "Salvar mesmo assim", e que
+      clicar nele salva o valor.
+- [ ] Reativar um item desativado cuja soma do bucket estouraria o
+      teto — confirmar que aparece um `window.confirm` com a mensagem
+      do estouro, e que confirmar reativa mesmo assim.
+- [ ] Editar/criar um item SEM estourar o teto e confirmar que salva
+      direto, sem pedir confirmação nenhuma.

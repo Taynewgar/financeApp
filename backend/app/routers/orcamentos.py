@@ -64,6 +64,43 @@ def _enriquecer_item(item: dict, orcamento: dict, contexto_saldo: tuple[dict, di
     }
 
 
+def _validar_teto_bucket(
+    orcamento: dict,
+    bucket: str,
+    item_id_excluir: str | None,
+    novo_valor: float,
+    contexto_saldo: tuple[dict, dict, dict, dict],
+    forcar: bool,
+) -> None:
+    """Avisa (409, mesmo padrão de forcar_duplicado em transacoes.py) se a
+    soma dos itens ativos do bucket (excluindo o item sendo editado, se
+    houver, e somando o novo valor no lugar dele) ultrapassar o teto do
+    bucket — mas não bloqueia de verdade: `forcar=true` salva mesmo assim.
+    Removido como bloqueio rígido em 2026-10-11 (orçamento é planejamento,
+    tem categoria que precisa de valor mesmo estourado, ex: supermercado) e
+    trazido de volta como confirmação em 2026-10-11 (usuário pediu — avisa
+    mas permite, igual duplicata de transação). O teto aqui já é o efetivo
+    — teto puro (percentual) somado à sobra acumulada ao vivo de meses
+    anteriores nesse bucket (soma do saldo_anterior recalculado de todos os
+    itens ativos dele): se Fixo sobrou R$200 no total, o teto pra alocar
+    itens novos/maiores esse mês já nasce R$200 mais folgado."""
+    if forcar:
+        return
+    _, itens_por_orcamento_id, _, _ = contexto_saldo
+    itens = [i for i in itens_por_orcamento_id.get(orcamento["id"], []) if i["bucket"] == bucket]
+    soma = sum(i["orcamento_mensal"] for i in itens if i["id"] != item_id_excluir) + novo_valor
+    vigencia_mes = date.fromisoformat(orcamento["vigencia_mes"])
+    saldo_anterior_bucket = sum(saldo_anterior_em_lote(i, vigencia_mes, *contexto_saldo) for i in itens)
+    teto = round(calcular_teto_bucket(orcamento, bucket) + saldo_anterior_bucket, 2)
+    if soma > teto + 0.005:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"Itens de {bucket} somariam R$ {soma:.2f}, acima do teto de "
+                f"R$ {teto:.2f} para este bucket neste orçamento (já considerando a sobra acumulada)."
+            ),
+        )
+
 
 
 def _popular_itens_de_transacoes_existentes(db: Client, user_id: str, orcamento: dict) -> None:
@@ -306,6 +343,14 @@ def criar_item(
         item_id_excluir=None,
     )
     contexto_saldo = _carregar_contexto_saldo(db, user_id, orcamento)
+    _validar_teto_bucket(
+        orcamento,
+        payload.bucket,
+        item_id_excluir=None,
+        novo_valor=payload.orcamento_mensal,
+        contexto_saldo=contexto_saldo,
+        forcar=payload.forcar_estouro,
+    )
     row = payload.model_dump()
     row["orcamento_id"] = orcamento_id
     result = db.table(ITENS_TABLE).insert(row).execute()
@@ -337,6 +382,15 @@ def atualizar_item(
             item_id_excluir=item_id,
         )
     contexto_saldo = _carregar_contexto_saldo(db, user_id, orcamento)
+    if "orcamento_mensal" in dados or "bucket" in dados:
+        _validar_teto_bucket(
+            orcamento,
+            dados.get("bucket", item_atual["bucket"]),
+            item_id_excluir=item_id,
+            novo_valor=dados.get("orcamento_mensal", item_atual["orcamento_mensal"]),
+            contexto_saldo=contexto_saldo,
+            forcar=payload.forcar_estouro,
+        )
     result = db.table(ITENS_TABLE).update(dados).eq("id", item_id).eq("orcamento_id", orcamento_id).execute()
     return _enriquecer_item(result.data[0], orcamento, contexto_saldo)
 
@@ -346,6 +400,7 @@ def alternar_item_ativo(
     orcamento_id: str,
     item_id: str,
     ativo: bool,
+    forcar_estouro: bool = Query(False),
     db: Client = Depends(get_db),
     user_id: str = Depends(get_current_user_id),
 ):
@@ -355,7 +410,7 @@ def alternar_item_ativo(
     if ativo:
         # reativar pode reintroduzir vínculo duplicado (outro item ativo já
         # assumiu essa categoria/subcategoria/conta enquanto este estava
-        # inativo)
+        # inativo) ou fazer a soma do bucket passar do teto de novo
         _check_vinculo_duplicado(
             db,
             orcamento_id,
@@ -364,6 +419,14 @@ def alternar_item_ativo(
             item_atual.get("subcategoria_id"),
             item_atual.get("conta_vinculada_id"),
             item_id_excluir=item_id,
+        )
+        _validar_teto_bucket(
+            orcamento,
+            item_atual["bucket"],
+            item_id_excluir=item_id,
+            novo_valor=item_atual["orcamento_mensal"],
+            contexto_saldo=contexto_saldo,
+            forcar=forcar_estouro,
         )
     result = (
         db.table(ITENS_TABLE).update({"ativo": ativo}).eq("id", item_id).eq("orcamento_id", orcamento_id).execute()

@@ -38,6 +38,11 @@ class OrcamentoItemCreate(BaseModel):
     # liga um item de investimento/reserva à conta real que guarda o saldo
     conta_vinculada_id: str | None = None
     orcamento_mensal: float = Field(ge=0, default=0)
+    # mesmo padrão de forcar_duplicado em transacoes.py: 1ª tentativa que
+    # estoura o teto do bucket dá 409; confirma de novo com isto =true pra
+    # salvar mesmo assim (orçamento é planejamento, não limite rígido — tem
+    # categoria que precisa de valor mesmo estourado, ex: supermercado)
+    forcar_estouro: bool = Field(default=False, exclude=True)
 
 
 class OrcamentoItemUpdate(BaseModel):
@@ -47,6 +52,7 @@ class OrcamentoItemUpdate(BaseModel):
     nome: str | None = None
     conta_vinculada_id: str | None = None
     orcamento_mensal: float | None = Field(default=None, ge=0)
+    forcar_estouro: bool = Field(default=False, exclude=True)
 
 
 class OrcamentoItem(OrcamentoItemCreate):

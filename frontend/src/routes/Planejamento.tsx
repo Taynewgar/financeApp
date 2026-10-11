@@ -217,6 +217,7 @@ export function Planejamento() {
   const [formConfig, setFormConfig] = useState<FormConfig>(FORM_CONFIG_PADRAO)
   const [itemFormAberto, setItemFormAberto] = useState<Bucket | null>(null)
   const [itemEditando, setItemEditando] = useState<OrcamentoItem | null>(null)
+  const [estouroDetectado, setEstouroDetectado] = useState(false)
   const [formItem, setFormItem] = useState<FormItem>(FORM_ITEM_VAZIO)
   const [salvando, setSalvando] = useState(false)
   const [gerandoProximoMes, setGerandoProximoMes] = useState(false)
@@ -407,18 +408,47 @@ export function Planejamento() {
     })
     setItemEditando(item)
     setItemFormAberto(item.bucket)
+    setEstouroDetectado(false)
   }
 
   async function toggleAtivoItem(item: OrcamentoItem) {
     if (!orcamentoAtual) return
+    const novoAtivo = !item.ativo
     try {
       const atualizado = await apiFetch<OrcamentoItem>(
-        `/orcamentos/${orcamentoAtual.id}/itens/${item.id}/ativo?ativo=${!item.ativo}`,
+        `/orcamentos/${orcamentoAtual.id}/itens/${item.id}/ativo?ativo=${novoAtivo}`,
         { method: 'PATCH' },
       )
       setItens((atual) => atual!.map((i) => (i.id === atualizado.id ? atualizado : i)))
     } catch (e) {
+      if (e instanceof ApiError && e.status === 409 && novoAtivo) {
+        const detalhe = typeof e.detail === 'string' ? e.detail : e.message
+        if (window.confirm(`${detalhe} Reativar mesmo assim?`)) {
+          try {
+            const atualizado = await apiFetch<OrcamentoItem>(
+              `/orcamentos/${orcamentoAtual.id}/itens/${item.id}/ativo?ativo=true&forcar_estouro=true`,
+              { method: 'PATCH' },
+            )
+            setItens((atual) => atual!.map((i) => (i.id === atualizado.id ? atualizado : i)))
+            return
+          } catch (e2) {
+            setErro(e2 instanceof ApiError ? (typeof e2.detail === 'string' ? e2.detail : e2.message) : 'Falha ao atualizar item')
+            return
+          }
+        }
+        return
+      }
       setErro(e instanceof ApiError ? (typeof e.detail === 'string' ? e.detail : e.message) : 'Falha ao atualizar item')
+    }
+  }
+
+  function montarPayloadItem(): Record<string, unknown> {
+    return {
+      categoria_id: formItem.categoria_id || null,
+      subcategoria_id: formItem.subcategoria_id || null,
+      nome: formItem.nome || null,
+      conta_vinculada_id: formItem.conta_vinculada_id || null,
+      orcamento_mensal: Number(formItem.orcamento_mensal) || 0,
     }
   }
 
@@ -428,19 +458,37 @@ export function Planejamento() {
     setSalvando(true)
     setErro(null)
     try {
-      const payload = {
-        categoria_id: formItem.categoria_id || null,
-        subcategoria_id: formItem.subcategoria_id || null,
-        nome: formItem.nome || null,
-        conta_vinculada_id: formItem.conta_vinculada_id || null,
-        orcamento_mensal: Number(formItem.orcamento_mensal) || 0,
-      }
       const atualizado = await apiFetch<OrcamentoItem>(`/orcamentos/${orcamentoAtual.id}/itens/${itemEditando.id}`, {
         method: 'PATCH',
-        body: JSON.stringify(payload),
+        body: JSON.stringify(montarPayloadItem()),
       })
       setItens((atual) => atual!.map((i) => (i.id === atualizado.id ? atualizado : i)))
       setItemFormAberto(null)
+      setEstouroDetectado(false)
+    } catch (e) {
+      if (e instanceof ApiError) {
+        setErro(typeof e.detail === 'string' ? e.detail : e.message)
+        setEstouroDetectado(e.status === 409)
+      } else {
+        setErro('Falha ao salvar item')
+      }
+    } finally {
+      setSalvando(false)
+    }
+  }
+
+  async function handleForcarEstouroItem() {
+    if (!orcamentoAtual || !itemEditando) return
+    setSalvando(true)
+    setErro(null)
+    try {
+      const atualizado = await apiFetch<OrcamentoItem>(`/orcamentos/${orcamentoAtual.id}/itens/${itemEditando.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ ...montarPayloadItem(), forcar_estouro: true }),
+      })
+      setItens((atual) => atual!.map((i) => (i.id === atualizado.id ? atualizado : i)))
+      setItemFormAberto(null)
+      setEstouroDetectado(false)
     } catch (e) {
       setErro(e instanceof ApiError ? (typeof e.detail === 'string' ? e.detail : e.message) : 'Falha ao salvar item')
     } finally {
@@ -865,10 +913,29 @@ export function Planejamento() {
                               <button type="submit" className="botao-primario" disabled={salvando}>
                                 {salvando ? 'Salvando…' : 'Salvar alterações'}
                               </button>
-                              <button type="button" className="botao-secundario" onClick={() => setItemFormAberto(null)}>
+                              <button
+                                type="button"
+                                className="botao-secundario"
+                                onClick={() => {
+                                  setItemFormAberto(null)
+                                  setEstouroDetectado(false)
+                                }}
+                              >
                                 Cancelar
                               </button>
                             </div>
+                            {estouroDetectado && (
+                              <div className="form-acoes">
+                                <button
+                                  type="button"
+                                  className="botao-secundario"
+                                  onClick={handleForcarEstouroItem}
+                                  disabled={salvando}
+                                >
+                                  Salvar mesmo assim (acima do teto do bucket)
+                                </button>
+                              </div>
+                            )}
                           </form>
                         </div>
                       )}
