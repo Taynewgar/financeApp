@@ -74,6 +74,7 @@
 .form-acoes-coluna {
   flex-direction: column;
   align-items: stretch;
+  max-width: 560px;
 }
 
 .form-acoes-coluna > * {

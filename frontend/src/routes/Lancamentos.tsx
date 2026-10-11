@@ -515,6 +515,9 @@ export function Lancamentos() {
                     <Link to={`/lancamentos/${t.id}/editar`} className="botao-link">
                       Editar
                     </Link>
+                    <Link to="/lancamentos/novo" state={{ duplicar: t }} className="botao-link">
+                      Duplicar
+                    </Link>
                     <button
                       type="button"
                       className="botao-link"

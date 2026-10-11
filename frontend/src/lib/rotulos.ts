@@ -1,6 +1,20 @@
 // Rótulos compartilhados entre NovoLancamento, EditarLancamento e Lancamentos
 // — um único lugar pra manter em sincronia com os enums do backend.
-import type { EstruturaCusto, MeioPagamento, TipoMovimento, TipoMovimentoRecorrente } from './types'
+import type { EstruturaCusto, MeioPagamento, Transacao, TipoMovimento, TipoMovimentoRecorrente } from './types'
+
+// o segmento escolhido no formulário (NovoLancamento/EditarLancamento) não
+// é 1:1 com tipo_movimento — aplicação/retirada vira "investimento" ou
+// "reserva" dependendo de ter caixinha_id, estorno/ressarcimento viram
+// "ajuste". Extraído de EditarLancamento.tsx pra reaproveitar em
+// NovoLancamento.tsx (item 44, duplicar lançamento existente).
+export type TipoLancamentoDerivado = 'receita' | 'despesa' | 'investimento' | 'reserva' | 'ajuste'
+
+export function derivarTipoLancamento(t: Pick<Transacao, 'tipo_movimento' | 'caixinha_id'>): TipoLancamentoDerivado {
+  if (t.tipo_movimento === 'receita') return 'receita'
+  if (t.tipo_movimento === 'despesa') return 'despesa'
+  if (t.tipo_movimento === 'estorno' || t.tipo_movimento === 'ressarcimento') return 'ajuste'
+  return t.caixinha_id ? 'reserva' : 'investimento'
+}
 
 export const ESTRUTURAS: { valor: EstruturaCusto; rotulo: string }[] = [
   { valor: 'fixo', rotulo: 'Fixo' },

@@ -1,8 +1,15 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react'
-import { Link } from 'react-router-dom'
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import '../components/forms.css'
 import { ApiError, apiFetch } from '../lib/api'
-import { ESTRUTURAS, MEIOS_PAGAMENTO, rotuloEstruturaCusto, rotuloMeioPagamento, rotuloTipoMovimento } from '../lib/rotulos'
+import {
+  ESTRUTURAS,
+  MEIOS_PAGAMENTO,
+  derivarTipoLancamento,
+  rotuloEstruturaCusto,
+  rotuloMeioPagamento,
+  rotuloTipoMovimento,
+} from '../lib/rotulos'
 import { encontrarQuaseDuplicata } from '../lib/texto'
 import type {
   Caixinha,
@@ -31,6 +38,13 @@ function hoje() {
 }
 
 export function NovoLancamento() {
+  const location = useLocation()
+  const navigate = useNavigate()
+  // item 44: evita que o efeito de reset-ao-trocar-tipo (abaixo) apague os
+  // campos que acabaram de ser preenchidos por "Duplicar" quando o tipo
+  // duplicado é diferente do padrão ('despesa')
+  const pularResetDeTipoRef = useRef(false)
+
   const [contas, setContas] = useState<Conta[]>([])
   const [categorias, setCategorias] = useState<Categoria[]>([])
   const [subcategorias, setSubcategorias] = useState<Subcategoria[]>([])
@@ -295,6 +309,10 @@ export function NovoLancamento() {
   // ao trocar o tipo, a categoria elegível muda — limpa a escolha anterior;
   // investimento tem estrutura de custo fixa, independente da categoria
   useEffect(() => {
+    if (pularResetDeTipoRef.current) {
+      pularResetDeTipoRef.current = false
+      return
+    }
     setCategoriaId('')
     setSubcategoriaId('')
     setEstruturaCusto(tipo === 'investimento' ? 'investimentos' : '')
@@ -363,6 +381,53 @@ export function NovoLancamento() {
     setBuscaDespesa('')
     setResultadosDespesa([])
   }
+
+  // item 44: "Duplicar" na lista de Lançamentos manda pra cá com a
+  // transação original em location.state — pré-preenche tudo, exceto
+  // valor (mesmo padrão de "Lançar outro igual"), e sempre como à vista
+  // (repetir o parcelamento exigiria recalcular valor_total/parcelas,
+  // fora de escopo — usuário escolhe "Parcelado" de novo se quiser)
+  useEffect(() => {
+    const duplicar = (location.state as { duplicar?: Transacao } | null)?.duplicar
+    if (!duplicar) return
+
+    const tipoDuplicado = derivarTipoLancamento(duplicar)
+    // só pula o reset se o tipo for realmente mudar — setTipo com o mesmo
+    // valor não dispara o efeito de reset (React não rerenderiza em valor
+    // igual), e a flag ficaria "true" pendurada, quebrando a próxima troca
+    // manual de tipo
+    if (tipoDuplicado !== tipo) {
+      pularResetDeTipoRef.current = true
+    }
+    setTipo(tipoDuplicado)
+    if (duplicar.tipo_movimento === 'estorno' || duplicar.tipo_movimento === 'ressarcimento') {
+      setAjusteTipo(duplicar.tipo_movimento)
+    }
+    if (duplicar.tipo_movimento === 'aplicacao' || duplicar.tipo_movimento === 'retirada') {
+      setDirecao(duplicar.tipo_movimento)
+    }
+    setPagamento('avista')
+    setDataCompra(duplicar.data_compra)
+    setDescricao(duplicar.descricao ?? '')
+    setContaId(duplicar.conta_id)
+    setCategoriaId(duplicar.categoria_id ?? '')
+    setSubcategoriaId(duplicar.subcategoria_id ?? '')
+    setEstruturaCusto(duplicar.estrutura_custo ?? '')
+    setCaixinhaId(duplicar.caixinha_id ?? '')
+    setMeioPagamento(duplicar.meio_pagamento ?? '')
+    setAvisoCopiado(true)
+
+    if (duplicar.ajuste_de_transacao_id) {
+      apiFetch<Transacao>(`/transacoes/${duplicar.ajuste_de_transacao_id}`)
+        .then(selecionarDespesaOriginal)
+        .catch(() => {})
+    }
+
+    // limpa o state da navegação — se o usuário voltar pra essa rota
+    // depois (ex: botão "voltar" do navegador), não reaplica sozinho
+    navigate(location.pathname, { replace: true })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   function resetarFormulario() {
     setTipo('despesa')

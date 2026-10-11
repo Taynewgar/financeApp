@@ -4455,3 +4455,38 @@ Item 44 do backlog ("agilidade na inserção"): usuário apontou que a tela de s
 - [ ] Clicar "Lançar outro" (não o "igual") e confirmar que o
       formulário volta 100% vazio, sem nenhum aviso — comportamento
       de antes, sem mudança.
+
+### Rodada 55 (2026-10-11) — Fix de layout + "Duplicar" na lista de Lançamentos (item 44)
+
+Usuário reportou (print) que os botões da tela de sucesso da Rodada 54 ficavam esticados a largura total da página, destoando do resto do app (formulário/recap limitados a 560px). Causa: `.form-acoes-coluna` (novo na Rodada 54) não tinha `max-width`, só o `.recap-lancamento` tinha.
+
+**Fix de layout:** `max-width: 560px` adicionado em `.form-acoes-coluna` (`forms.css`), igual ao `.form`/`.recap-lancamento`.
+
+**"Duplicar" na lista de Lançamentos (caminho 1 do item 44, custo avaliado como baixo, usuário pediu pra implementar):** botão "Duplicar" ao lado de "Editar" em cada lançamento (`Lancamentos.tsx`), navega pro Novo Lançamento (`<Link state={{ duplicar: t }}>`) pré-preenchido com tudo (tipo, conta, categoria, subcategoria, estrutura de custo, meio de pagamento, descrição, data), exceto o Valor — mesmo padrão do "Lançar outro igual" da Rodada 54. Sempre entra como à vista, mesmo se a transação original era uma parcela (repetir o parcelamento exigiria recalcular valor_total/parcelas — fora de escopo).
+
+**Fix:**
+- `derivarTipo()` (função local de `EditarLancamento.tsx`, converte `tipo_movimento`+`caixinha_id` pro tipo do formulário) extraída pra `lib/rotulos.ts` como `derivarTipoLancamento()`, reaproveitada pelos dois formulários.
+- `NovoLancamento.tsx`: novo efeito consome `location.state.duplicar` no mount e preenche os campos. Achado durante a implementação: o efeito de reset-ao-trocar-tipo (que limpa categoria/subcategoria sempre que o tipo muda) rodaria de novo e apagaria o que acabou de ser preenchido, sempre que o tipo duplicado fosse diferente do padrão ('despesa') — resolvido com uma ref (`pularResetDeTipoRef`) que pula esse reset uma única vez, só quando o tipo realmente vai mudar (`setTipo` com o mesmo valor não dispara o efeito, então a ref não pode ser setada incondicionalmente, senão fica "pendurada" e quebra a próxima troca manual de tipo — achado e corrigido antes de commitar).
+- Estorno/Ressarcimento duplicado também busca e preenche a despesa original (`ajuste_de_transacao_id`), reaproveitando `selecionarDespesaOriginal()` já existente.
+
+**Testes:** mudança de frontend puro, sem endpoint novo. `tsc -b && vite build` — sem erro novo; `oxlint` — sem warning novo (1 `react-hooks/exhaustive-deps` do efeito de mount-único, suprimido com `eslint-disable-next-line`, mesmo padrão já usado em `Lancamentos.tsx`).
+
+**Status:** implementado 2026-10-11. Detalhe em `docs/backlog.md` ("Agilidade na inserção de transações").
+
+**Checklist de teste manual (usuário, localmente):**
+- [ ] Na tela de sucesso, confirmar que os 3 botões ("Lançar outro
+      igual"/"Lançar outro"/"Ver Dashboard") não ficam mais esticados
+      a largura total da tela — mesma largura do formulário/recap.
+- [ ] Em Lançamentos, clicar "Duplicar" numa despesa e confirmar que o
+      Novo Lançamento abre com tudo preenchido igual, exceto o Valor.
+- [ ] Clicar "Duplicar" numa RECEITA (tipo diferente do padrão
+      'despesa') e confirmar que o tipo também vem selecionado
+      corretamente, sem precisar trocar manualmente.
+- [ ] Depois de usar "Duplicar", trocar o tipo manualmente (ex: de
+      Receita pra Despesa) e confirmar que a categoria/subcategoria
+      são limpas normalmente — não ficam "grudadas" da duplicação.
+- [ ] Clicar "Duplicar" numa parcela de compra parcelada e confirmar
+      que abre como lançamento à vista (não parcelado), com
+      conta/categoria/descrição preenchidos.
+- [ ] Clicar "Duplicar" num Estorno/Ressarcimento e confirmar que a
+      despesa original também vem selecionada.

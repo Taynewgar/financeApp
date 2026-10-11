@@ -64,10 +64,9 @@ changelog já documenta quando e como cada um foi entregue).
 - **43.** **Consulta rápida durante a inserção** `tipo: Melhoria` ✅ —
   ver detalhe abaixo. *(trazido em CSV, 2026-09-30; implementado
   2026-10-11)*
-- **44.** **Agilidade na inserção de transações** `tipo: Melhoria` 🔶
-  parcialmente implementado — ver detalhe abaixo. CRUD em lote
-  rebaixado pra baixa prioridade (item 69). *(trazido em CSV,
-  2026-09-30; "Lançar outro igual" implementado 2026-10-11)*
+- **44.** **Agilidade na inserção de transações** `tipo: Melhoria` ✅ —
+  ver detalhe abaixo. CRUD em lote rebaixado pra baixa prioridade (item
+  69). *(trazido em CSV, 2026-09-30; implementado 2026-10-11)*
 - **45.** **Busca por descrição parcial** `tipo: Melhoria` — no campo
   busca por descrição, permitir que a descrição contenha a frase/palavra
   escrita, em vez de exigir correspondência exata palavra a palavra.
@@ -875,19 +874,28 @@ também (mantém a caixinha escolhida). Tela de sucesso ganhou um recap
 do que foi salvo, pra dar contexto a essa decisão.
 
 **Decisão de acompanhamento:** usuário concordou em rebaixar CRUD em
-lote (caminho 3) pra baixa prioridade — ver item 69. O "Duplicar" na
-lista de Lançamentos (caminho 1, pra repetir algo que NÃO foi o último
-lançamento) continua em aberto — não decidido se ainda é necessário
-depois do "Lançar outro igual" cobrir o caso mais comum.
+lote (caminho 3) pra baixa prioridade — ver item 69.
 
-**Status:** "Lançar outro igual" implementado 2026-10-11 em
-`NovoLancamento.tsx` (`lancarOutroIgual()`, estado `avisoCopiado`,
-recap via `resumoUltimoLancamento`). Mockup interativo (canvas de
+**Caminho 1 (Duplicar) implementado também, custo avaliado como baixo**
+— reaproveita `derivarTipoLancamento()` (extraída de `EditarLancamento.tsx`
+pra `lib/rotulos.ts`, já fazia a conversão transação→campos do
+formulário) e o mesmo padrão de "limpar só o valor" do `lancarOutroIgual`.
+Botão "Duplicar" em Lançamentos, ao lado de "Editar", navega pro Novo
+Lançamento (`state: { duplicar: transacao }`) pré-preenchido, sempre
+como à vista (repetir um parcelamento exigiria recalcular valor_total/
+parcelas — fora de escopo, usuário escolhe "Parcelado" de novo se
+quiser). Cobre o caso que o "Lançar outro igual" não cobre: repetir
+algo que NÃO foi o último lançamento.
+
+**Status:** implementado 2026-10-11 em `NovoLancamento.tsx`
+(`lancarOutroIgual()`, estado `avisoCopiado`, recap via
+`resumoUltimoLancamento`, efeito que consome `location.state.duplicar`)
+e `Lancamentos.tsx` (botão "Duplicar"). Mockup interativo (canvas de
 design, não faz parte do repositório):
 https://claude.ai/artifact/FHKfVknzVa8GrzvcAVF1Kh — demonstra a tela de
 sucesso com recap + as 2 transições ("Lançar outro igual" vs "Lançar
-outro"). Ver changelog Rodada 54 pro detalhe técnico e o checklist de
-teste manual.
+outro"). Ver changelog Rodadas 54 e 55 pro detalhe técnico e os
+checklists de teste manual.
 
 ### Caixinhas com saldo errado / limite de 1000 linhas do Supabase
 

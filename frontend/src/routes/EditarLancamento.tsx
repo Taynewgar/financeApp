@@ -2,17 +2,8 @@ import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import '../components/forms.css'
 import { ApiError, apiFetch } from '../lib/api'
-import { ESTRUTURAS, MEIOS_PAGAMENTO, rotuloTipoMovimento } from '../lib/rotulos'
+import { ESTRUTURAS, MEIOS_PAGAMENTO, derivarTipoLancamento, rotuloTipoMovimento } from '../lib/rotulos'
 import type { Caixinha, Categoria, Conta, EstruturaCusto, MeioPagamento, Subcategoria, Transacao } from '../lib/types'
-
-type TipoDerivado = 'receita' | 'despesa' | 'investimento' | 'reserva' | 'ajuste'
-
-function derivarTipo(t: Transacao): TipoDerivado {
-  if (t.tipo_movimento === 'receita') return 'receita'
-  if (t.tipo_movimento === 'despesa') return 'despesa'
-  if (t.tipo_movimento === 'estorno' || t.tipo_movimento === 'ressarcimento') return 'ajuste'
-  return t.caixinha_id ? 'reserva' : 'investimento'
-}
 
 export function EditarLancamento() {
   const { id } = useParams<{ id: string }>()
@@ -82,7 +73,7 @@ export function EditarLancamento() {
   // edição em vez de criação)
   const [duplicadoDetectado, setDuplicadoDetectado] = useState(false)
 
-  const tipo = transacaoOriginal ? derivarTipo(transacaoOriginal) : null
+  const tipo = transacaoOriginal ? derivarTipoLancamento(transacaoOriginal) : null
 
   const categoriasElegiveis = useMemo(() => {
     if (!tipo) return []
