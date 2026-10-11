@@ -4672,13 +4672,14 @@ novo; `oxlint` — mesmo warning pré-existente (`set-state-in-effect` em
 **Status:** implementado 2026-10-11.
 
 **Checklist de teste manual (usuário, localmente):**
-- [ ] Em Planejamento, com vários itens de um envelope expandidos,
+- [x] ~~Em Planejamento, com vários itens de um envelope expandidos,
       clicar "Editar" num item que não seja o primeiro da lista e
       confirmar que o formulário abre logo abaixo dele, não no fim do
-      envelope.
-- [ ] Salvar a edição e confirmar que fecha o formulário normalmente.
-- [ ] Clicar "Editar" num item, depois "Cancelar" — confirmar que fecha
-      sem salvar.
-- [ ] Clicar "Editar" em um item, sem salvar, clicar "Editar" em outro
+      envelope. — confirmado 2026-10-11.~~
+- [x] ~~Salvar a edição e confirmar que fecha o formulário normalmente. —
+      confirmado 2026-10-11.~~
+- [x] ~~Clicar "Editar" num item, depois "Cancelar" — confirmar que fecha
+      sem salvar. — confirmado 2026-10-11.~~
+- [x] ~~Clicar "Editar" em um item, sem salvar, clicar "Editar" em outro
       item diferente — confirmar que o formulário anterior fecha e abre
-      só sob o novo item escolhido.
+      só sob o novo item escolhido. — confirmado 2026-10-11.~~
