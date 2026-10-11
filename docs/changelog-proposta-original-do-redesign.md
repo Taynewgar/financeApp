@@ -4722,11 +4722,12 @@ Artifact: [mockups interativos](https://claude.ai/artifact/MWG6PCVHk5fJJvxLeCVtU
 Opções e decisão — ver entrada seguinte, após aprovação do usuário.
 
 **Checklist de teste manual (usuário, localmente):**
-- [ ] Em Lançamentos, abrir os filtros e confirmar que existe o campo
-      "Parcelamento" com as opções Todos/À vista/Parcelado.
-- [ ] Filtrar por "Parcelado" e confirmar que só aparecem parcelas de
+- [x] ~~Em Lançamentos, abrir os filtros e confirmar que existe o campo
+      "Parcelamento" com as opções Todos/À vista/Parcelado. — confirmado
+      2026-10-11.~~
+- [x] ~~Filtrar por "Parcelado" e confirmar que só aparecem parcelas de
       compras parceladas; filtrar por "À vista" e confirmar que elas
-      somem da lista.
+      somem da lista. — confirmado 2026-10-11.~~
 
 ### Rodada 61 (2026-10-11) — Itens 54 e 55: esquema de cores + últimos lançamentos por conta
 
@@ -4785,20 +4786,88 @@ erro novo; `oxlint` sem warning novo (diff completo antes/depois).
 **Status:** implementado 2026-10-11.
 
 **Checklist de teste manual (usuário, localmente):**
-- [ ] Em Lançamentos, conferir que a lista de transações mostra as 4
+- [x] ~~Em Lançamentos, conferir que a lista de transações mostra as 4
       cores (verde/vermelho/azul/roxo) certas por tipo, com pílula
       preenchida em aplicação e só contorno em retirada (investimento e
-      reserva/caixinha).
-- [ ] Conferir o badge "estorno"/"ressarcimento" acima do valor (verde)
-      num lançamento desses tipos.
-- [ ] Em Lançamentos, confirmar que aparece a seção "Últimos lançamentos
+      reserva/caixinha). — confirmado 2026-10-11 (cores certas; usuário
+      pediu uma legenda explicando as cores — adicionada na Rodada 62).~~
+- [x] ~~Conferir o badge "estorno"/"ressarcimento" acima do valor (verde)
+      num lançamento desses tipos. — confirmado 2026-10-11.~~
+- [x] ~~Em Lançamentos, confirmar que aparece a seção "Últimos lançamentos
       por conta" acima dos cards de resumo, com um chip por conta ativa.
-- [ ] Clicar num chip e confirmar que expande os últimos 5 lançamentos
+      — confirmado 2026-10-11.~~
+- [x] ~~Clicar num chip e confirmar que expande os últimos 5 lançamentos
       daquela conta, mostrando só a 1ª parcela de compras parceladas (não
-      cada parcela).
-- [ ] Clicar "Ver tudo em Lançamentos, filtrado por..." e confirmar que a
+      cada parcela). — **achado 2026-10-11**: a filtragem (só 1ª parcela)
+      está certa, mas o card de cada lançamento ficou ruim — 3 colunas
+      espalhadas (descrição/data/valor) deixavam a leitura confusa, e
+      nada indicava que um lançamento era parcelado. Corrigido na Rodada
+      62: data primeiro ("dd/mm — descrição"), valor mais próximo (não
+      mais na ponta), indicador "parcela N/T" quando `pagamento ===
+      'parcelado'`.~~
+- [x] ~~Clicar "Ver tudo em Lançamentos, filtrado por..." e confirmar que a
       lista abaixo (e os filtros) atualizam pra mostrar só aquela conta,
-      sem os outros filtros que estivessem ativos antes.
-- [ ] Confirmar que essa seção nova não substitui nem esconde a Busca de
+      sem os outros filtros que estivessem ativos antes. — **achado
+      2026-10-11**: o filtro de conta aplicava certo, mas Mês/Ano (estado
+      `mesRapido`/`anoRapido`, separado do objeto `filtros`) continuavam
+      com a seleção anterior na tela — resetar só `filtros` não limpava
+      os selects. Corrigido na Rodada 62: o clique também chama
+      `setMesRapido('')`, mesmo reset que o botão "Limpar filtros" já
+      fazia.~~
+- [x] ~~Confirmar que essa seção nova não substitui nem esconde a Busca de
       Lançamentos padrão (filtros + lista completa continuam abaixo,
-      funcionando normalmente).
+      funcionando normalmente). — confirmado 2026-10-11.~~
+
+### Rodada 62 (2026-10-11) — 4 achados testando a Rodada 61
+
+**Achado 1 — faltava legenda de cores:** as 4 cores (item 55) apareciam
+certas, mas nada na tela explicava qual cor é qual.
+
+**Fix 1:** nova `.legenda-cores-transacao` acima da lista principal de
+Lançamentos — 4 swatches (verde/vermelho/azul/roxo) + nota "pílula cheia
+= aplicação · contorno = retirada", mesmo padrão de legenda já usado em
+Planejamento (`.planejamento-alocacao-legenda`/`.planejamento-swatch`).
+
+**Achado 2 — card dos "últimos lançamentos por conta" mal legível:** 3
+colunas (descrição / data / valor) espalhadas com `justify-content:
+space-between` — descrição grudada na esquerda, data solta no meio, valor
+na ponta direita, sem relação visual com a linha. Pedido: data primeiro,
+valor sem ficar "no final do card".
+
+**Fix 2:** linha reduzida a 2 blocos — "dd/mm — descrição" junto à
+esquerda (mesmo padrão `data — descrição` da lista principal), valor
+logo ao lado, não mais numa 3ª coluna solta.
+
+**Achado 3 — parcelado sem indicação:** nos "últimos lançamentos por
+conta", nada mostrava que um lançamento era a 1ª parcela de uma compra
+parcelada (a lista já filtrava certo — só não tinha como o usuário ver).
+
+**Fix 3:** quando `pagamento === 'parcelado'`, a linha ganha " · parcela
+N/T" depois da descrição (mesmo formato já usado na lista principal).
+
+**Achado 4 — "Ver tudo" não limpava Mês/Ano:** o clique resetava
+`filtros` (objeto) mas não `mesRapido`/`anoRapido` — estado separado,
+usado pelos selects de atalho "Mês"/"Ano" — então os selects continuavam
+mostrando a seleção anterior na tela, mesmo com o filtro de data já
+limpo por baixo.
+
+**Fix 4:** o clique em "Ver tudo" agora também chama `setMesRapido('')`,
+igual ao botão "Limpar filtros" já fazia.
+
+**Testes:** mudança de frontend puro. `tsc -b && vite build` — sem erro
+novo; `oxlint` — sem warning novo (diff completo antes/depois).
+
+**Status:** implementado 2026-10-11.
+
+**Checklist de teste manual (usuário, localmente):**
+- [ ] Em Lançamentos, confirmar que aparece uma legenda com as 4 cores
+      acima da lista principal, explicando o que cada uma significa.
+- [ ] Expandir "últimos lançamentos" de uma conta e confirmar que cada
+      linha mostra "dd/mm — descrição" primeiro, com o valor ao lado (não
+      mais espalhado em 3 colunas).
+- [ ] Nessa mesma lista, confirmar que um lançamento parcelado mostra
+      "· parcela N/T" depois da descrição.
+- [ ] Com Mês/Ano selecionados nos filtros, clicar "Ver tudo em
+      Lançamentos, filtrado por..." num chip de conta e confirmar que os
+      selects de Mês/Ano voltam pro estado vazio/padrão, não só o filtro
+      de conta.

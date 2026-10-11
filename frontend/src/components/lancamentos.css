@@ -111,14 +111,19 @@
   gap: 6px;
 }
 
+/* data primeiro (igual à lista principal "dd/mm — descrição"), valor logo
+ * ao lado — achado testando a Rodada 61: 3 colunas com justify-content:
+ * space-between espalhava demais (descrição esquerda, data no meio,
+ * valor na ponta), ficava ruim de ler. */
 .ultimo-conta-linha {
   display: flex;
   justify-content: space-between;
-  gap: 8px;
+  align-items: baseline;
+  gap: 10px;
   font-size: 12px;
 }
 
-.ultimo-conta-desc {
+.ultimo-conta-info {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -127,11 +132,41 @@
 
 .ultimo-conta-data {
   color: var(--cor-texto-suave);
-  white-space: nowrap;
+}
+
+.ultimo-conta-parcela {
+  color: var(--cor-texto-suave);
 }
 
 .ultimo-conta-valor {
   font-weight: 600;
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+
+/* legenda de cores acima da lista de lançamentos — achado testando a
+ * Rodada 61: as cores (item 55 do backlog) apareciam certas, mas sem
+ * explicação de qual é qual. */
+.legenda-cores-transacao {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin-bottom: 10px;
+  font-size: 11px;
+  color: var(--cor-texto-suave);
+}
+
+.legenda-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.legenda-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  flex-shrink: 0;
+  display: inline-block;
 }

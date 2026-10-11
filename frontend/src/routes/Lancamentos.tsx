@@ -295,8 +295,14 @@ export function Lancamentos() {
               ) : (
                 (ultimosPorConta[contaExpandidaId] ?? []).map((t) => (
                   <div className="ultimo-conta-linha" key={t.id}>
-                    <span className="ultimo-conta-desc">{t.descricao ?? '(sem descrição)'}</span>
-                    <span className="ultimo-conta-data">{formatarData(t.data_compra)}</span>
+                    <span className="ultimo-conta-info">
+                      <span className="ultimo-conta-data">{formatarData(t.data_compra)}</span>
+                      {' — '}
+                      {t.descricao ?? '(sem descrição)'}
+                      {t.pagamento === 'parcelado' && (
+                        <span className="ultimo-conta-parcela"> · parcela {t.parcela_atual}/{t.parcela_total}</span>
+                      )}
+                    </span>
                     <span className={`ultimo-conta-valor ${classePorTipoMovimento(t.tipo_movimento, t.caixinha_id)}`}>
                       {formatarMoeda(t.valor, oculto)}
                     </span>
@@ -307,7 +313,10 @@ export function Lancamentos() {
                 type="button"
                 className="botao-link"
                 style={{ alignSelf: 'flex-start', padding: '4px 0' }}
-                onClick={() => setFiltros({ ...FILTROS_VAZIOS, contaId: contaExpandidaId })}
+                onClick={() => {
+                  setMesRapido('')
+                  setFiltros({ ...FILTROS_VAZIOS, contaId: contaExpandidaId })
+                }}
               >
                 Ver tudo em Lançamentos, filtrado por {contasPorId.get(contaExpandidaId)?.nome} →
               </button>
@@ -546,6 +555,14 @@ export function Lancamentos() {
       {transacoes === null && <p>Carregando…</p>}
       {transacoes?.length === 0 && <p>Nenhum lançamento encontrado com esses filtros.</p>}
       {transacoes && transacoes.length > 0 && (
+        <>
+        <div className="legenda-cores-transacao">
+          <span className="legenda-item"><span className="legenda-swatch" style={{ background: '#146c2e' }} />Receita / estorno / ressarcimento</span>
+          <span className="legenda-item"><span className="legenda-swatch" style={{ background: '#b3261e' }} />Despesa</span>
+          <span className="legenda-item"><span className="legenda-swatch" style={{ background: '#2563eb' }} />Investimento</span>
+          <span className="legenda-item"><span className="legenda-swatch" style={{ background: '#7c3aed' }} />Reserva (caixinha)</span>
+          <span className="legenda-item">Pílula cheia = aplicação · contorno = retirada</span>
+        </div>
         <ul className="lista-crud">
           {transacoes.map((t) => {
             const conta = contasPorId.get(t.conta_id)
@@ -621,6 +638,7 @@ export function Lancamentos() {
             )
           })}
         </ul>
+        </>
       )}
         </>
       )}
