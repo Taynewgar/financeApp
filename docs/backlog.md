@@ -894,8 +894,12 @@ e `Lancamentos.tsx` (botão "Duplicar"). Mockup interativo (canvas de
 design, não faz parte do repositório):
 https://claude.ai/artifact/FHKfVknzVa8GrzvcAVF1Kh — demonstra a tela de
 sucesso com recap + as 2 transições ("Lançar outro igual" vs "Lançar
-outro"). Ver changelog Rodadas 54 e 55 pro detalhe técnico e os
-checklists de teste manual.
+outro"). 2 achados testando, corrigidos nas Rodadas 56/57: "Cancelar"
+generalizado via `navigate(-1)` (qualquer tela de origem, não só
+Dashboard/Lançamentos) e `EditarLancamento.tsx` ganhou busca+"Trocar"
+pra despesa original de Estorno/Ressarcimento (bug pré-existente, só
+tinha isso no Novo Lançamento). Ver changelog Rodadas 54-57 pro detalhe
+técnico e os checklists de teste manual.
 
 ### Caixinhas com saldo errado / limite de 1000 linhas do Supabase
 

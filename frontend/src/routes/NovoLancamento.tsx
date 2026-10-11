@@ -50,10 +50,6 @@ export function NovoLancamento() {
   // limpa o state corre com a 2ª chamada; achado testando a Rodada 55
   // (despesa original do Estorno/Ressarcimento vinha vazia)
   const duplicarProcessadoRef = useRef(false)
-  // destino do "Cancelar": /dashboard por padrão, /lancamentos se chegou
-  // aqui duplicando (não faz sentido mandar de volta pro Dashboard quem
-  // estava em Lançamentos duplicando algo)
-  const [veioDeLancamentos, setVeioDeLancamentos] = useState(false)
 
   const [contas, setContas] = useState<Conta[]>([])
   const [categorias, setCategorias] = useState<Categoria[]>([])
@@ -402,7 +398,6 @@ export function NovoLancamento() {
     const duplicar = (location.state as { duplicar?: Transacao } | null)?.duplicar
     if (!duplicar) return
     duplicarProcessadoRef.current = true
-    setVeioDeLancamentos(true)
 
     const tipoDuplicado = derivarTipoLancamento(duplicar)
     // só pula o reset se o tipo for realmente mudar — setTipo com o mesmo
@@ -482,6 +477,22 @@ export function NovoLancamento() {
     setDuplicadoDetectado(false)
     setAvisoQuaseDuplicataDescartado(false)
     setAvisoCopiado(true)
+  }
+
+  // "Cancelar" volta pra onde o usuário estava antes de abrir o
+  // formulário (FAB "+" em qualquer tela, "Duplicar" em Lançamentos,
+  // nav principal) em vez de mandar sempre pro Dashboard — reportado
+  // 2026-10-11: ao abrir pelo "+" estando em Lançamentos, Cancelar
+  // levava pro Dashboard em vez de voltar pra onde estava.
+  // window.history.length é uma estimativa (não dá pra saber com certeza
+  // se há uma entrada anterior dentro do app) — no caso raro de não
+  // haver, cai no Dashboard como antes.
+  function cancelar() {
+    if (window.history.length > 2) {
+      navigate(-1)
+    } else {
+      navigate('/dashboard')
+    }
   }
 
   function montarPayloadAvista(): Record<string, unknown> {
@@ -1147,9 +1158,9 @@ export function NovoLancamento() {
           <button type="submit" className="botao-primario" disabled={enviando}>
             {enviando ? 'Salvando…' : 'Salvar lançamento'}
           </button>
-          <Link to={veioDeLancamentos ? '/lancamentos' : '/dashboard'} className="botao-secundario">
+          <button type="button" className="botao-secundario" onClick={cancelar}>
             Cancelar
-          </Link>
+          </button>
         </div>
       </form>
     </div>

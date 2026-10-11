@@ -4496,10 +4496,9 @@ Usuário reportou (print) que os botões da tela de sucesso da Rodada 54 ficavam
 - [x] Clicar "Duplicar" numa parcela de compra parcelada e confirmar
       que abre como lançamento à vista (não parcelado), com
       conta/categoria/descrição preenchidos. — confirmado 2026-10-11.
-- [ ] Clicar "Duplicar" num Estorno/Ressarcimento e confirmar que a
-      despesa original também vem selecionada. — reportado 2026-10-11:
-      tudo preenchia menos a despesa original (ficava vazia). Corrigido
-      na Rodada 56 — testar de novo.
+- [x] Clicar "Duplicar" num Estorno/Ressarcimento e confirmar que a
+      despesa original também vem selecionada. — reportado 2026-10-11
+      como vazio, corrigido na Rodada 56, confirmado 2026-10-11.
 
 ### Rodada 56 (2026-10-11) — 2 bugs da Rodada 55: "Cancelar" e despesa original vazia
 
@@ -4518,11 +4517,48 @@ Dois bugs reportados testando a Rodada 55.
 **Status:** implementado 2026-10-11, sem reprodução local (ambiente sem Supabase configurado) — pede reteste do usuário. Detalhe em `docs/backlog.md` ("Agilidade na inserção de transações").
 
 **Checklist de teste manual (usuário, localmente):**
-- [ ] Duplicar um lançamento a partir de Lançamentos, clicar "Cancelar"
+- [x] Duplicar um lançamento a partir de Lançamentos, clicar "Cancelar"
       no formulário (sem salvar) e confirmar que volta pra Lançamentos,
-      não pro Dashboard.
-- [ ] Abrir "Novo Lançamento" pela navegação normal (não duplicando),
+      não pro Dashboard. — confirmado 2026-10-11.
+- [ ] ~~Abrir "Novo Lançamento" pela navegação normal (não duplicando),
       clicar "Cancelar" e confirmar que continua indo pro Dashboard —
-      comportamento de antes, sem mudança.
-- [ ] Repetir o item 6 da Rodada 55: duplicar um Estorno/Ressarcimento
-      e confirmar que a despesa original agora vem preenchida também.
+      comportamento de antes, sem mudança.~~ — **achado 2026-10-11**: o
+      próprio comportamento esperado aqui estava incompleto — abrindo
+      pelo "+" estando em Lançamentos, "Cancelar" ainda mandava pro
+      Dashboard em vez de voltar pra Lançamentos. Generalizado na
+      Rodada 57 (`navigate(-1)`, volta sempre pra onde estava, qualquer
+      tela de origem) — ver checklist lá.
+- [x] Repetir o item 6 da Rodada 55: duplicar um Estorno/Ressarcimento
+      e confirmar que a despesa original agora vem preenchida também. —
+      confirmado 2026-10-11.
+
+### Rodada 57 (2026-10-11) — "Cancelar" generalizado + trocar despesa original na edição
+
+2 achados testando a Rodada 56.
+
+**Achado 1 — "Cancelar" ainda mandava pro Dashboard em mais casos:** o fix da Rodada 56 (`veioDeLancamentos`) só cobria o caminho "Duplicar". Reportado: abrindo o Novo Lançamento pelo botão "+" estando em qualquer outra tela (não só Lançamentos), "Cancelar" ainda mandava pro Dashboard em vez de voltar pra onde o usuário estava.
+
+**Fix 1:** generalizado — trocado o `Link to="/dashboard"` fixo por um botão que usa `navigate(-1)` (volta um passo no histórico do navegador), funciona pra qualquer tela de origem (FAB em qualquer lugar, "Duplicar", nav principal), sem precisar rastrear de onde veio. `window.history.length > 2` como salvaguarda: no raro caso de não haver página anterior dentro do app (ex: link direto pro Novo Lançamento), cai no Dashboard como antes. Estado `veioDeLancamentos` (Rodada 56) removido — não é mais necessário.
+
+**Achado 2 — editar um Estorno/Ressarcimento não tem como trocar a despesa original:** reportado com print — `EditarLancamento.tsx` só mostrava o texto fixo da despesa original, sem busca nem botão "Trocar" (diferente do Novo Lançamento, que tem os dois). Bug pré-existente, não causado pelas rodadas recentes — só apareceu agora porque o usuário estava testando os fluxos de ajuste de perto.
+
+**Fix 2:** `EditarLancamento.tsx` ganhou a mesma busca com debounce + botão "Trocar" que já existia em `NovoLancamento.tsx` (`buscaDespesa`/`resultadosDespesa`/`buscandoDespesa`, `selecionarDespesaOriginal`/`trocarDespesaOriginal`). Decisão de design: ao trocar a despesa original na EDIÇÃO, só troca o vínculo (`ajuste_de_transacao_id`) — não sobrescreve conta/categoria/subcategoria/estrutura de custo do lançamento, diferente do Novo Lançamento (que pré-preenche tudo a partir da despesa escolhida). Motivo: no Novo Lançamento é um formulário em branco sendo montado; na edição, os campos já são os do lançamento existente — trocar só o link de qual despesa está sendo corrigida não deveria sobrescrever valores que o usuário já ajustou pra esse ressarcimento/estorno específico.
+
+**Testes:** mudança de frontend puro. `tsc -b && vite build` — sem erro novo; `oxlint` — 1 warning novo (`set-state-in-effect` no novo efeito de busca de `EditarLancamento.tsx`), mesmo padrão já aceito no efeito equivalente de `NovoLancamento.tsx`.
+
+**Status:** implementado 2026-10-11. Detalhe em `docs/backlog.md` ("Agilidade na inserção de transações").
+
+**Checklist de teste manual (usuário, localmente):**
+- [ ] Estando em Lançamentos (ou qualquer outra tela que não Dashboard),
+      clicar no "+" pra abrir Novo Lançamento, clicar "Cancelar" e
+      confirmar que volta pra tela de onde veio, não pro Dashboard.
+- [ ] Duplicar um lançamento a partir de Lançamentos e clicar
+      "Cancelar" — confirmar que continua voltando pra Lançamentos.
+- [ ] Editar um Estorno/Ressarcimento existente e confirmar que agora
+      aparece o texto da despesa original com um botão "Trocar".
+- [ ] Clicar "Trocar", buscar e escolher uma despesa diferente,
+      salvar — confirmar que salva sem erro e que reabrir a edição
+      mostra a nova despesa vinculada.
+- [ ] Depois de trocar a despesa original na edição, confirmar que
+      conta/categoria/subcategoria/estrutura de custo do lançamento
+      NÃO mudaram — só o vínculo trocou.

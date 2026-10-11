@@ -73,6 +73,17 @@ export function EditarLancamento() {
   // edição em vez de criação)
   const [duplicadoDetectado, setDuplicadoDetectado] = useState(false)
 
+  // busca da despesa original pra trocar o vínculo de um Estorno/
+  // Ressarcimento (item achado 2026-10-11: edição não tinha nenhum jeito
+  // de trocar, só mostrava o texto fixo) — mesmo padrão de
+  // NovoLancamento.tsx, mas sem pré-preencher conta/categoria/
+  // subcategoria/estrutura a partir da despesa escolhida: aqui são os
+  // campos do PRÓPRIO lançamento sendo editado, já corretos, trocar só
+  // o vínculo não deve sobrescrevê-los
+  const [buscaDespesa, setBuscaDespesa] = useState('')
+  const [buscandoDespesa, setBuscandoDespesa] = useState(false)
+  const [resultadosDespesa, setResultadosDespesa] = useState<Transacao[]>([])
+
   const tipo = transacaoOriginal ? derivarTipoLancamento(transacaoOriginal) : null
 
   const categoriasElegiveis = useMemo(() => {
@@ -105,6 +116,34 @@ export function EditarLancamento() {
     }
   }, [tipo, caixinhaSelecionada])
 
+  // debounce simples: espera parar de digitar antes de consultar a API —
+  // mesmo padrão de NovoLancamento.tsx
+  useEffect(() => {
+    if (tipo !== 'ajuste' || despesaOriginal) return
+    if (!buscaDespesa.trim()) {
+      setResultadosDespesa([])
+      return
+    }
+    setBuscandoDespesa(true)
+    const timer = setTimeout(() => {
+      apiFetch<Transacao[]>(`/transacoes?tipo_movimento=despesa&descricao=${encodeURIComponent(buscaDespesa.trim())}`)
+        .then((res) => setResultadosDespesa(res.slice(0, 20)))
+        .catch(() => setResultadosDespesa([]))
+        .finally(() => setBuscandoDespesa(false))
+    }, 350)
+    return () => clearTimeout(timer)
+  }, [buscaDespesa, tipo, despesaOriginal])
+
+  function selecionarDespesaOriginal(d: Transacao) {
+    setDespesaOriginal(d)
+  }
+
+  function trocarDespesaOriginal() {
+    setDespesaOriginal(null)
+    setBuscaDespesa('')
+    setResultadosDespesa([])
+  }
+
   function selecionarSubcategoria(subId: string) {
     setSubcategoriaId(subId)
     if (tipo === 'despesa' || tipo === 'ajuste') {
@@ -127,7 +166,7 @@ export function EditarLancamento() {
       estrutura_custo: estruturaCusto || null,
       caixinha_id: tipo === 'reserva' ? caixinhaId : null,
       meio_pagamento: tipo === 'despesa' || tipo === 'ajuste' ? meioPagamento || null : null,
-      ajuste_de_transacao_id: transacaoOriginal!.ajuste_de_transacao_id,
+      ajuste_de_transacao_id: despesaOriginal?.id ?? null,
     }
   }
 
@@ -156,6 +195,10 @@ export function EditarLancamento() {
 
     if (!contaId) {
       setErro('Escolha uma conta.')
+      return
+    }
+    if (tipo === 'ajuste' && !despesaOriginal) {
+      setErro('Escolha a despesa original que está sendo estornada/ressarcida.')
       return
     }
     if (tipo === 'reserva' && !caixinhaId) {
@@ -381,15 +424,41 @@ export function EditarLancamento() {
       </p>
 
       <form className="form" onSubmit={handleSubmit}>
-        {tipo === 'ajuste' && despesaOriginal && (
+        {tipo === 'ajuste' && (
           <div className="campo">
             <span>Despesa original</span>
-            <div className="despesa-selecionada">
-              <span>
-                {despesaOriginal.data_compra} — {despesaOriginal.descricao ?? '(sem descrição)'} — R${' '}
-                {despesaOriginal.valor.toFixed(2)}
-              </span>
-            </div>
+            {despesaOriginal ? (
+              <div className="despesa-selecionada">
+                <span>
+                  {despesaOriginal.data_compra} — {despesaOriginal.descricao ?? '(sem descrição)'} — R${' '}
+                  {despesaOriginal.valor.toFixed(2)}
+                </span>
+                <button type="button" className="botao-secundario" onClick={trocarDespesaOriginal}>
+                  Trocar
+                </button>
+              </div>
+            ) : (
+              <>
+                <input
+                  type="text"
+                  placeholder="Buscar pela descrição da despesa…"
+                  value={buscaDespesa}
+                  onChange={(e) => setBuscaDespesa(e.target.value)}
+                />
+                {buscandoDespesa && <p>Buscando…</p>}
+                {resultadosDespesa.length > 0 && (
+                  <ul className="busca-resultados">
+                    {resultadosDespesa.map((d) => (
+                      <li key={d.id}>
+                        <button type="button" onClick={() => selecionarDespesaOriginal(d)}>
+                          {d.data_compra} — {d.descricao ?? '(sem descrição)'} — R$ {d.valor.toFixed(2)}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </>
+            )}
           </div>
         )}
 
