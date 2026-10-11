@@ -63,3 +63,9 @@ cd frontend && nvm use && npm run dev
   Render/Vercel.
 - Regra de negócio nova ou alterada: documentar na mesma seção do domínio
   no `README.md` raiz, seguindo o padrão "regra + porquê" já usado lá.
+- Checklist de teste manual (`- [ ]`/`- [x]`): convenção de marcação
+  (quando riscar, quando marcar a caixa, como registrar um item
+  reprovado) documentada no topo de
+  `docs/changelog-proposta-original-do-redesign.md`, seção "Changelog
+  deste documento" — vale pra qualquer checklist desse tipo no projeto,
+  incluindo os que aparecem em `docs/backlog.md`.
