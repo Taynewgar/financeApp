@@ -4214,13 +4214,15 @@ Junto (item 56 do backlog, mesma rodada): `DELETE /orcamentos/{id}` — apaga o 
       que salva normalmente. — confirmado 2026-10-11. Usuário notou que
       o campo "Nome livre" não faz sentido mais na edição de um item
       vinculado — ver fix de acompanhamento nesta mesma rodada.~~
-- [ ] Editar um item pra apontar pra uma categoria/subcategoria já
+- [x] Editar um item pra apontar pra uma categoria/subcategoria já
       usada por OUTRO item ativo (de qualquer bucket) e confirmar que
       dá erro (409) em vez de salvar. — **Checklist errado**: reportado
       2026-10-11 que a regra de negócio está errada — categoria PODE se
       repetir entre buckets (ex: "Espiritualidade" fixo + sazonal,
       "Flamengo" fixo + variável). O bloqueio deveria valer só dentro do
-      MESMO bucket. Correção em andamento (ver abaixo).
+      MESMO bucket. Correção feita nas Rodadas 48-51 (bloqueio agora é
+      só dentro do mesmo bucket) — item fechado a pedido do usuário pra
+      não ficar solto, checklist em si não se aplica mais.
 - [x] ~~No mês atual, clicar "Apagar orçamento", confirmar o diálogo, e
       verificar que a tela volta para "Nenhum orçamento configurado
       para este mês" — com as opções de criar do zero ou a partir do
@@ -4249,25 +4251,25 @@ Os 2 itens duplicados reais da conta do usuário foram apagados por ele via "Apa
 **Status:** implementado 2026-10-11. Detalhe completo em `docs/backlog.md` ("Correção: vínculo duplicado é permitido entre buckets").
 
 **Checklist de teste manual (usuário, localmente):**
-- [ ] Editar só o valor orçado de um item cuja categoria também existe
+- [x] ~~Editar só o valor orçado de um item cuja categoria também existe
       em OUTRO bucket (ex: um item de "Espiritualidade" em
       `custos_fixos` e outro em `sazonalidades`) e confirmar que salva
-      normalmente, sem 409. — **bloqueado por outro bug** até a Rodada
-      51 (itens não nasciam sozinhos em bucket diferente); testar de
-      novo agora.
-- [ ] Criar (via lançamento real, não manual) ou confirmar que 2 itens
-      da mesma categoria em buckets diferentes convivem sem erro. —
-      mesmo bloqueio da Rodada 51, testar de novo.
-- [ ] Lançar uma despesa `estrutura_custo="fixo"` numa categoria que
+      normalmente, sem 409.~~ — bloqueado pelo bug da Rodada 51 na
+      1ª tentativa; retestado depois da correção, confirmado
+      2026-10-11.
+- [x] ~~Criar (via lançamento real, não manual) ou confirmar que 2 itens
+      da mesma categoria em buckets diferentes convivem sem erro.~~ —
+      retestado depois da correção da Rodada 51, confirmado 2026-10-11.
+- [x] ~~Lançar uma despesa `estrutura_custo="fixo"` numa categoria que
       também tem item `sazonalidades`, e confirmar que o realizado
-      aparece só no item `custos_fixos`, não nos dois. — mesmo
-      bloqueio da Rodada 51, testar de novo.
-- [ ] Tentar criar/editar 2 itens com a mesma categoria no MESMO
+      aparece só no item `custos_fixos`, não nos dois.~~ — retestado
+      depois da correção da Rodada 51, confirmado 2026-10-11.
+- [x] Tentar criar/editar 2 itens com a mesma categoria no MESMO
       bucket e confirmar que ainda dá 409 (essa regra não mudou). —
       **item mal redigido**: usuário testou lançando 2 TRANSAÇÕES (não
       itens de orçamento) com a mesma categoria, que normalmente nunca
       dá 409 — o `409` é só pra itens de Planejamento. Não é bug, ver
-      Rodada 51.
+      Rodada 51. Fechado a pedido do usuário.
 
 ### Rodada 49 (2026-10-11) — Teto de bucket deixa de bloquear a gravação, vira aviso visual
 
@@ -4280,16 +4282,18 @@ Reportado ao vivo: "edição de item do bucket em Planejamento não está funcio
 **Status:** implementado 2026-10-11. Detalhe completo em `docs/backlog.md` ("Teto de bucket deixa de bloquear a gravação, vira aviso visual").
 
 **Checklist de teste manual (usuário, localmente):**
-- [ ] ~~Editar o valor orçado de um item num bucket já acima do teto e
+- [x] ~~Editar o valor orçado de um item num bucket já acima do teto e
       confirmar que salva normalmente, sem erro.~~ — **superado pela
       Rodada 50**: voltou a pedir confirmação (não salva mais direto).
-- [ ] Conferir que o cabeçalho do bucket (e o resumo fixo do topo)
+      Fechado a pedido do usuário.
+- [x] Conferir que o cabeçalho do bucket (e o resumo fixo do topo)
       mostram "acima do teto" em vermelho quando a soma dos itens
-      ativos (já considerando a sobra/furo acumulado) passa do teto.
-- [ ] Provocar um erro real no formulário de edição (ex: deixar um
+      ativos (já considerando a sobra/furo acumulado) passa do teto. —
+      confirmado 2026-10-11.
+- [x] Provocar um erro real no formulário de edição (ex: deixar um
       campo obrigatório vazio, se aplicável) e confirmar que a
       mensagem aparece perto dos botões "Salvar"/"Cancelar", visível
-      sem precisar rolar a página.
+      sem precisar rolar a página. — confirmado 2026-10-11.
 
 ### Rodada 50 (2026-10-11) — Teto de bucket volta a confirmar antes de estourar
 
@@ -4302,14 +4306,15 @@ Pedida avaliação de ter removido o bloqueio por completo (Rodada 49). Ressalva
 **Status:** implementado 2026-10-11. Detalhe completo em `docs/backlog.md` ("Teto de bucket volta a confirmar antes de estourar").
 
 **Checklist de teste manual (usuário, localmente):**
-- [ ] Editar o valor orçado de um item num bucket já acima do teto —
+- [x] Editar o valor orçado de um item num bucket já acima do teto —
       confirmar que dá erro com botão "Salvar mesmo assim", e que
-      clicar nele salva o valor.
-- [ ] Reativar um item desativado cuja soma do bucket estouraria o
+      clicar nele salva o valor. — confirmado 2026-10-11.
+- [x] Reativar um item desativado cuja soma do bucket estouraria o
       teto — confirmar que aparece um `window.confirm` com a mensagem
-      do estouro, e que confirmar reativa mesmo assim.
-- [ ] Editar/criar um item SEM estourar o teto e confirmar que salva
-      direto, sem pedir confirmação nenhuma.
+      do estouro, e que confirmar reativa mesmo assim. — confirmado
+      2026-10-11.
+- [x] Editar/criar um item SEM estourar o teto e confirmar que salva
+      direto, sem pedir confirmação nenhuma. — confirmado 2026-10-11.
 
 ### Rodada 51 (2026-10-11) — Criação automática de item ignorava bucket
 
@@ -4326,12 +4331,15 @@ Reportado testando a Rodada 48: categoria com despesa fixa todo mês não ganhav
 **Status:** implementado 2026-10-11. Detalhe completo em `docs/backlog.md` ("Criação automática de item ignorava bucket — despesa ficava sem item em Planejamento").
 
 **Checklist de teste manual (usuário, localmente):**
-- [ ] Nos meses já afetados (categoria com despesa real em bucket sem
+- [x] Nos meses já afetados (categoria com despesa real em bucket sem
       item), clicar "Sincronizar itens com lançamentos" em Planejamento
-      e confirmar que os itens que faltavam aparecem.
-- [ ] Lançar uma despesa nova numa categoria que já tem item em outro
+      e confirmar que os itens que faltavam aparecem. — confirmado
+      2026-10-11.
+- [x] Lançar uma despesa nova numa categoria que já tem item em outro
       bucket (ex: Flamengo variável, já tendo Flamengo fixo) e
       confirmar que o item do bucket novo aparece sozinho em
-      Planejamento, sem precisar sincronizar manualmente.
-- [ ] Repetir os itens 1-3 da Rodada 48 (agora que os itens existem de
-      verdade nos dois buckets).
+      Planejamento, sem precisar sincronizar manualmente. — confirmado
+      2026-10-11.
+- [x] Repetir os itens 1-3 da Rodada 48 (agora que os itens existem de
+      verdade nos dois buckets). — confirmado 2026-10-11, ver itens 1-3
+      da Rodada 48 atualizados acima.
