@@ -67,10 +67,9 @@ changelog já documenta quando e como cada um foi entregue).
 - **44.** **Agilidade na inserção de transações** `tipo: Melhoria` ✅ —
   ver detalhe abaixo. CRUD em lote rebaixado pra baixa prioridade (item
   69). *(trazido em CSV, 2026-09-30; implementado 2026-10-11)*
-- **45.** **Busca por descrição parcial** `tipo: Melhoria` — no campo
-  busca por descrição, permitir que a descrição contenha a frase/palavra
-  escrita, em vez de exigir correspondência exata palavra a palavra.
-  *(trazido em CSV, 2026-09-30)*
+- **45.** **Busca por descrição parcial** `tipo: Melhoria` ✅ — ver
+  detalhe no changelog (Rodada 58). *(trazido em CSV, 2026-09-30;
+  implementado 2026-10-11)*
 
 **Média**
 
@@ -115,14 +114,13 @@ changelog já documenta quando e como cada um foi entregue).
 **Alta**
 
 - **46.** **Botões fixos + expandir tudo no Planejamento**
-  `tipo: Melhoria` — botão de novo orçamento também no topo (hoje só
-  no fundo da tela), botão de expandir/recolher tudo (como em Estrutura
-  de Custo) e fixar os botões no topo. *(trazido em CSV, 2026-09-30)*
+  `tipo: Melhoria` ✅ — ver detalhe no changelog (Rodada 58). *(trazido
+  em CSV, 2026-09-30; implementado 2026-10-11)*
 - **47.** **Renomear bucket→envelope, sobra→saldo do envelope**
-  `tipo: Melhoria` — evitar termo fora do português (bucket→envelope) e
-  termo impreciso (sobra denota excedente, mas o valor carregado do
-  orçamento pode ser negativo — por isso saldo, não sobra). *(trazido
-  em CSV, 2026-09-30)*
+  `tipo: Melhoria` ✅ — troca só de rótulo visível (campo/schema/API
+  continuam `bucket`, por decisão explícita do usuário). Ver detalhe no
+  changelog (Rodada 58). *(trazido em CSV, 2026-09-30; implementado
+  2026-10-11)*
 
 **Média**
 

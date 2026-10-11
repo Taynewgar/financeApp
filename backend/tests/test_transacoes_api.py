@@ -983,6 +983,43 @@ def test_buscar_por_descricao_parcial_case_insensitive(client):
     assert dados[0]["descricao"] == "Supermercado Extra"
 
 
+def test_buscar_por_descricao_com_varias_palavras_em_qualquer_ordem(client):
+    conta = _criar_conta_corrente(client)
+    categoria = client.post("/categorias", json={"nome": "Categoria Teste"}).json()
+    client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-09-05",
+            "valor": 40,
+            "tipo_movimento": "despesa",
+            "conta_id": conta["id"],
+            "categoria_id": categoria["id"],
+            "estrutura_custo": "variavel",
+            "meio_pagamento": "pix",
+            "descricao": "Estacionamento Veloe cashback",
+        },
+    )
+    client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-09-06",
+            "valor": 15,
+            "tipo_movimento": "despesa",
+            "conta_id": conta["id"],
+            "categoria_id": categoria["id"],
+            "estrutura_custo": "variavel",
+            "meio_pagamento": "pix",
+            "descricao": "Veloe pedágio",
+        },
+    )
+
+    # palavras fora da ordem em que aparecem na descrição real
+    resposta = client.get("/transacoes", params={"descricao": "cashback veloe"})
+    dados = resposta.json()
+    assert len(dados) == 1
+    assert dados[0]["descricao"] == "Estacionamento Veloe cashback"
+
+
 def test_listar_sem_filtro_continua_retornando_tudo(client):
     conta = _criar_conta_corrente(client)
     categoria = client.post("/categorias", json={"nome": "Categoria Teste"}).json()

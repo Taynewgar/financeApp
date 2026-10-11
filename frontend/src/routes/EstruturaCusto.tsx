@@ -271,21 +271,21 @@ export function BucketBloco({
         </span>
       </button>
 
-      {semLancamentos && <p className="estrutura-custo-vazio">Nenhum lançamento neste bucket no mês.</p>}
+      {semLancamentos && <p className="estrutura-custo-vazio">Nenhum lançamento neste envelope no mês.</p>}
 
       {!semLancamentos && aberto && (
         <>
           <div className={`estrutura-custo-cabecalho-colunas${isReservas ? ' reservas' : ''}`}>
             {isReservas ? (
               <>
-                <span>Bucket / conta / caixinha</span>
+                <span>Envelope / conta / caixinha</span>
                 <span>Saldo acumulado</span>
                 <span>Aportado no mês</span>
                 <span></span>
               </>
             ) : (
               <>
-                <span>Bucket / categoria / subcategoria</span>
+                <span>Envelope / categoria / subcategoria</span>
                 <span>Orçado</span>
                 <span>Realizado</span>
                 <span>Diferença</span>
@@ -334,7 +334,7 @@ export function BucketBloco({
                             <span className="rotulo-inline">Orçado</span>
                             {formatarMoeda(f.orcado, oculto)}
                             {f.saldoAnterior !== 0 && (
-                              <span className="estrutura-custo-detalhe-sobra" title="Planejado + sobra/furo do mês anterior">
+                              <span className="estrutura-custo-detalhe-sobra" title="Planejado + saldo do envelope do mês anterior">
                                 {formatarMoeda(f.orcamentoMensal, oculto)} {f.saldoAnterior >= 0 ? '+' : '−'}{' '}
                                 {formatarMoeda(Math.abs(f.saldoAnterior), oculto)}
                               </span>
@@ -577,7 +577,7 @@ export function EstruturaCusto() {
             <div className={`estrutura-custo-veredito-item ${dados.pool_despesas.dentro_do_teto ? 'dentro' : 'fora'}`}>
               <strong>{dados.pool_despesas.dentro_do_teto ? 'Dentro do teto' : 'Acima do teto'}</strong>
               Fixos + Variáveis + Sazonalidades: {formatarMoeda(dados.pool_despesas.realizado, oculto)} de{' '}
-              {formatarMoeda(dados.pool_despesas.teto, oculto)} (pool agregado — um bucket pode estourar se outro tiver folga)
+              {formatarMoeda(dados.pool_despesas.teto, oculto)} (pool agregado — um envelope pode estourar se outro tiver folga)
             </div>
           )}
           {dados.piso_investimentos && (

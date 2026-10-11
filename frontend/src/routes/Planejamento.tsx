@@ -367,7 +367,7 @@ export function Planejamento() {
     } catch (e) {
       if (e instanceof ApiError && e.status === 409 && !substituir) {
         setGerandoProximoMes(false)
-        if (window.confirm('Já existe um orçamento para esse mês. Substituir pelo novo (traz a sobra do envelope)?')) {
+        if (window.confirm('Já existe um orçamento para esse mês. Substituir pelo novo (traz o saldo do envelope)?')) {
           await gerarComRollover(orcamentoOrigemId, avancarVigencia, true)
         }
         return
@@ -525,6 +525,30 @@ export function Planejamento() {
       })
     : []
 
+  const bucketsComGrupos = useMemo(() => {
+    return BUCKETS.map((b) => ({
+      valor: b.valor,
+      grupos: agruparItensPorCategoria((itens ?? []).filter((i) => i.bucket === b.valor), categorias, subcategorias, contas),
+    })).filter((b) => b.grupos.length > 0)
+  }, [itens, categorias, subcategorias, contas])
+
+  const tudoExpandido = useMemo(() => {
+    if (bucketsComGrupos.length === 0) return false
+    return bucketsComGrupos.every(
+      (b) => bucketsAbertos.has(b.valor) && b.grupos.every((g) => categoriasAbertas.has(chaveCategoria(b.valor, g.chave))),
+    )
+  }, [bucketsComGrupos, bucketsAbertos, categoriasAbertas])
+
+  function alternarTudo() {
+    if (tudoExpandido) {
+      setBucketsAbertos(new Set())
+      setCategoriasAbertas(new Set())
+      return
+    }
+    setBucketsAbertos(new Set(bucketsComGrupos.map((b) => b.valor)))
+    setCategoriasAbertas(new Set(bucketsComGrupos.flatMap((b) => b.grupos.map((g) => chaveCategoria(b.valor, g.chave)))))
+  }
+
   return (
     <div className="planejamento">
       <div style={{ marginBottom: 12 }}>
@@ -577,6 +601,18 @@ export function Planejamento() {
             ))}
           </div>
         )}
+        {orcamentoAtual && !mostrarFormConfig && (
+          <div className="cabecalho-fixo-linha" style={{ marginTop: 8, flexWrap: 'wrap' }}>
+            <button type="button" className="botao-secundario" onClick={gerarProximoMes} disabled={gerandoProximoMes}>
+              {gerandoProximoMes ? 'Gerando…' : `Gerar orçamento de ${mesesAntes(vigenciaMes, -1)} (leva o saldo do envelope)`}
+            </button>
+            {bucketsComGrupos.length > 0 && (
+              <button type="button" className="botao-secundario" onClick={alternarTudo}>
+                {tudoExpandido ? 'Recolher tudo' : 'Expandir tudo'}
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {erro && <p className="mensagem-erro">{erro}</p>}
@@ -589,7 +625,7 @@ export function Planejamento() {
           <div className="form-acoes">
             {orcamentoMesAnterior && (
               <button type="button" className="botao-primario" onClick={gerarAPartirDoAnterior} disabled={gerandoProximoMes}>
-                {gerandoProximoMes ? 'Gerando…' : `Gerar a partir de ${mesesAntes(vigenciaMes, 1)} (traz a sobra do envelope)`}
+                {gerandoProximoMes ? 'Gerando…' : `Gerar a partir de ${mesesAntes(vigenciaMes, 1)} (traz o saldo do envelope)`}
               </button>
             )}
             <button type="button" className="botao-secundario" onClick={iniciarCriacaoConfig}>
@@ -717,7 +753,7 @@ export function Planejamento() {
 
           <div className="planejamento-alocacao">
             <div className="planejamento-alocacao-cabecalho">
-              <strong>Alocação total dos buckets</strong>
+              <strong>Alocação total dos envelopes</strong>
               <span className={somaLimites > 100 ? 'planejamento-estouro' : undefined}>
                 {somaLimites.toFixed(0)}% de 100%{somaLimites > 100 && ' — acima de 100%'}
               </span>
@@ -745,7 +781,7 @@ export function Planejamento() {
               {somaLimites < 100 && <span>{(100 - somaLimites).toFixed(0)}% ainda não alocado</span>}
               {somaLimites > 100 && (
                 <span className="planejamento-estouro">
-                  {(somaLimites - 100).toFixed(0)}% acima de 100% — reduza o limite de algum bucket
+                  {(somaLimites - 100).toFixed(0)}% acima de 100% — reduza o limite de algum envelope
                 </span>
               )}
             </div>
@@ -753,9 +789,9 @@ export function Planejamento() {
 
           <div className="planejamento-buckets">
             <div className="planejamento-cabecalho-colunas">
-              <span>Bucket / categoria / item</span>
+              <span>Envelope / categoria / item</span>
               <span>Orçado</span>
-              <span>Sobra</span>
+              <span>Saldo</span>
               <span>Disponível</span>
               <span></span>
             </div>
@@ -836,7 +872,7 @@ export function Planejamento() {
                                         {formatarMoeda(f.item.orcamento_mensal, oculto)}
                                       </span>
                                       <span className="col-sobra">
-                                        <span className="rotulo-inline">Sobra</span>
+                                        <span className="rotulo-inline">Saldo</span>
                                         {f.item.saldo_anterior !== 0 ? formatarMoeda(f.item.saldo_anterior, oculto) : '—'}
                                       </span>
                                       <span className="col-disponivel">
@@ -956,7 +992,7 @@ export function Planejamento() {
                                   onClick={handleForcarEstouroItem}
                                   disabled={salvando}
                                 >
-                                  Salvar mesmo assim (acima do teto do bucket)
+                                  Salvar mesmo assim (acima do teto do envelope)
                                 </button>
                               </div>
                             )}
@@ -971,7 +1007,7 @@ export function Planejamento() {
           </div>
 
           <button type="button" className="botao-secundario" onClick={gerarProximoMes} disabled={gerandoProximoMes}>
-            {gerandoProximoMes ? 'Gerando…' : `Gerar orçamento de ${mesesAntes(vigenciaMes, -1)} (leva a sobra do envelope)`}
+            {gerandoProximoMes ? 'Gerando…' : `Gerar orçamento de ${mesesAntes(vigenciaMes, -1)} (leva o saldo do envelope)`}
           </button>
         </>
       )}

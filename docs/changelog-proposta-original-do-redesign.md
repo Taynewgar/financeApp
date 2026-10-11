@@ -4566,3 +4566,78 @@ Dois bugs reportados testando a Rodada 55.
 - [x] ~~Depois de trocar a despesa original na edição, confirmar que
       conta/categoria/subcategoria/estrutura de custo do lançamento
       NÃO mudaram — só o vínculo trocou. — confirmado 2026-10-11.~~
+
+### Rodada 58 (2026-10-11) — Itens 45, 46 e 47 do backlog
+
+Três itens de prioridade Alta implementados juntos, a pedido do usuário.
+
+**Item 45 — Busca por descrição parcial:** o filtro de descrição (usado
+pela listagem de Lançamentos e pelo resumo) já fazia substring
+case-insensitive (`ilike "%texto%"`), mas exigia a frase inteira como
+substring contígua — buscar "cashback veloe" não encontrava "Estacionamento
+Veloe cashback" porque a ordem das palavras não batia.
+
+**Fix:** `_query_filtrada` (`backend/app/routers/transacoes.py`) agora
+separa o texto digitado por espaço e aplica um `ilike` por palavra — todas
+precisam aparecer na descrição (em qualquer ordem), não só a frase exata.
+Como a função é compartilhada, o ganho vale pra listagem de Lançamentos e
+pro resumo (`/transacoes/resumo`) ao mesmo tempo, sem mudança de frontend.
+
+**Item 46 — Botões fixos + expandir tudo no Planejamento:** o botão
+"Gerar orçamento" só existia no fim da tela, e não havia "expandir/
+recolher tudo" como em Estrutura de Custo.
+
+**Fix:** nova linha de ações dentro do `cabecalho-fixo` (já `position:
+sticky`, mesmo padrão usado em outras telas) com o botão de gerar o
+próximo orçamento e um "Expandir tudo"/"Recolher tudo" — reaproveita a
+mesma lógica de 2 níveis (bucket + categoria) que `EstruturaCusto.tsx` já
+tinha, adaptada aos itens de `OrcamentoItem` (`bucketsComGrupos`/
+`tudoExpandido`/`alternarTudo`). O botão original do fim da tela foi
+mantido — o pedido foi "também no topo", não substituir.
+
+**Item 47 — Rótulos "bucket"→"envelope", "sobra"→"saldo":** troca
+puramente cosmética, confirmada explicitamente pelo usuário — só o texto
+visível na tela muda; nomes de campo, variáveis, rotas de API e schema do
+banco continuam `bucket`/`saldo_anterior` como já eram (mudar isso exigiria
+migração de banco, fora do escopo pedido).
+
+**Fix:** em `Planejamento.tsx` e `EstruturaCusto.tsx`, todo texto visível
+que dizia "Bucket" virou "Envelope" (cabeçalhos de coluna, rótulos,
+mensagens) e todo texto visível que dizia "Sobra"/"sobra do envelope"
+virou "Saldo"/"saldo do envelope" (coluna "Sobra" da tabela de itens,
+rótulo inline do item, textos dos botões de gerar orçamento, tooltip de
+saldo anterior em Estrutura de Custo). Frases que usam "sobra"/"sobrar"
+como palavra comum de português, sem ser o rótulo do campo (ex: "piso —
+sobrar é bom, aqui"), foram mantidas — não é o termo que o item pede pra
+trocar.
+
+**Testes:** backend — novo teste
+`test_buscar_por_descricao_com_varias_palavras_em_qualquer_ordem`
+(`backend/tests/test_transacoes_api.py`); suíte completa 392 passed, 33
+skipped (skips esperados, sem Supabase nesta sessão — ver `CLAUDE.md`).
+Frontend — `tsc -b && vite build` sem erro novo; `oxlint` sem warning novo
+(diff completo antes/depois, zero mudança).
+
+**Status:** implementado 2026-10-11. Detalhe dos itens em
+`docs/backlog.md` (seção "Pendente, por área").
+
+**Checklist de teste manual (usuário, localmente):**
+- [ ] Em Lançamentos, buscar por descrição com 2 palavras fora da ordem
+      em que aparecem no texto real (ex: descrição "Estacionamento Veloe
+      cashback", buscar "cashback veloe") e confirmar que encontra.
+- [ ] Em Planejamento, com um orçamento configurado, confirmar que o
+      cabeçalho fixo (topo da tela, ao rolar) agora mostra os botões
+      "Gerar orçamento de..." e "Expandir tudo"/"Recolher tudo".
+- [ ] Clicar "Expandir tudo" no topo e confirmar que todos os envelopes e
+      categorias da lista abrem; clicar de novo ("Recolher tudo") e
+      confirmar que todos fecham.
+- [ ] Em Planejamento, conferir que os textos que diziam "Bucket" agora
+      dizem "Envelope" (cabeçalho da tabela, "Alocação total dos
+      envelopes", avisos de limite) e os que diziam "Sobra"/"sobra do
+      envelope" agora dizem "Saldo"/"saldo do envelope" (coluna da
+      tabela, botões de gerar orçamento, diálogo de substituir
+      orçamento).
+- [ ] Em Estrutura de Custo, conferir a mesma troca de rótulo (cabeçalho
+      "Envelope / conta / caixinha", "Envelope / categoria /
+      subcategoria", aviso de "nenhum lançamento neste envelope",
+      tooltip "Planejado + saldo do envelope do mês anterior").

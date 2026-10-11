@@ -65,7 +65,12 @@ def _query_filtrada(
     if data_fim:
         query = query.lte("data_compra", data_fim.isoformat())
     if descricao:
-        query = query.ilike("descricao", f"%{descricao}%")
+        # cada palavra digitada vira um filtro ilike próprio (AND entre
+        # eles) — a descrição só precisa conter todas as palavras, em
+        # qualquer ordem, em vez de exigir a frase inteira como substring
+        # contígua
+        for termo in descricao.split():
+            query = query.ilike("descricao", f"%{termo}%")
     return query
 
 
