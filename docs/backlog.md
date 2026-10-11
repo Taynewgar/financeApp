@@ -86,8 +86,8 @@ changelog já documenta quando e como cada um foi entregue).
   (detalhe abaixo) — surgiu durante a análise do item 9 (migração de
   dados).
 - **53.** **Filtro por tipo de transação: parcelado ou à vista**
-  `tipo: Melhoria` — novo filtro na busca de lançamentos. *(trazido em
-  CSV, 2026-09-30)*
+  `tipo: Melhoria` ✅ — ver detalhe no changelog (Rodada 60). *(trazido
+  em CSV, 2026-09-30; implementado 2026-10-11)*
 - **54.** **Últimas transações lançadas por conta** `tipo: Melhoria` —
   sugestão pra mostrar com maior facilidade as últimas transações
   lançadas nas contas, desconsiderando parcelas futuras. *(trazido em

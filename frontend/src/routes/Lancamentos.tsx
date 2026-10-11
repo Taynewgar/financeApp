@@ -171,6 +171,7 @@ export function Lancamentos() {
     if (filtros.caixinhaId) params.set('caixinha_id', filtros.caixinhaId)
     if (filtros.estruturaCusto) params.set('estrutura_custo', filtros.estruturaCusto)
     if (filtros.meioPagamento) params.set('meio_pagamento', filtros.meioPagamento)
+    if (filtros.pagamento) params.set('pagamento', filtros.pagamento)
     if (filtros.dataInicio) params.set('data_inicio', filtros.dataInicio)
     if (filtros.dataFim) params.set('data_fim', filtros.dataFim)
     if (filtros.descricao.trim()) params.set('descricao', filtros.descricao.trim())
@@ -457,6 +458,17 @@ export function Lancamentos() {
                   {m.rotulo}
                 </option>
               ))}
+            </select>
+          </label>
+          <label className="campo">
+            Parcelamento
+            <select
+              value={filtros.pagamento}
+              onChange={(e) => atualizarFiltro('pagamento', e.target.value as 'avista' | 'parcelado' | '')}
+            >
+              <option value="">Todos</option>
+              <option value="avista">À vista</option>
+              <option value="parcelado">Parcelado</option>
             </select>
           </label>
         </div>

@@ -4683,3 +4683,47 @@ novo; `oxlint` — mesmo warning pré-existente (`set-state-in-effect` em
 - [x] ~~Clicar "Editar" em um item, sem salvar, clicar "Editar" em outro
       item diferente — confirmar que o formulário anterior fecha e abre
       só sob o novo item escolhido. — confirmado 2026-10-11.~~
+
+### Rodada 60 (2026-10-11) — Item 53: filtro por à vista/parcelado
+
+A base já existia (`Transacao.pagamento: 'avista' | 'parcelado'` já era
+gravado em toda transação), só não estava exposto como filtro.
+
+**Fix:** novo parâmetro `pagamento` em `_query_filtrada`
+(`backend/app/routers/transacoes.py`), propagado pros dois endpoints que a
+usam (`GET /transacoes`, `GET /transacoes/resumo`) e pro contexto de
+filtros do frontend (`LancamentosFiltrosContext.tsx`) — novo `<select>`
+"Parcelamento" (Todos/À vista/Parcelado) no painel de filtros de
+`Lancamentos.tsx`, mesmo padrão dos filtros já existentes.
+
+**Testes:** backend — novo teste
+`test_filtrar_por_pagamento_avista_ou_parcelado`
+(`backend/tests/test_transacoes_api.py`); suíte completa 393 passed, 33
+skipped. Frontend — `tsc -b && vite build` sem erro novo; `oxlint` sem
+warning novo.
+
+**Status:** implementado 2026-10-11.
+
+**Itens 54 e 55 — mockups antes de implementar:** a pedido do usuário,
+antes de mexer em código, foram feitos mockups interativos pra decidir o
+formato:
+- **54** ("Últimas transações lançadas por conta"): usuário confirmou que
+  é um helper pra saber onde parou de lançar numa conta (não uma tela
+  nova) e que deve mostrar só a "raiz" da compra parcelada (parcela 1),
+  não cada parcela individual.
+- **55** ("Esquema de cores das transações"): usuário quer que cada tipo
+  de transação (receita, despesa, aplicação/retirada de investimento,
+  aplicação/retirada de caixinha/reserva, estorno, ressarcimento) seja
+  identificável só de olhar — hoje reserva não tem cor nenhuma (mesmo
+  tom do texto padrão) e investimento usa o mesmo azul pra aplicação e
+  retirada.
+
+Artifact: [mockups interativos](https://claude.ai/artifact/MWG6PCVHk5fJJvxLeCVtUF).
+Opções e decisão — ver entrada seguinte, após aprovação do usuário.
+
+**Checklist de teste manual (usuário, localmente):**
+- [ ] Em Lançamentos, abrir os filtros e confirmar que existe o campo
+      "Parcelamento" com as opções Todos/À vista/Parcelado.
+- [ ] Filtrar por "Parcelado" e confirmar que só aparecem parcelas de
+      compras parceladas; filtrar por "À vista" e confirmar que elas
+      somem da lista.

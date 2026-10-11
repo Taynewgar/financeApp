@@ -9,6 +9,7 @@ export type Filtros = {
   caixinhaId: string
   estruturaCusto: EstruturaCusto | ''
   meioPagamento: MeioPagamento | ''
+  pagamento: 'avista' | 'parcelado' | ''
   dataInicio: string
   dataFim: string
   descricao: string
@@ -22,6 +23,7 @@ export const FILTROS_VAZIOS: Filtros = {
   caixinhaId: '',
   estruturaCusto: '',
   meioPagamento: '',
+  pagamento: '',
   dataInicio: '',
   dataFim: '',
   descricao: '',

@@ -1,4 +1,5 @@
 from datetime import date, timedelta
+from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException
 from supabase import Client
@@ -37,6 +38,7 @@ def _query_filtrada(
     tipo_movimento: TipoMovimento | None,
     estrutura_custo: EstruturaCusto | None,
     meio_pagamento: MeioPagamento | None,
+    pagamento: Literal["avista", "parcelado"] | None,
     data_inicio: date | None,
     data_fim: date | None,
     descricao: str | None,
@@ -44,7 +46,8 @@ def _query_filtrada(
     """Monta a query de busca/filtro usada tanto pela listagem quanto pelo
     resumo — os mesmos filtros da aba "Busca de Lançamentos" do app
     original (categoria, subcategoria, conta, caixinha, tipo de movimento,
-    estrutura de custo, meio de pagamento, período e texto na descrição)."""
+    estrutura de custo, meio de pagamento, à vista/parcelado, período e
+    texto na descrição)."""
     query = db.table(TABLE).select("*").eq("user_id", user_id)
     if categoria_id:
         query = query.eq("categoria_id", categoria_id)
@@ -60,6 +63,8 @@ def _query_filtrada(
         query = query.eq("estrutura_custo", estrutura_custo)
     if meio_pagamento:
         query = query.eq("meio_pagamento", meio_pagamento)
+    if pagamento:
+        query = query.eq("pagamento", pagamento)
     if data_inicio:
         query = query.gte("data_compra", data_inicio.isoformat())
     if data_fim:
@@ -181,6 +186,7 @@ def listar(
     tipo_movimento: TipoMovimento | None = None,
     estrutura_custo: EstruturaCusto | None = None,
     meio_pagamento: MeioPagamento | None = None,
+    pagamento: Literal["avista", "parcelado"] | None = None,
     data_inicio: date | None = None,
     data_fim: date | None = None,
     descricao: str | None = None,
@@ -198,6 +204,7 @@ def listar(
             tipo_movimento,
             estrutura_custo,
             meio_pagamento,
+            pagamento,
             data_inicio,
             data_fim,
             descricao,
@@ -218,6 +225,7 @@ def resumo(
     tipo_movimento: TipoMovimento | None = None,
     estrutura_custo: EstruturaCusto | None = None,
     meio_pagamento: MeioPagamento | None = None,
+    pagamento: Literal["avista", "parcelado"] | None = None,
     data_inicio: date | None = None,
     data_fim: date | None = None,
     descricao: str | None = None,
@@ -236,6 +244,7 @@ def resumo(
             tipo_movimento,
             estrutura_custo,
             meio_pagamento,
+            pagamento,
             data_inicio,
             data_fim,
             descricao,
