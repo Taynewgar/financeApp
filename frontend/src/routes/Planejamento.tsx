@@ -87,6 +87,21 @@ function tetoBucket(
   return Math.round(((baseOrcada * limite) / 100) * 100) / 100
 }
 
+/** Teto efetivo — teto puro + a sobra acumulada (soma do saldo_anterior de
+ * todos os itens ATIVOS do bucket). Mesma conta que o backend usava pra
+ * bloquear a gravação (removido 2026-10-11 — orçamento é planejamento,
+ * tem categoria que precisa de valor mesmo estourado, ex: supermercado);
+ * usado aqui só pra deixar o aviso visual ("acima do teto") fiel ao
+ * número real, não só ao teto puro sem a sobra/furo acumulado. */
+function tetoEfetivoBucket(
+  orcamento: Orcamento,
+  limiteCampo: 'limite_custos_fixos' | 'limite_custos_variaveis' | 'limite_sazonalidades' | 'limite_investimentos',
+  itensAtivosDoBucket: OrcamentoItem[],
+): number {
+  const sobraAcumulada = itensAtivosDoBucket.reduce((soma, i) => soma + i.saldo_anterior, 0)
+  return Math.round((tetoBucket(orcamento, limiteCampo) + sobraAcumulada) * 100) / 100
+}
+
 /** Chave de agrupamento de 1 item — mesma prioridade de sempre
  * (subcategoria > categoria > conta vinculada > nome livre), só que aqui
  * devolve a chave do GRUPO (categoria pai, no caso de subcategoria) em
@@ -438,10 +453,9 @@ export function Planejamento() {
 
   const resumoBuckets = orcamentoAtual
     ? BUCKETS.map((b) => {
-        const teto = tetoBucket(orcamentoAtual, b.limiteCampo)
-        const somaAlocada = (itens ?? [])
-          .filter((i) => i.bucket === b.valor && i.ativo)
-          .reduce((soma, i) => soma + i.orcamento_mensal, 0)
+        const itensAtivosDoBucket = (itens ?? []).filter((i) => i.bucket === b.valor && i.ativo)
+        const teto = tetoEfetivoBucket(orcamentoAtual, b.limiteCampo, itensAtivosDoBucket)
+        const somaAlocada = itensAtivosDoBucket.reduce((soma, i) => soma + i.orcamento_mensal, 0)
         const percentualUso = teto > 0 ? Math.min(100, (somaAlocada / teto) * 100) : 0
         const estourou = somaAlocada > teto + 0.005
         return { ...b, teto, somaAlocada, percentualUso, estourou }
@@ -676,7 +690,7 @@ export function Planejamento() {
             {BUCKETS.map((b) => {
               const itensDoBucket = (itens ?? []).filter((i) => i.bucket === b.valor)
               const itensAtivos = itensDoBucket.filter((i) => i.ativo)
-              const teto = tetoBucket(orcamentoAtual, b.limiteCampo)
+              const teto = tetoEfetivoBucket(orcamentoAtual, b.limiteCampo, itensAtivos)
               const somaAlocada = itensAtivos.reduce((soma, i) => soma + i.orcamento_mensal, 0)
               const percentualUso = teto > 0 ? Math.min(100, (somaAlocada / teto) * 100) : 0
               const estourou = somaAlocada > teto + 0.005
@@ -846,6 +860,7 @@ export function Planejamento() {
                                 onChange={(e) => setFormItem({ ...formItem, orcamento_mensal: e.target.value })}
                               />
                             </label>
+                            {erro && <p className="mensagem-erro">{erro}</p>}
                             <div className="form-acoes">
                               <button type="submit" className="botao-primario" disabled={salvando}>
                                 {salvando ? 'Salvando…' : 'Salvar alterações'}

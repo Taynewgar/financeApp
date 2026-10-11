@@ -996,7 +996,12 @@ def test_itens_dentro_do_teto_do_bucket_sao_aceitos(client):
     assert condominio.status_code == 201  # soma 2500, teto do bucket é 5400
 
 
-def test_criar_item_que_estoura_teto_do_bucket_retorna_422(client):
+def test_criar_item_que_estoura_teto_do_bucket_e_permitido(client):
+    """Removido 2026-10-11: orçamento é planejamento, não um limite rígido
+    — tem categoria que precisa de valor mesmo estourado (ex: supermercado
+    continua existindo mesmo acima do teto do bucket). O aviso de "acima
+    do teto" passou a ser só visual, no frontend (soma dos itens do
+    bucket contra o teto), não mais um bloqueio no backend."""
     orcamento = _criar_orcamento_do_exemplo(client)
     client.post(
         f"/orcamentos/{orcamento['id']}/itens",
@@ -1007,10 +1012,10 @@ def test_criar_item_que_estoura_teto_do_bucket_retorna_422(client):
         f"/orcamentos/{orcamento['id']}/itens",
         json={"bucket": "custos_fixos", "nome": "Condomínio", "orcamento_mensal": 500},
     )
-    assert resposta.status_code == 422  # 5000 + 500 = 5500 > teto de 5400
+    assert resposta.status_code == 201  # 5000 + 500 = 5500 > teto de 5400, mas permitido
 
 
-def test_atualizar_item_que_estoura_teto_do_bucket_retorna_422(client):
+def test_atualizar_item_que_estoura_teto_do_bucket_e_permitido(client):
     orcamento = _criar_orcamento_do_exemplo(client)
     client.post(
         f"/orcamentos/{orcamento['id']}/itens",
@@ -1024,23 +1029,10 @@ def test_atualizar_item_que_estoura_teto_do_bucket_retorna_422(client):
     resposta = client.patch(
         f"/orcamentos/{orcamento['id']}/itens/{condominio['id']}", json={"orcamento_mensal": 3000}
     )
-    assert resposta.status_code == 422  # 3000 (aluguel) + 3000 (novo condomínio) = 6000 > 5400
+    assert resposta.status_code == 200  # 3000 (aluguel) + 3000 (novo condomínio) = 6000 > 5400, mas permitido
 
 
-def test_atualizar_item_para_o_proprio_valor_atual_nao_estoura(client):
-    """Editar um item sem mudar o quanto ele consome do teto (ex: só o
-    nome) não deve ser bloqueado por reconferir a soma do bucket."""
-    orcamento = _criar_orcamento_do_exemplo(client)
-    item = client.post(
-        f"/orcamentos/{orcamento['id']}/itens",
-        json={"bucket": "custos_fixos", "nome": "Aluguel", "orcamento_mensal": 5400},
-    ).json()
-
-    resposta = client.patch(f"/orcamentos/{orcamento['id']}/itens/{item['id']}", json={"orcamento_mensal": 5400})
-    assert resposta.status_code == 200
-
-
-def test_reativar_item_que_estoura_teto_do_bucket_retorna_422(client):
+def test_reativar_item_que_estoura_teto_do_bucket_e_permitido(client):
     orcamento = _criar_orcamento_do_exemplo(client)
     antigo = client.post(
         f"/orcamentos/{orcamento['id']}/itens",
@@ -1053,7 +1045,7 @@ def test_reativar_item_que_estoura_teto_do_bucket_retorna_422(client):
     )
 
     resposta = client.patch(f"/orcamentos/{orcamento['id']}/itens/{antigo['id']}/ativo", params={"ativo": True})
-    assert resposta.status_code == 422  # 5000 (novo) + 5000 (reativado) = 10000 > 5400
+    assert resposta.status_code == 200  # 5000 (novo) + 5000 (reativado) = 10000 > 5400, mas permitido
 
 
 def test_item_com_orcamento_zero_e_receita_base_zero_nao_gera_erro_de_divisao(client):
@@ -1064,46 +1056,6 @@ def test_item_com_orcamento_zero_e_receita_base_zero_nao_gera_erro_de_divisao(cl
     assert item.status_code == 201
     assert item.json()["percentual_da_renda"] == 0.0
     assert item.json()["percentual_do_teto"] == 0.0
-
-
-def test_sobra_acumulada_do_bucket_amplia_o_teto_para_novos_itens(client):
-    """O exemplo combinado: Fixo sobrou R$200 no total (soma dos itens),
-    então o teto efetivo desse mês para alocar itens em Fixo é o teto puro
-    + essa sobra — não só o teto puro sozinho."""
-    conta = client.post("/contas", json={"nome": "Conta", "tipo_conta": "corrente"}).json()
-    categoria = client.post("/categorias", json={"nome": "Aluguel"}).json()
-
-    setembro = _criar_orcamento_do_exemplo(client, vigencia_mes="2026-09-01")  # teto_custos_fixos = 5400
-    client.post(
-        f"/orcamentos/{setembro['id']}/itens",
-        json={"bucket": "custos_fixos", "categoria_id": categoria["id"], "orcamento_mensal": 1000},
-    )
-    client.post(
-        "/transacoes",
-        json={
-            "data_compra": "2026-09-05",
-            "valor": 800,
-            "tipo_movimento": "despesa",
-            "conta_id": conta["id"],
-            "categoria_id": categoria["id"],
-            "estrutura_custo": "fixo",
-            "meio_pagamento": "pix",
-        },
-    )
-    outubro = client.post(f"/orcamentos/{setembro['id']}/proximo-mes").json()
-    # outubro nasce com o item de Aluguel carregando saldo_anterior = 200 (1000 - 800)
-
-    sem_sobra = client.post(
-        f"/orcamentos/{outubro['id']}/itens",
-        json={"bucket": "custos_fixos", "nome": "Novo item", "orcamento_mensal": 5400},
-    )
-    assert sem_sobra.status_code == 422  # 1000 (aluguel) + 5400 = 6400 > 5400 (teto puro, sem sobra)
-
-    com_sobra = client.post(
-        f"/orcamentos/{outubro['id']}/itens",
-        json={"bucket": "custos_fixos", "nome": "Novo item", "orcamento_mensal": 4600},
-    )
-    assert com_sobra.status_code == 201  # 1000 + 4600 = 5600 ≤ 5600 (5400 teto puro + 200 de sobra)
 
 
 def test_estrutura_custo_expoe_saldo_anterior_acumulado_por_bucket(client):

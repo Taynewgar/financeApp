@@ -4260,3 +4260,24 @@ Os 2 itens duplicados reais da conta do usuário foram apagados por ele via "Apa
       aparece só no item `custos_fixos`, não nos dois.
 - [ ] Tentar criar/editar 2 itens com a mesma categoria no MESMO
       bucket e confirmar que ainda dá 409 (essa regra não mudou).
+
+### Rodada 49 (2026-10-11) — Teto de bucket deixa de bloquear a gravação, vira aviso visual
+
+Reportado ao vivo: "edição de item do bucket em Planejamento não está funcionando" — editar só o valor orçado de um item num bucket já acima do teto efetivo (sobra acumulada deeply negativa) dava `422`, sem feedback visível perto do formulário (erro aparecia no topo da página). Questionado se bloquear é certo: não é — orçamento é planejamento, tem categoria que precisa de valor mesmo estourado (ex: supermercado).
+
+**Fix:** `_validar_teto_bucket()` removida do backend (`orcamentos.py`) — nada mais bloqueia por teto. O aviso visual que já existia em `Planejamento.tsx` (cor vermelha "acima do teto") passou a usar `tetoEfetivoBucket()` (teto puro + sobra acumulada dos itens ativos), antes usava só o teto puro — sem essa correção o cenário relatado (bucket deeply negativo por sobra acumulada de meses sem valor preenchido) não acionaria aviso nenhum. Erro de formulário também passou a aparecer direto acima dos botões "Salvar"/"Cancelar" do item, não só no topo da página.
+
+**Testes:** testes que afirmavam `422` viraram `201`/`200`. Suíte completa: 381 passed, 33 skipped. Frontend: `tsc -b && vite build` — sem erro novo. `README.md` atualizado.
+
+**Status:** implementado 2026-10-11. Detalhe completo em `docs/backlog.md` ("Teto de bucket deixa de bloquear a gravação, vira aviso visual").
+
+**Checklist de teste manual (usuário, localmente):**
+- [ ] Editar o valor orçado de um item num bucket já acima do teto e
+      confirmar que salva normalmente, sem erro.
+- [ ] Conferir que o cabeçalho do bucket (e o resumo fixo do topo)
+      mostram "acima do teto" em vermelho quando a soma dos itens
+      ativos (já considerando a sobra/furo acumulado) passa do teto.
+- [ ] Provocar um erro real no formulário de edição (ex: deixar um
+      campo obrigatório vazio, se aplicável) e confirmar que a
+      mensagem aparece perto dos botões "Salvar"/"Cancelar", visível
+      sem precisar rolar a página.

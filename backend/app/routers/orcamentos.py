@@ -64,38 +64,6 @@ def _enriquecer_item(item: dict, orcamento: dict, contexto_saldo: tuple[dict, di
     }
 
 
-def _validar_teto_bucket(
-    orcamento: dict,
-    bucket: str,
-    item_id_excluir: str | None,
-    novo_valor: float,
-    contexto_saldo: tuple[dict, dict, dict, dict],
-) -> None:
-    """Bloqueia a gravação se a soma dos itens ativos do bucket (excluindo o
-    item que está sendo editado, se houver, e somando o novo valor no lugar
-    dele) ultrapassar o teto do bucket. O teto aqui já é o efetivo — o teto
-    puro (percentual) somado à sobra acumulada ao vivo de meses anteriores
-    nesse bucket (soma do saldo_anterior recalculado de todos os itens
-    ativos dele, não a coluna gravada — mesmo motivo de _enriquecer_item):
-    se Fixo sobrou R$200 no total, o teto disponível pra alocar itens
-    novos/maiores esse mês já nasce R$200 mais folgado. `contexto_saldo`
-    (`_carregar_contexto_saldo`) já contém os itens ativos do orçamento
-    (filtro `ativo=True` embutido em `carregar_dados_periodo`), então nem
-    a lista de itens do bucket precisa de consulta própria."""
-    _, itens_por_orcamento_id, _, _ = contexto_saldo
-    itens = [i for i in itens_por_orcamento_id.get(orcamento["id"], []) if i["bucket"] == bucket]
-    soma = sum(i["orcamento_mensal"] for i in itens if i["id"] != item_id_excluir) + novo_valor
-    vigencia_mes = date.fromisoformat(orcamento["vigencia_mes"])
-    saldo_anterior_bucket = sum(saldo_anterior_em_lote(i, vigencia_mes, *contexto_saldo) for i in itens)
-    teto = round(calcular_teto_bucket(orcamento, bucket) + saldo_anterior_bucket, 2)
-    if soma > teto + 0.005:
-        raise HTTPException(
-            status_code=422,
-            detail=(
-                f"Itens de {bucket} somariam R$ {soma:.2f}, acima do teto de "
-                f"R$ {teto:.2f} para este bucket neste orçamento (já considerando a sobra acumulada)."
-            ),
-        )
 
 
 def _popular_itens_de_transacoes_existentes(db: Client, user_id: str, orcamento: dict) -> None:
@@ -338,7 +306,6 @@ def criar_item(
         item_id_excluir=None,
     )
     contexto_saldo = _carregar_contexto_saldo(db, user_id, orcamento)
-    _validar_teto_bucket(orcamento, payload.bucket, item_id_excluir=None, novo_valor=payload.orcamento_mensal, contexto_saldo=contexto_saldo)
     row = payload.model_dump()
     row["orcamento_id"] = orcamento_id
     result = db.table(ITENS_TABLE).insert(row).execute()
@@ -370,14 +337,6 @@ def atualizar_item(
             item_id_excluir=item_id,
         )
     contexto_saldo = _carregar_contexto_saldo(db, user_id, orcamento)
-    if "orcamento_mensal" in dados or "bucket" in dados:
-        _validar_teto_bucket(
-            orcamento,
-            dados.get("bucket", item_atual["bucket"]),
-            item_id_excluir=item_id,
-            novo_valor=dados.get("orcamento_mensal", item_atual["orcamento_mensal"]),
-            contexto_saldo=contexto_saldo,
-        )
     result = db.table(ITENS_TABLE).update(dados).eq("id", item_id).eq("orcamento_id", orcamento_id).execute()
     return _enriquecer_item(result.data[0], orcamento, contexto_saldo)
 
@@ -396,7 +355,7 @@ def alternar_item_ativo(
     if ativo:
         # reativar pode reintroduzir vínculo duplicado (outro item ativo já
         # assumiu essa categoria/subcategoria/conta enquanto este estava
-        # inativo) ou fazer a soma do bucket passar do teto de novo
+        # inativo)
         _check_vinculo_duplicado(
             db,
             orcamento_id,
@@ -405,13 +364,6 @@ def alternar_item_ativo(
             item_atual.get("subcategoria_id"),
             item_atual.get("conta_vinculada_id"),
             item_id_excluir=item_id,
-        )
-        _validar_teto_bucket(
-            orcamento,
-            item_atual["bucket"],
-            item_id_excluir=item_id,
-            novo_valor=item_atual["orcamento_mensal"],
-            contexto_saldo=contexto_saldo,
         )
     result = (
         db.table(ITENS_TABLE).update({"ativo": ativo}).eq("id", item_id).eq("orcamento_id", orcamento_id).execute()

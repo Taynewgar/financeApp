@@ -2365,6 +2365,52 @@ usuário.
 
 **Status:** implementado 2026-10-10.
 
+### Teto de bucket deixa de bloquear a gravação, vira aviso visual
+
+**Contexto:** usuário reportou "edição de item do bucket em
+Planejamento não está funcionando" — ao vivo, tentando só ajustar o
+valor orçado de um item em `custos_fixos` cujo bucket já estava bem
+acima do teto efetivo (sobra acumulada deeply negativa, de vários
+meses de orçamento criado sem preencher valor real), o backend
+recusava com `422`. Erro ficava pouco visível (parágrafo de erro no
+topo da página, longe do formulário que estava sendo editado, dentro
+de um bucket expandido — "tento editar e não recebo qualquer
+feedback").
+
+Questionado se bloquear é o comportamento certo: **não é** — orçamento
+é planejamento, e tem categoria que precisa de valor orçado mesmo
+estourado (supermercado é o exemplo do usuário: você não deixa de
+orçar mercado só porque já estourou o teto do bucket esse mês).
+Bloquear a gravação impedia o usuário de simplesmente registrar a
+realidade do planejamento.
+
+**Fix:**
+- `_validar_teto_bucket()` removida inteira de `orcamentos.py` (era
+  chamada em `criar_item`, `atualizar_item`, `alternar_item_ativo`) —
+  nada mais bloqueia por teto no backend.
+- `Planejamento.tsx` já tinha a infraestrutura visual pronta (cores
+  "acima do teto" nos cabeçalhos de bucket e no resumo fixo do topo) —
+  só precisava poder salvar o valor estourado pra aparecer. Corrigido
+  de quebra: esse aviso visual usava só o teto PURO (percentual × renda
+  base), sem somar a sobra/furo acumulado — diferente do que o backend
+  removido validava. Novo `tetoEfetivoBucket()` (teto puro + soma do
+  `saldo_anterior` dos itens ativos do bucket) substitui o teto puro
+  nos dois pontos de exibição, deixando o aviso fiel ao número real
+  (sem isso, o cenário do usuário — bucket deeply negativo por sobra
+  acumulada, mas item novo pequeno — não teria acionado aviso nenhum).
+- Erro de formulário agora também aparece direto acima dos botões
+  "Salvar alterações"/"Cancelar" do item sendo editado, não só no topo
+  da página.
+
+**Testes:** `test_orcamentos_api.py` — os testes que afirmavam `422`
+viraram `201`/`200` (permitido); teste que validava só a fórmula do
+teto efetivo via bloqueio foi removido (o cálculo migrou pro frontend,
+que não tem suíte automatizada neste repo). Suíte completa: 381
+passed, 33 skipped. Frontend: `tsc -b` + `vite build` + `oxlint` sem
+erro novo. `README.md` atualizado (regra de negócio documentada).
+
+**Status:** implementado 2026-10-11.
+
 ### Janela de meses pra trás × ano civil nos gráficos
 
 **Contexto:** modo "Mês" em `/graficos` sempre mostrou uma janela
