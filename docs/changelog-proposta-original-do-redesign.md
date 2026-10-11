@@ -4622,22 +4622,63 @@ Frontend — `tsc -b && vite build` sem erro novo; `oxlint` sem warning novo
 `docs/backlog.md` (seção "Pendente, por área").
 
 **Checklist de teste manual (usuário, localmente):**
-- [ ] Em Lançamentos, buscar por descrição com 2 palavras fora da ordem
+- [x] ~~Em Lançamentos, buscar por descrição com 2 palavras fora da ordem
       em que aparecem no texto real (ex: descrição "Estacionamento Veloe
-      cashback", buscar "cashback veloe") e confirmar que encontra.
-- [ ] Em Planejamento, com um orçamento configurado, confirmar que o
+      cashback", buscar "cashback veloe") e confirmar que encontra. —
+      confirmado 2026-10-11.~~
+- [x] ~~Em Planejamento, com um orçamento configurado, confirmar que o
       cabeçalho fixo (topo da tela, ao rolar) agora mostra os botões
-      "Gerar orçamento de..." e "Expandir tudo"/"Recolher tudo".
-- [ ] Clicar "Expandir tudo" no topo e confirmar que todos os envelopes e
+      "Gerar orçamento de..." e "Expandir tudo"/"Recolher tudo". —
+      confirmado 2026-10-11.~~
+- [x] ~~Clicar "Expandir tudo" no topo e confirmar que todos os envelopes e
       categorias da lista abrem; clicar de novo ("Recolher tudo") e
-      confirmar que todos fecham.
-- [ ] Em Planejamento, conferir que os textos que diziam "Bucket" agora
+      confirmar que todos fecham. — confirmado 2026-10-11.~~
+- [x] ~~Em Planejamento, conferir que os textos que diziam "Bucket" agora
       dizem "Envelope" (cabeçalho da tabela, "Alocação total dos
       envelopes", avisos de limite) e os que diziam "Sobra"/"sobra do
       envelope" agora dizem "Saldo"/"saldo do envelope" (coluna da
       tabela, botões de gerar orçamento, diálogo de substituir
-      orçamento).
-- [ ] Em Estrutura de Custo, conferir a mesma troca de rótulo (cabeçalho
+      orçamento). — confirmado 2026-10-11.~~
+- [x] ~~Em Estrutura de Custo, conferir a mesma troca de rótulo (cabeçalho
       "Envelope / conta / caixinha", "Envelope / categoria /
       subcategoria", aviso de "nenhum lançamento neste envelope",
-      tooltip "Planejado + saldo do envelope do mês anterior").
+      tooltip "Planejado + saldo do envelope do mês anterior"). —
+      confirmado 2026-10-11.~~
+
+### Rodada 59 (2026-10-11) — Formulário de editar item do Planejamento abre no lugar errado
+
+Achado testando a Rodada 58: em um mês com muitos itens expandidos, o
+formulário de "Editar" item ficava renderizado no fim de todo o envelope
+(depois de todas as categorias/itens dele), não logo abaixo do item
+clicado — obrigava rolar a tela pra achar o formulário.
+
+**Causa:** `itemFormAberto` guardava só o **envelope** (`Bucket | null`),
+não o item — o form era um irmão único da lista inteira de categorias
+daquele envelope, sempre no mesmo lugar (fim da lista), em vez de nascer
+dentro da linha do item editado.
+
+**Fix:** removido `itemFormAberto` (redundante — `itemEditando`, que já
+guarda o item completo, basta). Cada linha de item (`g.folhas.map`) agora
+é um `Fragment` com a linha e, logo abaixo dela, o formulário condicionado
+a `itemEditando?.id === f.item.id` — o form nasce exatamente sob o item
+que o usuário clicou "Editar", fecha com `setItemEditando(null)` (salvar
+ou "Cancelar"). Nenhuma regra de negócio mudou, só a posição de
+renderização.
+
+**Testes:** mudança de frontend puro. `tsc -b && vite build` — sem erro
+novo; `oxlint` — mesmo warning pré-existente (`set-state-in-effect` em
+`Planejamento.tsx`, só a linha mudou de número pela remoção do state).
+
+**Status:** implementado 2026-10-11.
+
+**Checklist de teste manual (usuário, localmente):**
+- [ ] Em Planejamento, com vários itens de um envelope expandidos,
+      clicar "Editar" num item que não seja o primeiro da lista e
+      confirmar que o formulário abre logo abaixo dele, não no fim do
+      envelope.
+- [ ] Salvar a edição e confirmar que fecha o formulário normalmente.
+- [ ] Clicar "Editar" num item, depois "Cancelar" — confirmar que fecha
+      sem salvar.
+- [ ] Clicar "Editar" em um item, sem salvar, clicar "Editar" em outro
+      item diferente — confirmar que o formulário anterior fecha e abre
+      só sob o novo item escolhido.

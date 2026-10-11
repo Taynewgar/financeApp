@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { Fragment, useEffect, useMemo, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import '../components/cabecalhoFixo.css'
 import '../components/forms.css'
@@ -215,7 +215,6 @@ export function Planejamento() {
 
   const [mostrarFormConfig, setMostrarFormConfig] = useState(false)
   const [formConfig, setFormConfig] = useState<FormConfig>(FORM_CONFIG_PADRAO)
-  const [itemFormAberto, setItemFormAberto] = useState<Bucket | null>(null)
   const [itemEditando, setItemEditando] = useState<OrcamentoItem | null>(null)
   const [estouroDetectado, setEstouroDetectado] = useState(false)
   const [formItem, setFormItem] = useState<FormItem>(FORM_ITEM_VAZIO)
@@ -422,7 +421,6 @@ export function Planejamento() {
       orcamento_mensal: String(item.orcamento_mensal),
     })
     setItemEditando(item)
-    setItemFormAberto(item.bucket)
     setEstouroDetectado(false)
   }
 
@@ -478,7 +476,7 @@ export function Planejamento() {
         body: JSON.stringify(montarPayloadItem()),
       })
       setItens((atual) => atual!.map((i) => (i.id === atualizado.id ? atualizado : i)))
-      setItemFormAberto(null)
+      setItemEditando(null)
       setEstouroDetectado(false)
     } catch (e) {
       if (e instanceof ApiError) {
@@ -502,7 +500,7 @@ export function Planejamento() {
         body: JSON.stringify({ ...montarPayloadItem(), forcar_estouro: true }),
       })
       setItens((atual) => atual!.map((i) => (i.id === atualizado.id ? atualizado : i)))
-      setItemFormAberto(null)
+      setItemEditando(null)
       setEstouroDetectado(false)
     } catch (e) {
       setErro(e instanceof ApiError ? (typeof e.detail === 'string' ? e.detail : e.message) : 'Falha ao salvar item')
@@ -862,141 +860,145 @@ export function Planejamento() {
                                 </button>
                                 {categoriaAberta &&
                                   g.folhas.map((f) => (
-                                    <div key={f.chave} className={`planejamento-sub-linha${f.item.ativo ? '' : ' inativo'}`}>
-                                      <span className="planejamento-sub-linha-nome">
-                                        {rotuloFolha(f.item, subcategorias, contas)}
-                                        {!f.item.ativo && ' — inativo'}
-                                      </span>
-                                      <span className="col-orcado">
-                                        <span className="rotulo-inline">Orçado</span>
-                                        {formatarMoeda(f.item.orcamento_mensal, oculto)}
-                                      </span>
-                                      <span className="col-sobra">
-                                        <span className="rotulo-inline">Saldo</span>
-                                        {f.item.saldo_anterior !== 0 ? formatarMoeda(f.item.saldo_anterior, oculto) : '—'}
-                                      </span>
-                                      <span className="col-disponivel">
-                                        <span className="rotulo-inline">Disponível</span>
-                                        {f.item.saldo_anterior !== 0 ? formatarMoeda(f.item.disponivel, oculto) : '—'}
-                                      </span>
-                                      <span className="planejamento-sub-linha-acoes">
-                                        {(f.item.categoria_id || f.item.subcategoria_id) && (
-                                          <Link
-                                            className="estrutura-custo-ir-busca"
-                                            to={linkBusca(vigenciaMes, f.item.categoria_id, f.item.subcategoria_id)}
-                                            title="Ver em Busca de Lançamentos"
-                                          >
-                                            →
-                                          </Link>
-                                        )}
-                                        <button type="button" className="botao-link" onClick={() => iniciarEdicaoItem(f.item)}>
-                                          Editar
-                                        </button>
-                                        <button type="button" className="botao-link" onClick={() => toggleAtivoItem(f.item)}>
-                                          {f.item.ativo ? 'Desativar' : 'Reativar'}
-                                        </button>
-                                      </span>
-                                    </div>
+                                    <Fragment key={f.chave}>
+                                      <div className={`planejamento-sub-linha${f.item.ativo ? '' : ' inativo'}`}>
+                                        <span className="planejamento-sub-linha-nome">
+                                          {rotuloFolha(f.item, subcategorias, contas)}
+                                          {!f.item.ativo && ' — inativo'}
+                                        </span>
+                                        <span className="col-orcado">
+                                          <span className="rotulo-inline">Orçado</span>
+                                          {formatarMoeda(f.item.orcamento_mensal, oculto)}
+                                        </span>
+                                        <span className="col-sobra">
+                                          <span className="rotulo-inline">Saldo</span>
+                                          {f.item.saldo_anterior !== 0 ? formatarMoeda(f.item.saldo_anterior, oculto) : '—'}
+                                        </span>
+                                        <span className="col-disponivel">
+                                          <span className="rotulo-inline">Disponível</span>
+                                          {f.item.saldo_anterior !== 0 ? formatarMoeda(f.item.disponivel, oculto) : '—'}
+                                        </span>
+                                        <span className="planejamento-sub-linha-acoes">
+                                          {(f.item.categoria_id || f.item.subcategoria_id) && (
+                                            <Link
+                                              className="estrutura-custo-ir-busca"
+                                              to={linkBusca(vigenciaMes, f.item.categoria_id, f.item.subcategoria_id)}
+                                              title="Ver em Busca de Lançamentos"
+                                            >
+                                              →
+                                            </Link>
+                                          )}
+                                          <button type="button" className="botao-link" onClick={() => iniciarEdicaoItem(f.item)}>
+                                            Editar
+                                          </button>
+                                          <button type="button" className="botao-link" onClick={() => toggleAtivoItem(f.item)}>
+                                            {f.item.ativo ? 'Desativar' : 'Reativar'}
+                                          </button>
+                                        </span>
+                                      </div>
+
+                                      {itemEditando?.id === f.item.id && (
+                                        <div style={{ padding: '12px 14px 14px 30px' }}>
+                                          <form className="form" onSubmit={handleSubmitItem}>
+                                            <div className="campo-linha">
+                                              <label className="campo">
+                                                Categoria
+                                                <select
+                                                  value={formItem.categoria_id}
+                                                  onChange={(e) =>
+                                                    setFormItem({ ...formItem, categoria_id: e.target.value, subcategoria_id: '' })
+                                                  }
+                                                >
+                                                  <option value="">Nenhuma</option>
+                                                  {categoriasDoBucket.map((c) => (
+                                                    <option key={c.id} value={c.id}>
+                                                      {c.nome}
+                                                    </option>
+                                                  ))}
+                                                </select>
+                                              </label>
+                                              {formItem.categoria_id && (
+                                                <label className="campo">
+                                                  Subcategoria
+                                                  <select
+                                                    value={formItem.subcategoria_id}
+                                                    onChange={(e) => setFormItem({ ...formItem, subcategoria_id: e.target.value })}
+                                                  >
+                                                    <option value="">Nenhuma</option>
+                                                    {subcategoriasDaCategoria.map((s) => (
+                                                      <option key={s.id} value={s.id}>
+                                                        {s.nome}
+                                                      </option>
+                                                    ))}
+                                                  </select>
+                                                </label>
+                                              )}
+                                            </div>
+                                            <div className="campo-linha">
+                                              {b.valor === 'investimentos' && (
+                                                <label className="campo">
+                                                  Conta vinculada
+                                                  <select
+                                                    value={formItem.conta_vinculada_id}
+                                                    onChange={(e) => setFormItem({ ...formItem, conta_vinculada_id: e.target.value })}
+                                                  >
+                                                    <option value="">Nenhuma</option>
+                                                    {contas.map((c) => (
+                                                      <option key={c.id} value={c.id}>
+                                                        {c.nome}
+                                                      </option>
+                                                    ))}
+                                                  </select>
+                                                </label>
+                                              )}
+                                            </div>
+                                            <label className="campo" style={{ maxWidth: 200 }}>
+                                              Valor mensal (R$)
+                                              <input
+                                                type="number"
+                                                min={0}
+                                                step="0.01"
+                                                required
+                                                value={formItem.orcamento_mensal}
+                                                onChange={(e) => setFormItem({ ...formItem, orcamento_mensal: e.target.value })}
+                                              />
+                                            </label>
+                                            {erro && <p className="mensagem-erro">{erro}</p>}
+                                            <div className="form-acoes">
+                                              <button type="submit" className="botao-primario" disabled={salvando}>
+                                                {salvando ? 'Salvando…' : 'Salvar alterações'}
+                                              </button>
+                                              <button
+                                                type="button"
+                                                className="botao-secundario"
+                                                onClick={() => {
+                                                  setItemEditando(null)
+                                                  setEstouroDetectado(false)
+                                                }}
+                                              >
+                                                Cancelar
+                                              </button>
+                                            </div>
+                                            {estouroDetectado && (
+                                              <div className="form-acoes">
+                                                <button
+                                                  type="button"
+                                                  className="botao-secundario"
+                                                  onClick={handleForcarEstouroItem}
+                                                  disabled={salvando}
+                                                >
+                                                  Salvar mesmo assim (acima do teto do envelope)
+                                                </button>
+                                              </div>
+                                            )}
+                                          </form>
+                                        </div>
+                                      )}
+                                    </Fragment>
                                   ))}
                               </div>
                             )
                           })}
-                        </div>
-                      )}
-
-                      {itemFormAberto === b.valor && (
-                        <div style={{ padding: '12px 14px 14px 30px' }}>
-                          <form className="form" onSubmit={handleSubmitItem}>
-                            <div className="campo-linha">
-                              <label className="campo">
-                                Categoria
-                                <select
-                                  value={formItem.categoria_id}
-                                  onChange={(e) => setFormItem({ ...formItem, categoria_id: e.target.value, subcategoria_id: '' })}
-                                >
-                                  <option value="">Nenhuma</option>
-                                  {categoriasDoBucket.map((c) => (
-                                    <option key={c.id} value={c.id}>
-                                      {c.nome}
-                                    </option>
-                                  ))}
-                                </select>
-                              </label>
-                              {formItem.categoria_id && (
-                                <label className="campo">
-                                  Subcategoria
-                                  <select
-                                    value={formItem.subcategoria_id}
-                                    onChange={(e) => setFormItem({ ...formItem, subcategoria_id: e.target.value })}
-                                  >
-                                    <option value="">Nenhuma</option>
-                                    {subcategoriasDaCategoria.map((s) => (
-                                      <option key={s.id} value={s.id}>
-                                        {s.nome}
-                                      </option>
-                                    ))}
-                                  </select>
-                                </label>
-                              )}
-                            </div>
-                            <div className="campo-linha">
-                              {b.valor === 'investimentos' && (
-                                <label className="campo">
-                                  Conta vinculada
-                                  <select
-                                    value={formItem.conta_vinculada_id}
-                                    onChange={(e) => setFormItem({ ...formItem, conta_vinculada_id: e.target.value })}
-                                  >
-                                    <option value="">Nenhuma</option>
-                                    {contas.map((c) => (
-                                      <option key={c.id} value={c.id}>
-                                        {c.nome}
-                                      </option>
-                                    ))}
-                                  </select>
-                                </label>
-                              )}
-                            </div>
-                            <label className="campo" style={{ maxWidth: 200 }}>
-                              Valor mensal (R$)
-                              <input
-                                type="number"
-                                min={0}
-                                step="0.01"
-                                required
-                                value={formItem.orcamento_mensal}
-                                onChange={(e) => setFormItem({ ...formItem, orcamento_mensal: e.target.value })}
-                              />
-                            </label>
-                            {erro && <p className="mensagem-erro">{erro}</p>}
-                            <div className="form-acoes">
-                              <button type="submit" className="botao-primario" disabled={salvando}>
-                                {salvando ? 'Salvando…' : 'Salvar alterações'}
-                              </button>
-                              <button
-                                type="button"
-                                className="botao-secundario"
-                                onClick={() => {
-                                  setItemFormAberto(null)
-                                  setEstouroDetectado(false)
-                                }}
-                              >
-                                Cancelar
-                              </button>
-                            </div>
-                            {estouroDetectado && (
-                              <div className="form-acoes">
-                                <button
-                                  type="button"
-                                  className="botao-secundario"
-                                  onClick={handleForcarEstouroItem}
-                                  disabled={salvando}
-                                >
-                                  Salvar mesmo assim (acima do teto do envelope)
-                                </button>
-                              </div>
-                            )}
-                          </form>
                         </div>
                       )}
                     </>
