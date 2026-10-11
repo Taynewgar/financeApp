@@ -297,6 +297,36 @@ def descricoes_mais_usadas(
     return [descricao for descricao, _contagem in ranking[:limite]]
 
 
+# precisa vir antes de GET /{transacao_id} — mesmo motivo de /resumo acima
+@router.get("/ultimos-por-conta", response_model=dict[str, list[Transacao]])
+def ultimos_por_conta(
+    limite: int = 5,
+    db: Client = Depends(get_db),
+    user_id: str = Depends(get_current_user_id),
+):
+    """Últimos `limite` lançamentos RAIZ de cada conta do usuário — à
+    vista, ou só a 1ª parcela de uma compra parcelada (nunca cada parcela
+    individual). Helper pra ver rápido onde parou de lançar numa conta,
+    sem listar o ruído de N parcelas futuras da mesma compra (item 54 do
+    backlog) — usado pela seção "Últimos lançamentos por conta" em
+    Lançamentos."""
+    contas = crud.list_all(db, "contas", user_id)
+    resultado: dict[str, list[Transacao]] = {}
+    for conta in contas:
+        linhas = (
+            db.table(TABLE)
+            .select("*")
+            .eq("user_id", user_id)
+            .eq("conta_id", conta["id"])
+            .or_("pagamento.eq.avista,parcela_atual.eq.1")
+            .order("data_compra", desc=True)
+            .limit(limite)
+            .execute()
+        ).data
+        resultado[conta["id"]] = linhas
+    return resultado
+
+
 @router.get("/{transacao_id}", response_model=Transacao)
 def obter(transacao_id: str, db: Client = Depends(get_db), user_id: str = Depends(get_current_user_id)):
     try:

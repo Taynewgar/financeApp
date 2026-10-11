@@ -88,13 +88,12 @@ changelog já documenta quando e como cada um foi entregue).
 - **53.** **Filtro por tipo de transação: parcelado ou à vista**
   `tipo: Melhoria` ✅ — ver detalhe no changelog (Rodada 60). *(trazido
   em CSV, 2026-09-30; implementado 2026-10-11)*
-- **54.** **Últimas transações lançadas por conta** `tipo: Melhoria` —
-  sugestão pra mostrar com maior facilidade as últimas transações
-  lançadas nas contas, desconsiderando parcelas futuras. *(trazido em
-  CSV, 2026-09-30)*
-- **55.** **Esquema de cores das transações** `tipo: Melhoria` —
-  avaliar opções de cor por tipo/status de transação, considerando UX.
-  *(trazido em CSV, 2026-09-30)*
+- **54.** **Últimas transações lançadas por conta** `tipo: Melhoria` ✅ —
+  ver detalhe no changelog (Rodada 61) — mockups de decisão na Rodada 60.
+  *(trazido em CSV, 2026-09-30; implementado 2026-10-11)*
+- **55.** **Esquema de cores das transações** `tipo: Melhoria` ✅ — ver
+  detalhe no changelog (Rodada 61) — mockups de decisão na Rodada 60.
+  *(trazido em CSV, 2026-09-30; implementado 2026-10-11)*
 
 **Baixa**
 

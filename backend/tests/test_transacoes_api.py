@@ -983,6 +983,66 @@ def test_buscar_por_descricao_parcial_case_insensitive(client):
     assert dados[0]["descricao"] == "Supermercado Extra"
 
 
+def test_ultimos_por_conta_mostra_so_raiz_ordenado_e_limitado(client):
+    conta = _criar_conta_corrente(client)
+    cartao = _criar_conta_cartao(client)
+    categoria = client.post("/categorias", json={"nome": "Categoria Teste"}).json()
+
+    for i in range(6):
+        client.post(
+            "/transacoes",
+            json={
+                "data_compra": f"2026-09-{10 + i:02d}",
+                "valor": 10 + i,
+                "tipo_movimento": "despesa",
+                "conta_id": conta["id"],
+                "categoria_id": categoria["id"],
+                "estrutura_custo": "variavel",
+                "meio_pagamento": "pix",
+                "descricao": f"Despesa avista {i}",
+            },
+        )
+    client.post(
+        "/transacoes/parceladas",
+        json={
+            "descricao": "Compra parcelada",
+            "valor_total": 300,
+            "parcela_total": 3,
+            "data_primeira_parcela": "2026-09-20",
+            "conta_id": conta["id"],
+            "categoria_id": categoria["id"],
+            "estrutura_custo": "variavel",
+            "meio_pagamento": "pix",
+        },
+    )
+    client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-09-05",
+            "valor": 50,
+            "tipo_movimento": "despesa",
+            "conta_id": cartao["id"],
+            "categoria_id": categoria["id"],
+            "estrutura_custo": "variavel",
+            "meio_pagamento": "cartao_credito",
+            "descricao": "Despesa no cartão",
+        },
+    )
+
+    resultado = client.get("/transacoes/ultimos-por-conta", params={"limite": 5}).json()
+
+    da_conta = resultado[conta["id"]]
+    assert len(da_conta) == 5
+    assert all(not (t["pagamento"] == "parcelado" and t["parcela_atual"] != 1) for t in da_conta)
+    datas = [t["data_compra"] for t in da_conta]
+    assert datas == sorted(datas, reverse=True)
+    assert any(t["descricao"] == "Compra parcelada" for t in da_conta)
+
+    do_cartao = resultado[cartao["id"]]
+    assert len(do_cartao) == 1
+    assert do_cartao[0]["descricao"] == "Despesa no cartão"
+
+
 def test_filtrar_por_pagamento_avista_ou_parcelado(client):
     cartao = _criar_conta_cartao(client)
     categoria = client.post("/categorias", json={"nome": "Categoria Teste"}).json()

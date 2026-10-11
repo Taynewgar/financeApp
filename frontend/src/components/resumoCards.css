@@ -50,8 +50,80 @@
   color: #2563eb;
 }
 
+.valor-reserva {
+  color: #7c3aed;
+}
+
+/* badge "estorno"/"ressarcimento" acima do valor — ver item 55 do
+ * backlog: evita confundir com receita de verdade, já que os dois usam
+ * a mesma cor (reduzem/compensam uma despesa). */
+.valor-col {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.badge-ajuste {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--cor-texto-suave);
+}
+
+/* pílula de aplicação/retirada: preenchida (entra) vs contorno (sai) —
+ * mesma cor da categoria (investimento azul / reserva roxo), só muda o
+ * preenchimento pra indicar a direção do dinheiro. */
+.chip-valor {
+  font-weight: 600;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  padding: 3px 9px;
+  border-radius: 999px;
+  border: 1.5px solid transparent;
+}
+
+.chip-entrada.valor-investimento {
+  background: rgba(37, 99, 235, 0.12);
+}
+
+.chip-saida.valor-investimento {
+  background: transparent;
+  border-color: #2563eb;
+}
+
+.chip-entrada.valor-reserva {
+  background: rgba(124, 58, 237, 0.12);
+}
+
+.chip-saida.valor-reserva {
+  background: transparent;
+  border-color: #7c3aed;
+}
+
 @media (prefers-color-scheme: dark) {
   .valor-investimento {
     color: #60a5fa;
+  }
+
+  .valor-reserva {
+    color: #a78bfa;
+  }
+
+  .chip-entrada.valor-investimento {
+    background: rgba(96, 165, 250, 0.18);
+  }
+
+  .chip-saida.valor-investimento {
+    border-color: #60a5fa;
+  }
+
+  .chip-entrada.valor-reserva {
+    background: rgba(167, 139, 250, 0.18);
+  }
+
+  .chip-saida.valor-reserva {
+    border-color: #a78bfa;
   }
 }

@@ -57,3 +57,81 @@
     display: flex;
   }
 }
+
+/* "últimos lançamentos por conta" — item 54 do backlog: helper pra ver
+ * rápido onde parou de lançar numa conta, sem precisar montar filtro.
+ * Fica acima dos filtros/resumo, não troca nem substitui a Busca de
+ * Lançamentos — só atalho pra ela ("Ver tudo", via contaId do filtro). */
+.ultimos-por-conta {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 14px;
+  background: var(--cor-superficie);
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio);
+  margin-bottom: 16px;
+}
+
+.ultimos-por-conta-titulo {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.chips-conta {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+
+.chip-conta {
+  flex: none;
+  padding: 7px 12px;
+  border-radius: 999px;
+  border: 1.5px solid var(--cor-borda);
+  background: var(--cor-fundo);
+  color: var(--cor-texto);
+  font-size: 13px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.chip-conta.ativo {
+  border-color: var(--cor-acento);
+  color: var(--cor-acento);
+  font-weight: 600;
+}
+
+.painel-ultimos-conta {
+  border-top: 1px solid var(--cor-borda);
+  padding-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ultimo-conta-linha {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.ultimo-conta-desc {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ultimo-conta-data {
+  color: var(--cor-texto-suave);
+  white-space: nowrap;
+}
+
+.ultimo-conta-valor {
+  font-weight: 600;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}

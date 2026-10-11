@@ -36,11 +36,13 @@ class FakeQuery:
         self._rows = rows
         self._table = table
         self._filters: list[tuple[str, str, Any]] = []
+        self._or_filters: list[tuple[str, str]] = []
         self._order_key: str | None = None
         self._order_desc = False
         self._op: str | None = None
         self._payload: dict[str, Any] | None = None
         self._range: tuple[int, int] | None = None
+        self._limit: int | None = None
 
     def select(self, _columns: str = "*") -> "FakeQuery":
         self._op = "select"
@@ -95,6 +97,14 @@ class FakeQuery:
         self._filters.append(("in", key, values))
         return self
 
+    def or_(self, filters: str) -> "FakeQuery":
+        # só cobre o uso real do código: "col.eq.valor,col2.eq.valor2" (OR
+        # entre as condições, cada uma "coluna.eq.valor" — sintaxe PostgREST)
+        for condicao in filters.split(","):
+            _key, _op, value = condicao.split(".", 2)
+            self._or_filters.append((_key, value))
+        return self
+
     def order(self, key: str, desc: bool = False) -> "FakeQuery":
         self._order_key = key
         self._order_desc = desc
@@ -104,6 +114,10 @@ class FakeQuery:
         # mesma semântica do PostgREST: intervalo fechado, ambas as
         # pontas inclusive (.range(0, 999) = as primeiras 1000 linhas)
         self._range = (start, end)
+        return self
+
+    def limit(self, n: int) -> "FakeQuery":
+        self._limit = n
         return self
 
     def _matches(self, row: dict[str, Any]) -> bool:
@@ -125,6 +139,26 @@ class FakeQuery:
                 return False
             if op == "in" and atual not in value:
                 return False
+        if self._or_filters:
+            algum_bate = False
+            for key, value in self._or_filters:
+                atual = row.get(key)
+                if atual is None:
+                    continue
+                if isinstance(atual, bool):
+                    bate = str(atual).lower() == value.lower()
+                elif isinstance(atual, (int, float)):
+                    try:
+                        bate = atual == type(atual)(value)
+                    except ValueError:
+                        bate = False
+                else:
+                    bate = str(atual) == value
+                if bate:
+                    algum_bate = True
+                    break
+            if not algum_bate:
+                return False
         return True
 
     def execute(self) -> FakeResult:
@@ -135,6 +169,8 @@ class FakeQuery:
             if self._range:
                 start, end = self._range
                 matched = matched[start : end + 1]
+            elif self._limit is not None:
+                matched = matched[: self._limit]
             return FakeResult(matched)
 
         if self._op == "insert":

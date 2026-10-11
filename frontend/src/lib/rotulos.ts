@@ -75,14 +75,34 @@ export function rotuloTipoMovimento(valor: TipoMovimento): string {
   return TIPOS_MOVIMENTO.find((t) => t.valor === valor)?.rotulo ?? valor
 }
 
-// aplicação/retirada em caixinha é reserva, sem cor especial (fica no
-// texto padrão); só quando é investimento de verdade (categoria
-// investimento, sem caixinha) fica azul — ver Estrutura de Custo, mesma
-// distinção de bucket "reservas" vs "investimentos". Usado em Lançamentos
-// (lista de transações) e no Dashboard (Compromissos Futuros).
+// cor por categoria: receita/estorno/ressarcimento = verde, despesa =
+// vermelho, aplicação/retirada em caixinha (reserva) = roxo, aplicação/
+// retirada sem caixinha (investimento de verdade) = azul — mesma
+// distinção de bucket "reservas" vs "investimentos" de Estrutura de
+// Custo. Usado em Lançamentos (lista de transações) e no Dashboard
+// (Compromissos Futuros, que não carrega caixinha_id — sempre cai no
+// ramo investimento ali, limitação pré-existente).
 export function classePorTipoMovimento(tipo: TipoMovimento, caixinhaId?: string | null): string {
   if (tipo === 'receita' || tipo === 'estorno' || tipo === 'ressarcimento') return 'valor-receita'
   if (tipo === 'despesa') return 'valor-despesa'
-  if ((tipo === 'aplicacao' || tipo === 'retirada') && !caixinhaId) return 'valor-investimento'
+  if (tipo === 'aplicacao' || tipo === 'retirada') return caixinhaId ? 'valor-reserva' : 'valor-investimento'
   return ''
+}
+
+// aplicação = dinheiro entrando no investimento/caixinha, retirada =
+// saindo — usado pra decidir pílula preenchida (entra) vs contorno (sai)
+// na lista de Lançamentos (item 55 do backlog).
+export function direcaoAplicacaoRetirada(tipo: TipoMovimento): 'entrada' | 'saida' | null {
+  if (tipo === 'aplicacao') return 'entrada'
+  if (tipo === 'retirada') return 'saida'
+  return null
+}
+
+// rótulo do badge pra estorno/ressarcimento — os dois ficam na cor de
+// receita (reduzem/compensam uma despesa), o badge evita confundir com
+// receita de verdade (item 55 do backlog).
+export function badgeAjuste(tipo: TipoMovimento): 'estorno' | 'ressarcimento' | null {
+  if (tipo === 'estorno') return 'estorno'
+  if (tipo === 'ressarcimento') return 'ressarcimento'
+  return null
 }

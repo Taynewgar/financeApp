@@ -16,7 +16,9 @@ import {
   MEIOS_PAGAMENTO,
   TIPOS_MOVIMENTO,
   TIPO_CATEGORIA_ESPERADO,
+  badgeAjuste,
   classePorTipoMovimento,
+  direcaoAplicacaoRetirada,
   rotuloEstruturaCusto,
   rotuloMeioPagamento,
   rotuloTipoMovimento,
@@ -64,6 +66,8 @@ export function Lancamentos() {
   const [categorias, setCategorias] = useState<Categoria[]>([])
   const [subcategorias, setSubcategorias] = useState<Subcategoria[]>([])
   const [caixinhas, setCaixinhas] = useState<Caixinha[]>([])
+  const [ultimosPorConta, setUltimosPorConta] = useState<Record<string, Transacao[]>>({})
+  const [contaExpandidaId, setContaExpandidaId] = useState<string | null>(null)
   const [erroCarga, setErroCarga] = useState<string | null>(null)
 
   useEffect(() => {
@@ -72,12 +76,14 @@ export function Lancamentos() {
       apiFetch<Categoria[]>('/categorias'),
       apiFetch<Subcategoria[]>('/subcategorias'),
       apiFetch<Caixinha[]>('/caixinhas'),
+      apiFetch<Record<string, Transacao[]>>('/transacoes/ultimos-por-conta?limite=5'),
     ])
-      .then(([c, cat, sub, cx]) => {
+      .then(([c, cat, sub, cx, ultimos]) => {
         setContas(c)
         setCategorias(cat)
         setSubcategorias(sub)
         setCaixinhas(cx)
+        setUltimosPorConta(ultimos)
       })
       .catch((e) => setErroCarga(e instanceof ApiError ? e.message : 'Falha ao carregar dados de apoio'))
   }, [])
@@ -263,6 +269,53 @@ export function Lancamentos() {
 
       {aba === 'lista' && (
         <>
+      {contas.filter((c) => c.ativo).length > 0 && (
+        <div className="ultimos-por-conta">
+          <div className="ultimos-por-conta-titulo">Últimos lançamentos por conta</div>
+          <div className="chips-conta">
+            {contas
+              .filter((c) => c.ativo)
+              .map((c) => (
+                <button
+                  key={c.id}
+                  type="button"
+                  className={`chip-conta${contaExpandidaId === c.id ? ' ativo' : ''}`}
+                  onClick={() => setContaExpandidaId((atual) => (atual === c.id ? null : c.id))}
+                >
+                  {c.nome}
+                </button>
+              ))}
+          </div>
+          {contaExpandidaId && (
+            <div className="painel-ultimos-conta">
+              {(ultimosPorConta[contaExpandidaId] ?? []).length === 0 ? (
+                <p className="item-detalhe" style={{ margin: 0 }}>
+                  Nenhum lançamento ainda nesta conta.
+                </p>
+              ) : (
+                (ultimosPorConta[contaExpandidaId] ?? []).map((t) => (
+                  <div className="ultimo-conta-linha" key={t.id}>
+                    <span className="ultimo-conta-desc">{t.descricao ?? '(sem descrição)'}</span>
+                    <span className="ultimo-conta-data">{formatarData(t.data_compra)}</span>
+                    <span className={`ultimo-conta-valor ${classePorTipoMovimento(t.tipo_movimento, t.caixinha_id)}`}>
+                      {formatarMoeda(t.valor, oculto)}
+                    </span>
+                  </div>
+                ))
+              )}
+              <button
+                type="button"
+                className="botao-link"
+                style={{ alignSelf: 'flex-start', padding: '4px 0' }}
+                onClick={() => setFiltros({ ...FILTROS_VAZIOS, contaId: contaExpandidaId })}
+              >
+                Ver tudo em Lançamentos, filtrado por {contasPorId.get(contaExpandidaId)?.nome} →
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
       {resumo && (
         <div className="resumo-cards">
           <div className="resumo-card">
@@ -511,6 +564,10 @@ export function Lancamentos() {
               t.pagamento === 'parcelado' ? `parcela ${t.parcela_atual}/${t.parcela_total}` : null,
             ].filter(Boolean)
 
+            const direcao = direcaoAplicacaoRetirada(t.tipo_movimento)
+            const badge = badgeAjuste(t.tipo_movimento)
+            const classeValor = classePorTipoMovimento(t.tipo_movimento, t.caixinha_id)
+
             return (
               <li key={t.id}>
                 <div className="item-linha">
@@ -521,8 +578,18 @@ export function Lancamentos() {
                     <span className="item-detalhe">{detalhes.join(' — ')}</span>
                   </div>
                   <div className="item-acoes">
-                    <span className={classePorTipoMovimento(t.tipo_movimento, t.caixinha_id)} style={{ fontWeight: 600 }}>
-                      {formatarMoeda(t.valor, oculto)}
+                    <span className="valor-col">
+                      {badge && <span className="badge-ajuste">{badge}</span>}
+                      <span
+                        className={
+                          direcao
+                            ? `chip-valor ${classeValor} ${direcao === 'entrada' ? 'chip-entrada' : 'chip-saida'}`
+                            : classeValor
+                        }
+                        style={direcao ? undefined : { fontWeight: 600 }}
+                      >
+                        {formatarMoeda(t.valor, oculto)}
+                      </span>
                     </span>
                     <Link to={`/lancamentos/${t.id}/editar`} className="botao-link">
                       Editar

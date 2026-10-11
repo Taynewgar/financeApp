@@ -4727,3 +4727,78 @@ Opções e decisão — ver entrada seguinte, após aprovação do usuário.
 - [ ] Filtrar por "Parcelado" e confirmar que só aparecem parcelas de
       compras parceladas; filtrar por "À vista" e confirmar que elas
       somem da lista.
+
+### Rodada 61 (2026-10-11) — Itens 54 e 55: esquema de cores + últimos lançamentos por conta
+
+Decisão do usuário sobre os mockups da Rodada 60 (artifact linkado lá):
+
+- **55:** aprovada a Opção A2 — mescla da Opção A (4 cores por categoria:
+  verde receita/ajuste, vermelho despesa, azul investimento, roxo
+  reserva/caixinha; badge "estorno"/"ressarcimento") com a pílula
+  preenchida/contorno da Opção C pra direção (em vez da seta ↑/↓):
+  aplicação = pílula preenchida (entra), retirada = pílula só contorno
+  (sai), mesma cor da categoria nas duas.
+- **54:** usuário pediu pra mover a seção pra dentro de Lançamentos (não
+  Configurações → Contas) — "quero saber os últimos lançamentos, ir até
+  configuração pra isso parece fora de ordem". Faz sentido: é onde o
+  usuário já está quando quer essa informação. Também pediu 5 lançamentos
+  em vez de 3.
+
+**Fix 55:** `classePorTipoMovimento` (`frontend/src/lib/rotulos.ts`) agora
+distingue reserva (`valor-reserva`, roxo) de investimento (`valor-
+investimento`, azul) — antes reserva não tinha cor nenhuma. Duas funções
+novas: `direcaoAplicacaoRetirada` (entrada/saída, só aplicação/retirada
+têm) e `badgeAjuste` (estorno/ressarcimento). Classes CSS novas em
+`resumoCards.css` (compartilhado com Dashboard): `.valor-reserva`,
+`.chip-valor` + `.chip-entrada`/`.chip-saida` (pílula preenchida/contorno
+combinando com `.valor-investimento`/`.valor-reserva`), `.valor-col` +
+`.badge-ajuste` (badge empilhado acima do valor). Aplicado na lista de
+`Lancamentos.tsx`. Dashboard (Compromissos Futuros) não ganhou a pílula —
+só reaproveita a nova cor de texto quando aplicável; `CompromissoFuturo`
+não carrega `caixinha_id`, então não dá pra saber ali se é reserva ou
+investimento (limitação pré-existente, fora do escopo deste item).
+
+**Fix 54:** novo endpoint `GET /transacoes/ultimos-por-conta?limite=5`
+(`backend/app/routers/transacoes.py`) — devolve os últimos N lançamentos
+**raiz** de cada conta do usuário (à vista, ou só a parcela 1 de uma
+compra parcelada — nunca cada parcela), via `.or_("pagamento.eq.avista,
+parcela_atual.eq.1")` + `.order(desc) + .limit(N)` direto no banco (sem
+buscar tudo e cortar no Python). Nova seção "Últimos lançamentos por
+conta" em `Lancamentos.tsx`, acima dos cards de resumo e dos filtros: uma
+fileira de chips (uma por conta ativa) que expande, ao clicar, os últimos
+5 lançamentos daquela conta + um link "Ver tudo em Lançamentos, filtrado
+por {conta}" que aplica o filtro de conta de verdade (reseta os demais
+filtros e deixa só `contaId`) — não é um link estático, dispara a mesma
+busca que o painel de filtros já usa. **Não substitui nem muda a Busca de
+Lançamentos padrão** (filtros + lista) — é só um atalho que fica acima
+dela, aplicável a qualquer momento.
+
+**Testes:** backend — novo teste
+`test_ultimos_por_conta_mostra_so_raiz_ordenado_e_limitado`
+(`backend/tests/test_transacoes_api.py`); precisou ensinar o dublê do
+Supabase (`backend/tests/fakes.py`) a entender `.or_()` e `.limit()`
+(só cobrindo o uso real: `"col.eq.valor,col2.eq.valor2"` e corte simples
+— mesmo padrão dos outros métodos do fake, documentado lá). Suíte
+completa: 394 passed, 33 skipped. Frontend — `tsc -b && vite build` sem
+erro novo; `oxlint` sem warning novo (diff completo antes/depois).
+
+**Status:** implementado 2026-10-11.
+
+**Checklist de teste manual (usuário, localmente):**
+- [ ] Em Lançamentos, conferir que a lista de transações mostra as 4
+      cores (verde/vermelho/azul/roxo) certas por tipo, com pílula
+      preenchida em aplicação e só contorno em retirada (investimento e
+      reserva/caixinha).
+- [ ] Conferir o badge "estorno"/"ressarcimento" acima do valor (verde)
+      num lançamento desses tipos.
+- [ ] Em Lançamentos, confirmar que aparece a seção "Últimos lançamentos
+      por conta" acima dos cards de resumo, com um chip por conta ativa.
+- [ ] Clicar num chip e confirmar que expande os últimos 5 lançamentos
+      daquela conta, mostrando só a 1ª parcela de compras parceladas (não
+      cada parcela).
+- [ ] Clicar "Ver tudo em Lançamentos, filtrado por..." e confirmar que a
+      lista abaixo (e os filtros) atualizam pra mostrar só aquela conta,
+      sem os outros filtros que estivessem ativos antes.
+- [ ] Confirmar que essa seção nova não substitui nem esconde a Busca de
+      Lançamentos padrão (filtros + lista completa continuam abaixo,
+      funcionando normalmente).
