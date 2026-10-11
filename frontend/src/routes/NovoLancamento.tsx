@@ -159,20 +159,26 @@ export function NovoLancamento() {
   }, [categoriaId])
 
   useEffect(() => {
-    if (!categoriaId) {
+    // reserva não usa categoria/subcategoria — agrupa por caixinha; o
+    // `tipo === 'reserva'` evita usar um caixinhaId que sobrou de uma
+    // escolha anterior depois de trocar pra outro tipo de lançamento
+    const usarCaixinha = tipo === 'reserva' && !!caixinhaId
+    if (!categoriaId && !usarCaixinha) {
       setDescricoesSugeridas([])
       return
     }
     const params = new URLSearchParams({ limite: '20' })
     if (subcategoriaId) {
       params.set('subcategoria_id', subcategoriaId)
-    } else {
+    } else if (categoriaId) {
       params.set('categoria_id', categoriaId)
+    } else {
+      params.set('caixinha_id', caixinhaId)
     }
     apiFetch<string[]>(`/transacoes/descricoes-mais-usadas?${params.toString()}`)
       .then(setDescricoesSugeridas)
       .catch(() => setDescricoesSugeridas([]))
-  }, [categoriaId, subcategoriaId])
+  }, [categoriaId, subcategoriaId, caixinhaId, tipo])
 
   const descricaoQuaseDuplicata = useMemo(
     () => (avisoQuaseDuplicataDescartado ? null : encontrarQuaseDuplicata(descricao, descricoesSugeridas)),

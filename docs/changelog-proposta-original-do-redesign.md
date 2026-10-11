@@ -4385,3 +4385,36 @@ Item 43 do backlog ("consulta rápida durante a inserção"): necessidade real d
 - [ ] Repetir o teste do chip/aviso numa compra PARCELADA (mesma
       categoria/subcategoria de uma despesa à vista já lançada) e
       confirmar que funciona igual.
+
+### Rodada 53 (2026-10-11) — Consulta rápida também pra Reserva/caixinha
+
+Usuário perguntou se a Rodada 52 cobria caixinhas. Não cobria: reserva
+(aplicação/retirada) não usa categoria/subcategoria, usa `caixinha_id` —
+o efeito que busca sugestões só olhava categoria/subcategoria, então o
+chip nunca aparecia nesse fluxo.
+
+**Fix:** `GET /transacoes/descricoes-mais-usadas` (`routers/transacoes.py`)
+ganhou `caixinha_id` como 3º filtro possível (prioridade: subcategoria >
+categoria > caixinha — na prática nunca se misturam, uma transação real
+tem um ou outro). `NovoLancamento.tsx`: o efeito de busca agora também
+dispara quando `caixinhaId` muda, só quando `tipo === 'reserva'` (evita
+usar um `caixinhaId` que sobrou em estado de uma escolha anterior depois
+de trocar pra outro tipo de lançamento, já que esse campo não é
+resetado ao trocar o tipo — comportamento preexistente, não é bug novo).
+
+**Testes:** 1 novo (`test_descricoes_mais_usadas_filtra_por_caixinha`).
+Suíte completa: 391 passed, 33 skipped. Frontend: `tsc -b && vite build`
+— sem erro novo; `oxlint` — mesma contagem de warnings da Rodada 52 (não
+é um efeito novo, só uma condição/dependência a mais no que já existia).
+
+**Status:** implementado 2026-10-11. Detalhe em `docs/backlog.md`
+("Consulta rápida ao preencher a Descrição").
+
+**Checklist de teste manual (usuário, localmente):**
+- [ ] Lançar uma Reserva (Aplicação) numa caixinha que já tenha pelo
+      menos 2 lançamentos com descrições diferentes e confirmar que os
+      chips aparecem acima do campo Descrição.
+- [ ] Trocar o tipo de Reserva pra Despesa (ou outro) com a caixinha já
+      escolhida, depois escolher uma categoria — confirmar que os
+      chips mostrados são os da categoria, não os da caixinha que
+      ficou selecionada antes.

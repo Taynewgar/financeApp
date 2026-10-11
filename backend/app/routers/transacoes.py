@@ -249,22 +249,28 @@ def descricoes_mais_usadas(
     user_id: str = Depends(get_current_user_id),
     categoria_id: str | None = None,
     subcategoria_id: str | None = None,
+    caixinha_id: str | None = None,
     limite: int = 5,
 ):
     """Ranking de descrições (texto literal, sem normalizar) por frequência
     de uso nos últimos ~6 meses — mesmo padrão de /categorias/mais-usadas e
     /subcategorias/mais-usadas, aqui por descrição em vez de id. Usado no
     Novo Lançamento tanto pros chips de atalho quanto pela checagem de
-    quase-duplicata (que recebe uma janela maior e compara as próprias)."""
-    if not categoria_id and not subcategoria_id:
+    quase-duplicata (que recebe uma janela maior e compara as próprias).
+    `caixinha_id` cobre reserva (aplicação/retirada), que não usa
+    categoria/subcategoria — as 2 situações não se misturam na prática
+    (uma transação real tem um ou outro, nunca os dois)."""
+    if not categoria_id and not subcategoria_id and not caixinha_id:
         return []
 
     desde = (date.today() - timedelta(days=_JANELA_DESCRICAO_DIAS)).isoformat()
     query = db.table(TABLE).select("descricao").eq("user_id", user_id).gte("data_compra", desde)
     if subcategoria_id:
         query = query.eq("subcategoria_id", subcategoria_id)
-    else:
+    elif categoria_id:
         query = query.eq("categoria_id", categoria_id)
+    else:
+        query = query.eq("caixinha_id", caixinha_id)
 
     transacoes = crud.buscar_todas_paginado(lambda: query)
     contagem: dict[str, int] = {}

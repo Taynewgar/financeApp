@@ -1687,3 +1687,37 @@ def test_descricoes_mais_usadas_nao_mistura_usuarios(client, current_user):
     current_user["id"] = OUTRO_USUARIO
     resposta = client.get("/transacoes/descricoes-mais-usadas", params={"categoria_id": categoria["id"]})
     assert resposta.json() == []
+
+
+def _lancar_reserva_com_descricao(client, conta_id, caixinha_id, descricao, dias_atras, valor):
+    resposta = client.post(
+        "/transacoes",
+        json={
+            "data_compra": (date.today() - timedelta(days=dias_atras)).isoformat(),
+            "valor": valor,
+            "tipo_movimento": "aplicacao",
+            "conta_id": conta_id,
+            "caixinha_id": caixinha_id,
+            "descricao": descricao,
+        },
+    )
+    assert resposta.status_code == 201
+    return resposta.json()
+
+
+def test_descricoes_mais_usadas_filtra_por_caixinha(client):
+    conta = _criar_conta_corrente(client)
+    emergencia = client.post("/caixinhas", json={"nome": "Emergência"}).json()
+    viagem = client.post("/caixinhas", json={"nome": "Viagem"}).json()
+
+    _lancar_reserva_com_descricao(client, conta["id"], emergencia["id"], "Aporte mensal", 1, 100)
+    _lancar_reserva_com_descricao(client, conta["id"], emergencia["id"], "Aporte mensal", 2, 200)
+    _lancar_reserva_com_descricao(client, conta["id"], emergencia["id"], "Aporte extra", 3, 300)
+    _lancar_reserva_com_descricao(client, conta["id"], viagem["id"], "Passagem", 1, 400)
+
+    resposta = client.get("/transacoes/descricoes-mais-usadas", params={"caixinha_id": emergencia["id"]})
+    assert resposta.status_code == 200
+    descricoes = resposta.json()
+    assert descricoes[0] == "Aporte mensal"
+    assert "Aporte extra" in descricoes
+    assert "Passagem" not in descricoes  # caixinha diferente, não entra

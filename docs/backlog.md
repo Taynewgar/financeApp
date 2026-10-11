@@ -831,11 +831,14 @@ comparação de uniformidade entre as parcelas da mesma compra.
 **Escopo:** só Novo Lançamento (onde foi pedido) — Editar Lançamento não
 foi tocado. Cobre compra parcelada de graça, por ser o mesmo campo
 Descrição com Categoria/Subcategoria escolhidas antes nos dois fluxos.
+Estendido na Rodada 53 pra cobrir também Reserva (aplicação/retirada de
+caixinha), que não usa categoria/subcategoria — agrupa por `caixinha_id`.
 
 **Status:** implementado 2026-10-11 — `GET /transacoes/descricoes-mais-usadas`
-(backend) + chips/aviso em `NovoLancamento.tsx`, lógica de distância em
-`frontend/src/lib/texto.ts`. Ver changelog Rodada 52 pro detalhe técnico
-completo e o checklist de teste manual.
+(backend, com `categoria_id`/`subcategoria_id`/`caixinha_id`) + chips/aviso
+em `NovoLancamento.tsx`, lógica de distância em `frontend/src/lib/texto.ts`.
+Ver changelog Rodadas 52 e 53 pro detalhe técnico completo e os
+checklists de teste manual.
 
 ### Caixinhas com saldo errado / limite de 1000 linhas do Supabase
 
