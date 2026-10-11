@@ -2209,15 +2209,36 @@ de `custos_fixos` sem lançamento real, orçado R$50/R$5), já que a
 comparação script×app bate mesmo com o vazamento presente (mesma
 fórmula nos dois lados).
 
-**Status:** resolvido 2026-10-10 — frente (b) escolhida (bloquear o
-vínculo duplicado na origem, não filtrar `calcular_realizado_item` por
-`estrutura_custo`). Ver detalhe em "Criação manual de item em
-Planejamento removida" logo abaixo — a mesma mudança fecha este item e
-o item 62 do backlog, já que a causa dos 2 era exatamente a criação
-manual sem essa validação. Os 2 itens duplicados nos dados reais do
-usuário continuam existindo (ativos) até serem desativados manualmente
-pela tela — a validação nova impede um **novo** caso, não limpa os 2
-já existentes.
+**Correção de rota, 2026-10-11:** a 1ª implementação (2026-10-10)
+escolheu a frente (b) — bloquear qualquer vínculo duplicado, em
+qualquer bucket. Usuário (dono do domínio) apontou que isso está
+ERRADO: categoria pode legitimamente estar em 2 buckets diferentes —
+"Espiritualidade" como custo fixo (dízimo mensal) E sazonal (retiro
+ocasional); "Flamengo" fixo (mensalidade) E variável (compra avulsa). A
+categoria é um tópico, não pertence a um bucket só — por isso
+`estrutura_custo` é campo da TRANSAÇÃO, não da categoria. Bloquear a
+criação/edição cross-bucket impedia um uso real (e, na prática,
+quebrava a edição comum de "só mudar o valor orçado": o formulário
+reenvia a categoria atual no PATCH mesmo sem o usuário mexer nela, e o
+bloqueio cross-bucket batia como falso-positivo contra qualquer item
+ativo de mesma categoria em outro bucket).
+
+**Fix definitivo, implementado 2026-10-11:** frente (a) da lista acima
+— `calcular_realizado_item(_em_lote)` agora filtra por
+`estrutura_custo` (`_bate_com_bucket()`, novo helper em
+`orcamento_saldo.py`): só conta uma transação pro item se o
+`estrutura_custo` dela bater com o bucket do item, OU se a transação
+não tiver `estrutura_custo` preenchido (estorno/ressarcimento às vezes
+não preenche — mantém contando, pra não quebrar o abatimento que já
+funciona). `_check_vinculo_duplicado()` (ver seção abaixo) voltou a
+bloquear só dentro do MESMO bucket — vínculo duplicado entre buckets
+diferentes está liberado de novo. Os 2 itens duplicados reais do
+usuário (ambos em `custos_fixos`, sem lançamento associado) foram
+apagados por ele via "Apagar orçamento" (apagou o mês inteiro de junho
+e outubro de propósito, ciente do efeito colateral).
+
+**Status:** resolvido 2026-10-11. Ver detalhe completo do fix em
+"Correção: vínculo duplicado é permitido entre buckets" logo abaixo.
 
 ### Criação manual de item em Planejamento removida
 
@@ -2253,31 +2274,67 @@ vínculo possíveis, não por pedido explícito) e decidiu remover.
   como padrão de dado, e por boa parte da suíte de testes como
   infraestrutura de fixture (~90 call sites; reescrever tudo pra outro
   mecanismo só pra "apagar o endpoint" seria custo alto sem ganho real,
-  já que o endpoint não é mais alcançável pela tela). Em vez de apagar
-  o endpoint, **corrigida a causa raiz**: `_check_vinculo_duplicado()`
-  (nova função) bloqueia com 409 qualquer tentativa de ativar 2 itens
-  com o mesmo vínculo (categoria/subcategoria/conta) no mesmo
-  orçamento, **em qualquer bucket** (inclusive o mesmo bucket) — plugada
-  em `criar_item()`, `atualizar_item()` (editar vínculo de item
-  existente) e `alternar_item_ativo()` (reativar não pode reintroduzir
-  uma colisão que surgiu enquanto o item estava inativo). Item sem
-  vínculo (nome livre) nunca colide — não tem o que comparar. Só
-  considera itens ATIVOS (mesmo critério do cálculo ao vivo,
-  `carregar_dados_periodo`) — duplicar vínculo com um item inativo
-  continua permitido, sem risco (inativo não entra no cálculo).
+  já que o endpoint não é mais alcançável pela tela). `_check_vinculo_duplicado()`
+  bloqueia com 409 item ativo duplicado — ver escopo corrigido na seção
+  seguinte.
+- **Frontend, correção 2026-10-11:** campo "Nome livre" removido do
+  formulário de edição por completo (não só escondido condicionalmente)
+  — usuário confirmou que nenhum item é ou será nome-livre na conta
+  (criação manual não existe mais, e o automático sempre vincula
+  categoria/subcategoria).
 
-**Testes:** 8 novos em `test_orcamentos_api.py` — bloqueio na criação
-(mesmo bucket e bucket diferente), permitido contra item inativo,
-nome-livre não é bloqueado por outro nome-livre, bloqueio na edição
-(vínculo novo colide) e não-bloqueio (editar mantendo o próprio
-vínculo), bloqueio na reativação. Suíte completa: 380 passed, 33
-skipped. Frontend: `tsc -b` + `vite build` + `oxlint` sem erro novo.
+**Testes:** suíte completa em `test_orcamentos_api.py`, atualizada na
+correção seguinte. Frontend: `tsc -b` + `vite build` + `oxlint` sem
+erro novo.
 
-**Status:** implementado 2026-10-10. Os 2 itens duplicados que já
-existem na conta real do usuário não foram tocados por este fix (a
-validação só impede um caso **novo** — os 2 existentes continuam
-ativos até o usuário desativá-los manualmente pela tela, ação dele,
-fora do escopo desta mudança).
+**Status:** implementado 2026-10-10, ajustado 2026-10-11 (ver seção
+"Correção: vínculo duplicado é permitido entre buckets").
+
+### Correção: vínculo duplicado é permitido entre buckets
+
+**Contexto:** a primeira versão de `_check_vinculo_duplicado()`
+(2026-10-10) bloqueava qualquer vínculo repetido entre itens ativos,
+em qualquer bucket. Usuário reportou 2026-10-11 que isso quebra um uso
+legítimo real (categoria em 2 buckets, ex. "Espiritualidade"
+fixo+sazonal) e, na prática, bloqueava até edições que só mudavam o
+valor orçado — o formulário sempre reenvia a categoria/subcategoria
+atual do item no PATCH, então qualquer item cuja categoria também
+existisse em OUTRO bucket (uso legítimo) ficava impossível de editar,
+mesmo sem tocar no vínculo.
+
+**Fix:**
+- `_check_vinculo_duplicado()` (`orcamentos.py`) ganhou o parâmetro
+  `bucket` — só bloqueia quando o item colidente está no MESMO bucket.
+  Vínculo duplicado em buckets diferentes está liberado.
+- `calcular_realizado_item`/`calcular_realizado_item_em_lote`
+  (`orcamento_saldo.py`) ganharam `_bate_com_bucket()`: só soma uma
+  transação pro `realizado` do item se o `estrutura_custo` dela bater
+  com o bucket do item (mapa `custos_fixos↔"fixo"`,
+  `custos_variaveis↔"variavel"`, `sazonalidades↔"sazonal"`,
+  `investimentos↔"investimentos"`), ou se a transação não tiver
+  `estrutura_custo` preenchido (estorno/ressarcimento, campo opcional
+  pra esses tipos — conta pra qualquer item, mantendo o abatimento que
+  já funcionava). Esse é o fix que de fato resolve o vazamento de
+  `realizado` entre buckets — a validação de criação/edição nunca foi
+  a correção certa pra isso, só evitava o sintoma mais óbvio (e
+  errava o alvo, bloqueando uso legítimo).
+- `scripts/referencia_saldo_anterior.py`: `realizado_independente()`
+  ganhou o mesmo filtro (`_bate_com_bucket`), mantendo o script fiel à
+  regra real do app. `detectar_vinculo_em_buckets_diferentes()`
+  deixou de apontar "risco de vazamento" — agora é só informativo
+  (vínculo em 2+ buckets é esperado, não indica bug).
+- `Planejamento.tsx`: campo "Nome livre" removido da edição (ver seção
+  anterior).
+
+**Testes:** `test_orcamentos_api.py` — os 3 testes que afirmavam 409
+entre buckets viraram 201/200 (permitido), mais os equivalentes dentro
+do MESMO bucket continuam 409; novo
+`test_realizado_nao_vaza_entre_buckets_com_mesma_categoria` reproduz o
+exemplo da Espiritualidade fim a fim (2 itens, 2 buckets, 2 despesas
+com `estrutura_custo` diferente, confirma `saldo_anterior` correto em
+cada um via `/proximo-mes`). Suíte completa: 383 passed, 33 skipped.
+
+**Status:** implementado 2026-10-11.
 
 ### Botão de apagar orçamento
 

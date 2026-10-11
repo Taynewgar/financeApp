@@ -209,26 +209,31 @@ def _chave_vinculo(categoria_id: str | None, subcategoria_id: str | None, conta_
 def _check_vinculo_duplicado(
     db: Client,
     orcamento_id: str,
+    bucket: str,
     categoria_id: str | None,
     subcategoria_id: str | None,
     conta_vinculada_id: str | None,
     item_id_excluir: str | None,
 ) -> None:
-    """Acha 2026-10-10: nada impedia vincular a mesma categoria/
-    subcategoria/conta a 2 itens ATIVOS do mesmo orçamento (em qualquer
-    bucket, inclusive o mesmo) — e calcular_realizado_item(_em_lote)
-    (orcamento_saldo.py) soma transação só por esse vínculo, sem olhar o
-    bucket do item, então os 2 itens duplicados vazam realizado um pro
-    outro (ver docs/backlog.md). Bloqueado aqui, na origem, pros dois
-    pontos de entrada (criar_item/atualizar_item) — item inativo não
-    conta (não participa do cálculo ao vivo, ver carregar_dados_periodo)."""
+    """Achado 2026-10-10, corrigido 2026-10-11: a mesma categoria/
+    subcategoria pode legitimamente estar em buckets diferentes (ex:
+    "Espiritualidade" como custo fixo — dízimo — E sazonal — retiro
+    ocasional; "Flamengo" fixo — mensalidade — E variável — compra
+    avulsa). O que nunca faz sentido é 2 itens ATIVOS do MESMO bucket
+    com o mesmo vínculo (quem seria o "equivalente" pra rolar
+    saldo_anterior? Ordem de retorno da query, não tem significado de
+    negócio). Bloqueado só dentro do mesmo bucket; o vazamento de
+    realizado entre buckets diferentes foi corrigido na raiz, filtrando
+    calcular_realizado_item(_em_lote) por estrutura_custo (ver
+    docs/backlog.md). Item inativo não conta (não participa do cálculo
+    ao vivo, ver carregar_dados_periodo)."""
     chave = _chave_vinculo(categoria_id, subcategoria_id, conta_vinculada_id)
     if chave is None:
         return
     campo, valor = chave
     itens_ativos = (
         db.table(ITENS_TABLE)
-        .select("id,categoria_id,subcategoria_id,conta_vinculada_id")
+        .select("id,bucket,categoria_id,subcategoria_id,conta_vinculada_id")
         .eq("orcamento_id", orcamento_id)
         .eq("ativo", True)
         .execute()
@@ -237,10 +242,10 @@ def _check_vinculo_duplicado(
     for item in itens_ativos:
         if item_id_excluir and item["id"] == item_id_excluir:
             continue
-        if item.get(campo) == valor:
+        if item.get("bucket") == bucket and item.get(campo) == valor:
             raise HTTPException(
                 status_code=409,
-                detail="Já existe um item ativo para esse vínculo neste orçamento (em algum bucket).",
+                detail="Já existe um item ativo para esse vínculo neste bucket.",
             )
 
 
@@ -324,7 +329,13 @@ def criar_item(
     orcamento = _get_orcamento_ou_404(db, user_id, orcamento_id)
     _check_refs_item(db, user_id, payload.categoria_id, payload.subcategoria_id, payload.conta_vinculada_id)
     _check_vinculo_duplicado(
-        db, orcamento_id, payload.categoria_id, payload.subcategoria_id, payload.conta_vinculada_id, item_id_excluir=None
+        db,
+        orcamento_id,
+        payload.bucket,
+        payload.categoria_id,
+        payload.subcategoria_id,
+        payload.conta_vinculada_id,
+        item_id_excluir=None,
     )
     contexto_saldo = _carregar_contexto_saldo(db, user_id, orcamento)
     _validar_teto_bucket(orcamento, payload.bucket, item_id_excluir=None, novo_valor=payload.orcamento_mensal, contexto_saldo=contexto_saldo)
@@ -348,10 +359,11 @@ def atualizar_item(
     _check_refs_item(
         db, user_id, dados.get("categoria_id"), dados.get("subcategoria_id"), dados.get("conta_vinculada_id")
     )
-    if any(campo in dados for campo in ("categoria_id", "subcategoria_id", "conta_vinculada_id")):
+    if any(campo in dados for campo in ("bucket", "categoria_id", "subcategoria_id", "conta_vinculada_id")):
         _check_vinculo_duplicado(
             db,
             orcamento_id,
+            dados.get("bucket", item_atual.get("bucket")),
             dados.get("categoria_id", item_atual.get("categoria_id")),
             dados.get("subcategoria_id", item_atual.get("subcategoria_id")),
             dados.get("conta_vinculada_id", item_atual.get("conta_vinculada_id")),
@@ -388,6 +400,7 @@ def alternar_item_ativo(
         _check_vinculo_duplicado(
             db,
             orcamento_id,
+            item_atual["bucket"],
             item_atual.get("categoria_id"),
             item_atual.get("subcategoria_id"),
             item_atual.get("conta_vinculada_id"),

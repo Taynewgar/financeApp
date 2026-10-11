@@ -43,6 +43,30 @@ _SINAL_REALIZADO = {
     "retirada": -1,
 }
 
+# inverso de orcamento_sync._BUCKET_POR_ESTRUTURA — usado pra filtrar
+# calcular_realizado_item(_em_lote) por bucket (achado 2026-10-10, ver
+# docs/backlog.md): a mesma categoria/subcategoria pode legitimamente
+# estar em 2 itens de buckets diferentes (ex: categoria "Espiritualidade"
+# como custo fixo — dízimo — E sazonal — retiro ocasional), mas sem
+# filtrar por estrutura_custo da transação, o realizado de cada item
+# somava TODAS as transações da categoria, vazando uma pra outra.
+_ESTRUTURA_POR_BUCKET = {
+    "custos_fixos": "fixo",
+    "custos_variaveis": "variavel",
+    "sazonalidades": "sazonal",
+    "investimentos": "investimentos",
+}
+
+
+def _bate_com_bucket(transacao: dict, bucket: str) -> bool:
+    """True se a transação conta pro `realizado` deste bucket. Transação
+    SEM estrutura_custo preenchido (estorno/ressarcimento às vezes não
+    preenche — é campo opcional pra esses tipos) sempre conta, pra não
+    quebrar o abatimento que já funciona hoje; só exclui quando o campo
+    está preenchido E aponta pra outro bucket."""
+    estrutura = transacao.get("estrutura_custo")
+    return not estrutura or estrutura == _ESTRUTURA_POR_BUCKET.get(bucket)
+
 
 def calcular_realizado_item(db: Client, user_id: str, item: dict, mes_inicio: date, mes_fim: date) -> float:
     """Soma as transações do período que contam para este item — por
@@ -57,11 +81,15 @@ def calcular_realizado_item(db: Client, user_id: str, item: dict, mes_inicio: da
     outras subcategorias da mesma categoria pai — mesma lógica de
     estrutura_custo._chave. A exclusão de subcategoria no caso "só
     categoria" é feita em Python (não com .is_() do postgrest) — mesmo
-    filtro final, sem depender de mais um operador da query builder."""
+    filtro final, sem depender de mais um operador da query builder.
+
+    Categoria/subcategoria vinculada a item de bucket diferente (achado
+    2026-10-10) também é filtrada em Python, por `_bate_com_bucket` —
+    mesmo racional da exclusão de subcategoria acima."""
     if item.get("subcategoria_id"):
         linhas = (
             db.table("transacoes")
-            .select("valor,tipo_movimento")
+            .select("valor,tipo_movimento,estrutura_custo")
             .eq("user_id", user_id)
             .gte("data_compra", mes_inicio.isoformat())
             .lt("data_compra", mes_fim.isoformat())
@@ -69,10 +97,11 @@ def calcular_realizado_item(db: Client, user_id: str, item: dict, mes_inicio: da
             .execute()
             .data
         )
+        linhas = [t for t in linhas if _bate_com_bucket(t, item["bucket"])]
     elif item.get("categoria_id"):
         candidatas = (
             db.table("transacoes")
-            .select("valor,tipo_movimento,subcategoria_id")
+            .select("valor,tipo_movimento,subcategoria_id,estrutura_custo")
             .eq("user_id", user_id)
             .gte("data_compra", mes_inicio.isoformat())
             .lt("data_compra", mes_fim.isoformat())
@@ -80,7 +109,7 @@ def calcular_realizado_item(db: Client, user_id: str, item: dict, mes_inicio: da
             .execute()
             .data
         )
-        linhas = [t for t in candidatas if not t.get("subcategoria_id")]
+        linhas = [t for t in candidatas if not t.get("subcategoria_id") and _bate_com_bucket(t, item["bucket"])]
     elif item.get("conta_vinculada_id"):
         linhas = (
             db.table("transacoes")
@@ -102,17 +131,24 @@ def calcular_realizado_item(db: Client, user_id: str, item: dict, mes_inicio: da
 def calcular_realizado_item_em_lote(item: dict, transacoes_do_mes: list[dict]) -> float:
     """Mesma regra de calcular_realizado_item (subcategoria > categoria >
     conta vinculada, excluindo de "só categoria" o que já tem subcategoria
-    própria), mas filtrando em memória sobre uma lista de transações do mês
-    JÁ CARREGADA, em vez de consultar o banco — usado por
+    própria, e filtrando por bucket via `_bate_com_bucket` — achado
+    2026-10-10), mas filtrando em memória sobre uma lista de transações do
+    mês JÁ CARREGADA, em vez de consultar o banco — usado por
     /estrutura-custo/evolucao/tendencia, que pré-carrega o período inteiro
     de uma vez (ver saldo_anterior_em_lote)."""
     if item.get("subcategoria_id"):
-        linhas = [t for t in transacoes_do_mes if t.get("subcategoria_id") == item["subcategoria_id"]]
+        linhas = [
+            t
+            for t in transacoes_do_mes
+            if t.get("subcategoria_id") == item["subcategoria_id"] and _bate_com_bucket(t, item["bucket"])
+        ]
     elif item.get("categoria_id"):
         linhas = [
             t
             for t in transacoes_do_mes
-            if t.get("categoria_id") == item["categoria_id"] and not t.get("subcategoria_id")
+            if t.get("categoria_id") == item["categoria_id"]
+            and not t.get("subcategoria_id")
+            and _bate_com_bucket(t, item["bucket"])
         ]
     elif item.get("conta_vinculada_id"):
         linhas = [t for t in transacoes_do_mes if t.get("conta_id") == item["conta_vinculada_id"]]

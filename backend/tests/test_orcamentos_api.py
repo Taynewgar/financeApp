@@ -185,11 +185,13 @@ def test_criar_item_sem_categoria_com_nome_livre_e_valido(client):
     assert resposta.json()["categoria_id"] is None
 
 
-def test_criar_item_com_vinculo_ja_usado_em_outro_bucket_retorna_409(client):
-    """Achado 2026-10-10 (docs/backlog.md): calcular_realizado_item não
-    filtra por bucket, só por categoria/subcategoria/conta — 2 itens
-    ativos com o mesmo vínculo em buckets diferentes vazam realizado um
-    pro outro. Bloqueado na origem."""
+def test_criar_item_com_vinculo_ja_usado_em_outro_bucket_e_permitido(client):
+    """Corrigido 2026-10-11: categoria pode legitimamente estar em 2
+    buckets (ex: "Espiritualidade" fixo — dízimo — e sazonal — retiro
+    ocasional). O que precisava de correção era calcular_realizado_item
+    não filtrar por estrutura_custo (ver
+    test_realizado_nao_vaza_entre_buckets_com_mesma_categoria), não
+    bloquear a criação."""
     orcamento = _criar_orcamento(client)
     categoria = client.post("/categorias", json={"nome": "Educação"}).json()
     client.post(
@@ -201,7 +203,7 @@ def test_criar_item_com_vinculo_ja_usado_em_outro_bucket_retorna_409(client):
         f"/orcamentos/{orcamento['id']}/itens",
         json={"bucket": "sazonalidades", "categoria_id": categoria["id"], "orcamento_mensal": 0},
     )
-    assert resposta.status_code == 409
+    assert resposta.status_code == 201
 
 
 def test_criar_item_com_vinculo_de_item_inativo_e_permitido(client):
@@ -242,12 +244,27 @@ def test_criar_item_nome_livre_nao_e_bloqueado_por_outro_nome_livre(client):
     assert resposta.status_code == 201
 
 
-def test_atualizar_item_para_vinculo_ja_usado_em_outro_bucket_retorna_409(client):
+def test_atualizar_item_para_vinculo_ja_usado_em_outro_bucket_e_permitido(client):
     orcamento = _criar_orcamento(client)
     categoria = client.post("/categorias", json={"nome": "Educação"}).json()
     client.post(f"/orcamentos/{orcamento['id']}/itens", json={"bucket": "custos_fixos", "categoria_id": categoria["id"]})
     item_livre = client.post(
         f"/orcamentos/{orcamento['id']}/itens", json={"bucket": "sazonalidades", "nome": "Temp"}
+    ).json()
+
+    resposta = client.patch(
+        f"/orcamentos/{orcamento['id']}/itens/{item_livre['id']}",
+        json={"categoria_id": categoria["id"], "nome": None},
+    )
+    assert resposta.status_code == 200
+
+
+def test_atualizar_item_para_vinculo_ja_usado_no_mesmo_bucket_retorna_409(client):
+    orcamento = _criar_orcamento(client)
+    categoria = client.post("/categorias", json={"nome": "Educação"}).json()
+    client.post(f"/orcamentos/{orcamento['id']}/itens", json={"bucket": "custos_fixos", "categoria_id": categoria["id"]})
+    item_livre = client.post(
+        f"/orcamentos/{orcamento['id']}/itens", json={"bucket": "custos_fixos", "nome": "Temp"}
     ).json()
 
     resposta = client.patch(
@@ -272,7 +289,7 @@ def test_atualizar_item_mantendo_o_proprio_vinculo_nao_e_bloqueado(client):
     assert resposta.json()["orcamento_mensal"] == 200
 
 
-def test_reativar_item_com_vinculo_ja_assumido_por_outro_item_retorna_409(client):
+def test_reativar_item_com_vinculo_assumido_por_item_de_outro_bucket_e_permitido(client):
     orcamento = _criar_orcamento(client)
     categoria = client.post("/categorias", json={"nome": "Educação"}).json()
     item_antigo = client.post(
@@ -280,6 +297,19 @@ def test_reativar_item_com_vinculo_ja_assumido_por_outro_item_retorna_409(client
     ).json()
     client.patch(f"/orcamentos/{orcamento['id']}/itens/{item_antigo['id']}/ativo?ativo=false")
     client.post(f"/orcamentos/{orcamento['id']}/itens", json={"bucket": "sazonalidades", "categoria_id": categoria["id"]})
+
+    resposta = client.patch(f"/orcamentos/{orcamento['id']}/itens/{item_antigo['id']}/ativo?ativo=true")
+    assert resposta.status_code == 200
+
+
+def test_reativar_item_com_vinculo_assumido_por_item_do_mesmo_bucket_retorna_409(client):
+    orcamento = _criar_orcamento(client)
+    categoria = client.post("/categorias", json={"nome": "Educação"}).json()
+    item_antigo = client.post(
+        f"/orcamentos/{orcamento['id']}/itens", json={"bucket": "custos_fixos", "categoria_id": categoria["id"]}
+    ).json()
+    client.patch(f"/orcamentos/{orcamento['id']}/itens/{item_antigo['id']}/ativo?ativo=false")
+    client.post(f"/orcamentos/{orcamento['id']}/itens", json={"bucket": "custos_fixos", "categoria_id": categoria["id"]})
 
     resposta = client.patch(f"/orcamentos/{orcamento['id']}/itens/{item_antigo['id']}/ativo?ativo=true")
     assert resposta.status_code == 409
@@ -615,6 +645,50 @@ def test_proximo_mes_de_item_de_subcategoria_nao_soma_gasto_de_outra_subcategori
     # o item de Viagens fecharia com déficit de -900 (400 - 1300)
     assert item_viagens["saldo_anterior"] == 100
     assert item_viagens["disponivel"] == 500
+
+
+def test_realizado_nao_vaza_entre_buckets_com_mesma_categoria(client):
+    """Achado/fix 2026-10-10/11 (docs/backlog.md): categoria pode
+    legitimamente estar em 2 buckets (ex: "Espiritualidade" fixo — dízimo
+    — e sazonal — retiro ocasional). calcular_realizado_item precisa
+    filtrar por estrutura_custo da transação, não só por categoria —
+    senão o realizado de cada item conta a despesa do outro também."""
+    conta = client.post("/contas", json={"nome": "Conta", "tipo_conta": "corrente"}).json()
+    categoria = client.post("/categorias", json={"nome": "Espiritualidade"}).json()
+    orcamento = _criar_orcamento(client, vigencia_mes="2026-09-01")
+    client.post(
+        f"/orcamentos/{orcamento['id']}/itens",
+        json={"bucket": "custos_fixos", "categoria_id": categoria["id"], "orcamento_mensal": 200},
+    )
+    client.post(
+        f"/orcamentos/{orcamento['id']}/itens",
+        json={"bucket": "sazonalidades", "categoria_id": categoria["id"], "orcamento_mensal": 500},
+    )
+    client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-09-05", "valor": 200, "tipo_movimento": "despesa",
+            "conta_id": conta["id"], "categoria_id": categoria["id"],
+            "estrutura_custo": "fixo", "meio_pagamento": "pix",
+        },
+    )
+    client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-09-10", "valor": 450, "tipo_movimento": "despesa",
+            "conta_id": conta["id"], "categoria_id": categoria["id"],
+            "estrutura_custo": "sazonal", "meio_pagamento": "pix",
+        },
+    )
+
+    proximo = client.post(f"/orcamentos/{orcamento['id']}/proximo-mes").json()
+    itens = client.get(f"/orcamentos/{proximo['id']}/itens").json()
+    item_fixo = next(i for i in itens if i["bucket"] == "custos_fixos")
+    item_sazonal = next(i for i in itens if i["bucket"] == "sazonalidades")
+    # sem o fix: ambos veriam realizado=650 (200+450) — item_fixo saldo
+    # anterior sairia 200-650=-450, item_sazonal 500-650=-150
+    assert item_fixo["saldo_anterior"] == 0  # 200 (orçado) - 200 (só o dízimo)
+    assert item_sazonal["saldo_anterior"] == 50  # 500 (orçado) - 450 (só o retiro)
 
 
 def test_proximo_mes_item_sem_vinculo_rola_o_valor_cheio(client):

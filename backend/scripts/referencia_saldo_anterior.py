@@ -35,6 +35,18 @@ já calculado num mês anterior. `achar_candidatos` sempre exigiu bucket +
 vínculo batendo; o cache não respeitava essa mesma restrição. Corrigido
 incluindo `bucket` na chave de cache.
 
+Achado separado, 2026-10-10/11: reproduzindo o cenário acima (mesma
+categoria em 2 buckets) achei que o PRÓPRIO APP também errava ali —
+`calcular_realizado_item(_em_lote)` somava toda transação da categoria,
+sem olhar o bucket do item nem o `estrutura_custo` da transação, então 2
+itens com a mesma categoria em buckets diferentes vazavam `realizado` um
+pro outro. Esse padrão (mesma categoria, 2 buckets) é legítimo e comum
+(ex.: "Espiritualidade" fixo — dízimo — E sazonal — retiro ocasional) —
+não é um erro de configuração a ser bloqueado, era a conta que estava
+errada. Corrigido filtrando `calcular_realizado_item(_em_lote)` por
+`estrutura_custo` (`_bate_com_bucket`, orcamento_saldo.py) — mesmo fix
+replicado aqui em `realizado_independente`.
+
 Roda contra o Supabase REAL (precisa de backend/.env preenchido) — não
 roda nesta sessão remota, mesma limitação dos testes de integração e do
 script de migração. Só GET: não cria, edita nem apaga nada em nenhuma
@@ -110,24 +122,44 @@ def chave_vinculo(item: dict) -> tuple[str, str] | None:
     return None
 
 
+_ESTRUTURA_POR_BUCKET = {
+    "custos_fixos": "fixo",
+    "custos_variaveis": "variavel",
+    "sazonalidades": "sazonal",
+    "investimentos": "investimentos",
+}
+
+
+def _bate_com_bucket(transacao: dict, bucket: str) -> bool:
+    """Mesmo filtro de orcamento_saldo.py (achado/fix 2026-10-10/11):
+    categoria/subcategoria pode estar em 2 buckets diferentes
+    legitimamente — só conta a transação cujo estrutura_custo bate com o
+    bucket do item (ou que não tem estrutura_custo preenchido, caso de
+    estorno/ressarcimento)."""
+    estrutura = transacao.get("estrutura_custo")
+    return not estrutura or estrutura == _ESTRUTURA_POR_BUCKET.get(bucket)
+
+
 def realizado_independente(headers: dict, item: dict, mes_inicio: date) -> float:
     """Reimplementação própria de calcular_realizado_item — soma via
     GET /transacoes (filtro + período), não consulta o banco direto.
     "Só categoria" exclui em Python o que já tem subcategoria própria,
     mesma regra documentada em orcamento_saldo.py (um item com
     subcategoria sempre carrega a categoria pai junto; checar categoria
-    primeiro pegaria transação de outra subcategoria da mesma pai)."""
+    primeiro pegaria transação de outra subcategoria da mesma pai).
+    Filtra por bucket via `_bate_com_bucket` — achado/fix 2026-10-10/11."""
     mes_fim = ultimo_dia_do_mes(mes_inicio)
     params = {"data_inicio": mes_inicio.isoformat(), "data_fim": mes_fim.isoformat()}
     if item.get("subcategoria_id"):
         linhas = client.get(
             "/transacoes", params={**params, "subcategoria_id": item["subcategoria_id"]}, headers=headers
         ).json()
+        linhas = [t for t in linhas if _bate_com_bucket(t, item["bucket"])]
     elif item.get("categoria_id"):
         candidatas = client.get(
             "/transacoes", params={**params, "categoria_id": item["categoria_id"]}, headers=headers
         ).json()
-        linhas = [t for t in candidatas if not t.get("subcategoria_id")]
+        linhas = [t for t in candidatas if not t.get("subcategoria_id") and _bate_com_bucket(t, item["bucket"])]
     elif item.get("conta_vinculada_id"):
         linhas = client.get(
             "/transacoes", params={**params, "conta_id": item["conta_vinculada_id"]}, headers=headers
@@ -264,14 +296,12 @@ def tracar_cadeia(
 
 
 def detectar_vinculo_em_buckets_diferentes(itens_por_mes: dict[str, list[dict]]) -> list[dict]:
-    """Checagem independente da comparação script×app: acha categoria/
-    subcategoria vinculada a itens de BUCKETS diferentes no mesmo mês —
-    o pré-requisito pro achado 2026-10-10 (calcular_realizado_item não
-    filtra por bucket/estrutura_custo, então um vínculo em 2 buckets faz
-    o realizado de um vazar pro outro). Isso pode existir mesmo quando
-    saldo_anterior recalculado bate 100% com o app, porque o script usa
-    a MESMA fórmula de realizado do app (replica o vazamento, não o
-    detecta) — só uma varredura estrutural dos vínculos pega esse caso."""
+    """Categoria/subcategoria vinculada a itens de BUCKETS diferentes no
+    mesmo mês — legítimo desde o fix do `_bate_com_bucket` em
+    orcamento_saldo.py (achado/fix 2026-10-10/11): ex. "Espiritualidade"
+    fixo (dízimo) E sazonal (retiro ocasional). Puramente informativo
+    agora, não indica mais bug — mantido pra visibilidade de como as
+    categorias estão distribuídas entre buckets."""
     achados = []
     for mes_str, itens in sorted(itens_por_mes.items()):
         por_vinculo: dict[tuple, list[dict]] = {}
@@ -326,13 +356,13 @@ def main() -> None:
 
     print(f"{len(orcamentos)} orçamento(s), de {orcamentos[0]['vigencia_mes'][:7]} a {orcamentos[-1]['vigencia_mes'][:7]}.\n")
 
-    risco_vazamento = detectar_vinculo_em_buckets_diferentes(itens_por_mes)
-    if risco_vazamento:
+    vinculos_em_varios_buckets = detectar_vinculo_em_buckets_diferentes(itens_por_mes)
+    if vinculos_em_varios_buckets:
         print(
-            f"=== {len(risco_vazamento)} vínculo(s) em mais de 1 bucket no mesmo mês "
-            "(risco de vazamento de realizado — achado 2026-10-10, ver docs/backlog.md) ==="
+            f"=== {len(vinculos_em_varios_buckets)} vínculo(s) em mais de 1 bucket no mesmo mês "
+            "(informativo — legítimo desde o fix do estrutura_custo, ver docs/backlog.md) ==="
         )
-        for a in risco_vazamento:
+        for a in vinculos_em_varios_buckets:
             campo, valor = a["vinculo"]
             nome = (
                 categorias.get(valor, {}).get("nome", valor)

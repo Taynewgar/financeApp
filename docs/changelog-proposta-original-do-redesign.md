@@ -4235,3 +4235,28 @@ Junto (item 56 do backlog, mesma rodada): `DELETE /orcamentos/{id}` — apaga o 
       junho/outubro, não só os 2 itens; usuário avisado do efeito
       colateral (os outros itens desses meses também somem, precisam
       ser recriados se ainda não foram).~~
+
+### Rodada 48 (2026-10-11) — Correção: vínculo duplicado é permitido entre buckets
+
+Usuário reportou que o bloqueio entre buckets da Rodada 47 (item 3) estava com a regra de negócio errada: categoria pode legitimamente estar em 2 buckets ("Espiritualidade" fixo + sazonal, "Flamengo" fixo + variável — a categoria é um tópico, não pertence a 1 bucket só, por isso `estrutura_custo` é campo da transação). Na prática isso também quebrou edições comuns: o formulário reenvia a categoria atual no PATCH mesmo só mudando o valor orçado, e o bloqueio cross-bucket batia como falso-positivo contra qualquer item de mesma categoria em outro bucket — reportado ao vivo como "edição de item do bucket não está funcionando".
+
+**Fix:** `_check_vinculo_duplicado()` (`orcamentos.py`) agora só bloqueia dentro do MESMO bucket. O vazamento de `realizado` entre buckets (causa original do achado) foi corrigido na raiz: `calcular_realizado_item(_em_lote)` (`orcamento_saldo.py`) ganhou `_bate_com_bucket()` — só soma uma transação pro item se o `estrutura_custo` dela bater com o bucket (ou se a transação não tiver `estrutura_custo`, caso de estorno/ressarcimento). `referencia_saldo_anterior.py` ganhou o mesmo filtro. `Planejamento.tsx`: campo "Nome livre" removido da edição por completo (usuário confirmou que não há mais caso de uso).
+
+Os 2 itens duplicados reais da conta do usuário foram apagados por ele via "Apagar orçamento" (apagou junho/outubro inteiros, de propósito, ciente do efeito colateral).
+
+**Testes:** os 3 testes que afirmavam 409 entre buckets viraram 201/200; novo `test_realizado_nao_vaza_entre_buckets_com_mesma_categoria` reproduz o exemplo da Espiritualidade fim a fim via `/proximo-mes`. Suíte completa: 383 passed, 33 skipped. Frontend: `tsc -b && vite build` — sem erro novo.
+
+**Status:** implementado 2026-10-11. Detalhe completo em `docs/backlog.md` ("Correção: vínculo duplicado é permitido entre buckets").
+
+**Checklist de teste manual (usuário, localmente):**
+- [ ] Editar só o valor orçado de um item cuja categoria também existe
+      em OUTRO bucket (ex: um item de "Espiritualidade" em
+      `custos_fixos` e outro em `sazonalidades`) e confirmar que salva
+      normalmente, sem 409.
+- [ ] Criar (via lançamento real, não manual) ou confirmar que 2 itens
+      da mesma categoria em buckets diferentes convivem sem erro.
+- [ ] Lançar uma despesa `estrutura_custo="fixo"` numa categoria que
+      também tem item `sazonalidades`, e confirmar que o realizado
+      aparece só no item `custos_fixos`, não nos dois.
+- [ ] Tentar criar/editar 2 itens com a mesma categoria no MESMO
+      bucket e confirmar que ainda dá 409 (essa regra não mudou).
