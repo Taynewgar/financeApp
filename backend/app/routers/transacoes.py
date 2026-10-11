@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException
 from supabase import Client
@@ -24,6 +24,7 @@ from ..services.transacao_insercao import fatura_referencia_para, inserir_transa
 
 router = APIRouter(prefix="/transacoes", tags=["transacoes"])
 TABLE = "transacoes"
+_JANELA_DESCRICAO_DIAS = 180  # ~6 meses — mesma janela de categorias/subcategorias mais-usadas
 
 
 def _query_filtrada(
@@ -239,6 +240,41 @@ def resumo(
     resultado.pop("_receita_ajustada")
     resultado["total_lancamentos"] = len(dados)
     return resultado
+
+
+# precisa vir antes de GET /{transacao_id} — mesmo motivo de /resumo acima
+@router.get("/descricoes-mais-usadas", response_model=list[str])
+def descricoes_mais_usadas(
+    db: Client = Depends(get_db),
+    user_id: str = Depends(get_current_user_id),
+    categoria_id: str | None = None,
+    subcategoria_id: str | None = None,
+    limite: int = 5,
+):
+    """Ranking de descrições (texto literal, sem normalizar) por frequência
+    de uso nos últimos ~6 meses — mesmo padrão de /categorias/mais-usadas e
+    /subcategorias/mais-usadas, aqui por descrição em vez de id. Usado no
+    Novo Lançamento tanto pros chips de atalho quanto pela checagem de
+    quase-duplicata (que recebe uma janela maior e compara as próprias)."""
+    if not categoria_id and not subcategoria_id:
+        return []
+
+    desde = (date.today() - timedelta(days=_JANELA_DESCRICAO_DIAS)).isoformat()
+    query = db.table(TABLE).select("descricao").eq("user_id", user_id).gte("data_compra", desde)
+    if subcategoria_id:
+        query = query.eq("subcategoria_id", subcategoria_id)
+    else:
+        query = query.eq("categoria_id", categoria_id)
+
+    transacoes = crud.buscar_todas_paginado(lambda: query)
+    contagem: dict[str, int] = {}
+    for t in transacoes:
+        descricao = (t["descricao"] or "").strip()
+        if descricao:
+            contagem[descricao] = contagem.get(descricao, 0) + 1
+
+    ranking = sorted(contagem.items(), key=lambda item: (-item[1], item[0]))
+    return [descricao for descricao, _contagem in ranking[:limite]]
 
 
 @router.get("/{transacao_id}", response_model=Transacao)

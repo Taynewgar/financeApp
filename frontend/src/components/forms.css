@@ -200,6 +200,30 @@
   flex-basis: 100%;
 }
 
+/* aviso de quase-duplicata na Descrição (item 43 do backlog) — mesmo
+ * espírito visual do chip-form, mas com destaque de acento (é uma
+ * sugestão ativa, não um atalho passivo) */
+.aviso-quase-duplicata {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 6px;
+  padding: 10px 12px;
+  border: 1px solid var(--cor-acento);
+  border-radius: 8px;
+  background: var(--cor-superficie);
+  font-size: 13px;
+}
+
+.aviso-quase-duplicata .form-acoes {
+  gap: 8px;
+}
+
+.aviso-quase-duplicata .botao-secundario {
+  padding: 6px 14px;
+  font-size: 13px;
+}
+
 .despesa-selecionada {
   display: flex;
   align-items: center;

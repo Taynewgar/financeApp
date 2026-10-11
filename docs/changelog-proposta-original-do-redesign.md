@@ -4343,3 +4343,45 @@ Reportado testando a Rodada 48: categoria com despesa fixa todo mês não ganhav
 - [x] Repetir os itens 1-3 da Rodada 48 (agora que os itens existem de
       verdade nos dois buckets). — confirmado 2026-10-11, ver itens 1-3
       da Rodada 48 atualizados acima.
+
+### Rodada 52 (2026-10-11) — Consulta rápida ao preencher a Descrição (item 43)
+
+Item 43 do backlog ("consulta rápida durante a inserção"): necessidade real do usuário era auxílio pra uniformizar a Descrição no Novo Lançamento (evitar "Supermercado Extra"/"supermercado extra"/"Super Extra" como 3 textos diferentes pra mesma coisa), não uma tela de consulta geral. 3 opções mockadas e testadas interativamente (canvas de design) antes de implementar: (A) chips com as descrições mais usadas na categoria/subcategoria, (B) autocomplete nativo via `<datalist>`, (C) aviso de "quase-duplicata" comparando o texto digitado com as já usadas. Decisão do usuário: combinar A+C — chip cobre quem aceita escolher, aviso cobre quem digita por hábito/erro.
+
+**Calibração do aviso de quase-duplicata (também via mockup, antes de implementar):** 1ª versão só normalizava case/espaço (`trim().toLowerCase()`), não pegava erro de digitação real. Trocado por distância de edição (Levenshtein) com tolerância proporcional ao tamanho do texto — testado em 15%, 25% e 40% (mín. 1, máx. 5 caracteres) direto no mockup antes de fechar; usuário escolheu 40%.
+
+**Fix:**
+- Backend: novo `GET /transacoes/descricoes-mais-usadas?categoria_id=&subcategoria_id=&limite=` (`routers/transacoes.py`) — mesmo padrão de `/categorias/mais-usadas` e `/subcategorias/mais-usadas`, aqui rankeando o texto literal da `descricao` por frequência nos últimos ~6 meses. Prioriza `subcategoria_id` sobre `categoria_id` quando os dois vêm preenchidos; sem nenhum dos dois, retorna lista vazia (não teria contexto pra sugerir).
+- Frontend (`NovoLancamento.tsx`): busca essa lista (limite 20) a cada troca de categoria/subcategoria; mostra as 5 mais usadas como chip (clicar preenche o campo, mesmo componente `.chip` de Categoria/Subcategoria) e um aviso (`.aviso-quase-duplicata`, novo em `forms.css`) quando o texto digitado fica dentro da tolerância de distância de uma já usada, com "Usar essa"/"Manter a minha". Lógica de normalização/distância isolada em `lib/texto.ts` (reaproveitável, testável fora do componente).
+- Escopo: só Novo Lançamento (onde o item 43 foi pedido) — Editar Lançamento não foi tocado. Vale igual pra compra parcelada, sem código extra: é o mesmo campo Descrição, com Categoria/Subcategoria escolhidas antes nos dois casos.
+
+**Decisão de acompanhamento (descartada):** usuário perguntou se valeria adicionar um contador de parcela (`(N/M)`) dentro do texto da Descrição. Avaliado e descartado — `parcela_atual`/`parcela_total` já são colunas próprias, exibidas separadamente no card (`Lancamentos.tsx`, `Dashboard.tsx`); embutir isso na descrição seria redundante e quebraria a comparação de uniformidade entre parcelas da mesma compra (teria que ignorar o sufixo pra funcionar).
+
+**Testes:** 5 novos em `test_transacoes_api.py` (ordena por frequência e filtra por subcategoria, retorna vazio sem categoria/subcategoria, ignora fora da janela de 6 meses, respeita limite, não mistura usuários). Suíte completa: 390 passed, 33 skipped. Frontend: `tsc -b && vite build` — sem erro novo; `oxlint` — 1 warning novo (`set-state-in-effect` no novo `useEffect` de busca), mesmo padrão já presente nos outros `useEffect` de "mais usadas" do mesmo arquivo, não introduz nada fora do já aceito ali.
+
+**Status:** implementado 2026-10-11. Mockups interativos (canvas de design) usados pra calibrar a decisão antes de codar — não fazem parte do repositório.
+
+**Checklist de teste manual (usuário, localmente):**
+- [ ] No Novo Lançamento, escolher uma categoria/subcategoria que já
+      tenha pelo menos 2 despesas lançadas com descrições diferentes e
+      confirmar que os chips aparecem acima do campo Descrição, com as
+      descrições mais usadas.
+- [ ] Clicar num chip e confirmar que o campo Descrição é preenchido
+      com o texto exato do chip.
+- [ ] Digitar uma descrição já usada só com case/espaço diferente (ex:
+      "supermercado extra" minúsculo, se "Supermercado Extra" já foi
+      usado) e confirmar que aparece o aviso "Você já usou... Quis
+      dizer isso?".
+- [ ] Digitar uma descrição com um erro de digitação pequeno em
+      relação a uma já usada (ex: faltando 1-2 letras) e confirmar que
+      o aviso também aparece.
+- [ ] Digitar uma descrição claramente diferente (ex: trocar
+      completamente o texto) e confirmar que NENHUM aviso aparece.
+- [ ] Clicar "Usar essa" no aviso e confirmar que o campo é preenchido
+      com a descrição sugerida e o aviso desaparece.
+- [ ] Clicar "Manter a minha" e confirmar que o aviso desaparece e o
+      texto digitado continua no campo, sem reaparecer enquanto não
+      digitar de novo.
+- [ ] Repetir o teste do chip/aviso numa compra PARCELADA (mesma
+      categoria/subcategoria de uma despesa à vista já lançada) e
+      confirmar que funciona igual.

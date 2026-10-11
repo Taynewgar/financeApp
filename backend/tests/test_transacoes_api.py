@@ -1,3 +1,5 @@
+from datetime import date, timedelta
+
 from .conftest import OUTRO_USUARIO
 
 
@@ -1601,3 +1603,87 @@ def test_editar_transacao_trocando_categoria_sincroniza_item_da_categoria_nova(c
     categorias_com_item = {i["categoria_id"] for i in itens}
     assert categoria_a["id"] in categorias_com_item  # item antigo continua (nunca é removido)
     assert categoria_b["id"] in categorias_com_item  # item novo sincronizado na edição
+
+
+def _lancar_despesa_com_descricao(client, conta_id, categoria_id, subcategoria_id, descricao, dias_atras, valor):
+    # hash_dedup não considera categoria/subcategoria/descrição — só
+    # data+valor+conta+tipo — por isso valor varia entre chamadas pra não
+    # colidir em 409 (mesmo padrão de test_categorias_mais_usadas_api.py)
+    resposta = client.post(
+        "/transacoes",
+        json={
+            "data_compra": (date.today() - timedelta(days=dias_atras)).isoformat(),
+            "valor": valor,
+            "tipo_movimento": "despesa",
+            "conta_id": conta_id,
+            "categoria_id": categoria_id,
+            "subcategoria_id": subcategoria_id,
+            "estrutura_custo": "variavel",
+            "meio_pagamento": "pix",
+            "descricao": descricao,
+        },
+    )
+    assert resposta.status_code == 201
+    return resposta.json()
+
+
+def test_descricoes_mais_usadas_ordena_por_frequencia_e_filtra_por_subcategoria(client):
+    conta = _criar_conta_corrente(client)
+    categoria = client.post("/categorias", json={"nome": "Alimentação"}).json()
+    supermercado = client.post(
+        "/subcategorias", json={"categoria_id": categoria["id"], "nome": "Supermercado"}
+    ).json()
+    farmacia = client.post("/subcategorias", json={"categoria_id": categoria["id"], "nome": "Farmácia"}).json()
+
+    _lancar_despesa_com_descricao(client, conta["id"], categoria["id"], supermercado["id"], "Supermercado Extra", 1, 10)
+    _lancar_despesa_com_descricao(client, conta["id"], categoria["id"], supermercado["id"], "Supermercado Extra", 2, 20)
+    _lancar_despesa_com_descricao(client, conta["id"], categoria["id"], supermercado["id"], "Feira livre", 3, 30)
+    _lancar_despesa_com_descricao(client, conta["id"], categoria["id"], farmacia["id"], "Droga Raia", 1, 40)
+
+    resposta = client.get(
+        "/transacoes/descricoes-mais-usadas", params={"subcategoria_id": supermercado["id"]}
+    )
+    assert resposta.status_code == 200
+    descricoes = resposta.json()
+    assert descricoes[0] == "Supermercado Extra"
+    assert "Feira livre" in descricoes
+    assert "Droga Raia" not in descricoes  # subcategoria diferente, não entra
+
+
+def test_descricoes_mais_usadas_sem_categoria_nem_subcategoria_retorna_vazio(client):
+    resposta = client.get("/transacoes/descricoes-mais-usadas")
+    assert resposta.status_code == 200
+    assert resposta.json() == []
+
+
+def test_descricoes_mais_usadas_ignora_uso_fora_da_janela(client):
+    conta = _criar_conta_corrente(client)
+    categoria = client.post("/categorias", json={"nome": "Alimentação"}).json()
+
+    _lancar_despesa_com_descricao(client, conta["id"], categoria["id"], None, "Antiga demais", 200, 10)
+    _lancar_despesa_com_descricao(client, conta["id"], categoria["id"], None, "Recente", 5, 20)
+
+    resposta = client.get("/transacoes/descricoes-mais-usadas", params={"categoria_id": categoria["id"]})
+    assert resposta.json() == ["Recente"]
+
+
+def test_descricoes_mais_usadas_respeita_limite(client):
+    conta = _criar_conta_corrente(client)
+    categoria = client.post("/categorias", json={"nome": "Alimentação"}).json()
+    for i in range(8):
+        _lancar_despesa_com_descricao(client, conta["id"], categoria["id"], None, f"Descrição {i}", i, 10 + i)
+
+    resposta = client.get(
+        "/transacoes/descricoes-mais-usadas", params={"categoria_id": categoria["id"], "limite": 3}
+    )
+    assert len(resposta.json()) == 3
+
+
+def test_descricoes_mais_usadas_nao_mistura_usuarios(client, current_user):
+    conta = _criar_conta_corrente(client)
+    categoria = client.post("/categorias", json={"nome": "Alimentação"}).json()
+    _lancar_despesa_com_descricao(client, conta["id"], categoria["id"], None, "Da usuária A", 1, 10)
+
+    current_user["id"] = OUTRO_USUARIO
+    resposta = client.get("/transacoes/descricoes-mais-usadas", params={"categoria_id": categoria["id"]})
+    assert resposta.json() == []

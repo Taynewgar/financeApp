@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import '../components/forms.css'
 import { ApiError, apiFetch } from '../lib/api'
 import { ESTRUTURAS, MEIOS_PAGAMENTO } from '../lib/rotulos'
+import { encontrarQuaseDuplicata } from '../lib/texto'
 import type {
   Caixinha,
   Categoria,
@@ -120,6 +121,12 @@ export function NovoLancamento() {
   const [categoriasMaisUsadas, setCategoriasMaisUsadas] = useState<Categoria[]>([])
   const [subcategoriasMaisUsadas, setSubcategoriasMaisUsadas] = useState<Subcategoria[]>([])
 
+  // consulta rápida pra uniformizar a Descrição (item 43 do backlog): chip
+  // com as mais usadas na categoria/subcategoria + aviso quando o texto
+  // digitado é "quase igual" a uma já usada (Levenshtein, ver lib/texto.ts)
+  const [descricoesSugeridas, setDescricoesSugeridas] = useState<string[]>([])
+  const [avisoQuaseDuplicataDescartado, setAvisoQuaseDuplicataDescartado] = useState(false)
+
   const [criandoCategoria, setCriandoCategoria] = useState(false)
   const [novaCategoriaNome, setNovaCategoriaNome] = useState('')
   const [salvandoCategoria, setSalvandoCategoria] = useState(false)
@@ -150,6 +157,32 @@ export function NovoLancamento() {
       .then(setSubcategoriasMaisUsadas)
       .catch(() => setSubcategoriasMaisUsadas([]))
   }, [categoriaId])
+
+  useEffect(() => {
+    if (!categoriaId) {
+      setDescricoesSugeridas([])
+      return
+    }
+    const params = new URLSearchParams({ limite: '20' })
+    if (subcategoriaId) {
+      params.set('subcategoria_id', subcategoriaId)
+    } else {
+      params.set('categoria_id', categoriaId)
+    }
+    apiFetch<string[]>(`/transacoes/descricoes-mais-usadas?${params.toString()}`)
+      .then(setDescricoesSugeridas)
+      .catch(() => setDescricoesSugeridas([]))
+  }, [categoriaId, subcategoriaId])
+
+  const descricaoQuaseDuplicata = useMemo(
+    () => (avisoQuaseDuplicataDescartado ? null : encontrarQuaseDuplicata(descricao, descricoesSugeridas)),
+    [descricao, descricoesSugeridas, avisoQuaseDuplicataDescartado],
+  )
+
+  function usarDescricaoSugerida(texto: string) {
+    setDescricao(texto)
+    setAvisoQuaseDuplicataDescartado(true)
+  }
 
   function escolherCategoria(id: string) {
     setCategoriaId(id)
@@ -215,6 +248,7 @@ export function NovoLancamento() {
     setCriandoCategoria(false)
     setCriandoSubcategoria(false)
     setNovaSubcategoriaEstrutura('')
+    setAvisoQuaseDuplicataDescartado(false)
   }, [tipo])
 
   // despesa numa conta de cartão de crédito só pode ter sido paga no
@@ -299,6 +333,7 @@ export function NovoLancamento() {
     trocarDespesaOriginal()
     setSucesso(false)
     setDuplicadoDetectado(false)
+    setAvisoQuaseDuplicataDescartado(false)
   }
 
   function montarPayloadAvista(): Record<string, unknown> {
@@ -627,9 +662,48 @@ export function NovoLancamento() {
           <input
             type="text"
             value={descricao}
-            onChange={(e) => setDescricao(e.target.value)}
+            onChange={(e) => {
+              setDescricao(e.target.value)
+              setAvisoQuaseDuplicataDescartado(false)
+            }}
             required={tipo === 'despesa' && pagamento === 'parcelado'}
           />
+          {descricoesSugeridas.length > 0 && (
+            <div className="chips-rapidos">
+              {descricoesSugeridas
+                .slice(0, 5)
+                .filter((d) => d !== descricao)
+                .map((d) => (
+                  <button key={d} type="button" className="chip" onClick={() => usarDescricaoSugerida(d)}>
+                    {d}
+                  </button>
+                ))}
+            </div>
+          )}
+          {descricaoQuaseDuplicata && (
+            <div className="aviso-quase-duplicata">
+              <span>
+                Você já usou <strong>"{descricaoQuaseDuplicata}"</strong> nessa categoria/subcategoria. Quis dizer
+                isso?
+              </span>
+              <div className="form-acoes">
+                <button
+                  type="button"
+                  className="botao-secundario"
+                  onClick={() => usarDescricaoSugerida(descricaoQuaseDuplicata)}
+                >
+                  Usar essa
+                </button>
+                <button
+                  type="button"
+                  className="chip-cancelar"
+                  onClick={() => setAvisoQuaseDuplicataDescartado(true)}
+                >
+                  Manter a minha
+                </button>
+              </div>
+            </div>
+          )}
         </label>
 
         <label className="campo">

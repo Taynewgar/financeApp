@@ -61,10 +61,9 @@ changelog já documenta quando e como cada um foi entregue).
 
 **Alta**
 
-- **43.** **Consulta rápida durante a inserção** `tipo: Melhoria` —
-  maneira rápida de consulta e visualização de lançamentos enquanto se
-  insere um novo lançamento (sugestão baseada em UX). *(trazido em CSV,
-  2026-09-30)*
+- **43.** **Consulta rápida durante a inserção** `tipo: Melhoria` ✅ —
+  ver detalhe abaixo. *(trazido em CSV, 2026-09-30; implementado
+  2026-10-11)*
 - **44.** **Agilidade na inserção de transações** `tipo: Melhoria` — 3
   caminhos avaliados: duplicar transação (evitar duplicidade real com
   algum termo/caractere no campo descrição), copiar informações da
@@ -796,6 +795,47 @@ antes de virar trabalho de implementação.
 **Status:** registrado 2026-09-25, prioridade média — nenhuma decisão de
 modelo tomada ainda; o workaround atual (2 lançamentos separados) atende
 o usuário no dia a dia.
+
+### Consulta rápida ao preencher a Descrição
+
+**Motivo real do pedido:** a necessidade não era uma tela de consulta geral
+de lançamentos — era uniformizar a Descrição no Novo Lançamento. Sem ajuda,
+a mesma compra vira "Supermercado Extra", "supermercado extra" e
+"Super Extra" em lançamentos diferentes, dependendo de como o usuário
+digitou naquele dia.
+
+**3 opções avaliadas (mockup interativo antes de decidir):**
+1. Chips com as descrições mais usadas na categoria/subcategoria (mesmo
+   padrão já usado pra categoria/subcategoria "mais usadas").
+2. Autocomplete nativo via `<datalist>` — mais barato, mas visual não
+   estilizável e inconsistente em mobile.
+3. Aviso de "quase-duplicata": compara o texto digitado com as já usadas
+   e sugere substituir quando for parecido.
+
+**Decisão:** combinar 1 + 3. Chip cobre quem aceita escolher de uma lista;
+aviso cobre quem ignora os chips e digita por hábito ou erro de grafia —
+as duas usam a mesma lista de descrições, custo incremental baixo.
+
+**Calibração do aviso (também no mockup, antes de codar):** a 1ª versão só
+normalizava maiúscula/espaço — não pegava erro de digitação real. Trocado
+por distância de edição (Levenshtein), com tolerância proporcional ao
+tamanho do texto. Testado ao vivo em 15%, 25% e 40% (mínimo 1, máximo 5
+caracteres) até o usuário fechar em **40%**.
+
+**Decisão de acompanhamento (descartada):** contador de parcela (`N/M`)
+embutido na Descrição de compra parcelada — descartado porque
+`parcela_atual`/`parcela_total` já são colunas próprias, mostradas
+separadamente no card; embutir no texto seria redundante e quebraria a
+comparação de uniformidade entre as parcelas da mesma compra.
+
+**Escopo:** só Novo Lançamento (onde foi pedido) — Editar Lançamento não
+foi tocado. Cobre compra parcelada de graça, por ser o mesmo campo
+Descrição com Categoria/Subcategoria escolhidas antes nos dois fluxos.
+
+**Status:** implementado 2026-10-11 — `GET /transacoes/descricoes-mais-usadas`
+(backend) + chips/aviso em `NovoLancamento.tsx`, lógica de distância em
+`frontend/src/lib/texto.ts`. Ver changelog Rodada 52 pro detalhe técnico
+completo e o checklist de teste manual.
 
 ### Caixinhas com saldo errado / limite de 1000 linhas do Supabase
 
