@@ -439,4 +439,17 @@
     font-weight: 700;
     font-size: 15px;
   }
+
+  /* item 72 do backlog: a versão some junto com o resto da sidebar nessa
+   * largura (ver `.shell-nav` acima, display: none) — repetida aqui pra
+   * continuar visível em algum lugar no mobile. */
+  .shell-topo-mobile-titulo {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+  }
+
+  .shell-versao-mobile {
+    font-weight: 400;
+  }
 }

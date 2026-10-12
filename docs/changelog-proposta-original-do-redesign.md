@@ -5940,13 +5940,65 @@ navegador/deploy real (onde as credenciais existem e o bundle inclui o
 app inteiro).
 
 **Checklist de teste manual (usuário, localmente/no deploy real):**
-- [ ] Abrir o app, olhar embaixo do botão "Sair" — confirmar que mostra
-      `v` seguido de 7 caracteres (hash do commit).
-- [ ] Passar o mouse (ou tocar, no mobile) pra ver o tooltip com a
-      data/hora do build.
-- [ ] Depois do próximo deploy na Vercel, comparar o hash mostrado com
+- [x] ~~Abrir o app, olhar embaixo do botão "Sair" — confirmar que mostra
+      `v` seguido de 7 caracteres (hash do commit).~~ — reprovado
+      2026-10-12: usuário testou no deploy real (Render + Vercel já
+      batendo com o commit mais recente) e a versão não aparecia em
+      lugar nenhum. Causa: a sidebar inteira onde o rótulo foi colocado
+      (`.shell-nav`, rodapé) vira `display: none` em telas ≤720px —
+      inclusive mobile, onde o app roda como PWA — substituída pela
+      barra inferior + menu "mais", que não tem rodapé nenhum (nem
+      "Sair" existe ali hoje). Fix na Rodada 84.
+- [x] ~~Passar o mouse (ou tocar, no mobile) pra ver o tooltip com a
+      data/hora do build.~~ — bloqueado pelo achado acima, sem como
+      testar o tooltip de algo que não aparece.
+- [x] ~~Depois do próximo deploy na Vercel, comparar o hash mostrado com
       o `git log --oneline -1` do branch — devem bater; se não baterem,
       é sinal de cache/deploy que não propagou (mesmo problema das
-      Rodadas 75-80).
-- [ ] Recolher a barra lateral (item 70) e confirmar que o rótulo da
-      versão some junto com os outros rótulos de texto.
+      Rodadas 75-80).~~ — mesmo bloqueio acima.
+- [x] ~~Recolher a barra lateral (item 70) e confirmar que o rótulo da
+      versão some junto com os outros rótulos de texto.~~ — mesmo
+      bloqueio acima.
+
+### Rodada 84 (2026-10-12) — Fix: versão (item 72) não aparecia em telas ≤720px/mobile
+
+Usuário reportou que a versão da Rodada 83 não aparecia em lugar
+nenhum, mesmo com o deploy (Render + Vercel) já no commit mais recente.
+
+**Causa:** o rótulo só existia dentro de `.shell-nav` — a barra lateral
+completa (links, e-mail, botão "Sair"). Essa barra inteira já vira
+`display: none` em `@media (max-width: 720px)` (regra pré-existente,
+não relacionada ao item 72) — nessa largura o app troca pra barra
+inferior + menu "mais" (`.shell-bottom-nav`), que não tem rodapé algum.
+Resultado: em qualquer tela estreita, incluindo o PWA no celular (o
+caso que motivou o pedido original), a versão nunca era renderizada.
+
+**Fix:** `AppShell.tsx` — mesmo rótulo de versão repetido em
+`.shell-topo-mobile` (a barra fixa no topo, visível justamente na
+faixa onde `.shell-nav` desaparece), ao lado de "Finance App". Texto
+do tooltip (`build: …`) extraído pra uma variável (`tituloVersao`) só
+pra não duplicar a formatação de data nos 2 lugares. `AppShell.css`:
+`.shell-topo-mobile-titulo` (flex, alinha "Finance App" + versão na
+mesma linha) e `.shell-versao-mobile` (reaproveita o tamanho/opacidade
+de `.shell-versao`, só tira o `font-weight: 700` herdado do contêiner).
+
+**Testes:** mudança de frontend puro. `tsc -b` — sem erro novo; `vite
+build` (sem `.env.local`, mesma condição de sempre aqui) — sem erro,
+232.93 kB igual antes; `oxlint` — diff vazio depois de ordenar as 2
+saídas (a ordem dos avisos pré-existentes varia entre execuções do
+oxlint, não é efeito da mudança).
+
+**Status:** implementado 2026-10-12, pede confirmação do usuário no
+deploy real — essa é a tela que realmente importa (mobile/PWA é o caso
+de uso original do pedido).
+
+**Checklist de teste manual (usuário, no deploy real):**
+- [ ] No celular (ou navegador com a janela estreita, ≤720px), abrir o
+      app e confirmar que a versão (`v` + hash) aparece ao lado de
+      "Finance App" na barra do topo.
+- [ ] Tocar/segurar pra ver o tooltip com a data/hora do build.
+- [ ] Comparar o hash mostrado com `git log --oneline -1` do branch —
+      devem bater.
+- [ ] Em tela larga (desktop), confirmar que a versão continua
+      aparecendo também no rodapé da barra lateral (Rodada 83), e que
+      some junto ao recolher a barra (item 70).

@@ -261,9 +261,12 @@ changelog já documenta quando e como cada um foi entregue).
   implementado 2026-10-12)*
 - **72.** **Identificar qual versão/commit está carregado no navegador/
   mobile** `tipo: Melhoria` ✅ — hash curto do commit (+ data/hora do
-  build no tooltip) embaixo do botão "Sair", pra conferir depois de um
-  deploy que a versão nova realmente propagou. Ver detalhe no changelog
-  (Rodada 83). *(pedido e implementado 2026-10-12)*
+  build no tooltip), pra conferir depois de um deploy que a versão nova
+  realmente propagou. Primeira versão (Rodada 83) só aparecia na
+  sidebar desktop; não existia em telas ≤720px/mobile (onde a sidebar
+  vira `display: none`) — corrigido repetindo o rótulo na barra
+  superior mobile (Rodada 84). Ver detalhe no changelog. *(pedido e
+  implementado 2026-10-12)*
 
 **Baixa**
 

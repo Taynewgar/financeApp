@@ -102,6 +102,11 @@ export function AppShell({ children }: { children?: ReactNode }) {
     document.title = secao ? `${secao.label} — Finance App` : 'Finance App'
   }, [location.pathname])
 
+  // item 72 do backlog: mesmo texto de tooltip nas 2 posições em que a
+  // versão aparece (rodapé da sidebar no desktop, barra superior no
+  // mobile — a sidebar inteira vira `display: none` abaixo de 720px).
+  const tituloVersao = `build: ${new Date(__APP_BUILD_TIME__).toLocaleString('pt-BR')}`
+
   const menuMobileAtivo =
     menuMobileAberto || SECOES_MENU_MOBILE.some((secao) => location.pathname.startsWith(secao.to))
 
@@ -174,7 +179,12 @@ export function AppShell({ children }: { children?: ReactNode }) {
       )}
 
       <div className="shell-topo-mobile">
-        <span>Finance App</span>
+        <div className="shell-topo-mobile-titulo">
+          <span>Finance App</span>
+          <span className="shell-versao shell-versao-mobile" title={tituloVersao}>
+            v{__APP_VERSION__}
+          </span>
+        </div>
         <BotaoPrivacidade />
       </div>
 
@@ -216,10 +226,7 @@ export function AppShell({ children }: { children?: ReactNode }) {
               <span aria-hidden="true">⏻</span>
               <span className="shell-nav-label">&nbsp;Sair</span>
             </button>
-            <span
-              className="shell-nav-label shell-versao"
-              title={`build: ${new Date(__APP_BUILD_TIME__).toLocaleString('pt-BR')}`}
-            >
+            <span className="shell-nav-label shell-versao" title={tituloVersao}>
               v{__APP_VERSION__}
             </span>
           </div>
