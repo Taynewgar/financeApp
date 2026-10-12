@@ -140,6 +140,14 @@
   color: var(--cor-texto);
 }
 
+/* identifica o commit rodando no navegador/mobile (hash curto, injetado
+ * no build — ver vite.config.ts) — pra conferir que um deploy novo
+ * realmente propagou, sem precisar abrir o devtools. */
+.shell-versao {
+  font-size: 11px;
+  opacity: 0.6;
+}
+
 /* item 70 do backlog: botão pra recolher a barra lateral em telas
  * grandes — vira um "trilho" só de ícones (largura 60px), com o rótulo
  * de cada link escondido via `.shell-nav-label` (texto segue existindo

@@ -216,6 +216,12 @@ export function AppShell({ children }: { children?: ReactNode }) {
               <span aria-hidden="true">⏻</span>
               <span className="shell-nav-label">&nbsp;Sair</span>
             </button>
+            <span
+              className="shell-nav-label shell-versao"
+              title={`build: ${new Date(__APP_BUILD_TIME__).toLocaleString('pt-BR')}`}
+            >
+              v{__APP_VERSION__}
+            </span>
           </div>
         </nav>
 

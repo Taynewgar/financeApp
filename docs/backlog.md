@@ -259,6 +259,11 @@ changelog já documenta quando e como cada um foi entregue).
   salva por dispositivo (localStorage, mesmo padrão do contador de uso
   do menu mobile). Ver detalhe no changelog (Rodada 75). *(pedido e
   implementado 2026-10-12)*
+- **72.** **Identificar qual versão/commit está carregado no navegador/
+  mobile** `tipo: Melhoria` ✅ — hash curto do commit (+ data/hora do
+  build no tooltip) embaixo do botão "Sair", pra conferir depois de um
+  deploy que a versão nova realmente propagou. Ver detalhe no changelog
+  (Rodada 83). *(pedido e implementado 2026-10-12)*
 
 **Baixa**
 

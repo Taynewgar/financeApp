@@ -5880,3 +5880,73 @@ novo; `oxlint` — diff idêntico antes/depois.
 **Checklist de teste manual (usuário, localmente):**
 - [ ] No card "Retiradas pendentes de caixinha", confirmar os novos
       textos: "Lançar retirada" e "Já retirei".
+
+### Rodada 83 (2026-10-12) — Item 72: identificar a versão carregada no navegador/mobile
+
+Pedido do usuário: depois de um deploy, não tinha como confirmar — só
+olhando a tela — se o navegador/celular já estava rodando o commit novo
+ou ainda um antigo em cache (o mesmo tipo de problema da Rodada 75-80,
+quando o Vercel parou de pegar commits novos e passou 3 rodadas sem
+ninguém notar a tempo).
+
+**Decisão (discutida antes de implementar):** hash curto do commit
+(7 caracteres), não um número de versão manual — não depende de eu
+lembrar de incrementar nada, e identifica exatamente qual código está
+rodando sem ambiguidade (um `package.json` version bump não garante
+que bate com o que foi de fato deployado).
+
+**Fix:**
+- `vite.config.ts` ganhou `define: { __APP_VERSION__, __APP_BUILD_TIME__
+  }`. `__APP_VERSION__` vem de `VERCEL_GIT_COMMIT_SHA` (env var que a
+  Vercel expõe automaticamente em todo build de produção, sem script
+  nenhum pra manter) cortado pra 7 caracteres; fora da Vercel (dev/build
+  local) cai pra `git rev-parse --short HEAD`; se nem isso existir
+  (checkout sem `.git`), fica `'dev'`. `__APP_BUILD_TIME__` é
+  `new Date().toISOString()` no momento do build.
+- `src/vite-env.d.ts` ganhou as declarações `declare const __APP_VERSION__:
+  string` / `__APP_BUILD_TIME__: string` pro TypeScript reconhecer os
+  globais injetados.
+- `AppShell.tsx`: novo `<span>` no `shell-nav-footer`, embaixo do botão
+  "Sair" — `v{hash}`, com `title` mostrando a data/hora do build
+  formatada. Usa a mesma classe `shell-nav-label` do e-mail/rótulos de
+  nav, então some junto quando a barra lateral está recolhida (item 70).
+- `AppShell.css`: nova classe `.shell-versao` (11px, opacidade reduzida —
+  informação de debug, não precisa chamar atenção).
+
+**Achado colateral (não é bug, documentando pra não assustar numa
+sessão futura):** ao investigar por que o bundle de produção
+(`vite build`) parecia não conter nenhum texto das telas (Dashboard,
+Lançamentos etc.) nesta sessão sem `frontend/.env.local`, confirmei que
+é comportamento correto do bundler (Vite 8 + Rolldown): como
+`VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` ficam vazios em build sem
+esse arquivo, `supabaseClient.ts` sempre lança erro na avaliação do
+módulo — e o minificador, provando que esse throw é incondicional,
+elimina como código morto tudo que vem depois (inclusive as telas, que
+só são alcançadas depois desse import). Reproduzi com um
+`.env.local` fake (apagado depois do teste) e o bundle completo
+apareceu normalmente. Ou seja: mais uma consequência da mesma limitação
+já documentada no `CLAUDE.md` (sem credenciais reais do Supabase nesta
+sessão) — não afeta o deploy real, que tem as env vars configuradas no
+painel da Vercel.
+
+**Testes:** mudança de frontend puro (build config + 1 componente).
+`tsc -b` — sem erro novo; `vite build` sem `.env.local` (mesma condição
+de sempre aqui) — sem erro, bundle do tamanho esperado (232.93 kB,
+igual antes da mudança); `oxlint` — diff idêntico antes/depois (só
+reordenação por deslocamento de linha dos avisos pré-existentes).
+
+**Status:** implementado 2026-10-12, pede confirmação do usuário no
+navegador/deploy real (onde as credenciais existem e o bundle inclui o
+app inteiro).
+
+**Checklist de teste manual (usuário, localmente/no deploy real):**
+- [ ] Abrir o app, olhar embaixo do botão "Sair" — confirmar que mostra
+      `v` seguido de 7 caracteres (hash do commit).
+- [ ] Passar o mouse (ou tocar, no mobile) pra ver o tooltip com a
+      data/hora do build.
+- [ ] Depois do próximo deploy na Vercel, comparar o hash mostrado com
+      o `git log --oneline -1` do branch — devem bater; se não baterem,
+      é sinal de cache/deploy que não propagou (mesmo problema das
+      Rodadas 75-80).
+- [ ] Recolher a barra lateral (item 70) e confirmar que o rótulo da
+      versão some junto com os outros rótulos de texto.
