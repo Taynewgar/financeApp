@@ -5198,15 +5198,69 @@ de sempre nesta sessão, ver `CLAUDE.md`).
 aparelho real.
 
 **Checklist de teste manual (usuário, localmente, celular real):**
-- [ ] Girar o celular pra paisagem em Lançamentos e confirmar que o
+- [x] ~~Girar o celular pra paisagem em Lançamentos e confirmar que o
       painel de filtros aparece recolhido por padrão (só o botão
-      "Filtros"), não expandido ocupando a tela.
-- [ ] Tocar pra abrir os filtros em paisagem e confirmar que o painel
+      "Filtros"), não expandido ocupando a tela. — confirmado
+      2026-10-12.~~
+- [x] ~~Tocar pra abrir os filtros em paisagem e confirmar que o painel
       fica limitado em altura, com rolagem própria (barra de rolagem
       visível ou campo cortado no meio) em vez de empurrar a lista pra
-      fora da tela sem aviso.
-- [ ] Confirmar que em retrato (orientação normal) o comportamento
-      continua igual a antes — nada mudou pra esse caso.
+      fora da tela sem aviso. — confirmado 2026-10-12.~~
+- [x] ~~Confirmar que em retrato (orientação normal) o comportamento
+      continua igual a antes — nada mudou pra esse caso. — **achado
+      2026-10-12**: 2 problemas opostos do mesmo fix. Em retrato, o
+      painel passou a ganhar uma barra de rolagem que não existia antes
+      — o gatilho `(max-height: 500px)` da Rodada 69 não distinguia
+      "curto por ser paisagem" de "curto por outro motivo", e o
+      `max-height: 60vh` novo se aplicava também em retrato, onde nunca
+      foi o problema do item 31. Em paisagem, o card de filtros passou a
+      sobrepor a barra de navegação inferior — o `max-height: 60vh` fixo
+      não descontava a altura dela. Corrigido na Rodada 71.~~
+
+### Rodada 71 (2026-10-12) — 2 achados testando a Rodada 69 (item 31)
+
+**Achado 1 — retrato ganhou barra de rolagem que não existia:** o
+gatilho `(max-height: 500px)` da Rodada 69 não exigia orientação
+paisagem — qualquer tela curta (inclusive retrato, dependendo da altura
+visível com a barra de endereço do navegador) entrava no mesmo modo, e o
+`max-height: 60vh` + `overflow-y: auto` novo no painel aberto passou a
+valer ali também, mesmo retrato nunca tendo sido o problema relatado no
+item 31 (só paisagem é).
+
+**Fix 1:** o gatilho de altura curta virou `(orientation: landscape) and
+(max-height: 500px)` — só paisagem, nunca retrato. Retrato volta a
+depender só do critério de largura (`max-width: 720px`, como já era
+antes da Rodada 69) e nunca ganha o limite de altura/rolagem do painel
+aberto.
+
+**Achado 2 — paisagem passou a sobrepor a barra de navegação inferior:**
+`max-height: 60vh` era um valor fixo, sem descontar a altura da barra de
+navegação inferior fixa (`--shell-altura-barra-mobile`, variável já
+usada em `AppShell.css` por outros elementos — FAB, menu sheet — pra
+não ficar atrás dela) — o painel de filtros podia esticar até embaixo
+dela.
+
+**Fix 2:** `max-height: calc(60vh - var(--shell-altura-barra-mobile,
+0px))` — desconta a altura real da barra quando ela existe (telas
+≤720px de largura, onde a barra aparece) e não desconta nada quando não
+existe (paisagem larga o bastante pra cair no layout desktop, sidebar em
+vez de barra inferior).
+
+**Testes:** mudança de CSS puro. `tsc -b && vite build` — sem erro novo;
+`oxlint` — sem warning novo (diff idêntico antes/depois). Sem reprodução
+local possível (precisa de celular real — mesma limitação de sempre
+nesta sessão).
+
+**Status:** implementado 2026-10-12, pede reteste do usuário num
+aparelho real.
+
+**Checklist de teste manual (usuário, localmente, celular real):**
+- [ ] Em retrato, abrir os filtros em Lançamentos e confirmar que NÃO
+      aparece barra de rolagem nenhuma no painel — volta a ocupar a
+      altura que precisar, empurrando a lista pra baixo normalmente.
+- [ ] Em paisagem, abrir os filtros e confirmar que o painel não
+      sobrepõe mais a barra de navegação inferior — fica visível e
+      clicável mesmo com o painel aberto.
 
 ### Rodada 70 (2026-10-12) — Itens 48, 49 e 50 do backlog
 

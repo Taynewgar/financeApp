@@ -31,19 +31,15 @@
  * — em paisagem, a largura de um celular costuma passar de 720px (ex:
  * iPhone comum gira pra ~850-930px de largura lógica), então o toggle
  * nunca entrava em ação e o painel completo renderizava sempre aberto,
- * sem caber na altura menor da tela deitada, escondendo a lista abaixo
- * sem indicar que havia mais conteúdo pra rolar. Agora o gatilho também
- * considera ALTURA curta (`max-height: 500px`, cobre celular em
- * paisagem), não só largura estreita — o toggle entra em ação nos dois
- * casos. Além disso, o painel aberto ganha altura máxima + rolagem
- * própria: mesmo expandido, nunca mais ocupa a tela inteira sem dar
- * nenhum indício visual (barra de rolagem, corte no meio de um campo)
- * de que há mais abaixo dele. */
+ * sem caber na altura menor da tela deitada. Agora o gatilho também
+ * considera ORIENTAÇÃO paisagem + altura curta, não só largura estreita
+ * — union com `or`, então continua sem afetar retrato (que já funcionava
+ * por largura, sem precisar do critério de altura). */
 .filtros-resumo-mobile {
   display: none;
 }
 
-@media (max-width: 720px), (max-height: 500px) {
+@media (max-width: 720px), (orientation: landscape) and (max-height: 500px) {
   .filtros-resumo-mobile {
     width: 100%;
     box-sizing: border-box;
@@ -69,7 +65,21 @@
 
   .filtros.filtros-mobile-aberto {
     display: flex;
-    max-height: 60vh;
+  }
+}
+
+/* altura máxima + rolagem própria do painel aberto — só em PAISAGEM
+ * curta, não em retrato. Achados testando a Rodada 69, 2 problemas
+ * opostos do mesmo `max-height: 60vh` fixo de antes:
+ * 1. Em retrato, aplicar isso sempre criava uma barra de rolagem que não
+ *    existia antes — retrato já tinha altura de sobra, nunca foi o
+ *    problema do item 31 (só paisagem é).
+ * 2. Em paisagem, 60vh fixo não descontava a altura da barra de
+ *    navegação inferior fixa (`--shell-altura-barra-mobile`,
+ *    `AppShell.css`) — o painel podia esticar até sobrepor a barra. */
+@media (orientation: landscape) and (max-height: 500px) {
+  .filtros.filtros-mobile-aberto {
+    max-height: calc(60vh - var(--shell-altura-barra-mobile, 0px));
     overflow-y: auto;
   }
 }
