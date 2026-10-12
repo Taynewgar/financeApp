@@ -41,14 +41,17 @@ changelog já documenta quando e como cada um foi entregue).
 **Média**
 
 - **61.** **Reduzir tamanho dos cards de caixinha no Dashboard**
-  `tipo: Melhoria` — os cards de Caixinhas/Patrimônio trazem pouca
-  informação (nome + saldo), ocupando espaço desproporcional ao
-  conteúdo. *(2026-10-01)*
+  `tipo: Melhoria` ✅ — viraram grid (2+ por linha, conforme largura) em
+  vez de 1 linha cheia por caixinha, mesmo padrão visual dos cards de
+  resumo do topo. Mockup com 2 opções, usuário escolheu grid. Ver
+  detalhe no changelog (Rodada 76). *(2026-10-01; implementado
+  2026-10-12)*
 - **64.** **Compromissos Futuros: card ainda mais compacto em telas
-  maiores** `tipo: Melhoria` — achado testando a Rodada 36 (2026-10-02):
-  o card já ficou compacto no fix original, mas em desktop (mais
-  espaço horizontal disponível) ainda dá pra reduzir mais a altura por
-  item. *(2026-10-02)*
+  maiores** `tipo: Melhoria` ✅ — título+detalhe numa linha só (eram 2) +
+  padding/fonte dos botões reduzidos; "Confirmar"/"Pular" continuam
+  EMPILHADOS (fix deliberado de clique errado, item 21, não reaberto).
+  Ver detalhe no changelog (Rodada 76). *(2026-10-02; implementado
+  2026-10-12)*
 
 **Baixa**
 
@@ -135,7 +138,15 @@ changelog já documenta quando e como cada um foi entregue).
 **Baixa**
 
 - **59.** **Ordenação das subcategorias dentro dos envelopes**
-  `tipo: Melhoria` — em Planejamento. *(trazido em CSV, 2026-09-30)*
+  `tipo: Melhoria` — em Planejamento. Hoje a ordem nem é garantida (vem
+  da ordem física da tabela). Investigado: ordenar alfabeticamente seria
+  barato (1 `.sort()` no frontend, zero schema); mas o uso real que o
+  usuário imagina é **ordenar por importância** (customizável), não
+  alfabética — isso já é caro (coluna nova + endpoint de reordenar +
+  biblioteca de drag-and-drop, nenhuma existe no projeto hoje).
+  **Decisão do usuário 2026-10-12:** mantém baixa prioridade por
+  enquanto — vai usar o app no dia a dia e decidir depois se a
+  reordenação manual compensa o custo. *(trazido em CSV, 2026-09-30)*
 
 #### Estrutura de Custo
 
@@ -149,7 +160,10 @@ changelog já documenta quando e como cada um foi entregue).
 
 - **60.** **Ordenação das subcategorias dentro dos envelopes**
   `tipo: Melhoria` — mesmo pedido do item 59, aplicado também à tela de
-  Estrutura de Custo. *(trazido em CSV, 2026-09-30)*
+  Estrutura de Custo (lá a ordem é ainda pior: vem de um `set()` do
+  Python, literalmente arbitrária). Mesma decisão do item 59 — baixa
+  prioridade, revisitar depois do uso real. *(trazido em CSV,
+  2026-09-30)*
 
 #### Gráficos
 

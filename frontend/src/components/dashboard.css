@@ -24,22 +24,69 @@
   border-radius: var(--raio);
 }
 
+/* item 61 do backlog: cards de caixinha viram grid (2+ por linha,
+ * conforme largura) em vez de 1 linha cheia por caixinha só pra mostrar
+ * nome+saldo — mesmo raciocínio dos cards de resumo no topo do
+ * Dashboard (rótulo pequeno em cima, valor em destaque embaixo), que já
+ * usam bem o espaço horizontal. Opção B do mockup, aprovada pelo
+ * usuário (as outras 3 propriedades do `.lista-crud > li` — fundo,
+ * borda, raio — já servem de "card", só a direção muda aqui). */
+.lista-caixinhas {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+}
+
+.lista-caixinhas .item-linha {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+
+.lista-caixinhas .item-titulo {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--cor-texto-suave);
+}
+
+.lista-caixinhas .resumo-card-valor {
+  font-size: 16px;
+}
+
 /* card de Compromissos Futuros — sempre visível no Dashboard, então o
  * ganho de altura por item conta: linha mais enxuta que o padrão de
  * .lista-crud, sem cortar nenhuma informação (decisão do usuário
  * 2026-09-25: "ver mais" em vez de um limite fixo maior). */
 .lista-compromissos > li {
-  padding: 8px 12px;
+  padding: 5px 10px;
 }
 
 .lista-compromissos .item-detalhe {
   font-size: 12px;
 }
 
+/* item 64 do backlog: aperto residual de altura, SEM reabrir o
+ * empilhamento vertical de "Confirmar"/"Pular" (isso fica como está —
+ * foi fix deliberado de clique errado, item 21). O ganho real vem de
+ * título+detalhe numa linha só (em vez de 2) e do padding/fonte dos
+ * botões, que nunca tinham sido reduzidos (`.botao-secundario` seguia
+ * no tamanho padrão de formulário, 10px 20px). */
+.lista-compromissos .item-info {
+  flex-direction: row;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 2px 6px;
+}
+
 .item-acoes-compromisso {
   flex-direction: column;
   align-items: stretch;
   gap: 2px;
+}
+
+.item-acoes-compromisso .botao-secundario {
+  padding: 4px 10px;
+  font-size: 12px;
 }
 
 .item-acoes-compromisso .botao-link {

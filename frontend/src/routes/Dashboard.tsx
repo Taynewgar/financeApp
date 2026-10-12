@@ -455,14 +455,11 @@ export function Dashboard() {
             ) : caixinhas.length === 0 ? (
               <p style={{ color: 'var(--cor-texto-suave)' }}>Nenhuma caixinha cadastrada ainda.</p>
             ) : (
-              <ul className="lista-crud">
+              <ul className="lista-crud lista-caixinhas">
                 {caixinhas.map((c) => (
                   <li key={c.id}>
                     <div className="item-linha">
-                      <div className="item-info">
-                        <span className="item-titulo">{c.nome}</span>
-                        <span className="item-detalhe">Caixinha</span>
-                      </div>
+                      <span className="item-titulo">{c.nome}</span>
                       <span className="resumo-card-valor valor-investimento">{formatarMoeda(c.saldo, oculto)}</span>
                     </div>
                   </li>

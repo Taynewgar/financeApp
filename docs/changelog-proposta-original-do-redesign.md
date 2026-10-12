@@ -5520,3 +5520,47 @@ limitação de sempre).
 - [ ] Confirmar que recolher/expandir não quebra nada no mobile (a
       barra lateral já fica escondida lá, não deveria ter nenhuma
       mudança visível).
+
+### Rodada 76 (2026-10-12) — Itens 61 e 64, decididos via mockup
+
+Mockup com as opções em `https://claude.ai/artifact/XVRy46vcuGq2rVzrNctttz`
+(mesmo canvas usado pro item 70). Usuário aprovou Opção B pro item 61 e
+a versão enxuta pro item 64.
+
+**61 — Cards de caixinha no Dashboard vira grid:** `Dashboard.tsx` —
+`<ul className="lista-crud">` ganhou a classe `lista-caixinhas`; o
+`<span className="item-detalhe">Caixinha</span>` (texto fixo, sem
+informação) saiu — sobra só nome + saldo. `dashboard.css`:
+`.lista-caixinhas { display: grid; grid-template-columns: repeat(auto-fit,
+minmax(150px, 1fr)); gap: 10px; }`, item-linha vira coluna (rótulo
+pequeno em cima, valor em destaque embaixo) — mesmo padrão visual dos
+cards de resumo do topo do Dashboard, que já usam bem o espaço
+horizontal.
+
+**64 — Compromissos Futuros mais enxuto:** sem reabrir o empilhamento
+vertical de "Confirmar"/"Pular" (fix deliberado de clique errado, item
+21). Ganho vem de 2 lugares que nunca tinham sido tocados: `.item-info`
+(título + detalhe) vira uma linha só em vez de duas
+(`flex-direction: row`, `flex-wrap: wrap`); e `.botao-secundario`
+("Confirmar") — que seguia no tamanho padrão de formulário, `10px 20px`
+— ganhou override pra `4px 10px` / `12px` dentro de
+`.item-acoes-compromisso`. `<li>` padding `8px 12px` → `5px 10px`.
+
+**Testes:** mudança de frontend (TSX + CSS). `tsc -b && vite build` —
+sem erro novo; `oxlint` — sem warning novo (diff idêntico
+antes/depois). Sem reprodução visual local possível nesta sessão (login
+exige credenciais reais do Supabase — mesma limitação de sempre).
+
+**Status:** implementado 2026-10-12.
+
+**Checklist de teste manual (usuário, localmente):**
+- [ ] No Dashboard, confirmar que os cards de caixinha aparecem em
+      grid (2+ por linha, conforme a largura da tela), não mais 1 por
+      linha cheia.
+- [ ] Confirmar que nome e saldo de cada caixinha continuam legíveis e
+      corretos no novo formato.
+- [ ] Em Compromissos Futuros, confirmar que cada item ficou mais
+      enxuto (título e detalhe numa linha só) sem perder nenhuma
+      informação (descrição, parcela/tipo, data, valor).
+- [ ] Confirmar que "Confirmar"/"Pular este mês" continuam empilhados
+      (um embaixo do outro, não lado a lado) e funcionando normalmente.
