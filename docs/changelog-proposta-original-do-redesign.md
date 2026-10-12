@@ -5272,19 +5272,20 @@ outro usuário 404); suíte completa 398 passed, 33 skipped. Frontend —
 **Status:** implementado 2026-10-12.
 
 **Checklist de teste manual (usuário, localmente):**
-- [ ] Em Configurações → Categorias, abrir uma categoria despesa,
+- [x] ~~Em Configurações → Categorias, abrir uma categoria despesa,
       clicar "Mover" numa subcategoria, escolher outra categoria despesa
       e confirmar — ela passa a aparecer na categoria nova (some da
-      antiga).
-- [ ] Confirmar que o botão "Mover" não aparece em subcategorias de
-      categorias Receita/Investimento.
-- [ ] Navegar entre as telas (Dashboard, Lançamentos, Planejamento,
+      antiga). — confirmado 2026-10-12.~~
+- [x] ~~Confirmar que o botão "Mover" não aparece em subcategorias de
+      categorias Receita/Investimento. — confirmado 2026-10-12.~~
+- [x] ~~Navegar entre as telas (Dashboard, Lançamentos, Planejamento,
       Estruturas de Custo, Gráficos, Configurações) e conferir que o
-      título da aba do navegador muda pra cada uma.
-- [ ] Com o relógio do aparelho entre ~21h e 23h59 (ou mudando o fuso do
+      título da aba do navegador muda pra cada uma. — confirmado
+      2026-10-12.~~
+- [x] ~~Com o relógio do aparelho entre ~21h e 23h59 (ou mudando o fuso do
       sistema pra testar), confirmar que o Dashboard abre no MÊS ATUAL
       (não no seguinte) e que Novo Lançamento pré-preenche a data de
-      HOJE (não a de amanhã).
+      HOJE (não a de amanhã). — confirmado 2026-10-12.~~
 
 ### Rodada 71 (2026-10-12) — 2 achados testando a Rodada 69 (item 31)
 
@@ -5463,9 +5464,14 @@ antes/depois). Sem reprodução local possível (precisa de celular real).
 aparelho real.
 
 **Checklist de teste manual (usuário, localmente, celular real):**
-- [ ] Em Lançamentos, com o card de filtros/legenda visível, abrir o
+- [x] ~~Em Lançamentos, com o card de filtros/legenda visível, abrir o
       menu "•••" e confirmar que ele aparece inteiro e legível por cima
       do card (fundo escurecido cobrindo tudo, sheet com "Configurações"
-      etc. legível) — tanto em retrato quanto em paisagem.
-- [ ] Confirmar que o menu continua funcionando normalmente nas outras
-      telas (Dashboard, Planejamento etc.) — sem regressão visual.
+      etc. legível) — tanto em retrato quanto em paisagem. — confirmado
+      2026-10-12.~~
+- [x] ~~Confirmar que o menu continua funcionando normalmente nas outras
+      telas (Dashboard, Planejamento etc.) — sem regressão visual. —
+      confirmado 2026-10-12.~~
+
+**Item 31 — todos os achados testados e confirmados.** Encerra a
+sequência de rodadas (69-74) desse item do backlog.
