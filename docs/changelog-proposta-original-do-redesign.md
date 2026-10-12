@@ -6005,12 +6005,14 @@ Vercel (promover o deployment certo pra produção), não uma correção de
 código.
 
 **Checklist de teste manual (usuário, depois de promover o deployment certo):**
-- [ ] No celular (ou navegador com a janela estreita, ≤720px), abrir o
+- [x] ~~No celular (ou navegador com a janela estreita, ≤720px), abrir o
       app e confirmar que a versão (`v` + hash) aparece ao lado de
-      "Finance App" na barra do topo.
+      "Finance App" na barra do topo.~~ — confirmado 2026-10-12, depois
+      de promover o deployment certo na Vercel.
 - [ ] Tocar/segurar pra ver o tooltip com a data/hora do build.
 - [ ] Comparar o hash mostrado com `git log --oneline -1` do branch —
       devem bater.
-- [ ] Em tela larga (desktop), confirmar que a versão continua
+- [x] ~~Em tela larga (desktop), confirmar que a versão continua
       aparecendo também no rodapé da barra lateral (Rodada 83), e que
-      some junto ao recolher a barra (item 70).
+      some junto ao recolher a barra (item 70).~~ — confirmado
+      2026-10-12.
