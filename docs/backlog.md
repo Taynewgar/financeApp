@@ -1090,6 +1090,53 @@ implementado.
 eixo Y fixo 0-100%, linha tracejada em 80%, sem duplicar a leitura por
 categoria que a tabela já dá).
 
+### Gráfico de despesa por categoria/subcategoria no tempo (item 51)
+
+**Detalhado 2026-10-12.** O que `/graficos` já tem hoje, pra não
+duplicar: Evolução Mensal (totais globais — receita/despesa/resultado
+— ao longo de vários meses), Pareto (ranking por categoria OU
+subcategoria, mas de UM período só, snapshot) e Despesas por Categoria
+(mesma coisa, snapshot). **Falta uma visão de TENDÊNCIA por
+categoria** — como o gasto em "Lazer" (ou numa subcategoria dela)
+evoluiu mês a mês, não só o total do período inteiro.
+
+**Por que não dá pra reaproveitar os endpoints existentes:**
+`/dashboard/despesas-por-categoria-periodo` soma o período INTEIRO num
+total por categoria (1 número cada) — não quebra por mês dentro do
+período. Nenhum endpoint hoje agrega por mês E por categoria ao mesmo
+tempo.
+
+**Endpoint novo proposto:** `GET /dashboard/despesas-por-categoria-
+evolucao?inicio=&fim=&categoria_id=` — mesmo padrão de performance já
+usado em `/dashboard/evolucao` (Rodada 19.3): busca o período INTEIRO
+numa query só, agrupa por mês em Python, e dentro de cada mês agrupa
+por categoria (ou por subcategoria, quando `categoria_id` vem
+preenchido — mesmo toggle categoria/subcategoria que o Pareto já tem).
+Resposta: `{ inicio, fim, meses: [{ vigencia_mes, categorias: [{
+categoria_id, categoria_nome, valor }] }] }`.
+
+**Frontend:** gráfico novo em `Graficos.tsx`, SVG desenhado à mão
+(mesmo padrão de `EvolucaoChart.tsx`/`ParetoTendenciaChart.tsx` —
+projeto não usa biblioteca de gráficos) — linhas múltiplas (1 por
+categoria) ou barras empilhadas por mês, com legenda e cor por
+categoria. Mais complexo que os gráficos atuais (múltiplas séries em
+vez de 1), estimativa na faixa de `EvolucaoChart.tsx` (~230 linhas) a
+um pouco mais.
+
+**Decisão em aberto:** categoria ou subcategoria por padrão, e quantas
+categorias mostrar ao mesmo tempo antes de virar ilegível (ex: top 5 +
+"outras agrupadas", como o Pareto já faz implicitamente pelo ranking) —
+a definir quando for priorizado.
+
+**Custo estimado:** médio. Backend: ~1 endpoint novo seguindo um
+padrão já existente (2-3h, incluindo testes). Frontend: o mais caro
+aqui — gráfico multi-série novo do zero (4-6h, dado o padrão de SVG à
+mão do projeto).
+
+**Status:** registrado em CSV (2026-09-30), detalhado 2026-10-12 —
+escopo e endpoint propostos, falta decidir categoria×subcategoria
+padrão e confirmar antes de implementar.
+
 ### Feature "Gráficos" — tela nova na navegação
 
 **Origem:** a aba Gráficos existia no app antigo (ver
@@ -1174,9 +1221,47 @@ outra ferramenta) — não é primariamente um relatório bonito pra imprimir,
   que justifique um destino próprio (histórico de exports, PDF/HTML,
   agendamento).
 
+**Formato do JSON — detalhado 2026-10-12** (o app ganhou Planejamento,
+caixinhas/patrimônio e o lembrete de retirada — item 58 — desde
+2026-09-15; reavaliando o que entra no export com o estado atual):
+
+```jsonc
+{
+  "periodo": { "tipo": "mes" | "ano", "inicio": "2026-09-01", "fim": "2026-09-30" },
+  "resumo": { /* mesmos campos de ResumoLancamentos — GET /transacoes/resumo */ },
+  "lancamentos": [ /* Transacao[], nomes de categoria/subcategoria/conta/caixinha
+                      já resolvidos (não só os ids) — pra ficar legível fora do
+                      app, sem precisar cruzar com outra tabela */ ],
+  "despesas_por_categoria": [ /* DespesaPorCategoria[] */ ],
+  "despesas_por_subcategoria": [ /* DespesaPorSubcategoria[] */ ],
+  "estrutura_custo": { /* EstruturaCustoMes — orçado × realizado por bucket */ },
+  "planejamento": { /* Orcamento + itens do mês, se houver orçamento no período */ },
+  "caixinhas": {
+    "patrimonio": [ /* SaldoCaixinha[] */ ],
+    "retiradas_pendentes": [ /* Transacao[] com retirada_pendente=true no período */ ]
+  },
+  "evolucao_mensal": [ /* só no tipo "ano" — um ResumoMensal por mês */ ]
+}
+```
+
+**Endpoint novo:** `GET /relatorios/mes/{vigencia_mes}` e `GET
+/relatorios/ano/{ano}` (ou unificado com `inicio`/`fim`, mesmo padrão
+de `/dashboard/evolucao`) — compõe a resposta reaproveitando as funções
+internas que já existem em `dashboard.py`/`estrutura_custo.py`/
+`orcamentos.py` (`_resumo_do_mes`, `_despesas_por_categoria_entre`
+etc. — hoje privadas ao módulo, precisam ficar importáveis ou o
+endpoint novo mora no mesmo arquivo). Sem lógica de agregação nova, só
+composição do que já existe numa resposta só.
+
+**Custo estimado:** baixo-médio. Backend: ~1 endpoint novo + 1 schema
+de resposta + testes, a maior parte reaproveitando código já testado
+(2-4h). Frontend: 1 botão em Estrutura de Custo (já decidido o local)
+que baixa o JSON como arquivo (`Blob` + link), sem tela nova (~30min-
+1h). Risco baixo — não toca nada existente, só lê.
+
 **Status:** registrado 2026-09-15 a pedido explícito do usuário, como
-próximo passo pós-MVP, local de disparo já decidido. Falta só o formato
-exato do JSON quando for priorizado.
+próximo passo pós-MVP, local de disparo já decidido. Formato do JSON
+detalhado 2026-10-12 — falta só confirmar e implementar.
 
 ### Melhorias pós-MVP na tela Gráficos e na casca do app
 
@@ -2055,9 +2140,28 @@ resolve de forma genérica, mas é uma mudança de arquitetura maior,
 tocando toda tela que busca dado hoje. Avaliar o custo-benefício
 feature a feature, como pedido, antes de decidir qual caminho.
 
-**Status:** registrado 2026-10-02, prioridade média — levantamento
-inicial feito (Dashboard é o caso mais claro), avaliação completa
-feature a feature ainda não foi feita.
+**Revisitado 2026-10-12 (item 58 não introduz caso novo):** "Lançar
+retirada" sai do Dashboard pra Novo Lançamento (navegação de página,
+não ação na mesma tela) — ao voltar pro Dashboard o `useEffect` de
+carga roda de novo e o patrimônio da caixinha já vem certo. "Já
+retirei" não cria transação (só liga/desliga o lembrete), não move
+saldo nenhum. Nenhum dos dois reabre o problema original.
+
+**Recomendação (não implementado ainda, aguardando confirmação):**
+Opção A (re-busca pontual) pro caso concreto já identificado —
+`confirmarRecorrente`/`pularRecorrente` em `Dashboard.tsx` passam a
+também re-buscar `buscarPatrimonio()` e o resumo do mês quando o
+recorrente confirmado cai no período exibido. Custo baixo (~1-2h,
+reaproveita funções de busca que já existem no componente, zero
+mudança de backend). Opção B (cache compartilhado tipo React Query)
+fica descartada por ora — mudança de arquitetura grande (toca toda
+tela que busca dado hoje) pro número de casos reais encontrados até
+agora (1); revisitar se mais pontos de dor aparecerem com o uso.
+
+**Status:** registrado 2026-10-02, revisitado 2026-10-12 — único caso
+concreto continua sendo o do Dashboard (recorrente confirmado não
+atualiza patrimônio/resumo na mesma tela); recomendação de escopo
+pronta, falta confirmar e implementar.
 
 ### Subitem do bucket Reservas mostra nome da conta em vez da caixinha
 
