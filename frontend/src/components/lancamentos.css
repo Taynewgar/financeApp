@@ -62,13 +62,11 @@
 /* "últimos lançamentos por conta" — item 54 do backlog: helper pra ver
  * rápido onde parou de lançar numa conta, sem precisar montar filtro.
  * Fica acima dos filtros/resumo, não troca nem substitui a Busca de
- * Lançamentos — só atalho pra ela ("Ver tudo", via contaId do filtro). */
-/* max-width (mesmo valor de .form em forms.css — o "compacto" já
- * convencionado no projeto) — achado testando a Rodada 66: sem isso, o
- * card esticava até a borda da tela em monitores largos (a página não
- * tem container com largura máxima), e a coluna de valores "alinhada à
- * direita do painel" virava, na prática, de novo "alinhada ao final da
- * tela" — exatamente o que o usuário tinha pedido pra evitar. */
+ * Lançamentos — só atalho pra ela ("Ver tudo", via contaId do filtro).
+ * O card em si fica largura total (achado testando a Rodada 67: o
+ * usuário quer o card até a borda da tela — só a LISTA de lançamentos
+ * dentro dele é que precisa de um limitador, ver `.painel-ultimos-conta`
+ * abaixo); o limite de largura mora só ali, não aqui. */
 .ultimos-por-conta {
   display: flex;
   flex-direction: column;
@@ -78,7 +76,6 @@
   border: 1px solid var(--cor-borda);
   border-radius: var(--raio);
   margin-bottom: 16px;
-  max-width: 560px;
 }
 
 /* recolhida por padrão (decisão discutida com o usuário — ver changelog):
@@ -124,12 +121,19 @@
   font-weight: 600;
 }
 
+/* max-width (mesmo valor de .form em forms.css — o "compacto" já
+ * convencionado no projeto) — achado testando a Rodada 67: o card em
+ * volta (`.ultimos-por-conta`) fica largura total de propósito; o
+ * limitador precisa estar só aqui, envolvendo a lista em si, pra coluna
+ * de valores (`justify-content: space-between` nas linhas) não "esticar"
+ * até a borda da tela em monitores largos. */
 .painel-ultimos-conta {
   border-top: 1px solid var(--cor-borda);
   padding-top: 10px;
   display: flex;
   flex-direction: column;
   gap: 6px;
+  max-width: 560px;
 }
 
 /* .botao-link (crud.css) é `white-space: nowrap` de propósito pros links

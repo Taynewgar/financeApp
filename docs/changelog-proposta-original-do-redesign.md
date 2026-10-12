@@ -5124,11 +5124,43 @@ antes/depois).
 **Status:** implementado 2026-10-11.
 
 **Checklist de teste manual (usuário, localmente):**
-- [ ] Em tela larga (desktop), expandir "últimos lançamentos" de uma
+- [x] ~~Em tela larga (desktop), expandir "últimos lançamentos" de uma
       conta e confirmar que o card não estica até a borda da tela — os
       valores ficam alinhados à direita de um painel de largura
-      limitada, não da janela inteira.
-- [ ] No mobile (ou tela estreita), expandir uma conta com nome longo e
+      limitada, não da janela inteira. — **achado 2026-10-11**: o
+      usuário queria o oposto do que ficou — o CARD externo (fundo +
+      chips de conta) deve mesmo ocupar a largura toda da tela; só a
+      LISTA de lançamentos dentro dele é que precisa de um limitador
+      próprio, um elemento novo que envolva só ela. Corrigido na Rodada
+      68.~~
+- [x] ~~No mobile (ou tela estreita), expandir uma conta com nome longo e
       clicar pra ver o link "Ver tudo em Lançamentos, filtrado por...";
       confirmar que o texto quebra em mais de uma linha em vez de
-      estourar a largura da tela.
+      estourar a largura da tela. — confirmado 2026-10-11.~~
+
+### Rodada 68 (2026-10-11) — max-width movido do card pra só a lista
+
+**Achado:** o `max-width: 560px` da Rodada 67 foi parar no card errado —
+aplicado em `.ultimos-por-conta` (fundo + título + chips + lista),
+limitava a largura do card inteiro. O usuário quer o card até a borda da
+tela (chips incluídos) — só a lista de lançamentos, dentro dele, deveria
+ter um limitador próprio, via um elemento novo que a envolva.
+
+**Fix:** `max-width: 560px` saiu de `.ultimos-por-conta` (volta a ser
+largura total) e foi pra `.painel-ultimos-conta` — que já existia como o
+wrapper da lista de lançamentos expandida (não precisou de elemento
+novo, só mover a regra pro container certo). O card (fundo, chips)
+ocupa a tela inteira; só a lista interna fica com largura limitada,
+mantendo a coluna de valores alinhada e legível.
+
+**Testes:** mudança de CSS puro. `tsc -b && vite build` — sem erro novo;
+`oxlint` — sem warning novo (diff idêntico antes/depois).
+
+**Status:** implementado 2026-10-11.
+
+**Checklist de teste manual (usuário, localmente):**
+- [ ] Em tela larga, confirmar que o card "Últimos lançamentos por
+      conta" (fundo + chips) ocupa a largura toda da tela.
+- [ ] Na mesma tela larga, expandir uma conta e confirmar que só a lista
+      de lançamentos fica mais estreita (largura limitada), com os
+      valores alinhados numa coluna legível, não na borda da tela.
