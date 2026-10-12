@@ -120,9 +120,9 @@ export function Dashboard() {
     buscarRetiradasPendentes()
   }, [])
 
-  // "Já retirei, só marcar" — resolve sem criar transação nova. "Lançar
-  // retirada agora" não chama isto: ele navega pro formulário e só marca
-  // resolvido DEPOIS do POST da retirada ter sucesso (NovoLancamento.tsx)
+  // "Já retirei" — resolve sem criar transação nova. "Lançar retirada"
+  // não chama isto: ele navega pro formulário e só marca resolvido
+  // DEPOIS do POST da retirada ter sucesso (NovoLancamento.tsx)
   async function marcarRetiradaResolvida(t: Transacao) {
     setResolvendoRetiradaId(t.id)
     try {
@@ -518,7 +518,7 @@ export function Dashboard() {
                               },
                             }}
                           >
-                            Lançar retirada agora
+                            Lançar retirada
                           </Link>
                           <button
                             type="button"
@@ -526,7 +526,7 @@ export function Dashboard() {
                             disabled={resolvendoRetiradaId === t.id}
                             onClick={() => marcarRetiradaResolvida(t)}
                           >
-                            {resolvendoRetiradaId === t.id ? 'Marcando…' : 'Já retirei, só marcar'}
+                            {resolvendoRetiradaId === t.id ? 'Marcando…' : 'Já retirei'}
                           </button>
                         </div>
                       </div>

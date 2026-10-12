@@ -79,8 +79,8 @@
 }
 
 /* empilhado — usado pelo card "Retiradas pendentes de caixinha" (item
- * 58), 2 botões de texto ("Lançar retirada agora"/"Já retirei, só
- * marcar") que não cabem lado a lado sem quebrar feio. */
+ * 58), 2 botões de texto ("Lançar retirada"/"Já retirei") que não
+ * cabem lado a lado sem quebrar feio. */
 .item-acoes-compromisso {
   flex-direction: column;
   align-items: stretch;

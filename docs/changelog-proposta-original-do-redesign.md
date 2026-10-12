@@ -5859,3 +5859,24 @@ possível (mesma limitação de sempre).
       (Despesa → Receita → Investimento → Reserva) — confirmar que os
       chips sempre terminam condizentes com o tipo/categoria/caixinha
       selecionado no final, nunca um residual de uma escolha anterior.
+
+### Rodada 82 (2026-10-12) — Item 58: texto mais curto nos botões de "Retiradas pendentes"
+
+Pedido do usuário testando a Rodada 80, item 6. 3 opções sugeridas
+(A: "Lançar retirada"/"Já retirei"; B: "Sacar agora"/"Marcar feito"; C:
+"Fazer retirada"/"Já fiz") — escolhida a Opção A.
+
+**Fix:** `Dashboard.tsx` — "Lançar retirada agora" → "Lançar retirada";
+"Já retirei, só marcar" → "Já retirei" (o estado de carregamento
+"Marcando…" não mudou). Comentários explicativos em `Dashboard.tsx`,
+`NovoLancamento.tsx` e `dashboard.css` atualizados pro novo texto, pra
+não ficarem descasados do código.
+
+**Testes:** mudança de texto only. `tsc -b && vite build` — sem erro
+novo; `oxlint` — diff idêntico antes/depois.
+
+**Status:** implementado 2026-10-12.
+
+**Checklist de teste manual (usuário, localmente):**
+- [ ] No card "Retiradas pendentes de caixinha", confirmar os novos
+      textos: "Lançar retirada" e "Já retirei".

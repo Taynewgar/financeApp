@@ -484,9 +484,9 @@ export function NovoLancamento() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // item 58: "Lançar retirada agora" (Dashboard, card "Retiradas
-  // pendentes de caixinha") manda pra cá com a caixinha/valor já
-  // definidos em location.state — mesmo padrão de "Duplicar" acima.
+  // item 58: "Lançar retirada" (Dashboard, card "Retiradas pendentes de
+  // caixinha") manda pra cá com a caixinha/valor já definidos em
+  // location.state — mesmo padrão de "Duplicar" acima.
   // despesaOrigemRetiradaRef guarda o id da despesa original, usado em
   // handleSubmit pra marcar a retirada como feita só depois do POST
   // de verdade ter sucesso (nunca antes — evita marcar resolvido um
