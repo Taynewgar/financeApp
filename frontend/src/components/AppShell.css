@@ -145,8 +145,21 @@
   display: none;
 }
 
-/* mobile: nav vira barra inferior, sidebar some */
-@media (max-width: 720px) {
+/* mobile: nav vira barra inferior, sidebar some.
+ *
+ * item 31 do backlog (achado 2026-10-12, Rodada 71): o critério era só
+ * LARGURA (max-width: 720px) — um celular comum em paisagem costuma
+ * passar disso (ex: ~850-930px de largura lógica), então esse bloco
+ * inteiro ficava fora e o app caía no layout desktop (sidebar, sem FAB
+ * reposicionado acima de barra nenhuma — não existe barra nesse modo).
+ * `lancamentos.css` já tinha ganhado esse mesmo critério de altura pro
+ * painel de filtros (Rodada 69); sem espelhar aqui, o resultado era uma
+ * mistura inconsistente — sidebar desktop + filtros no modo "mobile
+ * compacto" — e o FAB (sempre fixo a 24px do fundo da tela,
+ * independente de quão curta ela seja) sobrepondo o card de filtros
+ * numa tela de pouca altura. Agora os dois arquivos usam o mesmo
+ * critério: largura estreita OU paisagem com altura curta. */
+@media (max-width: 720px), (orientation: landscape) and (max-height: 500px) {
   :root {
     /* altura real medida da barra (padding do container + padding do
      * próprio link + ícone + rótulo) é ~70-71px, não 64px como estava —

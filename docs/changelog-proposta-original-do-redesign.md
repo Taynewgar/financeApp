@@ -5217,51 +5217,6 @@ aparelho real.
       sobrepor a barra de navegação inferior — o `max-height: 60vh` fixo
       não descontava a altura dela. Corrigido na Rodada 71.~~
 
-### Rodada 71 (2026-10-12) — 2 achados testando a Rodada 69 (item 31)
-
-**Achado 1 — retrato ganhou barra de rolagem que não existia:** o
-gatilho `(max-height: 500px)` da Rodada 69 não exigia orientação
-paisagem — qualquer tela curta (inclusive retrato, dependendo da altura
-visível com a barra de endereço do navegador) entrava no mesmo modo, e o
-`max-height: 60vh` + `overflow-y: auto` novo no painel aberto passou a
-valer ali também, mesmo retrato nunca tendo sido o problema relatado no
-item 31 (só paisagem é).
-
-**Fix 1:** o gatilho de altura curta virou `(orientation: landscape) and
-(max-height: 500px)` — só paisagem, nunca retrato. Retrato volta a
-depender só do critério de largura (`max-width: 720px`, como já era
-antes da Rodada 69) e nunca ganha o limite de altura/rolagem do painel
-aberto.
-
-**Achado 2 — paisagem passou a sobrepor a barra de navegação inferior:**
-`max-height: 60vh` era um valor fixo, sem descontar a altura da barra de
-navegação inferior fixa (`--shell-altura-barra-mobile`, variável já
-usada em `AppShell.css` por outros elementos — FAB, menu sheet — pra
-não ficar atrás dela) — o painel de filtros podia esticar até embaixo
-dela.
-
-**Fix 2:** `max-height: calc(60vh - var(--shell-altura-barra-mobile,
-0px))` — desconta a altura real da barra quando ela existe (telas
-≤720px de largura, onde a barra aparece) e não desconta nada quando não
-existe (paisagem larga o bastante pra cair no layout desktop, sidebar em
-vez de barra inferior).
-
-**Testes:** mudança de CSS puro. `tsc -b && vite build` — sem erro novo;
-`oxlint` — sem warning novo (diff idêntico antes/depois). Sem reprodução
-local possível (precisa de celular real — mesma limitação de sempre
-nesta sessão).
-
-**Status:** implementado 2026-10-12, pede reteste do usuário num
-aparelho real.
-
-**Checklist de teste manual (usuário, localmente, celular real):**
-- [ ] Em retrato, abrir os filtros em Lançamentos e confirmar que NÃO
-      aparece barra de rolagem nenhuma no painel — volta a ocupar a
-      altura que precisar, empurrando a lista pra baixo normalmente.
-- [ ] Em paisagem, abrir os filtros e confirmar que o painel não
-      sobrepõe mais a barra de navegação inferior — fica visível e
-      clicável mesmo com o painel aberto.
-
 ### Rodada 70 (2026-10-12) — Itens 48, 49 e 50 do backlog
 
 **48 — Mover subcategoria entre categorias:** aprovado com a restrição
@@ -5330,3 +5285,100 @@ outro usuário 404); suíte completa 398 passed, 33 skipped. Frontend —
       sistema pra testar), confirmar que o Dashboard abre no MÊS ATUAL
       (não no seguinte) e que Novo Lançamento pré-preenche a data de
       HOJE (não a de amanhã).
+
+### Rodada 71 (2026-10-12) — 2 achados testando a Rodada 69 (item 31)
+
+**Achado 1 — retrato ganhou barra de rolagem que não existia:** o
+gatilho `(max-height: 500px)` da Rodada 69 não exigia orientação
+paisagem — qualquer tela curta (inclusive retrato, dependendo da altura
+visível com a barra de endereço do navegador) entrava no mesmo modo, e o
+`max-height: 60vh` + `overflow-y: auto` novo no painel aberto passou a
+valer ali também, mesmo retrato nunca tendo sido o problema relatado no
+item 31 (só paisagem é).
+
+**Fix 1:** o gatilho de altura curta virou `(orientation: landscape) and
+(max-height: 500px)` — só paisagem, nunca retrato. Retrato volta a
+depender só do critério de largura (`max-width: 720px`, como já era
+antes da Rodada 69) e nunca ganha o limite de altura/rolagem do painel
+aberto.
+
+**Achado 2 — paisagem passou a sobrepor a barra de navegação inferior:**
+`max-height: 60vh` era um valor fixo, sem descontar a altura da barra de
+navegação inferior fixa (`--shell-altura-barra-mobile`, variável já
+usada em `AppShell.css` por outros elementos — FAB, menu sheet — pra
+não ficar atrás dela) — o painel de filtros podia esticar até embaixo
+dela.
+
+**Fix 2:** `max-height: calc(60vh - var(--shell-altura-barra-mobile,
+0px))` — desconta a altura real da barra quando ela existe (telas
+≤720px de largura, onde a barra aparece) e não desconta nada quando não
+existe (paisagem larga o bastante pra cair no layout desktop, sidebar em
+vez de barra inferior).
+
+**Testes:** mudança de CSS puro. `tsc -b && vite build` — sem erro novo;
+`oxlint` — sem warning novo (diff idêntico antes/depois). Sem reprodução
+local possível (precisa de celular real — mesma limitação de sempre
+nesta sessão).
+
+**Status:** implementado 2026-10-12 — **superado pela Rodada 72**: as
+imagens que o usuário reenviou (evidência original deste achado)
+revelaram uma causa mais funda que esse fix não cobria sozinho.
+
+**Checklist de teste manual (usuário, localmente, celular real):**
+- [x] ~~Em retrato, abrir os filtros em Lançamentos e confirmar que NÃO
+      aparece barra de rolagem nenhuma no painel — volta a ocupar a
+      altura que precisar, empurrando a lista pra baixo normalmente. —
+      confirmado por evidência visual 2026-10-12 (imagem do retrato sem
+      o fix da Rodada 69 mostrava a barra; a mudança desta rodada já
+      resolve, sem depender da Rodada 72).~~
+- [ ] Em paisagem, abrir os filtros e confirmar que o painel não
+      sobrepõe mais a barra de navegação inferior — fica visível e
+      clicável mesmo com o painel aberto. **Achado 2026-10-12** (ver
+      Rodada 72): nesse aparelho a largura em paisagem passa de 720px,
+      então o app cai no layout desktop (sidebar) mas os filtros ficavam
+      no modo "mobile compacto" sozinhos — mistura inconsistente, com o
+      FAB (sempre fixo a 24px do fundo, independente da altura da tela)
+      sobrepondo o card. Corrigido na Rodada 72.
+
+### Rodada 72 (2026-10-12) — Item 31: critério "tela pequena" unificado em todo o app shell
+
+Acompanhando o pedido de reenvio das imagens da Rodada 69 (não tinham
+chegado na mensagem original), ficou claro que o achado 2 da Rodada 71
+não estava completo: a imagem em paisagem mostra a sidebar **desktop**
+normal (não a barra inferior mobile) — confirma que, nesse aparelho, a
+largura em paisagem passa de 720px. `AppShell.css` decide sidebar vs.
+barra inferior só por largura (`max-width: 720px`); `lancamentos.css` já
+tinha ganhado o critério de altura (Rodada 69/71) só pro painel de
+filtros. Resultado: o app inteiro ficava no layout desktop (sidebar
+visível, sem barra inferior, FAB sempre no canto fixo a 24px da borda),
+enquanto só os filtros entravam no modo "mobile compacto" — mistura
+inconsistente, e o FAB (posição fixa, não pensada pra telas curtas)
+acabava sobrepondo o card de filtros/legenda numa tela de pouca altura.
+
+**Fix:** o mesmo critério "largura estreita OU paisagem com altura
+curta" (`(max-width: 720px), (orientation: landscape) and (max-height:
+500px)`) passou a valer pro bloco inteiro de `AppShell.css` que decide
+modo mobile — sidebar escondida, barra inferior aparece, FAB reposiciona
+pra cima dela (`bottom: calc(var(--shell-altura-barra-mobile) + 20px)`),
+barra de topo mobile aparece. Agora os dois arquivos concordam sobre o
+que conta como "tela pequena" — um celular em paisagem (mesmo com
+largura lógica acima de 720px) vira consistentemente mobile em todo o
+app, não só nos filtros de Lançamentos.
+
+**Testes:** mudança de CSS puro. `tsc -b && vite build` — sem erro novo;
+`oxlint` — sem warning novo (diff idêntico antes/depois). Sem reprodução
+local possível (precisa de celular real).
+
+**Status:** implementado 2026-10-12, pede reteste do usuário num
+aparelho real, em paisagem.
+
+**Checklist de teste manual (usuário, localmente, celular real):**
+- [ ] Em paisagem, confirmar que o app mostra a barra de navegação
+      inferior (Dashboard/Lançamentos/Estruturas/Gráficos/Menu), não a
+      sidebar — mesmo nos aparelhos onde a largura em paisagem é maior
+      que num celular comum em retrato.
+- [ ] Ainda em paisagem, confirmar que o FAB ("+") não sobrepõe mais o
+      card de filtros/legenda — fica acima da barra de navegação
+      inferior, como já acontece em retrato.
+- [ ] Confirmar que em retrato nada mudou — sidebar continua escondida,
+      barra inferior normal, sem regressão.
