@@ -1200,6 +1200,9 @@ outra ferramenta) — não é primariamente um relatório bonito pra imprimir,
   por enquanto — só reconsiderar se o export ganhar mais capacidade real
   que justifique um destino próprio (histórico de exports, PDF/HTML,
   agendamento).
+  **Ressalva explícita do usuário (2026-10-12): local provisório.**
+  Pretende criar uma feature nova onde o botão ficaria melhor alocado
+  — mudar de lugar quando essa feature existir. Não é decisão final.
 
 **Formato do JSON — detalhado 2026-10-12** (o app ganhou Planejamento,
 caixinhas/patrimônio e o lembrete de retirada — item 58 — desde
