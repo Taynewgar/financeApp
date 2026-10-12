@@ -5475,3 +5475,48 @@ aparelho real.
 
 **Item 31 — todos os achados testados e confirmados.** Encerra a
 sequência de rodadas (69-74) desse item do backlog.
+
+### Rodada 75 (2026-10-12) — Item 70: botão pra recolher a barra lateral em telas grandes
+
+Pedido novo do usuário, implementado direto (sem mockup prévio — padrão
+já estabelecido de colapsar pra trilho de ícones, baixo risco de
+ambiguidade de design).
+
+**Implementado:**
+- `AppShell.tsx`: estado `navRecolhida`, inicializado de
+  `localStorage` (`financeapp:nav-recolhida`, preferência por
+  dispositivo — mesmo padrão do contador de uso do menu mobile, item
+  29). Botão "«"/"»" no cabeçalho da barra lateral alterna e persiste.
+  Cada link de navegação e o rótulo do rodapé (e-mail/"Sair") passaram
+  a ter o texto num `<span className="shell-nav-label">` separado do
+  ícone, pra CSS poder esconder só o texto no estado recolhido sem
+  remover do DOM (leitor de tela continua lendo; `title` no link cobre
+  o tooltip do mouse). `BotaoPrivacidade` some do cabeçalho quando
+  recolhido — sem perda real, ele já aparece duplicado em cada tela
+  (perto do seletor de período).
+- `AppShell.css`: `.shell-nav.recolhida` reduz a largura de 220px pra
+  60px (`transition: width` suave), centraliza ícones, esconde
+  `.shell-nav-label`. `.shell-conteudo` (`flex: 1`) já reflui sozinho
+  pro espaço liberado, sem cálculo de margem.
+
+**Testes:** mudança de frontend (TSX + CSS). `tsc -b && vite build` —
+sem erro novo; `oxlint` — sem warning novo (diff idêntico
+antes/depois). Sem reprodução visual local possível nesta sessão (login
+exige credenciais reais do Supabase, que não existem aqui — mesma
+limitação de sempre).
+
+**Status:** implementado 2026-10-12.
+
+**Checklist de teste manual (usuário, localmente):**
+- [ ] Numa tela grande (desktop), clicar no botão "«" no topo da barra
+      lateral — ela vira um trilho estreito só de ícones, sem quebrar o
+      layout do conteúdo ao lado.
+- [ ] Passar o mouse sobre um ícone recolhido e confirmar que aparece o
+      tooltip com o nome da seção.
+- [ ] Clicar em "»" e confirmar que a barra volta ao normal (rótulos
+      visíveis de novo).
+- [ ] Recarregar a página com a barra recolhida e confirmar que ela
+      continua recolhida (preferência persistida).
+- [ ] Confirmar que recolher/expandir não quebra nada no mobile (a
+      barra lateral já fica escondida lá, não deveria ter nenhuma
+      mudança visível).

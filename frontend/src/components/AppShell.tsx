@@ -13,6 +13,26 @@ import './AppShell.css'
 
 type StatusBackend = 'ocioso' | 'aguardando' | 'falhou'
 
+// item 70 do backlog: preferência por dispositivo (não sincroniza entre
+// aparelhos, mesmo padrão já usado pelo contador de uso do menu mobile).
+const CHAVE_NAV_RECOLHIDA = 'financeapp:nav-recolhida'
+
+function lerNavRecolhida(): boolean {
+  try {
+    return localStorage.getItem(CHAVE_NAV_RECOLHIDA) === '1'
+  } catch {
+    return false
+  }
+}
+
+function salvarNavRecolhida(recolhida: boolean): void {
+  try {
+    localStorage.setItem(CHAVE_NAV_RECOLHIDA, recolhida ? '1' : '0')
+  } catch {
+    // localStorage indisponível (aba privada, storage bloqueado) — só não persiste
+  }
+}
+
 const SECOES = [
   { to: '/dashboard', label: 'Dashboard', icone: '◧' },
   { to: '/lancamentos', label: 'Lançamentos', icone: '⌕' },
@@ -50,6 +70,15 @@ export function AppShell({ children }: { children?: ReactNode }) {
   const [tentativa, setTentativa] = useState(0)
   const [menuMobileAberto, setMenuMobileAberto] = useState(false)
   const [usoRegistrado, setUsoRegistrado] = useState(0)
+  const [navRecolhida, setNavRecolhida] = useState(lerNavRecolhida)
+
+  function alternarNavRecolhida() {
+    setNavRecolhida((atual) => {
+      const novo = !atual
+      salvarNavRecolhida(novo)
+      return novo
+    })
+  }
 
   // AppShell não desmonta ao navegar (só o <Outlet/> troca) — sem isso o
   // menu ficaria aberto por cima da tela seguinte depois de tocar num item.
@@ -150,20 +179,42 @@ export function AppShell({ children }: { children?: ReactNode }) {
       </div>
 
       <div className="shell">
-        <nav className="shell-nav" aria-label="Navegação principal">
+        <nav className={`shell-nav${navRecolhida ? ' recolhida' : ''}`} aria-label="Navegação principal">
           <div className="shell-nav-header shell-nav-header-linha">
-            <span>Finance App</span>
-            <BotaoPrivacidade />
+            <span className="shell-nav-label">Finance App</span>
+            {!navRecolhida && <BotaoPrivacidade />}
+            <button
+              type="button"
+              className="shell-nav-colapsar"
+              onClick={alternarNavRecolhida}
+              aria-pressed={navRecolhida}
+              aria-label={navRecolhida ? 'Expandir menu' : 'Recolher menu'}
+              title={navRecolhida ? 'Expandir menu' : 'Recolher menu'}
+            >
+              {navRecolhida ? '»' : '«'}
+            </button>
           </div>
           {SECOES.map((secao) => (
-            <NavLink key={secao.to} to={secao.to} className={linkClasse('shell-nav-link')}>
-              {secao.icone} &nbsp;{secao.label}
+            <NavLink
+              key={secao.to}
+              to={secao.to}
+              className={linkClasse('shell-nav-link')}
+              title={navRecolhida ? secao.label : undefined}
+            >
+              <span aria-hidden="true">{secao.icone}</span>
+              <span className="shell-nav-label">&nbsp;{secao.label}</span>
             </NavLink>
           ))}
           <div className="shell-nav-footer">
-            <span>{session?.user.email}</span>
-            <button type="button" className="shell-sair" onClick={() => signOut()}>
-              Sair
+            <span className="shell-nav-label">{session?.user.email}</span>
+            <button
+              type="button"
+              className="shell-sair"
+              onClick={() => signOut()}
+              title={navRecolhida ? 'Sair' : undefined}
+            >
+              <span aria-hidden="true">⏻</span>
+              <span className="shell-nav-label">&nbsp;Sair</span>
             </button>
           </div>
         </nav>

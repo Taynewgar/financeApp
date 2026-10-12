@@ -201,6 +201,17 @@ changelog já documenta quando e como cada um foi entregue).
   dispositivo em vez de fixar um fuso no código, a pedido do usuário
   (pode mudar de cidade). Ver detalhe no changelog (Rodada 70). *(trazido
   em CSV, 2026-09-30; implementado 2026-10-12)*
+- **63.** **Racional de testes com `/financeapp-ref`** (detalhe abaixo)
+  `tipo: Validação` ✅ — rodado contra a conta real
+  (`referencia_saldo_anterior.py` + `/financeapp-ref`), achou 2 bugs: um
+  no próprio script (cache sem a chave `bucket`) e um real no app —
+  `realizado` de item de Planejamento vazando entre buckets quando a
+  mesma categoria está em 2 buckets diferentes no mesmo mês (corrigido
+  2026-10-11). Também validou a cadeia de `saldo_anterior` inteira (625
+  itens, 0 divergências pós-fix). 1 dos 6 pontos do roteiro (Caixinhas/
+  Patrimônio batendo com "Guardado") segue sem reconfirmação formal
+  pós-RPC — baixo risco, mesma fórmula já confirmada por cálculo direto
+  do CSV na Rodada 35. *(2026-10-01; rodado 2026-10-10/11)*
 - **66.** **Avaliar atualização reativa entre telas após inserção de
   dados** (detalhe abaixo) `tipo: Melhoria` — hoje cada tela busca seus
   próprios dados só no próprio `useEffect` (sem cache nem invalidação
@@ -211,6 +222,11 @@ changelog já documenta quando e como cada um foi entregue).
   mostrado no mesmo Dashboard (só a lista de Compromissos Futuros é
   re-buscada). Avaliar caso a caso, por feature, se vale a pena.
   *(2026-10-02)*
+- **70.** **Botão pra recolher a barra lateral em telas grandes**
+  `tipo: Melhoria` ✅ — vira um trilho de ícones (60px), preferência
+  salva por dispositivo (localStorage, mesmo padrão do contador de uso
+  do menu mobile). Ver detalhe no changelog (Rodada 75). *(pedido e
+  implementado 2026-10-12)*
 
 **Baixa**
 
@@ -430,19 +446,6 @@ já documenta quando e como cada um foi entregue.
   com `forcar_duplicado` pro caso de 2 compras reais e diferentes
   coincidirem. Detalhe na subseção própria abaixo, ver changelog Rodada
   46.
-- **63.** ~~Racional de testes com `/financeapp-ref`~~ **feito
-  2026-10-10/11** — rodado contra a conta real
-  (`referencia_saldo_anterior.py` + `/financeapp-ref`), achou 2 bugs:
-  um no próprio script (cache sem a chave `bucket`) e um real no app —
-  `realizado` de item de Planejamento vazando entre buckets quando a
-  mesma categoria está em 2 buckets diferentes no mesmo mês (corrigido
-  2026-10-11). Também validou a cadeia de `saldo_anterior` inteira (625
-  itens, 0 divergências pós-fix). 1 dos 6 pontos do roteiro (Caixinhas/
-  Patrimônio batendo com "Guardado") segue sem reconfirmação formal
-  pós-RPC — baixo risco, mesma fórmula já confirmada por cálculo direto
-  do CSV na Rodada 35. Detalhe na subseção própria abaixo, ver changelog
-  Rodadas 35/37 (confirmações) e a seção "`realizado` de item de
-  Planejamento soma transação de outro bucket..." do detalhamento.
 
 Este arquivo não substitui o `README.md` da raiz (que descreve o que
 existe) nem o `/status-projeto` (relatório de andamento) — é o registro do

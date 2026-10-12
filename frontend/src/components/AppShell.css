@@ -51,6 +51,9 @@
   align-self: flex-start;
   height: 100vh;
   overflow-y: auto;
+  /* item 70 do backlog: largura anima suave ao recolher/expandir —
+   * `.shell-conteudo` (flex: 1) já reflui sozinho, sem cálculo extra. */
+  transition: width 0.15s ease;
 }
 
 .shell-nav-header {
@@ -70,8 +73,29 @@
   display: none;
 }
 
+.shell-nav-colapsar {
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  background: none;
+  border: 1px solid var(--cor-borda);
+  border-radius: 6px;
+  color: var(--cor-texto-suave);
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1;
+}
+
+.shell-nav-colapsar:hover {
+  background: var(--cor-fundo);
+  color: var(--cor-texto);
+}
+
 .shell-nav-link {
-  display: block;
+  display: flex;
+  align-items: center;
   padding: 10px 12px;
   border-radius: 8px;
   text-decoration: none;
@@ -98,14 +122,56 @@
   gap: 8px;
 }
 
+.shell-nav-footer .shell-nav-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .shell-sair {
   align-self: flex-start;
+  display: flex;
+  align-items: center;
   background: none;
   border: 1px solid var(--cor-borda);
   border-radius: 8px;
   padding: 6px 10px;
   cursor: pointer;
   color: var(--cor-texto);
+}
+
+/* item 70 do backlog: botão pra recolher a barra lateral em telas
+ * grandes — vira um "trilho" só de ícones (largura 60px), com o rótulo
+ * de cada link escondido via `.shell-nav-label` (texto segue existindo
+ * no DOM — leitor de tela continua lendo — só fica visualmente
+ * escondido; `title` no link cobre o tooltip do mouse). Preferência por
+ * dispositivo, não sincroniza entre aparelhos (mesmo padrão já usado
+ * pelo contador de uso do menu mobile, item 29). */
+.shell-nav.recolhida {
+  width: 60px;
+}
+
+.shell-nav.recolhida .shell-nav-label {
+  display: none;
+}
+
+.shell-nav.recolhida .shell-nav-header-linha {
+  justify-content: center;
+}
+
+.shell-nav.recolhida .shell-nav-link {
+  justify-content: center;
+  padding: 10px 0;
+}
+
+.shell-nav.recolhida .shell-nav-footer {
+  align-items: center;
+  padding: 12px 4px;
+}
+
+.shell-nav.recolhida .shell-sair {
+  align-self: center;
+  padding: 6px;
 }
 
 .shell-conteudo {
