@@ -2147,21 +2147,71 @@ carga roda de novo e o patrimônio da caixinha já vem certo. "Já
 retirei" não cria transação (só liga/desliga o lembrete), não move
 saldo nenhum. Nenhum dos dois reabre o problema original.
 
-**Recomendação (não implementado ainda, aguardando confirmação):**
-Opção A (re-busca pontual) pro caso concreto já identificado —
-`confirmarRecorrente`/`pularRecorrente` em `Dashboard.tsx` passam a
-também re-buscar `buscarPatrimonio()` e o resumo do mês quando o
-recorrente confirmado cai no período exibido. Custo baixo (~1-2h,
-reaproveita funções de busca que já existem no componente, zero
-mudança de backend). Opção B (cache compartilhado tipo React Query)
-fica descartada por ora — mudança de arquitetura grande (toca toda
-tela que busca dado hoje) pro número de casos reais encontrados até
-agora (1); revisitar se mais pontos de dor aparecerem com o uso.
+**Investigação mais a fundo 2026-10-12 (a pedido do usuário) — todas as
+telas verificadas, lendo o código real, não especulação:**
 
-**Status:** registrado 2026-10-02, revisitado 2026-10-12 — único caso
-concreto continua sendo o do Dashboard (recorrente confirmado não
-atualiza patrimônio/resumo na mesma tela); recomendação de escopo
-pronta, falta confirmar e implementar.
+- **EstruturaCusto.tsx / Graficos.tsx** — 100% leitura, nenhuma ação de
+  mutação. Não tem como o padrão deste item existir aqui.
+- **Planejamento.tsx** — tem várias mutações (config, sincronizar
+  itens, apagar orçamento, gerar com rollover, ativar/desativar item,
+  forçar estouro), mas todas mantêm `orcamentos`/`itens` em sincronia
+  entre si, e é só desses 2 estados que TODAS as seções visíveis da
+  tela derivam (`useMemo`). Sem segunda fonte de busca independente
+  ficando pra trás.
+- **Configuracoes.tsx** (Contas/Categorias/Caixinhas) — cada aba é um
+  componente separado que desmonta/remonta do zero a cada troca,
+  sempre buscando dado fresco. Sem estado sobrevivente pra desatualizar.
+- **NovoLancamento.tsx / EditarLancamento.tsx** — formulário de tela
+  única; criação inline de categoria/subcategoria só alimenta o
+  próprio formulário, não existe 2ª seção na mesma tela.
+- **Dashboard.tsx** — confirmei que `marcarRetiradaResolvida` (PATCH
+  `/transacoes/{id}/retirada-pendente`) só liga/desliga um boolean, sem
+  efeito em saldo/patrimônio — nada a re-buscar além do que já faz. Sem
+  caso novo aqui, além do já conhecido (recorrente confirmado).
+
+**2 achados NOVOS, ambos em `Lancamentos.tsx`:**
+
+1. **Criar categoria/subcategoria na aba "Recorrentes" não atualiza os
+   filtros da aba "Lançamentos".** `RecorrentesSection.tsx` (renderizada
+   como aba DENTRO de `Lancamentos.tsx`, sem navegação de rota — trocar
+   de aba não remonta o pai) tem seu próprio `criarCategoria`/
+   `criarSubcategoria` (chips inline do formulário de recorrente) que só
+   atualizam o estado local da aba. `Lancamentos.tsx` busca sua PRÓPRIA
+   cópia de categorias/subcategorias uma vez ao montar, e é essa cópia
+   (não a da aba filha) que alimenta os selects de filtro da aba
+   "Lançamentos". Resultado: criar categoria na aba Recorrentes e voltar
+   pra aba Lançamentos não mostra a categoria nova no filtro, só reload
+   completo resolve.
+2. **Excluir um lançamento não atualiza "Últimos lançamentos por
+   conta".** `excluir()`/`excluirCompraParcelada()` em `Lancamentos.tsx`
+   só re-chamam `carregar()` (lista filtrada + resumo) — nunca a busca
+   de `ultimosPorConta` (`/transacoes/ultimos-por-conta`), que alimenta
+   a seção "Últimos lançamentos por conta" (item 54), visível ao mesmo
+   tempo na mesma aba. Se o excluído for um dos 10 mais recentes da
+   conta (bem provável, é exatamente o que a seção mostra), ele continua
+   aparecendo ali com dado que já não existe, até reload manual.
+
+**Recomendação (não implementado ainda, aguardando confirmação):**
+Opção A (re-busca pontual) pros 3 casos confirmados agora:
+- `Dashboard.tsx`: `confirmarRecorrente`/`pularRecorrente` também
+  re-buscam `buscarPatrimonio()` e o resumo do mês.
+- `Lancamentos.tsx`: criar categoria/subcategoria na aba Recorrentes
+  também atualiza a cópia do pai (ou — mais simples — a aba Recorrentes
+  recebe as listas via prop do pai em vez de buscar a própria cópia,
+  única fonte de verdade).
+- `Lancamentos.tsx`: `excluir()`/`excluirCompraParcelada()` também
+  re-buscam `ultimosPorConta`.
+
+Custo baixo pros 3 (~3-4h no total, reaproveita funções de busca que já
+existem nos componentes, zero mudança de backend). Opção B (cache
+compartilhado tipo React Query) continua descartada por ora — mudança
+de arquitetura grande pro número de casos reais (3) encontrados até
+agora; revisitar se mais pontos de dor aparecerem com o uso.
+
+**Status:** registrado 2026-10-02, investigação completa em todas as
+telas 2026-10-12 — 3 casos reais confirmados (Dashboard + 2 em
+Lançamentos), recomendação de escopo pronta, falta confirmar e
+implementar.
 
 ### Subitem do bucket Reservas mostra nome da conta em vez da caixinha
 
