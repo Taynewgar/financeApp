@@ -325,8 +325,7 @@ export function Lancamentos() {
               )}
               <button
                 type="button"
-                className="botao-link"
-                style={{ alignSelf: 'flex-start', padding: '4px 0' }}
+                className="botao-link link-ver-tudo-conta"
                 onClick={() => {
                   setMesRapido('')
                   setAnoRapido(String(new Date().getFullYear()))

@@ -4985,13 +4985,17 @@ que ela encolha com reticências quando o texto não couber.
 **Status:** implementado 2026-10-11.
 
 **Checklist de teste manual (usuário, localmente):**
-- [ ] Em Lançamentos, rolar a lista principal pra baixo e confirmar que
+- [x] ~~Em Lançamentos, rolar a lista principal pra baixo e confirmar que
       a legenda de cores continua legível (fundo opaco), sem texto da
-      lista aparecendo por trás dela.
-- [ ] Expandir "últimos lançamentos" de uma conta com descrições de
+      lista aparecendo por trás dela. — superado pelas Rodadas 64/66
+      (usuário pediu, a pedido dele, pra marcar como encerrado: achados
+      seguintes levaram a mudanças de layout maiores que substituíram
+      essa versão).~~
+- [x] ~~Expandir "últimos lançamentos" de uma conta com descrições de
       tamanhos bem diferentes e confirmar que o valor fica logo depois
       de cada descrição (posição variando linha a linha), nunca com um
-      vão vazio nem preso na borda direita.
+      vão vazio nem preso na borda direita. — superado pelas Rodadas
+      64/66 (mesmo motivo acima).~~
 
 ### Rodada 65 (2026-10-11) — "Últimos lançamentos por conta" recolhida por padrão
 
@@ -5066,11 +5070,65 @@ antes/depois).
 **Status:** implementado 2026-10-11.
 
 **Checklist de teste manual (usuário, localmente):**
-- [ ] Em Lançamentos, conferir que o painel de filtros e a legenda de
+- [x] ~~Em Lançamentos, conferir que o painel de filtros e a legenda de
       cores agora formam um único card (mesmo fundo, mesma borda), com a
       legenda separada só por uma linha fina, não dois blocos distintos.
-- [ ] No mobile (ou tela estreita), conferir que a legenda continua
+      — confirmado 2026-10-11.~~
+- [x] ~~No mobile (ou tela estreita), conferir que a legenda continua
       visível mesmo com o painel de filtros recolhido (toggle "Filtros").
-- [ ] Expandir "últimos lançamentos" de uma conta e conferir que os
+      — confirmado 2026-10-11.~~
+- [x] ~~Expandir "últimos lançamentos" de uma conta e conferir que os
       valores agora ficam alinhados numa coluna à direita do painel
-      (não da tela), consistente entre as linhas.
+      (não da tela), consistente entre as linhas. — **achado
+      2026-10-11**: em telas largas, o card não tinha `max-width` —
+      esticava até a borda da tela (a página não tem container com
+      largura máxima), então "alinhado à direita do painel" virava, na
+      prática, "alinhado ao final da tela" de novo. No mobile, achado à
+      parte: o texto do link "Ver tudo em Lançamentos, filtrado por
+      {conta}" estourava a largura da tela (`.botao-link` é `white-space:
+      nowrap` de propósito pros links curtos de ação, não para uma frase
+      inteira). Corrigido na Rodada 67.~~
+
+### Rodada 67 (2026-10-11) — card largo demais em telas largas + link estourando no mobile
+
+2 achados testando a Rodada 66.
+
+**Achado 1 — card de "últimos por conta" esticava até a borda da tela em
+telas largas:** a página não tem um container com largura máxima em
+lugar nenhum, então `.ultimos-por-conta` (sem `max-width` próprio)
+ocupava 100% da largura disponível — em monitor largo, a coluna de
+valores "alinhada à direita do painel" (Rodada 66) acabava, na prática,
+alinhada ao final da tela mesmo, o problema original da Rodada 61 de
+volta por outra via.
+
+**Fix 1:** `max-width: 560px` em `.ultimos-por-conta` — mesmo valor já
+usado pra "compacto" em `.form` (`forms.css`), convenção existente no
+projeto.
+
+**Achado 2 — link "Ver tudo" estourava a tela no mobile:** `.botao-link`
+(`crud.css`) é `white-space: nowrap` de propósito, pra manter os links
+de ação (Editar/Duplicar/Excluir) compactos numa linha — mas o link
+"Ver tudo em Lançamentos, filtrado por {conta}" é uma frase inteira,
+variável conforme o nome da conta, e sem poder quebrar linha estourava a
+largura da tela no mobile.
+
+**Fix 2:** nova classe `.link-ver-tudo-conta` (combinada com
+`.botao-link`) com `white-space: normal` — permite esse link específico
+quebrar linha, sem mexer no comportamento padrão (nowrap) dos outros
+links de ação que usam só `.botao-link`.
+
+**Testes:** mudança de CSS + 1 classe a mais no JSX. `tsc -b && vite
+build` — sem erro novo; `oxlint` — sem warning novo (diff idêntico
+antes/depois).
+
+**Status:** implementado 2026-10-11.
+
+**Checklist de teste manual (usuário, localmente):**
+- [ ] Em tela larga (desktop), expandir "últimos lançamentos" de uma
+      conta e confirmar que o card não estica até a borda da tela — os
+      valores ficam alinhados à direita de um painel de largura
+      limitada, não da janela inteira.
+- [ ] No mobile (ou tela estreita), expandir uma conta com nome longo e
+      clicar pra ver o link "Ver tudo em Lançamentos, filtrado por...";
+      confirmar que o texto quebra em mais de uma linha em vez de
+      estourar a largura da tela.

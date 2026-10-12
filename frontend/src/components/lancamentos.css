@@ -63,6 +63,12 @@
  * rápido onde parou de lançar numa conta, sem precisar montar filtro.
  * Fica acima dos filtros/resumo, não troca nem substitui a Busca de
  * Lançamentos — só atalho pra ela ("Ver tudo", via contaId do filtro). */
+/* max-width (mesmo valor de .form em forms.css — o "compacto" já
+ * convencionado no projeto) — achado testando a Rodada 66: sem isso, o
+ * card esticava até a borda da tela em monitores largos (a página não
+ * tem container com largura máxima), e a coluna de valores "alinhada à
+ * direita do painel" virava, na prática, de novo "alinhada ao final da
+ * tela" — exatamente o que o usuário tinha pedido pra evitar. */
 .ultimos-por-conta {
   display: flex;
   flex-direction: column;
@@ -72,6 +78,7 @@
   border: 1px solid var(--cor-borda);
   border-radius: var(--raio);
   margin-bottom: 16px;
+  max-width: 560px;
 }
 
 /* recolhida por padrão (decisão discutida com o usuário — ver changelog):
@@ -123,6 +130,18 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
+}
+
+/* .botao-link (crud.css) é `white-space: nowrap` de propósito pros links
+ * curtos (Editar/Duplicar/Excluir) — esse é uma frase inteira com o nome
+ * da conta, então precisa poder quebrar linha. Achado testando a Rodada
+ * 66: no mobile, sem isso, o texto estourava a largura da tela. */
+.link-ver-tudo-conta {
+  align-self: flex-start;
+  padding: 4px 0;
+  white-space: normal;
+  text-align: left;
+  max-width: 100%;
 }
 
 /* data primeiro (igual à lista principal "dd/mm — descrição"), valor logo
