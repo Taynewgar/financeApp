@@ -149,7 +149,14 @@ def test_proximo_mes_chamado_duas_vezes_retorna_409_na_segunda_contra_banco_real
     assert repetida.status_code == 409
 
 
-def test_item_que_estoura_teto_do_bucket_retorna_422_contra_banco_real(real_client, headers_a, cleanup):
+def test_item_que_estoura_teto_do_bucket_retorna_409_e_forcar_aceita_contra_banco_real(real_client, headers_a, cleanup):
+    """Teste desatualizado até 2026-10-12 — _validar_teto_bucket() deixou
+    de bloquear com 422 em 2026-10-11 (orçamento é planejamento, tem
+    categoria que precisa de valor mesmo estourado) e virou confirmação
+    409 + forcar_estouro=true, mesmo padrão de forcar_duplicado em
+    transacoes.py (ver test_orcamentos_api.py, já atualizado na época —
+    só esta suíte de integração, que só roda no ambiente do usuário, não
+    tinha sido tocada)."""
     orcamento = _criar_orcamento(real_client, headers_a)  # receita_base=5000, teto_custos_fixos=2000
     cleanup.append(("orcamentos", orcamento["id"]))
     primeiro = real_client.post(
@@ -159,12 +166,20 @@ def test_item_que_estoura_teto_do_bucket_retorna_422_contra_banco_real(real_clie
     ).json()
     cleanup.append(("orcamento_itens", primeiro["id"]))
 
-    resposta = real_client.post(
+    sem_forcar = real_client.post(
         f"/orcamentos/{orcamento['id']}/itens",
         json={"bucket": "custos_fixos", "nome": "Condomínio", "orcamento_mensal": 500},
         headers=headers_a,
     )
-    assert resposta.status_code == 422  # 1800 + 500 = 2300 > teto de 2000
+    assert sem_forcar.status_code == 409  # 1800 + 500 = 2300 > teto de 2000
+
+    com_forcar = real_client.post(
+        f"/orcamentos/{orcamento['id']}/itens",
+        json={"bucket": "custos_fixos", "nome": "Condomínio", "orcamento_mensal": 500, "forcar_estouro": True},
+        headers=headers_a,
+    )
+    assert com_forcar.status_code == 201
+    cleanup.append(("orcamento_itens", com_forcar.json()["id"]))
 
 
 def test_item_expoe_percentuais_calculados_contra_banco_real(real_client, headers_a, cleanup):
@@ -256,7 +271,9 @@ def test_sobra_acumulada_do_bucket_amplia_teto_contra_banco_real(real_client, he
         json={"bucket": "custos_fixos", "nome": "Item que estoura", "orcamento_mensal": 0.01},
         headers=headers_a,
     )
-    assert estoura.status_code == 422
+    # desatualizado até 2026-10-12 — ver nota em
+    # test_item_que_estoura_teto_do_bucket_retorna_409_e_forcar_aceita_contra_banco_real
+    assert estoura.status_code == 409
 
 
 def test_desativar_item_persiste_no_banco_real(real_client, headers_a, cleanup):

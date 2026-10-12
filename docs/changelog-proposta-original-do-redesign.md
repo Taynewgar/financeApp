@@ -5508,18 +5508,19 @@ limitação de sempre).
 **Status:** implementado 2026-10-12.
 
 **Checklist de teste manual (usuário, localmente):**
-- [ ] Numa tela grande (desktop), clicar no botão "«" no topo da barra
+- [x] ~~Numa tela grande (desktop), clicar no botão "«" no topo da barra
       lateral — ela vira um trilho estreito só de ícones, sem quebrar o
-      layout do conteúdo ao lado.
-- [ ] Passar o mouse sobre um ícone recolhido e confirmar que aparece o
-      tooltip com o nome da seção.
-- [ ] Clicar em "»" e confirmar que a barra volta ao normal (rótulos
-      visíveis de novo).
-- [ ] Recarregar a página com a barra recolhida e confirmar que ela
-      continua recolhida (preferência persistida).
-- [ ] Confirmar que recolher/expandir não quebra nada no mobile (a
+      layout do conteúdo ao lado. — confirmado 2026-10-12.~~
+- [x] ~~Passar o mouse sobre um ícone recolhido e confirmar que aparece o
+      tooltip com o nome da seção. — confirmado 2026-10-12.~~
+- [x] ~~Clicar em "»" e confirmar que a barra volta ao normal (rótulos
+      visíveis de novo). — confirmado 2026-10-12.~~
+- [x] ~~Recarregar a página com a barra recolhida e confirmar que ela
+      continua recolhida (preferência persistida). — confirmado
+      2026-10-12.~~
+- [x] ~~Confirmar que recolher/expandir não quebra nada no mobile (a
       barra lateral já fica escondida lá, não deveria ter nenhuma
-      mudança visível).
+      mudança visível). — confirmado 2026-10-12.~~
 
 ### Rodada 76 (2026-10-12) — Itens 61 e 64, decididos via mockup
 
@@ -5661,3 +5662,43 @@ sempre nesta sessão).
 - [ ] Em Editar Lançamento, desmarcar o checkbox de uma despesa que já
       tinha vínculo e salvar — confirmar que ela some de "Retiradas
       pendentes" (vínculo removido = resolvido).
+
+### Rodada 78 (2026-10-12) — Fix: 2 testes de integração desatualizados (teto de bucket)
+
+Usuário rodou a integração real (`tests/integration/`, só roda no
+ambiente dele, com `backend/.env` preenchido) e reportou 2 falhas em
+`test_orcamentos_integration.py`: `assert 409 == 422` nos dois casos.
+
+**Causa — não é bug, é teste desatualizado:** `_validar_teto_bucket()`
+mudou de bloqueio rígido (422) pra confirmação (409 + `forcar_estouro=
+true`, mesmo padrão de `forcar_duplicado` em transações) em 2026-10-11
+("Teto de bucket deixa de bloquear a gravação, vira aviso visual" —
+usuário pediu, orçamento é planejamento e precisa aceitar categoria
+estourada). A suíte offline (`tests/test_orcamentos_api.py`) já foi
+atualizada na época — só a suíte de integração, que não roda nesta
+sessão remota (sem `backend/.env`) e só o usuário consegue rodar de
+verdade, ficou pra trás sem ninguém notar.
+
+**Fix:** `test_item_que_estoura_teto_do_bucket_retorna_422_contra_banco_real`
+renomeado e reescrito pro padrão 409+forçar (`..._409_e_forcar_aceita_
+contra_banco_real`, com os 2 passos: sem forçar dá 409, com
+`forcar_estouro: true` dá 201). `test_sobra_acumulada_do_bucket_amplia_
+teto_contra_banco_real` — assertiva do limite exato trocada de 422 pra
+409. Nenhuma mudança de comportamento do app, só os testes alinhados
+com a regra que já está em produção desde a Rodada 46-ish (2026-10-11).
+
+**Testes:** suíte offline (407 passed, 33 skipped — os 2 arquivos de
+integração editados continuam coletados sem erro de sintaxe, mas
+seguem pulando aqui, mesma limitação de sempre). O usuário precisa
+rodar a integração real de novo pra confirmar os 2 agora passam.
+
+**Status:** implementado 2026-10-12, pede confirmação do usuário
+rodando `tests/integration/` de novo.
+
+**Checklist de teste manual (usuário, localmente, com `backend/.env`):**
+- [ ] Rodar a suíte de integração completa e confirmar que
+      `test_item_que_estoura_teto_do_bucket_retorna_409_e_forcar_
+      aceita_contra_banco_real` e `test_sobra_acumulada_do_bucket_
+      amplia_teto_contra_banco_real` passam.
+- [ ] Confirmar que o total de `passed` bate com `passed + skipped` da
+      suíte offline (sinal de que nada mais ficou sem rodar).
