@@ -134,6 +134,14 @@
   text-decoration: none;
   opacity: 1;
   transition: opacity 0.15s ease;
+  /* item 31 do backlog (achado 2026-10-12, Rodadas 71/72): sem z-index, o
+   * FAB ficava no empilhamento padrão (auto ≈ 0) e cards sticky como
+   * `.cabecalho-fixo` (z-index: 5, cabecalhoFixo.css) desenhavam por cima
+   * dele — não era sobreposição física de layout, era o FAB perdendo o
+   * empilhamento pro card. Um botão flutuante devia sempre ficar acima do
+   * conteúdo normal da página; maior que o 5 do cabeçalho/barra inferior
+   * resolve pra qualquer tela, não só paisagem curta. */
+  z-index: 6;
 }
 
 .shell-fab.escondido {

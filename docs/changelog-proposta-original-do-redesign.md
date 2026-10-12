@@ -5373,12 +5373,60 @@ local possível (precisa de celular real).
 aparelho real, em paisagem.
 
 **Checklist de teste manual (usuário, localmente, celular real):**
-- [ ] Em paisagem, confirmar que o app mostra a barra de navegação
+- [x] ~~Em paisagem, confirmar que o app mostra a barra de navegação
       inferior (Dashboard/Lançamentos/Estruturas/Gráficos/Menu), não a
       sidebar — mesmo nos aparelhos onde a largura em paisagem é maior
-      que num celular comum em retrato.
-- [ ] Ainda em paisagem, confirmar que o FAB ("+") não sobrepõe mais o
+      que num celular comum em retrato. — confirmado 2026-10-12.~~
+- [x] ~~Ainda em paisagem, confirmar que o FAB ("+") não sobrepõe mais o
       card de filtros/legenda — fica acima da barra de navegação
-      inferior, como já acontece em retrato.
-- [ ] Confirmar que em retrato nada mudou — sidebar continua escondida,
-      barra inferior normal, sem regressão.
+      inferior, como já acontece em retrato. **Reprovado** — reportado
+      2026-10-12 como "mesma questão da Rodada 71, item 2": o card
+      continuava cobrindo o FAB. Causa real (ver Rodada 73): não era a
+      altura do conteúdo, era `z-index` — `.shell-fab` não tinha nenhum
+      definido, então `.cabecalho-fixo` (`z-index: 5`) desenhava por
+      cima dele.~~
+- [x] ~~Confirmar que em retrato nada mudou — sidebar continua escondida,
+      barra inferior normal, sem regressão. — confirmado 2026-10-12.~~
+
+### Rodada 73 (2026-10-12) — Item 31: FAB sem z-index, perdia empilhamento pro card sticky
+
+A Rodada 72 corrigiu o critério de "tela pequena" (sidebar vs. barra
+inferior), mas o FAB continuou sobrepondo o card de filtros/legenda em
+paisagem curta. Antes de tentar outro ajuste de layout, perguntei ao
+usuário se fazia sentido o card cobrir o FAB (ele achou que sim, por
+simplicidade) — na troca, ficou claro que a leitura inicial (conteúdo
+"em repouso" alto demais pra tela) tava errada: a imagem mostra o
+círculo do FAB **cortado por trás** da borda do card, não um FAB inteiro
+boiando por cima de outra coisa. Isso é assinatura de bug de
+empilhamento (`z-index`), não de altura de conteúdo.
+
+**Causa:** `.shell-fab` (`AppShell.css`) nunca teve `z-index` definido
+(fica em `auto`, equivalente a 0 no empilhamento). `.cabecalho-fixo`
+(`cabecalhoFixo.css`, usado pelo card de filtros/legenda em Lançamentos,
+além de Dashboard/Gráficos/Planejamento/Estrutura de Custo) tem
+`z-index: 5`. Como nenhum ancestral comum entre os dois cria um
+contexto de empilhamento próprio, o card — com `z-index` explícito —
+desenha por cima do FAB — sem `z-index` explícito — independente da
+ordem no DOM. Um botão flutuante devia sempre ficar acima do conteúdo
+normal da página; isso nunca foi garantido.
+
+**Fix:** `z-index: 6` em `.shell-fab` (maior que os `5` já usados por
+`.cabecalho-fixo` e `.shell-bottom-nav`). Vale pra qualquer tela, não só
+paisagem curta — corrige a causa raiz em vez de compensar o sintoma só
+no caso extremo.
+
+**Testes:** mudança de CSS puro (1 propriedade). `tsc -b && vite build`
+— sem erro novo; `oxlint` — sem warning novo (diff idêntico
+antes/depois, comparado por conjunto ordenado pra não pegar ruído de
+ordem de varredura). Sem reprodução local possível (precisa de celular
+real, mesma limitação das Rodadas 69-72).
+
+**Status:** implementado 2026-10-12, pede reteste do usuário num
+aparelho real, em paisagem.
+
+**Checklist de teste manual (usuário, localmente, celular real):**
+- [ ] Em paisagem (tela curta), confirmar que o FAB ("+") aparece
+      inteiro, por cima do card de filtros/legenda, sem ser cortado ou
+      escondido atrás dele.
+- [ ] Confirmar que o FAB continua funcionando normalmente em todas as
+      outras telas (retrato, desktop) — sem regressão visual.
