@@ -26,6 +26,17 @@ numerados 41-60 na sequência. Itens concluídos saíram da divisão por
 área/prioridade — ver "Concluído" abaixo, em ordem numérica simples (o
 changelog já documenta quando e como cada um foi entregue).
 
+> **Nota de status (2026-10-12):** essa regra (item concluído sai da
+> divisão por área e vai pra "Concluído") vale pra TODO item marcado
+> ✅ por completo — não só pros que existiam em 2026-10-01. Entre essa
+> data e agora acumulou um desvio (itens concluídos ficando inline
+> com ✅ em vez de ir pra lá), corrigido nesta rodada. Exceção: um item
+> com ✅ só numa PARTE dele (ex: itens 59/60, onde só a ordenação
+> alfabética está feita, a manual/drag-and-drop não) continua inline —
+> só muda pra "Concluído" quando TODAS as partes estiverem prontas.
+> "Ordem numérica simples" na prática é ordem de conclusão (cada item
+> novo entra no fim da lista, não ordenado por número).
+
 > **Nota de formatação (2026-09-25):** os itens abaixo usam `- **N.**`
 > (marcador de lista solto + número em negrito), não `N.` como item de
 > lista numerada nativa do Markdown. Motivo: como a numeração aqui não é
@@ -37,21 +48,6 @@ changelog já documenta quando e como cada um foi entregue).
 ### Pendente, por área
 
 #### Dashboard
-
-**Média**
-
-- **61.** **Reduzir tamanho dos cards de caixinha no Dashboard**
-  `tipo: Melhoria` ✅ — viraram grid (2+ por linha, conforme largura) em
-  vez de 1 linha cheia por caixinha, mesmo padrão visual dos cards de
-  resumo do topo. Mockup com 2 opções, usuário escolheu grid. Ver
-  detalhe no changelog (Rodada 76). *(2026-10-01; implementado
-  2026-10-12)*
-- **64.** **Compromissos Futuros: card ainda mais compacto em telas
-  maiores** `tipo: Melhoria` ✅ — título+detalhe numa linha só (eram 2) +
-  padding/fonte dos botões reduzidos; "Confirmar"/"Pular" continuam
-  EMPILHADOS (fix deliberado de clique errado, item 21, não reaberto).
-  Ver detalhe no changelog (Rodada 76). *(2026-10-02; implementado
-  2026-10-12)*
 
 **Baixa**
 
@@ -69,69 +65,12 @@ changelog já documenta quando e como cada um foi entregue).
 
 #### Lançamentos
 
-**Alta**
-
-- **43.** **Consulta rápida durante a inserção** `tipo: Melhoria` ✅ —
-  ver detalhe abaixo. *(trazido em CSV, 2026-09-30; implementado
-  2026-10-11)*
-- **44.** **Agilidade na inserção de transações** `tipo: Melhoria` ✅ —
-  ver detalhe abaixo. CRUD em lote rebaixado pra baixa prioridade (item
-  69). *(trazido em CSV, 2026-09-30; implementado 2026-10-11)*
-- **45.** **Busca por descrição parcial** `tipo: Melhoria` ✅ — ver
-  detalhe no changelog (Rodada 58). *(trazido em CSV, 2026-09-30;
-  implementado 2026-10-11)*
-- **71.** **Novo Lançamento: reordenar campos pra tirar proveito dos
-  chips de descrição** `tipo: Melhoria` ✅ — Categoria/Subcategoria
-  passaram a vir ANTES de Descrição (pedido do usuário: já que os chips
-  de descrição sugerida dependem da categoria escolhida — item 43 —,
-  escolher categoria primeiro faz os chips já aparecerem quando chega
-  em Descrição, em vez de depois). Nova ordem: Valor/Data → Categoria/
-  Subcategoria (ou Caixinha, se Reserva) → Conta → Descrição →
-  Estrutura de custo/Meio de pagamento → botões. Ver detalhe no
-  changelog (Rodada 80). *(pedido e implementado 2026-10-12)*
-
-**Média**
-
-- **31.** **Lançamentos: painel de filtros muito alto no mobile em
-  paisagem** `tipo: Melhoria` ✅ — 4 causas encontradas em rodadas
-  sucessivas de reteste: (1) gatilho do toggle mobile só por largura
-  (`max-width: 720px`) — paisagem costuma passar disso; (2) o mesmo
-  critério faltava no `AppShell.css` (sidebar vs. barra inferior), app
-  ficava num híbrido desktop+mobile; (3) o FAB não tinha `z-index`,
-  então o card de filtros/legenda (que tem) desenhava por cima dele; (4)
-  o menu mobile ("•••") tinha `z-index` menor que o card, mesmo bug
-  invertido. Ver detalhe no changelog (Rodadas 69-74). *(reportado
-  2026-09-25; implementado 2026-10-12)*
-- **53.** **Filtro por tipo de transação: parcelado ou à vista**
-  `tipo: Melhoria` ✅ — ver detalhe no changelog (Rodada 60). *(trazido
-  em CSV, 2026-09-30; implementado 2026-10-11)*
-- **54.** **Últimas transações lançadas por conta** `tipo: Melhoria` ✅ —
-  ver detalhe no changelog (Rodada 61) — mockups de decisão na Rodada 60.
-  *(trazido em CSV, 2026-09-30; implementado 2026-10-11)*
-- **55.** **Esquema de cores das transações** `tipo: Melhoria` ✅ — ver
-  detalhe no changelog (Rodada 61) — mockups de decisão na Rodada 60.
-  *(trazido em CSV, 2026-09-30; implementado 2026-10-11)*
-
 **Baixa**
 
 - **33.** **Lançamento com mais de 1 categoria** `tipo: Implementação`
   (detalhe abaixo) — surgiu durante a análise do item 9 (migração de
   dados). Rebaixado de Média pra Baixa a pedido do usuário.
   *(2026-10-12)*
-- **58.** **Marcador de origem caixinha** `tipo: Melhoria` ✅ — virou
-  lembrete ativo de "falta retirar da caixinha" (motivo real do pedido,
-  esclarecido com o usuário: evitar esquecer o saque de uma despesa já
-  coberta por uma reserva), não só um marcador passivo. Campo opcional
-  `caixinha_origem_id` no Novo Lançamento/Editar (despesa), card
-  "Retiradas pendentes de caixinha" no Dashboard com "Lançar retirada
-  agora"/"Já retirei, só marcar", badge na lista de Lançamentos. Mockup
-  aprovado antes de implementar. Ver detalhe no changelog (Rodada 77).
-  Testado e confirmado 2026-10-12. 2 melhorias de usabilidade
-  levantadas no teste, ambas ✅: excluir a transação de retirada volta
-  a marcar a despesa como pendente (Rodada 86); indicador + ação de
-  "marcar como pendente de novo" em Editar Lançamento, pra quando a
-  despesa já foi resolvida (Rodada 87, mockup aprovado antes).
-  *(trazido em CSV, 2026-09-30; implementado 2026-10-12)*
 - **69.** **CRUD em lote de transações** `tipo: Melhoria` — criar/
   editar/excluir várias transações de uma vez. Desmembrado do item 44;
   rebaixado pra baixa prioridade a pedido do usuário — inserir uma
@@ -140,26 +79,6 @@ changelog já documenta quando e como cada um foi entregue).
   *(2026-10-11)*
 
 #### Planejamento
-
-**Alta**
-
-- **46.** **Botões fixos + expandir tudo no Planejamento**
-  `tipo: Melhoria` ✅ — ver detalhe no changelog (Rodada 58). *(trazido
-  em CSV, 2026-09-30; implementado 2026-10-11)*
-- **47.** **Renomear bucket→envelope, sobra→saldo do envelope**
-  `tipo: Melhoria` ✅ — troca só de rótulo visível (campo/schema/API
-  continuam `bucket`, por decisão explícita do usuário). Ver detalhe no
-  changelog (Rodada 58). *(trazido em CSV, 2026-09-30; implementado
-  2026-10-11)*
-
-**Média**
-
-- **56.** **Botão de apagar orçamento** `tipo: Implementação` ✅ — ver
-  detalhe abaixo. *(trazido em CSV, 2026-09-30; implementado
-  2026-10-10)*
-- **62.** **Decisão: criação manual de item em Planejamento ainda é
-  necessária?** `tipo: Decisão` ✅ **removida** — ver detalhe abaixo.
-  *(2026-10-01, decidido e implementado 2026-10-10)*
 
 **Baixa**
 
@@ -209,12 +128,6 @@ changelog já documenta quando e como cada um foi entregue).
 
 #### Configurações
 
-**Média**
-
-- **48.** **Mover subcategoria entre categorias** `tipo: Melhoria` ✅ —
-  só entre categorias despesa. Ver detalhe no changelog (Rodada 70).
-  *(trazido em CSV, 2026-09-30; implementado 2026-10-12)*
-
 **Baixa**
 
 - **28.** **Aba Bancos em Configurações** `tipo: Implementação` — hoje
@@ -236,49 +149,17 @@ changelog já documenta quando e como cada um foi entregue).
 
 **Média**
 
-- **49.** **Título da aba do navegador = nome da feature ativa**
-  `tipo: Melhoria` ✅ — ver detalhe no changelog (Rodada 70). *(trazido
-  em CSV, 2026-09-30; implementado 2026-10-12)*
-- **50.** **Fuso horário dinâmico, não fixo** `tipo: Melhoria`/`Bug` ✅ —
-  achado bug real (`toISOString()` convertia pra UTC, deslocando "hoje"/
-  "mês atual" à noite num fuso negativo) — corrigido com data local do
-  dispositivo em vez de fixar um fuso no código, a pedido do usuário
-  (pode mudar de cidade). Ver detalhe no changelog (Rodada 70). *(trazido
-  em CSV, 2026-09-30; implementado 2026-10-12)*
-- **63.** **Racional de testes com `/financeapp-ref`** (detalhe abaixo)
-  `tipo: Validação` ✅ — rodado contra a conta real
-  (`referencia_saldo_anterior.py` + `/financeapp-ref`), achou 2 bugs: um
-  no próprio script (cache sem a chave `bucket`) e um real no app —
-  `realizado` de item de Planejamento vazando entre buckets quando a
-  mesma categoria está em 2 buckets diferentes no mesmo mês (corrigido
-  2026-10-11). Também validou a cadeia de `saldo_anterior` inteira (625
-  itens, 0 divergências pós-fix). 1 dos 6 pontos do roteiro (Caixinhas/
-  Patrimônio batendo com "Guardado") segue sem reconfirmação formal
-  pós-RPC — baixo risco, mesma fórmula já confirmada por cálculo direto
-  do CSV na Rodada 35. *(2026-10-01; rodado 2026-10-10/11)*
 - **66.** **Avaliar atualização reativa entre telas após inserção de
   dados** (detalhe abaixo) `tipo: Melhoria` — hoje cada tela busca seus
   próprios dados só no próprio `useEffect` (sem cache nem invalidação
   entre telas); uma ação numa tela não atualiza dado dependente
   mostrado em outra parte da mesma tela ou de outra, só reload manual
-  resolve. Exemplo concreto: confirmar no Dashboard uma transação
-  recorrente de aplicação em caixinha não atualiza o saldo da caixinha
-  mostrado no mesmo Dashboard (só a lista de Compromissos Futuros é
-  re-buscada). Avaliar caso a caso, por feature, se vale a pena.
-  *(2026-10-02)*
-- **70.** **Botão pra recolher a barra lateral em telas grandes**
-  `tipo: Melhoria` ✅ — vira um trilho de ícones (60px), preferência
-  salva por dispositivo (localStorage, mesmo padrão do contador de uso
-  do menu mobile). Ver detalhe no changelog (Rodada 75). *(pedido e
-  implementado 2026-10-12)*
-- **72.** **Identificar qual versão/commit está carregado no navegador/
-  mobile** `tipo: Melhoria` ✅ — hash curto do commit (+ data/hora do
-  build no tooltip), pra conferir depois de um deploy que a versão nova
-  realmente propagou. Primeira versão (Rodada 83) só aparecia na
-  sidebar desktop; não existia em telas ≤720px/mobile (onde a sidebar
-  vira `display: none`) — corrigido repetindo o rótulo na barra
-  superior mobile (Rodada 84). Ver detalhe no changelog. *(pedido e
-  implementado 2026-10-12)*
+  resolve. 3 casos reais confirmados (investigação completa
+  2026-10-12): Dashboard (confirmar/pular recorrente não atualiza
+  patrimônio/resumo), e 2 em Lançamentos (criar categoria na aba
+  Recorrentes não propaga pro filtro da aba Lançamentos; excluir
+  lançamento não atualiza "Últimos lançamentos por conta"). Ver detalhe
+  abaixo. *(2026-10-02; investigação completa 2026-10-12)*
 
 **Baixa**
 
@@ -498,6 +379,105 @@ já documenta quando e como cada um foi entregue.
   com `forcar_duplicado` pro caso de 2 compras reais e diferentes
   coincidirem. Detalhe na subseção própria abaixo, ver changelog Rodada
   46.
+- **56.** ~~Botão de apagar orçamento~~ **feito 2026-10-10** — ver
+  detalhe na subseção própria abaixo. *(trazido em CSV, 2026-09-30)*
+- **62.** ~~Decisão: criação manual de item em Planejamento ainda é
+  necessária?~~ **decidido e removida 2026-10-10** — ver detalhe na
+  subseção própria abaixo. *(2026-10-01)*
+- **43.** ~~Consulta rápida durante a inserção~~ **feito 2026-10-11** —
+  ver detalhe na subseção própria abaixo. *(trazido em CSV, 2026-09-30)*
+- **44.** ~~Agilidade na inserção de transações~~ **feito 2026-10-11** —
+  ver detalhe na subseção própria abaixo; CRUD em lote desmembrado e
+  rebaixado pra baixa prioridade (item 69, não implementado). *(trazido
+  em CSV, 2026-09-30)*
+- **45.** ~~Busca por descrição parcial~~ **feito 2026-10-11** — ver
+  changelog Rodada 58. *(trazido em CSV, 2026-09-30)*
+- **46.** ~~Botões fixos + expandir tudo no Planejamento~~ **feito
+  2026-10-11** — ver changelog Rodada 58. *(trazido em CSV, 2026-09-30)*
+- **47.** ~~Renomear bucket→envelope, sobra→saldo do envelope~~ **feito
+  2026-10-11** — troca só de rótulo visível (campo/schema/API continuam
+  `bucket`, por decisão explícita do usuário). Ver changelog Rodada 58.
+  *(trazido em CSV, 2026-09-30)*
+- **53.** ~~Filtro por tipo de transação: parcelado ou à vista~~ **feito
+  2026-10-11** — ver changelog Rodada 60. *(trazido em CSV, 2026-09-30)*
+- **54.** ~~Últimas transações lançadas por conta~~ **feito 2026-10-11**
+  — ver changelog Rodada 61, mockups de decisão na Rodada 60. *(trazido
+  em CSV, 2026-09-30)*
+- **55.** ~~Esquema de cores das transações~~ **feito 2026-10-11** — ver
+  changelog Rodada 61, mockups de decisão na Rodada 60. *(trazido em
+  CSV, 2026-09-30)*
+- **63.** ~~Racional de testes com `/financeapp-ref`~~ **rodado
+  2026-10-10/11** — contra a conta real
+  (`referencia_saldo_anterior.py` + `/financeapp-ref`), achou 2 bugs: um
+  no próprio script (cache sem a chave `bucket`) e um real no app —
+  `realizado` de item de Planejamento vazando entre buckets quando a
+  mesma categoria está em 2 buckets diferentes no mesmo mês (corrigido
+  2026-10-11). Validou a cadeia de `saldo_anterior` inteira (625 itens,
+  0 divergências pós-fix). 1 dos 6 pontos do roteiro (Caixinhas/
+  Patrimônio batendo com "Guardado") segue sem reconfirmação formal
+  pós-RPC — baixo risco, mesma fórmula já confirmada por cálculo direto
+  do CSV na Rodada 35. *(2026-10-01)*
+- **61.** ~~Reduzir tamanho dos cards de caixinha no Dashboard~~ **feito
+  2026-10-12** — viraram grid (2+ por linha, conforme largura) em vez
+  de 1 linha cheia por caixinha, mesmo padrão visual dos cards de
+  resumo do topo. Mockup com 2 opções, usuário escolheu grid. Ver
+  changelog Rodada 76. *(2026-10-01)*
+- **64.** ~~Compromissos Futuros: card ainda mais compacto em telas
+  maiores~~ **feito 2026-10-12** — título+detalhe numa linha só (eram
+  2) + padding/fonte dos botões reduzidos; "Confirmar"/"Pular"
+  continuam EMPILHADOS (fix deliberado de clique errado, item 21, não
+  reaberto). Ver changelog Rodada 76. *(2026-10-02)*
+- **71.** ~~Novo Lançamento: reordenar campos pra tirar proveito dos
+  chips de descrição~~ **feito 2026-10-12** — Categoria/Subcategoria
+  passaram a vir ANTES de Descrição (já que os chips de descrição
+  sugerida dependem da categoria escolhida — item 43 —, escolher
+  categoria primeiro faz os chips já aparecerem quando chega em
+  Descrição). Nova ordem: Valor/Data → Categoria/Subcategoria (ou
+  Caixinha, se Reserva) → Conta → Descrição → Estrutura de custo/Meio
+  de pagamento → botões. Ver changelog Rodada 80.
+- **31.** ~~Lançamentos: painel de filtros muito alto no mobile em
+  paisagem~~ **feito 2026-10-12** — 4 causas encontradas em rodadas
+  sucessivas de reteste: (1) gatilho do toggle mobile só por largura
+  (`max-width: 720px`) — paisagem costuma passar disso; (2) o mesmo
+  critério faltava no `AppShell.css` (sidebar vs. barra inferior), app
+  ficava num híbrido desktop+mobile; (3) o FAB não tinha `z-index`,
+  então o card de filtros/legenda (que tem) desenhava por cima dele;
+  (4) o menu mobile ("•••") tinha `z-index` menor que o card, mesmo bug
+  invertido. Ver changelog Rodadas 69-74. *(reportado 2026-09-25)*
+- **58.** ~~Marcador de origem caixinha~~ **feito 2026-10-12** — virou
+  lembrete ativo de "falta retirar da caixinha" (motivo real do pedido,
+  esclarecido com o usuário: evitar esquecer o saque de uma despesa já
+  coberta por uma reserva), não só um marcador passivo. Campo opcional
+  `caixinha_origem_id` no Novo Lançamento/Editar (despesa), card
+  "Retiradas pendentes de caixinha" no Dashboard com "Lançar
+  retirada"/"Já retirei", badge na lista de Lançamentos. Mockup
+  aprovado antes de implementar; testado e confirmado 2026-10-12. 2
+  melhorias de usabilidade levantadas no teste, ambas feitas: excluir a
+  transação de retirada volta a marcar a despesa como pendente (Rodada
+  86); indicador + ação de "marcar como pendente de novo" em Editar
+  Lançamento (Rodada 87, mockup aprovado antes). Ver changelog Rodada
+  77. *(trazido em CSV, 2026-09-30)*
+- **48.** ~~Mover subcategoria entre categorias~~ **feito 2026-10-12**
+  — só entre categorias despesa. Ver changelog Rodada 70. *(trazido em
+  CSV, 2026-09-30)*
+- **49.** ~~Título da aba do navegador = nome da feature ativa~~ **feito
+  2026-10-12** — ver changelog Rodada 70. *(trazido em CSV, 2026-09-30)*
+- **50.** ~~Fuso horário dinâmico, não fixo~~ **feito 2026-10-12** —
+  achado bug real (`toISOString()` convertia pra UTC, deslocando
+  "hoje"/"mês atual" à noite num fuso negativo) — corrigido com data
+  local do dispositivo em vez de fixar um fuso no código, a pedido do
+  usuário (pode mudar de cidade). Ver changelog Rodada 70. *(trazido em
+  CSV, 2026-09-30)*
+- **70.** ~~Botão pra recolher a barra lateral em telas grandes~~
+  **feito 2026-10-12** — vira um trilho de ícones (60px), preferência
+  salva por dispositivo (localStorage, mesmo padrão do contador de uso
+  do menu mobile). Ver changelog Rodada 75.
+- **72.** ~~Identificar qual versão/commit está carregado no
+  navegador/mobile~~ **feito 2026-10-12** — hash curto do commit (+
+  data/hora do build no tooltip), pra conferir depois de um deploy que
+  a versão nova realmente propagou. 1ª versão (Rodada 83) só aparecia
+  na sidebar desktop; corrigido repetindo o rótulo na barra superior
+  mobile pra cobrir telas ≤720px/mobile (Rodada 84). Ver changelog.
 
 Este arquivo não substitui o `README.md` da raiz (que descreve o que
 existe) nem o `/status-projeto` (relatório de andamento) — é o registro do
