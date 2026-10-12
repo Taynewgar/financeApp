@@ -5021,8 +5021,56 @@ novo; `oxlint` — sem warning novo (diff idêntico antes/depois).
 **Status:** implementado 2026-10-11.
 
 **Checklist de teste manual (usuário, localmente):**
-- [ ] Abrir Lançamentos e confirmar que "Últimos lançamentos por conta"
+- [x] ~~Abrir Lançamentos e confirmar que "Últimos lançamentos por conta"
       aparece recolhida (só o título + ▼), sem os chips de conta visíveis
-      de cara.
-- [ ] Clicar no título e confirmar que expande (chips de conta aparecem,
-      seta vira ▲); clicar de novo e confirmar que recolhe.
+      de cara. — confirmado 2026-10-11.~~
+- [x] ~~Clicar no título e confirmar que expande (chips de conta aparecem,
+      seta vira ▲); clicar de novo e confirmar que recolhe. — confirmado
+      2026-10-11.~~
+
+### Rodada 66 (2026-10-11) — 2 achados remanescentes da Rodada 64
+
+**Achado 1 — legenda "destacada" do painel de filtros:** depois do fix de
+sobreposição (Rodada 64), a legenda virou opaca, mas ganhou card próprio
+(fundo+borda) — ao lado do card de filtros, lia como 2 painéis soltos em
+vez de um só.
+
+**Fix 1:** `.cabecalho-fixo` em Lançamentos ganhou a classe
+`cabecalho-fixo-card` (`cabecalhoFixo.css`) — mesmo padrão de card único
+já usado em Planejamento/Dashboard. Ela é quem dá fundo opaco, borda e
+padding pro bloco inteiro agora; `.filtros`, o botão de resumo mobile e a
+legenda perderam o fundo/borda/padding próprios (viravam duplicata) e
+passaram a ser 3 seções dentro do mesmo card, espaçadas pelo `gap` dele.
+A legenda voltou a usar só um `border-top` como divisor — seguro agora,
+porque o card em volta é opaco (o bug da Rodada 63 era especificamente a
+`.legenda-cores-transacao` não ter fundo nenhum).
+
+**Achado 2 — valor do "últimos por conta" sem alinhamento:** sem
+`justify-content`, o valor ficava logo depois do texto, numa posição
+diferente a cada linha (dependendo do tamanho da descrição) — o usuário
+preferiu uma coluna de valores alinhada à direita, mas delimitada pela
+largura do painel (`.painel-ultimos-conta`), não da tela inteira (esse
+era o problema original da Rodada 61 — lá eram 3 colunas soltas, aqui são
+só 2, dentro de um elemento com padding próprio).
+
+**Fix 2:** `justify-content: space-between` de volta em
+`.ultimo-conta-linha` — com só 2 filhos (bloco de texto + valor, depois
+da reestruturação da Rodada 62) e sem `flex-grow` no texto (Rodada 64),
+o valor agora fica alinhado à direita do painel, consistente linha a
+linha, com a descrição truncando em reticências quando precisar.
+
+**Testes:** mudança de CSS + 1 classe a mais no JSX. `tsc -b && vite
+build` — sem erro novo; `oxlint` — sem warning novo (diff idêntico
+antes/depois).
+
+**Status:** implementado 2026-10-11.
+
+**Checklist de teste manual (usuário, localmente):**
+- [ ] Em Lançamentos, conferir que o painel de filtros e a legenda de
+      cores agora formam um único card (mesmo fundo, mesma borda), com a
+      legenda separada só por uma linha fina, não dois blocos distintos.
+- [ ] No mobile (ou tela estreita), conferir que a legenda continua
+      visível mesmo com o painel de filtros recolhido (toggle "Filtros").
+- [ ] Expandir "últimos lançamentos" de uma conta e conferir que os
+      valores agora ficam alinhados numa coluna à direita do painel
+      (não da tela), consistente entre as linhas.

@@ -386,7 +386,7 @@ export function Lancamentos() {
         </div>
       )}
 
-      <div className="cabecalho-fixo">
+      <div className="cabecalho-fixo cabecalho-fixo-card">
         <button
           type="button"
           className="filtros-resumo-mobile"

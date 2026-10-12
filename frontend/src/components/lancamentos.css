@@ -1,12 +1,15 @@
+/* sem fundo/borda/padding próprios de propósito — achado testando a
+ * Rodada 64: o usuário achou a legenda "destacada" do card de filtros,
+ * cada uma com seu próprio card, quando deveria ler como um painel só.
+ * Agora `.filtros`, o toggle mobile e a legenda são 3 blocos dentro do
+ * mesmo `.cabecalho-fixo-card` (`cabecalhoFixo.css`, mesmo padrão já
+ * usado em Planejamento/Dashboard) — ele é quem dá o fundo opaco, a
+ * borda e o padding únicos; o espaçamento entre os 3 blocos vem do
+ * `gap` do card pai, não de margin aqui. */
 .filtros {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  margin-bottom: 20px;
-  padding: 14px;
-  background: var(--cor-superficie);
-  border: 1px solid var(--cor-borda);
-  border-radius: var(--raio);
 }
 
 .filtros-linha {
@@ -34,10 +37,9 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 10px 14px;
-    background: var(--cor-superficie);
-    border: 1px solid var(--cor-borda);
-    border-radius: var(--raio);
+    border: none;
+    background: none;
+    padding: 0;
     font-size: 13px;
     color: var(--cor-texto);
     cursor: pointer;
@@ -50,7 +52,6 @@
 
   .filtros {
     display: none;
-    margin-top: 8px;
   }
 
   .filtros.filtros-mobile-aberto {
@@ -128,8 +129,15 @@
  * ao lado — achado testando a Rodada 61: 3 colunas com justify-content:
  * space-between espalhava demais (descrição esquerda, data no meio,
  * valor na ponta), ficava ruim de ler. */
+/* justify-content: space-between de volta — achado testando a Rodada 64:
+ * sem alinhamento, o valor "arrastava" pra posição diferente em cada
+ * linha, dependendo do tamanho da descrição; o usuário preferiu uma
+ * coluna de valores alinhada à direita, delimitada pela largura do
+ * `.painel-ultimos-conta` (não da tela inteira) — diferente do problema
+ * original (Rodada 61), que era 3 colunas soltas, não 2 alinhadas. */
 .ultimo-conta-linha {
   display: flex;
+  justify-content: space-between;
   align-items: baseline;
   gap: 10px;
   font-size: 12px;
@@ -168,20 +176,19 @@
 /* legenda de cores — achado testando a Rodada 61 (cores do item 55
  * apareciam certas, mas sem explicação de qual é qual) + achado testando
  * a Rodada 62 (usuário pediu que ficasse sempre visível, não só acima da
- * lista) — por isso mora dentro de `.cabecalho-fixo` (sticky), como
- * último bloco, depois dos filtros. Precisa do próprio card (fundo +
- * borda), não só um `border-top` — achado testando a Rodada 63: sem
- * fundo opaco, a lista por baixo (também dentro da área sticky ao
- * rolar) aparecia sobreposta ao texto da legenda. */
+ * lista) — por isso mora dentro de `.cabecalho-fixo-card` (sticky,
+ * fundo opaco), como último bloco, depois dos filtros. Já não precisa de
+ * fundo/borda próprios (achado da Rodada 63, corrigido com um card
+ * isolado) — achado da Rodada 64: dois cards separados ficava com a
+ * legenda "destacada" do painel de filtros; voltou a ser só um
+ * `border-top` como divisor dentro do card único (`cabecalho-fixo-card`,
+ * que já é opaco — sem o bug de sobreposição da Rodada 63). */
 .legenda-cores-transacao {
   display: flex;
   flex-wrap: wrap;
   gap: 8px 16px;
-  margin-top: 10px;
-  padding: 10px 14px;
-  background: var(--cor-superficie);
-  border: 1px solid var(--cor-borda);
-  border-radius: var(--raio);
+  padding-top: 10px;
+  border-top: 1px solid var(--cor-borda);
   font-size: 11px;
   color: var(--cor-texto-suave);
 }
