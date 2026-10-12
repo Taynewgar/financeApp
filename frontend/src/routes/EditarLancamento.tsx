@@ -44,6 +44,7 @@ export function EditarLancamento() {
         setMeioPagamento(t.meio_pagamento ?? '')
         setCoberto(Boolean(t.caixinha_origem_id))
         setCaixinhaOrigemId(t.caixinha_origem_id ?? '')
+        setRetiradaPendente(t.retirada_pendente)
         if (t.ajuste_de_transacao_id) {
           apiFetch<Transacao>(`/transacoes/${t.ajuste_de_transacao_id}`)
             .then(setDespesaOriginal)
@@ -66,6 +67,12 @@ export function EditarLancamento() {
   // item 58: mesmo campo opcional do Novo Lançamento, editável aqui
   const [coberto, setCoberto] = useState(false)
   const [caixinhaOrigemId, setCaixinhaOrigemId] = useState('')
+  // item 58, Rodada 85: status de pendência (independente do vínculo em
+  // si) + ação pra reabrir manualmente — reflete o estado SALVO do
+  // registro, não os campos coberto/caixinhaOrigemId em edição acima
+  const [retiradaPendente, setRetiradaPendente] = useState(false)
+  const [reabrindoPendencia, setReabrindoPendencia] = useState(false)
+  const [erroReabrirPendencia, setErroReabrirPendencia] = useState<string | null>(null)
 
   const [enviando, setEnviando] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
@@ -156,6 +163,27 @@ export function EditarLancamento() {
       if (sub?.estrutura_custo_padrao) {
         setEstruturaCusto(sub.estrutura_custo_padrao)
       }
+    }
+  }
+
+  // item 58, Rodada 85: ação explícita pra reabrir um lembrete já
+  // resolvido, sem precisar desmarcar/remarcar o vínculo com a
+  // caixinha (que removeria/recriaria o vínculo em si — não é essa a
+  // intenção aqui).
+  async function marcarComoPendenteDeNovo() {
+    if (!id) return
+    setReabrindoPendencia(true)
+    setErroReabrirPendencia(null)
+    try {
+      await apiFetch(`/transacoes/${id}/retirada-pendente`, {
+        method: 'PATCH',
+        body: JSON.stringify({ pendente: true }),
+      })
+      setRetiradaPendente(true)
+    } catch (e) {
+      setErroReabrirPendencia(e instanceof ApiError ? e.message : 'Falha ao marcar como pendente.')
+    } finally {
+      setReabrindoPendencia(false)
     }
   }
 
@@ -627,9 +655,31 @@ export function EditarLancamento() {
                     </option>
                   ))}
                 </select>
-                <span style={{ fontSize: 12, color: 'var(--cor-texto-suave)' }}>
-                  Vai aparecer em "Retiradas pendentes" no Dashboard até você registrar o saque.
-                </span>
+                {transacaoOriginal?.caixinha_origem_id && !retiradaPendente ? (
+                  <div className="status-retirada-resolvida">
+                    <span className="status-retirada-resolvida-selo">
+                      <span aria-hidden="true">✓</span>
+                      Retirada já registrada
+                    </span>
+                    <button
+                      type="button"
+                      className="botao-link"
+                      onClick={marcarComoPendenteDeNovo}
+                      disabled={reabrindoPendencia}
+                    >
+                      {reabrindoPendencia ? 'Marcando…' : 'Marcar como pendente de novo'}
+                    </button>
+                  </div>
+                ) : (
+                  <span style={{ fontSize: 12, color: 'var(--cor-texto-suave)' }}>
+                    Vai aparecer em "Retiradas pendentes" no Dashboard até você registrar o saque.
+                  </span>
+                )}
+                {erroReabrirPendencia && (
+                  <span role="alert" style={{ fontSize: 12, color: 'var(--cor-perigo)' }}>
+                    {erroReabrirPendencia}
+                  </span>
+                )}
               </label>
             )}
           </div>

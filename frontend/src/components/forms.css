@@ -87,6 +87,34 @@
   border-radius: 8px;
 }
 
+/* item 58, Rodada 85: indicador de pendência resolvida + ação pra
+ * reabrir manualmente — separado do checkbox de cima de propósito (o
+ * checkbox é o vínculo, fato permanente; isto aqui é o status de "já
+ * retirei ou não", que muda independente do vínculo). Mockup aprovado
+ * antes de implementar (canvas de mockups do item 58). */
+.status-retirada-resolvida {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  background: var(--cor-fundo);
+  border: 1px solid var(--cor-borda);
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--cor-texto-suave);
+}
+
+.status-retirada-resolvida-selo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.status-retirada-resolvida-selo span[aria-hidden] {
+  color: var(--cor-acento);
+}
+
 .form-acoes {
   display: flex;
   gap: 12px;

@@ -6191,3 +6191,48 @@ real (login exige credenciais reais do Supabase).
 - [ ] Confirmar que excluir uma retirada "normal" (sem ter nascido de
       "Lançar retirada", ex: lançada manualmente) continua funcionando
       sem erro, sem nenhum efeito colateral.
+
+### Rodada 87 (2026-10-12) — Item 58: reabrir pendência manualmente em Editar Lançamento
+
+Implementa o achado 1 da Rodada 85, aprovado via mockup (canvas de
+mockups do item 58, artboard "58 — Reabrir pendência de retirada").
+
+**Fix (`EditarLancamento.tsx`):** checkbox/vínculo continuam exatamente
+como estavam (fato permanente, sem mudança). Novo bloco, só quando a
+despesa SALVA tem `caixinha_origem_id` e `retirada_pendente` é false:
+"✓ Retirada já registrada" + botão "Marcar como pendente de novo" —
+chama `PATCH /transacoes/{id}/retirada-pendente` com `{pendente:
+true}` (mesmo endpoint da Rodada 77, usado ao contrário do "Já
+retirei"). Quando ainda pendente, mantém o texto de aviso de sempre
+("Vai aparecer em Retiradas pendentes..."). Novo estado
+`retiradaPendente` reflete o valor SALVO do registro (carregado junto
+com o resto no `useEffect` inicial), independente dos campos
+`coberto`/`caixinhaOrigemId` em edição no formulário — evita misturar
+"o que estou editando agora" com "o que está salvo".
+
+**Testes:** mudança de frontend puro (1 handler, 1 bloco de JSX, 1
+classe CSS nova `.status-retirada-resolvida`). `tsc -b`/`vite build`
+sem erro novo. `oxlint`: 1 warning novo de `immutability` em
+`setRetiradaPendente` (linha 47) — confirmado como o MESMO falso
+positivo pré-existente já disparado pra `setCoberto`/
+`setCaixinhaOrigemId`/todos os outros `setState` chamados dentro do
+`useEffect` de carga inicial, que vem ANTES das declarações `useState`
+no código-fonte (efeito só roda depois do render completo — não é bug
+real, oxlint não entende isso). Nenhum warning novo de categoria
+diferente.
+
+**Status:** implementado 2026-10-12, pede teste do usuário no fluxo
+real.
+
+**Checklist de teste manual (usuário, localmente):**
+- [ ] Resolver uma despesa pendente (via "Já retirei" ou "Lançar
+      retirada"), ir em Editar Lançamento dela — confirmar que aparece
+      "Retirada já registrada" no lugar do aviso de pendência, com o
+      checkbox/caixinha ainda marcados normalmente.
+- [ ] Clicar "Marcar como pendente de novo" — confirmar que o bloco
+      muda pro aviso de pendência de volta, e que a despesa volta a
+      aparecer em "Retiradas pendentes de caixinha" no Dashboard.
+- [ ] Numa despesa AINDA pendente, confirmar que o bloco mostra o
+      aviso de sempre (não o "Retirada já registrada").
+- [ ] Numa despesa sem vínculo nenhum (checkbox desmarcado), confirmar
+      que nenhum dos dois blocos aparece.
