@@ -1113,9 +1113,27 @@ padrão já existente (2-3h, incluindo testes). Frontend: o mais caro
 aqui — gráfico multi-série novo do zero (4-6h, dado o padrão de SVG à
 mão do projeto).
 
+**Mockups aprovados 2026-10-12** (canvas de mockups, 5 artboards —
+usuário aprovou todos, "ótimo"/"perfeito"):
+- **Comparador dinâmico de séries** (ideia do usuário: liberdade total
+  pra escolher qualquer combinação — subcategoria de receita/despesa,
+  estrutura de custo, caixinha — no mesmo gráfico de linhas). Ganhou
+  um extra aprovado nesta rodada: **linha de média calculada sobre as
+  séries selecionadas**, mês a mês — cálculo 100% client-side (soma os
+  valores das séries marcadas em cada mês, divide pela quantidade),
+  sem endpoint novo nem mudança de backend.
+- **Comparativo ano a ano** (mesma categoria, anos sobrepostos — usuário
+  escolhe qual série comparar).
+- **Heatmap categoria × mês**.
+- **Caixinhas: aporte vs. retirada no tempo** (barras + linha de saldo
+  acumulado).
+Todos de linha ou barra, exceto o heatmap (grade de células coloridas,
+sem eixo de valor).
+
 **Status:** registrado em CSV (2026-09-30), detalhado 2026-10-12 —
-escopo e endpoint propostos, falta decidir categoria×subcategoria
-padrão e confirmar antes de implementar.
+escopo e endpoint propostos, mockups das 4 variações + comparador
+dinâmico aprovados. Falta decidir categoria×subcategoria padrão (do
+gráfico original, não do comparador) e confirmar antes de implementar.
 
 ### Feature "Gráficos" — tela nova na navegação
 
