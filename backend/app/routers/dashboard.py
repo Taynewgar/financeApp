@@ -351,6 +351,7 @@ def patrimonio_caixinhas(
 @router.get("/compromissos-futuros", response_model=list[CompromissoFuturo])
 def compromissos_futuros(
     limite: int = Query(5, ge=1, le=100),
+    hoje: date | None = None,
     db: Client = Depends(get_db),
     user_id: str = Depends(get_current_user_id),
 ):
@@ -367,8 +368,14 @@ def compromissos_futuros(
        vencido, se ficou sem confirmar — fica aparecendo até o usuário
        confirmar, marcar como pulado (POST .../pular — ex: viajou, não
        teve a despesa naquele mês) ou desativar o recorrente, é assim que
-       o "compromisso em aberto" some da lista."""
-    hoje = date.today()
+       o "compromisso em aberto" some da lista.
+
+    `hoje` é opcional e vem do cliente (data local do aparelho, item 50
+    do backlog) — o corte de "o que já venceu" precisa refletir o fuso de
+    quem está vendo a tela, não o do servidor; sem o parâmetro, cai em
+    `date.today()` do servidor (Swagger, scripts, chamada direta)."""
+    if hoje is None:
+        hoje = date.today()
     parcelas = (
         db.table("transacoes")
         .select("descricao,valor,data_compra,parcela_atual,parcela_total,compra_parcelada_id")

@@ -44,6 +44,8 @@ export function CategoriasSection() {
     nome: '',
     estrutura_custo_padrao: '',
   })
+  const [movendoSubcategoria, setMovendoSubcategoria] = useState<Subcategoria | null>(null)
+  const [categoriaDestinoId, setCategoriaDestinoId] = useState('')
   const [salvando, setSalvando] = useState(false)
 
   useEffect(() => {
@@ -117,17 +119,54 @@ export function CategoriasSection() {
     setFormSubcategoria({ nome: '', estrutura_custo_padrao: '' })
     setNovaSubcategoriaDe(categoriaId)
     setEditandoSubcategoria(null)
+    setMovendoSubcategoria(null)
   }
 
   function iniciarEdicaoSubcategoria(sub: Subcategoria) {
     setFormSubcategoria({ nome: sub.nome, estrutura_custo_padrao: sub.estrutura_custo_padrao ?? '' })
     setEditandoSubcategoria(sub)
     setNovaSubcategoriaDe(null)
+    setMovendoSubcategoria(null)
   }
 
   function cancelarFormSubcategoria() {
     setNovaSubcategoriaDe(null)
     setEditandoSubcategoria(null)
+  }
+
+  // item 48 do backlog — mover só entre categorias tipo despesa (mesma
+  // regra validada no backend): é onde mora a variedade de subcategoria
+  // de verdade, receita/investimento têm 1 categoria pai fixa cada
+  function iniciarMoverSubcategoria(sub: Subcategoria) {
+    setMovendoSubcategoria(sub)
+    setCategoriaDestinoId('')
+    setNovaSubcategoriaDe(null)
+    setEditandoSubcategoria(null)
+  }
+
+  function cancelarMoverSubcategoria() {
+    setMovendoSubcategoria(null)
+    setCategoriaDestinoId('')
+  }
+
+  async function confirmarMoverSubcategoria() {
+    if (!movendoSubcategoria || !categoriaDestinoId) return
+    setSalvando(true)
+    setErro(null)
+    try {
+      const atualizada = await apiFetch<Subcategoria>(`/subcategorias/${movendoSubcategoria.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ categoria_id: categoriaDestinoId }),
+      })
+      setSubcategorias((atual) => ordenarPorNome(atual.map((s) => (s.id === atualizada.id ? atualizada : s))))
+      cancelarMoverSubcategoria()
+    } catch (e) {
+      setErro(
+        e instanceof ApiError ? (typeof e.detail === 'string' ? e.detail : e.message) : 'Falha ao mover subcategoria',
+      )
+    } finally {
+      setSalvando(false)
+    }
   }
 
   async function toggleAtivoSubcategoria(sub: Subcategoria) {
@@ -278,6 +317,15 @@ export function CategoriasSection() {
                             </span>
                           </div>
                           <div className="item-acoes">
+                            {categoria.tipo === 'despesa' && (
+                              <button
+                                type="button"
+                                className="botao-link"
+                                onClick={() => iniciarMoverSubcategoria(sub)}
+                              >
+                                Mover
+                              </button>
+                            )}
                             <button
                               type="button"
                               className="botao-link"
@@ -290,6 +338,37 @@ export function CategoriasSection() {
                             </button>
                           </div>
                         </div>
+                        {movendoSubcategoria?.id === sub.id && (
+                          <div className="campo-linha" style={{ marginTop: 6, alignItems: 'flex-end' }}>
+                            <label className="campo" style={{ maxWidth: 240 }}>
+                              Mover "{sub.nome}" para
+                              <select
+                                value={categoriaDestinoId}
+                                onChange={(e) => setCategoriaDestinoId(e.target.value)}
+                              >
+                                <option value="">Escolha a categoria de destino</option>
+                                {categorias
+                                  .filter((c) => c.tipo === 'despesa' && c.id !== categoria.id)
+                                  .map((c) => (
+                                    <option key={c.id} value={c.id}>
+                                      {c.nome}
+                                    </option>
+                                  ))}
+                              </select>
+                            </label>
+                            <button
+                              type="button"
+                              className="botao-primario"
+                              disabled={salvando || !categoriaDestinoId}
+                              onClick={confirmarMoverSubcategoria}
+                            >
+                              {salvando ? 'Movendo…' : 'Mover'}
+                            </button>
+                            <button type="button" className="botao-secundario" onClick={cancelarMoverSubcategoria}>
+                              Cancelar
+                            </button>
+                          </div>
+                        )}
                       </li>
                     ))}
 

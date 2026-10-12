@@ -16,6 +16,9 @@ class SubcategoriaCreate(BaseModel):
 class SubcategoriaUpdate(BaseModel):
     nome: str | None = None
     estrutura_custo_padrao: EstruturaCusto | None = None
+    # mover pra outra categoria pai (item 48 do backlog) — só entre
+    # categorias tipo despesa, ver validação no router
+    categoria_id: str | None = None
 
 
 class Subcategoria(SubcategoriaCreate):

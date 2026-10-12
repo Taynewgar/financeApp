@@ -70,8 +70,21 @@ def atualizar(
     db: Client = Depends(get_db),
     user_id: str = Depends(get_current_user_id),
 ):
+    dados = payload.model_dump(exclude_unset=True)
+    if "categoria_id" in dados:
+        # mover subcategoria pra outra categoria pai (item 48 do backlog)
+        # — só entre categorias tipo despesa: é onde mora a variedade de
+        # subcategorias de verdade, receita/investimento têm 1 categoria
+        # pai fixa cada, sem uso real pra subcategoria mudar pra lá
+        nova_categoria = (
+            db.table("categorias").select("id,tipo").eq("id", dados["categoria_id"]).eq("user_id", user_id).execute()
+        ).data
+        if not nova_categoria:
+            raise HTTPException(status_code=404, detail="Categoria pai não encontrada")
+        if nova_categoria[0]["tipo"] != "despesa":
+            raise HTTPException(status_code=422, detail="Só é possível mover a subcategoria para outra categoria de despesa")
     try:
-        return crud.update(db, TABLE, user_id, subcategoria_id, payload.model_dump(exclude_unset=True))
+        return crud.update(db, TABLE, user_id, subcategoria_id, dados)
     except crud.NotFound:
         raise HTTPException(status_code=404, detail="Subcategoria não encontrada")
 

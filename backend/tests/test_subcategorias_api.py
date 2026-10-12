@@ -66,6 +66,48 @@ def test_mesmo_nome_de_subcategoria_em_categorias_diferentes_e_aceito(client):
     assert em_outra_categoria.status_code == 201  # unique é por (categoria_id, nome), não global
 
 
+def test_mover_subcategoria_para_outra_categoria_despesa(client):
+    mercado = client.post("/categorias", json={"nome": "Mercado"}).json()
+    casa = client.post("/categorias", json={"nome": "Casa"}).json()
+    sub = client.post("/subcategorias", json={"categoria_id": mercado["id"], "nome": "Feira"}).json()
+
+    movida = client.patch(f"/subcategorias/{sub['id']}", json={"categoria_id": casa["id"]})
+    assert movida.status_code == 200
+    assert movida.json()["categoria_id"] == casa["id"]
+
+
+def test_mover_subcategoria_para_categoria_receita_retorna_422(client):
+    mercado = client.post("/categorias", json={"nome": "Mercado"}).json()
+    receita = client.post("/categorias", json={"nome": "Salário", "tipo": "receita"}).json()
+    sub = client.post("/subcategorias", json={"categoria_id": mercado["id"], "nome": "Feira"}).json()
+
+    resposta = client.patch(f"/subcategorias/{sub['id']}", json={"categoria_id": receita["id"]})
+    assert resposta.status_code == 422
+
+
+def test_mover_subcategoria_para_categoria_inexistente_retorna_404(client):
+    mercado = client.post("/categorias", json={"nome": "Mercado"}).json()
+    sub = client.post("/subcategorias", json={"categoria_id": mercado["id"], "nome": "Feira"}).json()
+
+    resposta = client.patch(
+        f"/subcategorias/{sub['id']}",
+        json={"categoria_id": "00000000-0000-0000-0000-000000000000"},
+    )
+    assert resposta.status_code == 404
+
+
+def test_mover_subcategoria_para_categoria_de_outro_usuario_retorna_404(client, current_user):
+    mercado = client.post("/categorias", json={"nome": "Mercado"}).json()
+    sub = client.post("/subcategorias", json={"categoria_id": mercado["id"], "nome": "Feira"}).json()
+
+    current_user["id"] = OUTRO_USUARIO
+    categoria_alheia = client.post("/categorias", json={"nome": "Categoria do usuário B"}).json()
+    current_user["id"] = "11111111-1111-1111-1111-111111111111"  # volta pro usuário padrão do fixture
+
+    resposta = client.patch(f"/subcategorias/{sub['id']}", json={"categoria_id": categoria_alheia["id"]})
+    assert resposta.status_code == 404
+
+
 def test_estrutura_custo_padrao_aceita_investimentos(client):
     investimentos = client.post("/categorias", json={"nome": "Investimentos", "tipo": "investimento"}).json()
     resposta = client.post(

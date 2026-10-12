@@ -5207,3 +5207,72 @@ aparelho real.
       fora da tela sem aviso.
 - [ ] Confirmar que em retrato (orientação normal) o comportamento
       continua igual a antes — nada mudou pra esse caso.
+
+### Rodada 70 (2026-10-12) — Itens 48, 49 e 50 do backlog
+
+**48 — Mover subcategoria entre categorias:** aprovado com a restrição
+proposta (só entre categorias tipo despesa — receita/investimento têm 1
+categoria pai fixa cada, sem uso real pra subcategoria mudar pra lá).
+
+**Fix:** `SubcategoriaUpdate` (`backend/app/schemas/subcategorias.py`)
+ganhou `categoria_id` opcional; `PATCH /subcategorias/{id}`
+(`backend/app/routers/subcategorias.py`) valida, quando informado, que a
+categoria de destino existe, pertence ao usuário e é `tipo == 'despesa'`
+(404/422 caso contrário). Transações e itens de orçamento guardam
+`subcategoria_id` sem depender de `categoria_id` ficar sincronizado (são
+campos independentes, sem checagem cruzada hoje) — mover não migra nem
+quebra nada de histórico, só muda em qual categoria a subcategoria
+aparece pra escolher daqui pra frente. Frontend: botão "Mover" na lista
+de subcategorias de `CategoriasSection.tsx` (só aparece em categoria
+despesa), abre um select com as outras categorias despesa + confirmar.
+
+**49 — Título da aba = feature ativa:** sem decisão pendente, implementado
+direto. `AppShell.tsx` ganhou um efeito que troca `document.title`
+conforme a rota (usa o mesmo array `SECOES` da navegação), formato
+"<Seção> — Finance App"; antes era sempre o `<title>` fixo do
+`index.html`.
+
+**50 — Fuso horário fixo:** usuário pediu algo **dinâmico** (pode mudar de
+cidade/fuso), não fixar "America/Sao_Paulo" no código. Investigação
+achou bug real: `new Date().toISOString()` sempre converte pra UTC —
+`hojeAnoMes()` (`lib/periodo.ts`, mês padrão de Dashboard/Gráficos) e
+`hoje()` (`NovoLancamento.tsx`, data padrão do formulário) usavam esse
+padrão, então entre ~21h e 23h59 num fuso negativo (Brasil) o Dashboard
+já abria no mês seguinte e o Novo Lançamento já pré-preenchia a data de
+amanhã.
+
+**Fix:** nova `hojeLocal()` em `lib/formatar.ts` — usa os getters locais
+do `Date` (`getFullYear`/`getMonth`/`getDate`, nunca `toISOString`), o
+que já resolve o bug E é dinâmico por natureza: segue o fuso que o
+aparelho estiver configurado a qualquer momento, sem fixar nada no
+código. `hojeAnoMes()` e `hoje()` (NovoLancamento) passaram a usar essa
+função. Backend: `GET /dashboard/compromissos-futuros` ganhou parâmetro
+opcional `hoje` (data) — o corte de "o que já venceu" agora usa a data
+local de quem está vendo a tela (enviada pelo frontend via `hojeLocal()`
+na chamada), não mais `date.today()` do servidor; sem o parâmetro
+(Swagger, scripts), continua caindo no `date.today()` de antes. As outras
+3 janelas de 180 dias (`mais-usadas`/`descrições`) ficaram como estavam —
+baixo risco de ranking mudar por causa de algumas horas de diferença,
+não valia o custo de threadear o parâmetro ali também.
+
+**Testes:** backend — 4 testes novos em `test_subcategorias_api.py`
+(mover pra despesa ok; mover pra receita 422; categoria inexistente e de
+outro usuário 404); suíte completa 398 passed, 33 skipped. Frontend —
+`tsc -b && vite build` sem erro novo; `oxlint` sem warning novo.
+
+**Status:** implementado 2026-10-12.
+
+**Checklist de teste manual (usuário, localmente):**
+- [ ] Em Configurações → Categorias, abrir uma categoria despesa,
+      clicar "Mover" numa subcategoria, escolher outra categoria despesa
+      e confirmar — ela passa a aparecer na categoria nova (some da
+      antiga).
+- [ ] Confirmar que o botão "Mover" não aparece em subcategorias de
+      categorias Receita/Investimento.
+- [ ] Navegar entre as telas (Dashboard, Lançamentos, Planejamento,
+      Estruturas de Custo, Gráficos, Configurações) e conferir que o
+      título da aba do navegador muda pra cada uma.
+- [ ] Com o relógio do aparelho entre ~21h e 23h59 (ou mudando o fuso do
+      sistema pra testar), confirmar que o Dashboard abre no MÊS ATUAL
+      (não no seguinte) e que Novo Lançamento pré-preenche a data de
+      HOJE (não a de amanhã).

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { apiFetch } from './api'
+import { hojeLocal } from './formatar'
 import type { PrimeiroMes } from './types'
 
 export type ModoData = 'mes' | 'intervalo' | 'todos'
@@ -11,7 +12,7 @@ const MESES_NOME = [
 ]
 
 export function hojeAnoMes(): string {
-  return new Date().toISOString().slice(0, 7)
+  return hojeLocal().slice(0, 7)
 }
 
 /** 'YYYY-MM' menos N meses, sempre 'YYYY-MM' de volta. */

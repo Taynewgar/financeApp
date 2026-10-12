@@ -163,9 +163,9 @@ changelog já documenta quando e como cada um foi entregue).
 
 **Média**
 
-- **48.** **Mover subcategoria entre categorias** `tipo: Melhoria` —
-  possibilidade de transferir uma subcategoria pra outra categoria pai.
-  *(trazido em CSV, 2026-09-30)*
+- **48.** **Mover subcategoria entre categorias** `tipo: Melhoria` ✅ —
+  só entre categorias despesa. Ver detalhe no changelog (Rodada 70).
+  *(trazido em CSV, 2026-09-30; implementado 2026-10-12)*
 
 **Baixa**
 
@@ -189,10 +189,14 @@ changelog já documenta quando e como cada um foi entregue).
 **Média**
 
 - **49.** **Título da aba do navegador = nome da feature ativa**
-  `tipo: Melhoria` — hoje o título é fixo, independente da tela aberta.
-  *(trazido em CSV, 2026-09-30)*
-- **50.** **Fuso horário da aplicação para Brasília/SP** `tipo: Melhoria`
-  — hoje não está fixado nesse fuso. *(trazido em CSV, 2026-09-30)*
+  `tipo: Melhoria` ✅ — ver detalhe no changelog (Rodada 70). *(trazido
+  em CSV, 2026-09-30; implementado 2026-10-12)*
+- **50.** **Fuso horário dinâmico, não fixo** `tipo: Melhoria`/`Bug` ✅ —
+  achado bug real (`toISOString()` convertia pra UTC, deslocando "hoje"/
+  "mês atual" à noite num fuso negativo) — corrigido com data local do
+  dispositivo em vez de fixar um fuso no código, a pedido do usuário
+  (pode mudar de cidade). Ver detalhe no changelog (Rodada 70). *(trazido
+  em CSV, 2026-09-30; implementado 2026-10-12)*
 - **63.** **Racional de testes com `/financeapp-ref`** (detalhe abaixo)
   `tipo: Validação` — roteiro consolidando as pendências de checklist
   (Rodadas 35-37) que a skill resolve, as que ela não resolve, e os

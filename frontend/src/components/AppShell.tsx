@@ -66,6 +66,13 @@ export function AppShell({ children }: { children?: ReactNode }) {
     }
   }, [location.pathname])
 
+  // item 49 do backlog: título da aba = feature ativa, em vez do
+  // "Finance App" fixo do index.html pra qualquer tela.
+  useEffect(() => {
+    const secao = SECOES.find((s) => location.pathname.startsWith(s.to))
+    document.title = secao ? `${secao.label} — Finance App` : 'Finance App'
+  }, [location.pathname])
+
   const menuMobileAtivo =
     menuMobileAberto || SECOES_MENU_MOBILE.some((secao) => location.pathname.startsWith(secao.to))
 

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import '../components/forms.css'
 import { ApiError, apiFetch } from '../lib/api'
+import { hojeLocal } from '../lib/formatar'
 import {
   ESTRUTURAS,
   MEIOS_PAGAMENTO,
@@ -34,7 +35,7 @@ const TIPOS: { valor: TipoSelecionado; rotulo: string }[] = [
 ]
 
 function hoje() {
-  return new Date().toISOString().slice(0, 10)
+  return hojeLocal()
 }
 
 export function NovoLancamento() {

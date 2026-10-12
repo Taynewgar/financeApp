@@ -10,7 +10,7 @@ import '../components/crud.css'
 import '../components/dashboard.css'
 import { useAuth } from '../auth/AuthContext'
 import { ApiError, apiFetch } from '../lib/api'
-import { formatarData, formatarMoeda } from '../lib/formatar'
+import { formatarData, formatarMoeda, hojeLocal } from '../lib/formatar'
 import { useDashboardPeriodo } from '../lib/DashboardPeriodoContext'
 import { mesesAntes } from '../lib/periodo'
 import { usePrivacidade } from '../lib/PrivacyContext'
@@ -93,7 +93,7 @@ export function Dashboard() {
   const QUANTIDADE_COLAPSADA = 4
 
   function buscarCompromissos() {
-    return apiFetch<CompromissoFuturo[]>(`/dashboard/compromissos-futuros?limite=${LIMITE_BUSCA}`)
+    return apiFetch<CompromissoFuturo[]>(`/dashboard/compromissos-futuros?limite=${LIMITE_BUSCA}&hoje=${hojeLocal()}`)
       .then(setCompromissos)
       .catch(() => setCompromissos([]))
   }
