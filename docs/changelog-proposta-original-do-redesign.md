@@ -5555,16 +5555,23 @@ exige credenciais reais do Supabase — mesma limitação de sempre).
 **Status:** implementado 2026-10-12.
 
 **Checklist de teste manual (usuário, localmente):**
-- [ ] No Dashboard, confirmar que os cards de caixinha aparecem em
+- [x] ~~No Dashboard, confirmar que os cards de caixinha aparecem em
       grid (2+ por linha, conforme a largura da tela), não mais 1 por
-      linha cheia.
-- [ ] Confirmar que nome e saldo de cada caixinha continuam legíveis e
-      corretos no novo formato.
-- [ ] Em Compromissos Futuros, confirmar que cada item ficou mais
+      linha cheia. — confirmado 2026-10-12.~~
+- [x] ~~Confirmar que nome e saldo de cada caixinha continuam legíveis e
+      corretos no novo formato. — confirmado 2026-10-12.~~
+- [x] ~~Em Compromissos Futuros, confirmar que cada item ficou mais
       enxuto (título e detalhe numa linha só) sem perder nenhuma
-      informação (descrição, parcela/tipo, data, valor).
-- [ ] Confirmar que "Confirmar"/"Pular este mês" continuam empilhados
+      informação (descrição, parcela/tipo, data, valor). — confirmado
+      2026-10-12.~~
+- [x] ~~Confirmar que "Confirmar"/"Pular este mês" continuam empilhados
       (um embaixo do outro, não lado a lado) e funcionando normalmente.
+      — confirmado funcionando 2026-10-12, com sugestão de UX: usuário
+      achou que empilhado quebra a uniformidade de altura das linhas
+      (fica mais alto que uma linha de parcela, sem ação). **Virou
+      ícone + tooltip lado a lado na Rodada 80** — supera este item
+      (deixa de ser "empilhado" de propósito, por decisão do próprio
+      usuário).~~
 
 ### Rodada 77 (2026-10-12) — Item 58: lembrete de retirada da caixinha
 
@@ -5735,3 +5742,63 @@ antes/depois, só deslocamento de linha dos avisos pré-existentes).
 - [ ] Em Estrutura de Custo, mesma checagem — confirmar que a ordem é
       alfabética e, principalmente, que não muda sozinha entre
       recarregamentos da página (esse era o bug real: ordem instável).
+
+### Rodada 80 (2026-10-12) — Item 71 (nova ordem do formulário) + follow-up do item 64 (botões ícone)
+
+Duas mudanças pedidas testando a Rodada 76.
+
+**Item 71 — reordenar campos do Novo Lançamento:** motivo do usuário —
+os chips de descrição sugerida (item 43) dependem da categoria/
+subcategoria escolhida; com Categoria depois de Descrição (ordem
+antiga), os chips só apareciam numa 2ª passada pelo campo. Nova ordem:
+Valor/Data → Categoria/Subcategoria (ou Caixinha, se Reserva) → Conta →
+Descrição → Estrutura de custo/Meio de pagamento → vínculo com
+caixinha (item 58) → botões. Confirmado que não havia dependência
+funcional entre Conta e Categoria que impedisse a troca (`categoriasElegiveis`
+só depende de `tipo`/`categorias`, nunca de `contaSelecionada`) — mudança
+é só de ordem de blocos JSX em `NovoLancamento.tsx`, nenhuma lógica
+tocada. Escopo: só Novo Lançamento, como pedido (Editar Lançamento não
+foi tocado — lá o usuário já sabe o que está editando, o ganho do
+reordenar é menor).
+
+**Follow-up do item 64 — botões de Compromissos Futuros viram ícone:**
+"Confirmar"/"Pular este mês" eram texto empilhado (decisão da Rodada
+21-ish, pra evitar clique errado — bug 2026-09-24); o usuário notou que
+isso deixava a linha de um recorrente mais alta que a de uma parcela
+(sem ação), quebrando a uniformidade que a Rodada 76 buscava. Trocado
+por 2 botões de ícone lado a lado (✓ Confirmar / ⏭ Pular), com
+`title`/`aria-label` como tooltip e texto acessível. A proteção contra
+clique errado nunca foi de fato o empilhamento — é o `window.confirm()`
+dentro de `pularRecorrente()`, que continua intacto — então o ícone
+lado a lado não reabre aquele bug. Criada `.item-acoes-compromisso-icones`
+(nova classe, só pra esse botão) em vez de reaproveitar
+`.item-acoes-compromisso` — essa classe também é usada pelo card
+"Retiradas pendentes de caixinha" (item 58), que continua com 2 botões
+de TEXTO empilhados (não fazia sentido os 2 usos virarem ícone juntos;
+decidido manter os dois estilos, cada um na classe certa).
+
+**Testes:** mudança de frontend (TSX + CSS), sem alteração de schema/
+backend. `tsc -b && vite build` — sem erro novo; `oxlint` — diff
+idêntico antes/depois. Sem reprodução visual local possível (login
+exige credenciais reais do Supabase — mesma limitação de sempre).
+
+**Status:** implementado 2026-10-12.
+
+**Checklist de teste manual (usuário, localmente):**
+- [ ] Em Novo Lançamento (despesa), confirmar a nova ordem dos campos:
+      Valor/Data, Categoria/Subcategoria, Conta, Descrição, Estrutura
+      de custo/Meio de pagamento.
+- [ ] Escolher uma categoria/subcategoria já usada antes e confirmar
+      que os chips de descrição sugerida aparecem assim que chega no
+      campo Descrição (sem precisar digitar nada primeiro).
+- [ ] Em Reserva, confirmar que o campo Caixinha aparece no lugar de
+      Categoria/Subcategoria, na mesma posição (antes de Conta).
+- [ ] No Dashboard, em Compromissos Futuros, confirmar que um item
+      recorrente mostra 2 botões de ícone lado a lado (✓ e ⏭), com
+      tooltip ao passar o mouse, e que a altura da linha ficou igual à
+      de um item de parcela (sem ação).
+- [ ] Confirmar que os 2 botões de ícone continuam funcionando
+      (Confirmar materializa o mês; Pular pede confirmação antes de
+      marcar como não aplicável).
+- [ ] Confirmar que o card "Retiradas pendentes de caixinha" (item 58)
+      NÃO mudou — continua com os 2 botões de texto empilhados.

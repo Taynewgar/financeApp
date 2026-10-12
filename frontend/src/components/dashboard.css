@@ -78,6 +78,9 @@
   gap: 2px 6px;
 }
 
+/* empilhado — usado pelo card "Retiradas pendentes de caixinha" (item
+ * 58), 2 botões de texto ("Lançar retirada agora"/"Já retirei, só
+ * marcar") que não cabem lado a lado sem quebrar feio. */
 .item-acoes-compromisso {
   flex-direction: column;
   align-items: stretch;
@@ -92,4 +95,45 @@
 .item-acoes-compromisso .botao-link {
   font-size: 12px;
   color: var(--cor-texto-suave);
+}
+
+/* ícone + tooltip lado a lado (Rodada 80, Compromissos Futuros) — mesma
+ * altura de linha que os itens sem ação (parcela), já que não empilha
+ * mais 2 botões de texto. 30px dá touch target razoável sem estourar a
+ * altura enxuta da Rodada 76; a proteção contra clique errado é o
+ * window.confirm() em "Pular" (pularRecorrente), não mais o layout —
+ * por isso pode virar ícone lado a lado sem reabrir o bug 2026-09-24. */
+.item-acoes-compromisso-icones {
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+}
+
+.botao-icone {
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.botao-icone-confirmar {
+  border: 1px solid var(--cor-acento);
+  background: none;
+  color: var(--cor-acento);
+}
+
+.botao-icone-pular {
+  border: 1px solid var(--cor-borda);
+  background: none;
+  color: var(--cor-texto-suave);
+}
+
+.botao-icone:disabled {
+  opacity: 0.6;
+  cursor: default;
 }

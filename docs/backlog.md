@@ -73,6 +73,15 @@ changelog já documenta quando e como cada um foi entregue).
 - **45.** **Busca por descrição parcial** `tipo: Melhoria` ✅ — ver
   detalhe no changelog (Rodada 58). *(trazido em CSV, 2026-09-30;
   implementado 2026-10-11)*
+- **71.** **Novo Lançamento: reordenar campos pra tirar proveito dos
+  chips de descrição** `tipo: Melhoria` ✅ — Categoria/Subcategoria
+  passaram a vir ANTES de Descrição (pedido do usuário: já que os chips
+  de descrição sugerida dependem da categoria escolhida — item 43 —,
+  escolher categoria primeiro faz os chips já aparecerem quando chega
+  em Descrição, em vez de depois). Nova ordem: Valor/Data → Categoria/
+  Subcategoria (ou Caixinha, se Reserva) → Conta → Descrição →
+  Estrutura de custo/Meio de pagamento → botões. Ver detalhe no
+  changelog (Rodada 80). *(pedido e implementado 2026-10-12)*
 
 **Média**
 

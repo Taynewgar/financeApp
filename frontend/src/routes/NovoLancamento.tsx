@@ -895,77 +895,6 @@ export function NovoLancamento() {
           </div>
         )}
 
-        <label className="campo">
-          Descrição {tipo === 'despesa' && pagamento === 'parcelado' && '(obrigatória)'}
-          <input
-            type="text"
-            value={descricao}
-            onChange={(e) => {
-              setDescricao(e.target.value)
-              setAvisoQuaseDuplicataDescartado(false)
-            }}
-            required={tipo === 'despesa' && pagamento === 'parcelado'}
-          />
-          {descricoesSugeridas.length > 0 && (
-            <div className="chips-rapidos">
-              {descricoesSugeridas
-                .slice(0, 5)
-                .filter((d) => d !== descricao)
-                .map((d) => (
-                  <button key={d} type="button" className="chip" onClick={() => usarDescricaoSugerida(d)}>
-                    {d}
-                  </button>
-                ))}
-            </div>
-          )}
-          {descricaoQuaseDuplicata && (
-            <div className="aviso-quase-duplicata">
-              <span>
-                Você já usou <strong>"{descricaoQuaseDuplicata}"</strong> nessa categoria/subcategoria. Quis dizer
-                isso?
-              </span>
-              <div className="form-acoes">
-                <button
-                  type="button"
-                  className="botao-secundario"
-                  onClick={() => usarDescricaoSugerida(descricaoQuaseDuplicata)}
-                >
-                  Usar essa
-                </button>
-                <button
-                  type="button"
-                  className="chip-cancelar"
-                  onClick={() => setAvisoQuaseDuplicataDescartado(true)}
-                >
-                  Manter a minha
-                </button>
-              </div>
-            </div>
-          )}
-        </label>
-
-        <label className="campo">
-          Conta
-          <select
-            value={contaId}
-            onChange={(e) => setContaId(e.target.value)}
-            required
-            disabled={tipo === 'reserva' && !!caixinhaSelecionada?.conta_id}
-          >
-            <option value="">Selecione…</option>
-            {contas.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.nome}
-              </option>
-            ))}
-          </select>
-          {tipo === 'reserva' && caixinhaSelecionada?.conta_id && (
-            <span style={{ fontSize: 12, color: 'var(--cor-texto-suave)' }}>
-              Fixo na conta vinculada à caixinha "{caixinhaSelecionada.nome}".
-            </span>
-          )}
-        </label>
-
         {tipo === 'reserva' &&
           (caixinhas.length === 0 ? (
             <p className="mensagem-erro">
@@ -1163,6 +1092,77 @@ export function NovoLancamento() {
               </label>
             </div>
           ))}
+
+        <label className="campo">
+          Conta
+          <select
+            value={contaId}
+            onChange={(e) => setContaId(e.target.value)}
+            required
+            disabled={tipo === 'reserva' && !!caixinhaSelecionada?.conta_id}
+          >
+            <option value="">Selecione…</option>
+            {contas.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.nome}
+              </option>
+            ))}
+          </select>
+          {tipo === 'reserva' && caixinhaSelecionada?.conta_id && (
+            <span style={{ fontSize: 12, color: 'var(--cor-texto-suave)' }}>
+              Fixo na conta vinculada à caixinha "{caixinhaSelecionada.nome}".
+            </span>
+          )}
+        </label>
+
+        <label className="campo">
+          Descrição {tipo === 'despesa' && pagamento === 'parcelado' && '(obrigatória)'}
+          <input
+            type="text"
+            value={descricao}
+            onChange={(e) => {
+              setDescricao(e.target.value)
+              setAvisoQuaseDuplicataDescartado(false)
+            }}
+            required={tipo === 'despesa' && pagamento === 'parcelado'}
+          />
+          {descricoesSugeridas.length > 0 && (
+            <div className="chips-rapidos">
+              {descricoesSugeridas
+                .slice(0, 5)
+                .filter((d) => d !== descricao)
+                .map((d) => (
+                  <button key={d} type="button" className="chip" onClick={() => usarDescricaoSugerida(d)}>
+                    {d}
+                  </button>
+                ))}
+            </div>
+          )}
+          {descricaoQuaseDuplicata && (
+            <div className="aviso-quase-duplicata">
+              <span>
+                Você já usou <strong>"{descricaoQuaseDuplicata}"</strong> nessa categoria/subcategoria. Quis dizer
+                isso?
+              </span>
+              <div className="form-acoes">
+                <button
+                  type="button"
+                  className="botao-secundario"
+                  onClick={() => usarDescricaoSugerida(descricaoQuaseDuplicata)}
+                >
+                  Usar essa
+                </button>
+                <button
+                  type="button"
+                  className="chip-cancelar"
+                  onClick={() => setAvisoQuaseDuplicataDescartado(true)}
+                >
+                  Manter a minha
+                </button>
+              </div>
+            </div>
+          )}
+        </label>
 
         {(tipo === 'despesa' || tipo === 'ajuste') && (
           <div className="campo-linha">

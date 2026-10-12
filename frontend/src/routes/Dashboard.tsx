@@ -586,26 +586,38 @@ export function Dashboard() {
                           {formatarMoeda(c.valor, oculto)}
                         </span>
                         {c.tipo === 'recorrente' && (
-                          // colunas (em vez do .item-acoes padrão lado a lado) pra
-                          // reduzir o risco de clicar em "pular" querendo "confirmar"
-                          // — bug reportado 2026-09-24
-                          <div className="item-acoes item-acoes-compromisso">
+                          // ícone + tooltip lado a lado (Rodada 80, item 64 —
+                          // achado testando a Rodada 76: texto empilhado
+                          // deixava a linha mais alta que as demais da lista,
+                          // quebrando a uniformidade). O risco de clique
+                          // errado (bug 2026-09-24) continua coberto: "Pular"
+                          // sempre passa por window.confirm() antes de agir
+                          // (ver pularRecorrente) — a proteção real nunca foi
+                          // o empilhamento, foi essa confirmação.
+                          <div className="item-acoes item-acoes-compromisso-icones">
                             <button
                               type="button"
-                              className="botao-secundario"
+                              className="botao-icone botao-icone-confirmar"
                               disabled={confirmandoId === c.lancamento_recorrente_id || pulandoId === c.lancamento_recorrente_id}
                               onClick={() => confirmarRecorrente(c)}
+                              aria-label={confirmandoId === c.lancamento_recorrente_id ? 'Confirmando…' : 'Confirmar'}
+                              title={confirmandoId === c.lancamento_recorrente_id ? 'Confirmando…' : 'Confirmar'}
                             >
-                              {confirmandoId === c.lancamento_recorrente_id ? 'Confirmando…' : 'Confirmar'}
+                              <span aria-hidden="true">{confirmandoId === c.lancamento_recorrente_id ? '…' : '✓'}</span>
                             </button>
                             <button
                               type="button"
-                              className="botao-link"
-                              title="Marcar esse mês como não aplicável (ex: viajou, não teve a despesa)"
+                              className="botao-icone botao-icone-pular"
                               disabled={confirmandoId === c.lancamento_recorrente_id || pulandoId === c.lancamento_recorrente_id}
                               onClick={() => pularRecorrente(c)}
+                              aria-label={pulandoId === c.lancamento_recorrente_id ? 'Pulando…' : 'Pular este mês'}
+                              title={
+                                pulandoId === c.lancamento_recorrente_id
+                                  ? 'Pulando…'
+                                  : 'Pular este mês (ex: viajou, não teve a despesa)'
+                              }
                             >
-                              {pulandoId === c.lancamento_recorrente_id ? 'Pulando…' : 'Pular este mês'}
+                              <span aria-hidden="true">{pulandoId === c.lancamento_recorrente_id ? '…' : '⏭'}</span>
                             </button>
                           </div>
                         )}
