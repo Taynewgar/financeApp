@@ -102,10 +102,15 @@ changelog já documenta quando e como cada um foi entregue).
   (detalhe abaixo) — surgiu durante a análise do item 9 (migração de
   dados). Rebaixado de Média pra Baixa a pedido do usuário.
   *(2026-10-12)*
-- **58.** **Marcador de origem caixinha** `tipo: Melhoria` — um
-  marcador pra indicar, na lista de lançamentos, uma transação cuja
-  origem é retirada de caixinha — facilita identificar uma compra/gasto
-  já reservado ao longo do ano. *(trazido em CSV, 2026-09-30)*
+- **58.** **Marcador de origem caixinha** `tipo: Melhoria` ✅ — virou
+  lembrete ativo de "falta retirar da caixinha" (motivo real do pedido,
+  esclarecido com o usuário: evitar esquecer o saque de uma despesa já
+  coberta por uma reserva), não só um marcador passivo. Campo opcional
+  `caixinha_origem_id` no Novo Lançamento/Editar (despesa), card
+  "Retiradas pendentes de caixinha" no Dashboard com "Lançar retirada
+  agora"/"Já retirei, só marcar", badge na lista de Lançamentos. Mockup
+  aprovado antes de implementar. Ver detalhe no changelog (Rodada 77).
+  *(trazido em CSV, 2026-09-30; implementado 2026-10-12)*
 - **69.** **CRUD em lote de transações** `tipo: Melhoria` — criar/
   editar/excluir várias transações de uma vez. Desmembrado do item 44;
   rebaixado pra baixa prioridade a pedido do usuário — inserir uma

@@ -495,6 +495,23 @@ grant execute on function saldo_transacoes_agregado(uuid, date, date) to authent
 Um projeto novo, criado rodando `db/schema.sql` já com esta versão, não
 precisa desse passo — as 3 funções já nascem criadas.
 
+### Migração pendente no seu Supabase: `transacoes.caixinha_origem_id` + `retirada_pendente`
+
+Item 58 do backlog — lembrete pra não esquecer de retirar de uma caixinha
+que já cobriu uma despesa (ex: guardou dinheiro pra viagem o ano todo,
+fez a retirada, mas esqueceu de lançar/concluir o saque). Se o seu
+projeto já existia antes desta entrega, rode uma vez no *SQL Editor*:
+
+```sql
+alter table transacoes
+  add column if not exists caixinha_origem_id uuid references caixinhas(id);
+alter table transacoes
+  add column if not exists retirada_pendente boolean not null default false;
+```
+
+Um projeto novo, criado rodando `db/schema.sql` já com esta versão, não
+precisa desse passo — as 2 colunas já nascem criadas.
+
 ## Desenvolvimento local
 
 ```bash

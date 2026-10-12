@@ -93,6 +93,14 @@ export function NovoLancamento() {
   const [estruturaCusto, setEstruturaCusto] = useState<EstruturaCusto | ''>('')
   const [caixinhaId, setCaixinhaId] = useState('')
   const [meioPagamento, setMeioPagamento] = useState<MeioPagamento | ''>('')
+  // item 58: despesa já coberta por uma retirada de caixinha — opcional,
+  // só aparece quando marcado; nunca inferido automaticamente
+  const [coberto, setCoberto] = useState(false)
+  const [caixinhaOrigemId, setCaixinhaOrigemId] = useState('')
+  // id da despesa de origem quando este formulário foi aberto via "Lançar
+  // retirada agora" (Dashboard, card "Retiradas pendentes de caixinha") —
+  // depois de salvar a retirada com sucesso, marca a despesa como resolvida
+  const despesaOrigemRetiradaRef = useRef<string | null>(null)
 
   const [valorTotal, setValorTotal] = useState('')
   const [parcelaTotal, setParcelaTotal] = useState('2')
@@ -326,6 +334,8 @@ export function NovoLancamento() {
     setCriandoCategoria(false)
     setCriandoSubcategoria(false)
     setNovaSubcategoriaEstrutura('')
+    setCoberto(false)
+    setCaixinhaOrigemId('')
     setAvisoQuaseDuplicataDescartado(false)
     setAvisoCopiado(false)
   }, [tipo])
@@ -438,6 +448,42 @@ export function NovoLancamento() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // item 58: "Lançar retirada agora" (Dashboard, card "Retiradas
+  // pendentes de caixinha") manda pra cá com a caixinha/valor já
+  // definidos em location.state — mesmo padrão de "Duplicar" acima.
+  // despesaOrigemRetiradaRef guarda o id da despesa original, usado em
+  // handleSubmit pra marcar a retirada como feita só depois do POST
+  // de verdade ter sucesso (nunca antes — evita marcar resolvido um
+  // lançamento que falhou ao salvar).
+  const prefillRetiradaProcessadoRef = useRef(false)
+  useEffect(() => {
+    if (prefillRetiradaProcessadoRef.current) return
+    const prefill = (
+      location.state as {
+        prefillRetirada?: { caixinhaId: string; valor: number; descricaoSugestao: string; despesaOrigemId: string }
+      } | null
+    )?.prefillRetirada
+    if (!prefill) return
+    prefillRetiradaProcessadoRef.current = true
+
+    if (tipo !== 'reserva') {
+      pularResetDeTipoRef.current = true
+    }
+    setTipo('reserva')
+    setDirecao('retirada')
+    // conta não é setada aqui de propósito — o efeito que já existe
+    // (caixinha vinculada a uma conta "trava" a conta do lançamento)
+    // cuida disso sozinho assim que `caixinhaId` muda, mesmo caminho que
+    // escolher a caixinha manualmente já passa
+    setCaixinhaId(prefill.caixinhaId)
+    setValor(String(prefill.valor))
+    setDescricao(prefill.descricaoSugestao)
+    despesaOrigemRetiradaRef.current = prefill.despesaOrigemId
+
+    navigate(location.pathname, { replace: true })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   function resetarFormulario() {
     setTipo('despesa')
     setAjusteTipo('estorno')
@@ -455,6 +501,9 @@ export function NovoLancamento() {
     setNovaSubcategoriaEstrutura('')
     setCaixinhaId('')
     setMeioPagamento('')
+    setCoberto(false)
+    setCaixinhaOrigemId('')
+    despesaOrigemRetiradaRef.current = null
     setValorTotal('')
     setParcelaTotal('2')
     setDataPrimeiraParcela(hoje())
@@ -511,6 +560,7 @@ export function NovoLancamento() {
       caixinha_id: tipo === 'reserva' ? caixinhaId : null,
       meio_pagamento: tipo === 'despesa' || tipo === 'ajuste' ? meioPagamento || null : null,
       ajuste_de_transacao_id: tipo === 'ajuste' ? despesaSelecionada!.id : null,
+      caixinha_origem_id: tipo === 'despesa' && coberto ? caixinhaOrigemId || null : null,
     }
   }
 
@@ -585,6 +635,10 @@ export function NovoLancamento() {
       setErro('Escolha um meio de pagamento.')
       return
     }
+    if (tipo === 'despesa' && coberto && !caixinhaOrigemId) {
+      setErro('Escolha a caixinha, ou desmarque "já estava guardada numa caixinha".')
+      return
+    }
 
     setEnviando(true)
     try {
@@ -595,6 +649,16 @@ export function NovoLancamento() {
         await apiFetch('/transacoes/parceladas', { method: 'POST', body: JSON.stringify(montarPayloadParcelada()) })
       } else {
         await apiFetch('/transacoes', { method: 'POST', body: JSON.stringify(montarPayloadAvista()) })
+      }
+      // item 58: só marca a retirada como feita DEPOIS do lançamento ter
+      // sido salvo de verdade — uma falha aqui não deveria impedir a
+      // retirada já criada de aparecer pro usuário (erro fica só num
+      // console.error, não bloqueia a tela de sucesso)
+      if (despesaOrigemRetiradaRef.current) {
+        apiFetch(`/transacoes/${despesaOrigemRetiradaRef.current}/retirada-pendente`, {
+          method: 'PATCH',
+          body: JSON.stringify({ pendente: false }),
+        }).catch((e) => console.error('Falha ao marcar retirada como feita na despesa de origem:', e))
       }
       setSucesso(true)
     } catch (e) {
@@ -1139,6 +1203,31 @@ export function NovoLancamento() {
                 </span>
               )}
             </label>
+          </div>
+        )}
+
+        {tipo === 'despesa' && (
+          <div className="campo-caixinha-origem">
+            <label className="checkbox-linha">
+              <input type="checkbox" checked={coberto} onChange={(e) => setCoberto(e.target.checked)} />
+              Essa despesa já estava guardada numa caixinha?
+            </label>
+            {coberto && (
+              <label className="campo campo-caixinha-origem-select">
+                Qual caixinha?
+                <select value={caixinhaOrigemId} onChange={(e) => setCaixinhaOrigemId(e.target.value)} required>
+                  <option value="">Selecione…</option>
+                  {caixinhas.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.nome}
+                    </option>
+                  ))}
+                </select>
+                <span style={{ fontSize: 12, color: 'var(--cor-texto-suave)' }}>
+                  Vai aparecer em "Retiradas pendentes" no Dashboard até você registrar o saque.
+                </span>
+              </label>
+            )}
           </div>
         )}
 

@@ -586,6 +586,7 @@ export function Lancamentos() {
             const categoria = t.categoria_id ? categoriasPorId.get(t.categoria_id) : undefined
             const subcategoria = t.subcategoria_id ? subcategoriasPorId.get(t.subcategoria_id) : undefined
             const caixinha = t.caixinha_id ? caixinhasPorId.get(t.caixinha_id) : undefined
+            const caixinhaOrigem = t.caixinha_origem_id ? caixinhasPorId.get(t.caixinha_origem_id) : undefined
 
             const detalhes = [
               rotuloTipoMovimento(t.tipo_movimento),
@@ -610,6 +611,11 @@ export function Lancamentos() {
                       {formatarData(t.data_compra)} — {t.descricao ?? '(sem descrição)'}
                     </span>
                     <span className="item-detalhe">{detalhes.join(' — ')}</span>
+                    {t.retirada_pendente && (
+                      <span className="badge-retirada-pendente">
+                        <span aria-hidden="true">◆</span> Falta retirar{caixinhaOrigem ? `: ${caixinhaOrigem.nome}` : ''}
+                      </span>
+                    )}
                   </div>
                   <div className="item-acoes">
                     <span className="valor-col">

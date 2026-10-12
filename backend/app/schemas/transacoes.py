@@ -28,6 +28,11 @@ class TransacaoCreate(BaseModel):
     meio_pagamento: MeioPagamento | None = None
     # vincula um estorno/ressarcimento à despesa original
     ajuste_de_transacao_id: str | None = None
+    # item 58 do backlog: marca uma despesa como "já coberta" por uma
+    # caixinha (reserva feita ao longo do tempo) — só despesa, nunca
+    # inferido automaticamente, usuário escolhe manualmente. Ver
+    # retirada_pendente em Transacao e GET /transacoes/retiradas-pendentes.
+    caixinha_origem_id: str | None = None
     # usado por POST/PATCH /transacoes, pra desambiguar um 409 de
     # hash_dedup que o usuário confirmou ser lançamento real (não
     # double-submit acidental) — ver _com_desambiguacao_de_duplicata no
@@ -113,3 +118,14 @@ class Transacao(BaseModel):
     fatura_referencia: date | None = None
     fatura_override: bool
     ajuste_de_transacao_id: str | None = None
+    caixinha_origem_id: str | None = None
+    retirada_pendente: bool = False
+
+
+class RetiradaPendentePayload(BaseModel):
+    """Payload de PATCH /transacoes/{id}/retirada-pendente — ação rápida
+    que só liga/desliga o lembrete, sem reenviar a transação inteira (ao
+    contrário do PATCH /transacoes/{id} normal, que é substituição
+    completa)."""
+
+    pendente: bool

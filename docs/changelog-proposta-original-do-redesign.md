@@ -5564,3 +5564,100 @@ exige credenciais reais do Supabase — mesma limitação de sempre).
       informação (descrição, parcela/tipo, data, valor).
 - [ ] Confirmar que "Confirmar"/"Pular este mês" continuam empilhados
       (um embaixo do outro, não lado a lado) e funcionando normalmente.
+
+### Rodada 77 (2026-10-12) — Item 58: lembrete de retirada da caixinha
+
+O pedido original ("marcador de origem caixinha", trazido em CSV) não
+tinha contexto de uso — perguntado ao usuário, o motivo real é não
+esquecer de retirar de uma caixinha depois de lançar a despesa real que
+ela já cobria (ex: guardou pra uma viagem o ano todo, voltou da viagem,
+lança a despesa real, mas esquece de ir lá sacar da caixinha). Design
+discutido e aprovado via mockup
+(`https://claude.ai/artifact/XVRy46vcuGq2rVzrNctttz`, artboards
+Lembrete58/FluxoLancamento58) antes de implementar.
+
+**Schema:** `transacoes` ganhou `caixinha_origem_id` (uuid, opcional) e
+`retirada_pendente` (boolean, default false) — `db/schema.sql` +
+migração documentada no README ("Migração pendente... `transacoes.
+caixinha_origem_id` + `retirada_pendente`").
+
+**Backend:**
+- `TransacaoCreate`/`Transacao` (`schemas/transacoes.py`) ganharam
+  `caixinha_origem_id`; `Transacao` também `retirada_pendente`.
+- `_check_regras_tipo_movimento` (`routers/transacoes.py`): vínculo só
+  vale pra `tipo_movimento == 'despesa'` (422 fora disso) — é o oposto
+  de `caixinha_id` (reserva), que só vale fora de despesa.
+- `criar()`: `retirada_pendente = bool(caixinha_origem_id)` sempre que
+  nasce — nunca setável direto pelo cliente.
+- `atualizar()` (PATCH /transacoes/{id}, substituição completa): só
+  reseta `retirada_pendente` quando o VÍNCULO muda (nasce, troca de
+  caixinha, ou é removido) — uma edição que não mexe nisso (ex: só
+  corrigir a descrição) preserva o estado já resolvido pelo usuário.
+  Achado de design durante a implementação, coberto por teste de
+  regressão (`test_editar_despesa_sem_mudar_vinculo_preserva_retirada_
+  resolvida`).
+- `GET /transacoes/retiradas-pendentes` — lista as despesas pendentes,
+  alimenta o card do Dashboard.
+- `PATCH /transacoes/{id}/retirada-pendente` (payload `{pendente:
+  bool}`) — ação rápida que só liga/desliga o lembrete, sem reenviar a
+  despesa inteira (diferente do PATCH normal, que é substituição
+  completa).
+
+**Frontend:**
+- `NovoLancamento.tsx`/`EditarLancamento.tsx` (despesa): checkbox
+  opcional "Essa despesa já estava guardada numa caixinha?" — escondido
+  até marcado, revela um select de caixinha. `forms.css` ganhou
+  `.campo-caixinha-origem`/`.campo-caixinha-origem-select`.
+- `NovoLancamento.tsx`: "Lançar retirada agora" (Dashboard) navega pra
+  cá com `location.state.prefillRetirada` (mesmo padrão já usado por
+  "Duplicar") — pré-preenche tipo=Reserva/retirada, caixinha, valor e
+  descrição; a conta é deixada pro efeito que já existe (caixinha
+  vinculada "trava" a conta) resolver sozinho. Depois do POST da
+  retirada ter sucesso (nunca antes), marca a despesa de origem como
+  resolvida via `PATCH .../retirada-pendente`.
+- `Dashboard.tsx`: seção "Retiradas pendentes de caixinha" (só aparece
+  quando há pendência — sem poluir quem não usa a feature), reaproveita
+  a classe `.lista-compromissos`/`.item-acoes-compromisso` já existente
+  (Rodada 76). "Já retirei, só marcar" chama o PATCH direto, sem criar
+  transação.
+- `Lancamentos.tsx`: badge âmbar na linha da despesa ("◆ Falta retirar:
+  {caixinha}") enquanto `retirada_pendente` for true —
+  `.badge-retirada-pendente` em `lancamentos.css`.
+- `types.ts`: `Transacao` ganhou `caixinha_origem_id`/`retirada_pendente`.
+
+**Testes:** 8 testes novos em `test_transacoes_api.py` (nasce pendente,
+nasce sem pendência, 422 fora de despesa, 404 caixinha de outro
+usuário, endpoint de listagem só traz pendentes, resolver via PATCH
+dedicado, 422 sem vínculo, preserva resolvido numa edição que não mexe
+no vínculo, volta a ficar pendente ao trocar de caixinha). Suíte
+completa: 407 passed, 33 skipped. Frontend: `tsc -b && vite build` —
+sem erro novo; `oxlint` — 2 avisos novos (`react(immutability)` em
+`EditarLancamento.tsx`, nos 2 setters novos dentro do `.then()` de
+carga inicial), mesmo padrão pré-existente já presente nos outros 8
+setters do mesmo callback — não é regressão nova, é o mesmo falso
+positivo de sempre nesse arquivo.
+
+**Status:** implementado 2026-10-12, pede teste do usuário no fluxo
+real (login exige credenciais reais do Supabase — mesma limitação de
+sempre nesta sessão).
+
+**Checklist de teste manual (usuário, localmente):**
+- [ ] Em Novo Lançamento, lançar uma despesa e marcar "Essa despesa já
+      estava guardada numa caixinha?", escolher uma caixinha e salvar —
+      confirmar que ela aparece em "Retiradas pendentes de caixinha" no
+      Dashboard.
+- [ ] No card do Dashboard, clicar "Lançar retirada agora" — confirmar
+      que o formulário abre com Reserva/Retirada, a caixinha e o valor
+      já preenchidos, e que a conta é preenchida sozinha (da caixinha).
+      Salvar e confirmar que a despesa some de "Retiradas pendentes".
+- [ ] Lançar outra despesa coberta por caixinha e, no card do Dashboard,
+      usar "Já retirei, só marcar" — confirmar que some da lista sem
+      criar nenhuma transação nova em Lançamentos.
+- [ ] Confirmar que a despesa pendente mostra o badge "Falta retirar:
+      {caixinha}" na lista de Lançamentos.
+- [ ] Editar uma despesa pendente mudando só a descrição (sem mexer na
+      caixinha) e confirmar que ela CONTINUA pendente depois de salvar
+      (não reabre nem fecha sozinha).
+- [ ] Em Editar Lançamento, desmarcar o checkbox de uma despesa que já
+      tinha vínculo e salvar — confirmar que ela some de "Retiradas
+      pendentes" (vínculo removido = resolvido).

@@ -12,6 +12,7 @@ from ..schemas.transacoes import (
     MoverFaturaPayload,
     ParcelaUpdate,
     ResumoLancamentos,
+    RetiradaPendentePayload,
     Transacao,
     TransacaoCreate,
     TipoMovimento,
@@ -87,6 +88,7 @@ def _check_refs(
     subcategoria_id: str | None = None,
     caixinha_id: str | None = None,
     ajuste_de_transacao_id: str | None = None,
+    caixinha_origem_id: str | None = None,
 ) -> None:
     if not crud.get_owned(db, "contas", user_id, conta_id):
         raise HTTPException(status_code=404, detail="Conta não encontrada")
@@ -98,6 +100,8 @@ def _check_refs(
         raise HTTPException(status_code=404, detail="Caixinha não encontrada")
     if ajuste_de_transacao_id and not crud.get_owned(db, TABLE, user_id, ajuste_de_transacao_id):
         raise HTTPException(status_code=404, detail="Transação de ajuste referenciada não encontrada")
+    if caixinha_origem_id and not crud.get_owned(db, "caixinhas", user_id, caixinha_origem_id):
+        raise HTTPException(status_code=404, detail="Caixinha de origem não encontrada")
 
 
 # receita usa a categoria "pai" tipo receita, despesa/estorno/ressarcimento
@@ -120,13 +124,21 @@ def _check_regras_tipo_movimento(
     categoria_id: str | None,
     caixinha_id: str | None,
     conta_id: str | None = None,
+    caixinha_origem_id: str | None = None,
 ) -> None:
     """Caixinha é reserva, não investimento nem despesa — só faz sentido em
     aplicação/retirada. Categoria (quando informada) precisa ser do tipo
     compatível com o tipo de movimento (ver _TIPO_CATEGORIA_ESPERADO).
     Caixinha vinculada a uma conta "mora" nessa conta — o lançamento
     precisa usar a mesma conta, senão a reserva fica registrada num ledger
-    diferente de onde o dinheiro realmente está."""
+    diferente de onde o dinheiro realmente está. caixinha_origem_id (item
+    58) é o oposto de caixinha_id: só faz sentido em DESPESA — é a marca
+    de "isso já tava guardado", não uma movimentação de reserva em si."""
+    if caixinha_origem_id and tipo_movimento != "despesa":
+        raise HTTPException(
+            status_code=422,
+            detail="Vínculo com caixinha de origem só se aplica a lançamentos de despesa",
+        )
     if categoria_id:
         categoria = db.table("categorias").select("tipo").eq("id", categoria_id).eq("user_id", user_id).execute()
         if categoria.data:
@@ -327,6 +339,21 @@ def ultimos_por_conta(
     return resultado
 
 
+@router.get("/retiradas-pendentes", response_model=list[Transacao])
+def retiradas_pendentes(db: Client = Depends(get_db), user_id: str = Depends(get_current_user_id)):
+    """Despesas marcadas como já cobertas por uma caixinha (item 58) que
+    ainda aguardam o saque real — alimenta o card "Retiradas pendentes de
+    caixinha" no Dashboard. Precisa vir antes de GET /{transacao_id},
+    mesmo motivo de /resumo acima."""
+    return crud.buscar_todas_paginado(
+        lambda: db.table(TABLE)
+        .select("*")
+        .eq("user_id", user_id)
+        .eq("retirada_pendente", True)
+        .order("data_compra", desc=True)
+    )
+
+
 @router.get("/{transacao_id}", response_model=Transacao)
 def obter(transacao_id: str, db: Client = Depends(get_db), user_id: str = Depends(get_current_user_id)):
     try:
@@ -393,9 +420,11 @@ def criar(payload: TransacaoCreate, db: Client = Depends(get_db), user_id: str =
         payload.subcategoria_id,
         payload.caixinha_id,
         payload.ajuste_de_transacao_id,
+        payload.caixinha_origem_id,
     )
     _check_regras_tipo_movimento(
-        db, user_id, payload.tipo_movimento, payload.categoria_id, payload.caixinha_id, payload.conta_id
+        db, user_id, payload.tipo_movimento, payload.categoria_id, payload.caixinha_id, payload.conta_id,
+        payload.caixinha_origem_id,
     )
     _check_campos_obrigatorios(
         payload.tipo_movimento, payload.categoria_id, payload.estrutura_custo, payload.meio_pagamento,
@@ -410,6 +439,9 @@ def criar(payload: TransacaoCreate, db: Client = Depends(get_db), user_id: str =
         compra_parcelada_id=None,
         fatura_referencia=fatura_referencia_para(db, user_id, payload.conta_id, payload.data_compra),
         fatura_override=False,
+        # item 58: nasce pendente sempre que vinculada a uma caixinha de
+        # origem — nunca setável direto pelo cliente na criação
+        retirada_pendente=bool(payload.caixinha_origem_id),
     )
     campos_hash = dict(
         user_id=user_id,
@@ -561,10 +593,11 @@ def atualizar(
         )
     _check_refs(
         db, user_id, payload.conta_id, payload.categoria_id, payload.subcategoria_id,
-        payload.caixinha_id, payload.ajuste_de_transacao_id,
+        payload.caixinha_id, payload.ajuste_de_transacao_id, payload.caixinha_origem_id,
     )
     _check_regras_tipo_movimento(
-        db, user_id, payload.tipo_movimento, payload.categoria_id, payload.caixinha_id, payload.conta_id
+        db, user_id, payload.tipo_movimento, payload.categoria_id, payload.caixinha_id, payload.conta_id,
+        payload.caixinha_origem_id,
     )
     _check_campos_obrigatorios(
         payload.tipo_movimento, payload.categoria_id, payload.estrutura_custo, payload.meio_pagamento,
@@ -572,6 +605,14 @@ def atualizar(
     )
     row = payload.model_dump(mode="json")
     row.update(pagamento="avista", parcela_atual=None, parcela_total=None, compra_parcelada_id=None)
+    # item 58: só reseta o lembrete quando o VÍNCULO muda (nasce, muda de
+    # caixinha, ou é removido) — uma edição que não mexe nisso (ex: só
+    # corrigir a descrição) não pode reabrir um lembrete que o usuário já
+    # tinha resolvido manualmente.
+    if payload.caixinha_origem_id != atual.get("caixinha_origem_id"):
+        row["retirada_pendente"] = bool(payload.caixinha_origem_id)
+    else:
+        row["retirada_pendente"] = atual.get("retirada_pendente", False)
     if atual["fatura_override"]:
         row["fatura_referencia"] = atual["fatura_referencia"]
         row["fatura_override"] = True
@@ -626,6 +667,30 @@ def mover_fatura(
             transacao_id,
             {"fatura_referencia": payload.fatura_referencia.isoformat(), "fatura_override": True},
         )
+    except crud.NotFound:
+        raise HTTPException(status_code=404, detail="Transação não encontrada")
+
+
+@router.patch("/{transacao_id}/retirada-pendente", response_model=Transacao)
+def atualizar_retirada_pendente(
+    transacao_id: str,
+    payload: RetiradaPendentePayload,
+    db: Client = Depends(get_db),
+    user_id: str = Depends(get_current_user_id),
+):
+    """Item 58: ação rápida do card "Retiradas pendentes de caixinha" no
+    Dashboard — liga/desliga só o lembrete, sem reenviar a despesa
+    inteira. Usada tanto por "Já retirei, só marcar" (pendente=false
+    direto) quanto, pelo frontend, depois de "Lançar retirada agora"
+    criar a transação de retirada de verdade."""
+    try:
+        atual = crud.get_one(db, TABLE, user_id, transacao_id)
+    except crud.NotFound:
+        raise HTTPException(status_code=404, detail="Transação não encontrada")
+    if not atual.get("caixinha_origem_id"):
+        raise HTTPException(status_code=422, detail="Esta transação não tem caixinha de origem vinculada")
+    try:
+        return crud.update(db, TABLE, user_id, transacao_id, {"retirada_pendente": payload.pendente})
     except crud.NotFound:
         raise HTTPException(status_code=404, detail="Transação não encontrada")
 

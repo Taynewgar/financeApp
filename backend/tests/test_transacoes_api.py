@@ -1857,3 +1857,165 @@ def test_descricoes_mais_usadas_filtra_por_caixinha(client):
     assert descricoes[0] == "Aporte mensal"
     assert "Aporte extra" in descricoes
     assert "Passagem" not in descricoes  # caixinha diferente, não entra
+
+
+def _criar_despesa_basica(client, conta_id, categoria_id, caixinha_origem_id=None, **extra):
+    payload = {
+        "data_compra": "2026-09-05",
+        "valor": 50,
+        "tipo_movimento": "despesa",
+        "conta_id": conta_id,
+        "categoria_id": categoria_id,
+        "estrutura_custo": "variavel",
+        "meio_pagamento": "pix",
+        **extra,
+    }
+    if caixinha_origem_id is not None:
+        payload["caixinha_origem_id"] = caixinha_origem_id
+    return client.post("/transacoes", json=payload)
+
+
+def test_criar_despesa_com_caixinha_origem_nasce_com_retirada_pendente(client):
+    conta = _criar_conta_corrente(client)
+    categoria = client.post("/categorias", json={"nome": "Lazer"}).json()
+    caixinha = client.post("/caixinhas", json={"nome": "Viagem"}).json()
+
+    resposta = _criar_despesa_basica(client, conta["id"], categoria["id"], caixinha["id"])
+    assert resposta.status_code == 201
+    corpo = resposta.json()
+    assert corpo["caixinha_origem_id"] == caixinha["id"]
+    assert corpo["retirada_pendente"] is True
+
+
+def test_criar_despesa_sem_caixinha_origem_nao_fica_pendente(client):
+    conta = _criar_conta_corrente(client)
+    categoria = client.post("/categorias", json={"nome": "Lazer"}).json()
+
+    resposta = _criar_despesa_basica(client, conta["id"], categoria["id"])
+    assert resposta.status_code == 201
+    corpo = resposta.json()
+    assert corpo["caixinha_origem_id"] is None
+    assert corpo["retirada_pendente"] is False
+
+
+def test_caixinha_origem_em_receita_retorna_422(client):
+    conta = _criar_conta_corrente(client)
+    receita = client.post("/categorias", json={"nome": "Salário", "tipo": "receita"}).json()
+    caixinha = client.post("/caixinhas", json={"nome": "Viagem"}).json()
+
+    resposta = client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-09-05",
+            "valor": 100,
+            "tipo_movimento": "receita",
+            "conta_id": conta["id"],
+            "categoria_id": receita["id"],
+            "caixinha_origem_id": caixinha["id"],
+        },
+    )
+    assert resposta.status_code == 422
+
+
+def test_caixinha_origem_de_outro_usuario_retorna_404(client, current_user):
+    conta = _criar_conta_corrente(client)
+    categoria = client.post("/categorias", json={"nome": "Lazer"}).json()
+
+    current_user["id"] = OUTRO_USUARIO
+    caixinha_outro = client.post("/caixinhas", json={"nome": "Viagem"}).json()
+    current_user["id"] = "11111111-1111-1111-1111-111111111111"
+
+    resposta = _criar_despesa_basica(client, conta["id"], categoria["id"], caixinha_outro["id"])
+    assert resposta.status_code == 404
+
+
+def test_endpoint_retiradas_pendentes_lista_so_despesas_pendentes(client):
+    conta = _criar_conta_corrente(client)
+    categoria = client.post("/categorias", json={"nome": "Lazer"}).json()
+    caixinha = client.post("/caixinhas", json={"nome": "Viagem"}).json()
+
+    pendente = _criar_despesa_basica(
+        client, conta["id"], categoria["id"], caixinha["id"], descricao="Passagens"
+    ).json()
+    _criar_despesa_basica(client, conta["id"], categoria["id"], descricao="Mercado")
+
+    resposta = client.get("/transacoes/retiradas-pendentes")
+    assert resposta.status_code == 200
+    ids = [t["id"] for t in resposta.json()]
+    assert ids == [pendente["id"]]
+
+
+def test_marcar_retirada_pendente_como_resolvida(client):
+    conta = _criar_conta_corrente(client)
+    categoria = client.post("/categorias", json={"nome": "Lazer"}).json()
+    caixinha = client.post("/caixinhas", json={"nome": "Viagem"}).json()
+    despesa = _criar_despesa_basica(client, conta["id"], categoria["id"], caixinha["id"]).json()
+
+    resposta = client.patch(f"/transacoes/{despesa['id']}/retirada-pendente", json={"pendente": False})
+    assert resposta.status_code == 200
+    assert resposta.json()["retirada_pendente"] is False
+
+    assert client.get("/transacoes/retiradas-pendentes").json() == []
+
+
+def test_marcar_retirada_pendente_sem_vinculo_retorna_422(client):
+    conta = _criar_conta_corrente(client)
+    categoria = client.post("/categorias", json={"nome": "Lazer"}).json()
+    despesa = _criar_despesa_basica(client, conta["id"], categoria["id"]).json()
+
+    resposta = client.patch(f"/transacoes/{despesa['id']}/retirada-pendente", json={"pendente": False})
+    assert resposta.status_code == 422
+
+
+def test_editar_despesa_sem_mudar_vinculo_preserva_retirada_resolvida(client):
+    """Achado de design (item 58): editar a despesa inteira (PATCH
+    /transacoes/{id} normal, substituição completa) não pode reabrir um
+    lembrete que o usuário já tinha marcado como resolvido, desde que o
+    vínculo com a caixinha de origem não mude."""
+    conta = _criar_conta_corrente(client)
+    categoria = client.post("/categorias", json={"nome": "Lazer"}).json()
+    caixinha = client.post("/caixinhas", json={"nome": "Viagem"}).json()
+    despesa = _criar_despesa_basica(client, conta["id"], categoria["id"], caixinha["id"]).json()
+    client.patch(f"/transacoes/{despesa['id']}/retirada-pendente", json={"pendente": False})
+
+    editada = client.patch(
+        f"/transacoes/{despesa['id']}",
+        json={
+            "data_compra": "2026-09-05",
+            "valor": 60,
+            "descricao": "Passagens (valor corrigido)",
+            "tipo_movimento": "despesa",
+            "conta_id": conta["id"],
+            "categoria_id": categoria["id"],
+            "estrutura_custo": "variavel",
+            "meio_pagamento": "pix",
+            "caixinha_origem_id": caixinha["id"],
+        },
+    )
+    assert editada.status_code == 200
+    assert editada.json()["retirada_pendente"] is False
+
+
+def test_editar_despesa_trocando_caixinha_origem_volta_a_ficar_pendente(client):
+    conta = _criar_conta_corrente(client)
+    categoria = client.post("/categorias", json={"nome": "Lazer"}).json()
+    viagem = client.post("/caixinhas", json={"nome": "Viagem"}).json()
+    carro = client.post("/caixinhas", json={"nome": "Carro"}).json()
+    despesa = _criar_despesa_basica(client, conta["id"], categoria["id"], viagem["id"]).json()
+    client.patch(f"/transacoes/{despesa['id']}/retirada-pendente", json={"pendente": False})
+
+    editada = client.patch(
+        f"/transacoes/{despesa['id']}",
+        json={
+            "data_compra": "2026-09-05",
+            "valor": 50,
+            "tipo_movimento": "despesa",
+            "conta_id": conta["id"],
+            "categoria_id": categoria["id"],
+            "estrutura_custo": "variavel",
+            "meio_pagamento": "pix",
+            "caixinha_origem_id": carro["id"],
+        },
+    )
+    assert editada.status_code == 200
+    assert editada.json()["retirada_pendente"] is True

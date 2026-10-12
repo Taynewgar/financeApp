@@ -254,3 +254,21 @@
   flex-shrink: 0;
   display: inline-block;
 }
+
+/* item 58 do backlog: lembrete de retirada pendente, na própria linha da
+ * despesa — cor âmbar (nem acento nem nenhuma das 4 cores já usadas na
+ * legenda) pra não ser confundido com classificação de tipo de
+ * transação, só um aviso temporário até o usuário resolver. */
+.badge-retirada-pendente {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  background: rgba(245, 158, 11, 0.16);
+  color: #f59e0b;
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  width: fit-content;
+}

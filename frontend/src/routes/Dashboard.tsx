@@ -23,6 +23,7 @@ import type {
   ResumoMensal,
   ResumoPeriodo,
   SaldoCaixinha,
+  Transacao,
 } from '../lib/types'
 
 const EXPLICACAO: Record<string, string> = {
@@ -81,6 +82,12 @@ export function Dashboard() {
   const [confirmandoId, setConfirmandoId] = useState<string | null>(null)
   const [pulandoId, setPulandoId] = useState<string | null>(null)
   const [erroConfirmar, setErroConfirmar] = useState<string | null>(null)
+  // item 58: despesas marcadas como "já cobertas" por uma caixinha que
+  // ainda aguardam o saque real — lembrete ativo, não é um dado do
+  // período navegado (igual Compromissos Futuros, busca independente)
+  const [retiradasPendentes, setRetiradasPendentes] = useState<Transacao[] | null>(null)
+  const [resolvendoRetiradaId, setResolvendoRetiradaId] = useState<string | null>(null)
+  const [erroRetirada, setErroRetirada] = useState<string | null>(null)
   const [despesasCategoria, setDespesasCategoria] = useState<DespesaPorCategoriaT[] | null>(null)
   const [erro, setErro] = useState<string | null>(null)
 
@@ -102,6 +109,37 @@ export function Dashboard() {
   useEffect(() => {
     buscarCompromissos()
   }, [])
+
+  function buscarRetiradasPendentes() {
+    return apiFetch<Transacao[]>('/transacoes/retiradas-pendentes')
+      .then(setRetiradasPendentes)
+      .catch(() => setRetiradasPendentes([]))
+  }
+
+  useEffect(() => {
+    buscarRetiradasPendentes()
+  }, [])
+
+  // "Já retirei, só marcar" — resolve sem criar transação nova. "Lançar
+  // retirada agora" não chama isto: ele navega pro formulário e só marca
+  // resolvido DEPOIS do POST da retirada ter sucesso (NovoLancamento.tsx)
+  async function marcarRetiradaResolvida(t: Transacao) {
+    setResolvendoRetiradaId(t.id)
+    try {
+      await apiFetch(`/transacoes/${t.id}/retirada-pendente`, {
+        method: 'PATCH',
+        body: JSON.stringify({ pendente: false }),
+      })
+      setErroRetirada(null)
+      await buscarRetiradasPendentes()
+    } catch (e) {
+      setErroRetirada(
+        `Falha ao marcar "${t.descricao ?? 'despesa'}" como resolvida: ${e instanceof ApiError ? e.message : 'erro desconhecido'}`,
+      )
+    } finally {
+      setResolvendoRetiradaId(null)
+    }
+  }
 
   // erro não é limpo no início da ação — só quando ELA MESMA termina (sucesso
   // limpa, falha substitui) — senão uma ação rápida em cima de outra apaga o
@@ -197,6 +235,11 @@ export function Dashboard() {
         setMesesNegativosAno(null)
       })
   }, [mesReferencia])
+
+  // item 58: nome da caixinha de origem no card "Retiradas pendentes" —
+  // `caixinhas` já é buscado pro mês de referência (Patrimônio), id/nome
+  // bastam aqui, sem precisar de outra chamada só pra isso
+  const caixinhasPorId = useMemo(() => new Map((caixinhas ?? []).map((c) => [c.id, c])), [caixinhas])
 
   const maiorCategoriaDespesa = useMemo(() => {
     if (!despesasCategoria || despesasCategoria.length === 0) return null
@@ -445,6 +488,55 @@ export function Dashboard() {
 
       {resumo && (
         <div className="dashboard-secoes">
+          {retiradasPendentes !== null && retiradasPendentes.length > 0 && (
+            <div className="dashboard-secao">
+              <h2 style={{ fontSize: 16, marginTop: 0, marginBottom: 8 }}>Retiradas pendentes de caixinha</h2>
+              {erroRetirada && <p className="mensagem-erro">{erroRetirada}</p>}
+              <ul className="lista-crud lista-compromissos">
+                {retiradasPendentes.map((t) => {
+                  const origem = t.caixinha_origem_id ? caixinhasPorId.get(t.caixinha_origem_id) : undefined
+                  return (
+                    <li key={t.id}>
+                      <div className="item-linha">
+                        <div className="item-info">
+                          <span className="item-titulo">{t.descricao ?? 'Sem descrição'}</span>
+                          <span className="item-detalhe">
+                            Coberto por: {origem?.nome ?? 'caixinha'} · {formatarData(t.data_compra)}
+                          </span>
+                        </div>
+                        <span className="resumo-card-valor valor-despesa">{formatarMoeda(t.valor, oculto)}</span>
+                        <div className="item-acoes item-acoes-compromisso">
+                          <Link
+                            to="/lancamentos/novo"
+                            className="botao-secundario"
+                            state={{
+                              prefillRetirada: {
+                                caixinhaId: t.caixinha_origem_id,
+                                valor: t.valor,
+                                descricaoSugestao: t.descricao ?? '',
+                                despesaOrigemId: t.id,
+                              },
+                            }}
+                          >
+                            Lançar retirada agora
+                          </Link>
+                          <button
+                            type="button"
+                            className="botao-link"
+                            disabled={resolvendoRetiradaId === t.id}
+                            onClick={() => marcarRetiradaResolvida(t)}
+                          >
+                            {resolvendoRetiradaId === t.id ? 'Marcando…' : 'Já retirei, só marcar'}
+                          </button>
+                        </div>
+                      </div>
+                    </li>
+                  )
+                })}
+              </ul>
+            </div>
+          )}
+
           <div className="dashboard-secao">
             <h2 style={{ fontSize: 16, marginTop: 0, marginBottom: 8 }}>Patrimônio em Caixinhas</h2>
             <p style={{ fontSize: 12, color: 'var(--cor-texto-suave)', marginTop: 0 }}>

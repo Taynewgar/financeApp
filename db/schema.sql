@@ -178,6 +178,14 @@ create table transacoes (
 
     -- vincula estorno/ressarcimento à despesa original
     ajuste_de_transacao_id uuid references transacoes(id),
+    -- item 58: marca uma despesa como "já coberta" por uma caixinha
+    -- (reserva feita ao longo do tempo) — só despesa, sempre escolhido
+    -- manualmente pelo usuário, nunca inferido. retirada_pendente nasce
+    -- true junto (POST /transacoes) e vira false quando o usuário resolve
+    -- o lembrete (PATCH /transacoes/{id}/retirada-pendente) — ver GET
+    -- /transacoes/retiradas-pendentes, que alimenta o card do Dashboard.
+    caixinha_origem_id uuid references caixinhas(id),
+    retirada_pendente boolean not null default false,
     -- transação real criada ao confirmar um mês de um lançamento
     -- recorrente (projeção virtual) — set null se o recorrente for
     -- apagado depois, o histórico já confirmado não deve sumir junto

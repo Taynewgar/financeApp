@@ -32,7 +32,7 @@ export function EditarLancamento() {
         setContas(c.filter((x) => x.ativo || x.id === t.conta_id))
         setCategorias(cat.filter((x) => x.ativo || x.id === t.categoria_id))
         setSubcategorias(sub.filter((x) => x.ativo || x.id === t.subcategoria_id))
-        setCaixinhas(cx.filter((x) => x.ativo || x.id === t.caixinha_id))
+        setCaixinhas(cx.filter((x) => x.ativo || x.id === t.caixinha_id || x.id === t.caixinha_origem_id))
         setDataCompra(t.data_compra)
         setValor(String(t.valor))
         setDescricao(t.descricao ?? '')
@@ -42,6 +42,8 @@ export function EditarLancamento() {
         setEstruturaCusto(t.estrutura_custo ?? '')
         setCaixinhaId(t.caixinha_id ?? '')
         setMeioPagamento(t.meio_pagamento ?? '')
+        setCoberto(Boolean(t.caixinha_origem_id))
+        setCaixinhaOrigemId(t.caixinha_origem_id ?? '')
         if (t.ajuste_de_transacao_id) {
           apiFetch<Transacao>(`/transacoes/${t.ajuste_de_transacao_id}`)
             .then(setDespesaOriginal)
@@ -61,6 +63,9 @@ export function EditarLancamento() {
   const [estruturaCusto, setEstruturaCusto] = useState<EstruturaCusto | ''>('')
   const [caixinhaId, setCaixinhaId] = useState('')
   const [meioPagamento, setMeioPagamento] = useState<MeioPagamento | ''>('')
+  // item 58: mesmo campo opcional do Novo Lançamento, editável aqui
+  const [coberto, setCoberto] = useState(false)
+  const [caixinhaOrigemId, setCaixinhaOrigemId] = useState('')
 
   const [enviando, setEnviando] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
@@ -167,6 +172,7 @@ export function EditarLancamento() {
       caixinha_id: tipo === 'reserva' ? caixinhaId : null,
       meio_pagamento: tipo === 'despesa' || tipo === 'ajuste' ? meioPagamento || null : null,
       ajuste_de_transacao_id: despesaOriginal?.id ?? null,
+      caixinha_origem_id: tipo === 'despesa' && coberto ? caixinhaOrigemId || null : null,
     }
   }
 
@@ -215,6 +221,10 @@ export function EditarLancamento() {
     }
     if (tipo === 'despesa' && !meioPagamento) {
       setErro('Escolha um meio de pagamento.')
+      return
+    }
+    if (tipo === 'despesa' && coberto && !caixinhaOrigemId) {
+      setErro('Escolha a caixinha, ou desmarque "já estava guardada numa caixinha".')
       return
     }
 
@@ -597,6 +607,31 @@ export function EditarLancamento() {
                 </span>
               )}
             </label>
+          </div>
+        )}
+
+        {tipo === 'despesa' && (
+          <div className="campo-caixinha-origem">
+            <label className="checkbox-linha">
+              <input type="checkbox" checked={coberto} onChange={(e) => setCoberto(e.target.checked)} />
+              Essa despesa já estava guardada numa caixinha?
+            </label>
+            {coberto && (
+              <label className="campo campo-caixinha-origem-select">
+                Qual caixinha?
+                <select value={caixinhaOrigemId} onChange={(e) => setCaixinhaOrigemId(e.target.value)} required>
+                  <option value="">Selecione…</option>
+                  {caixinhas.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.nome}
+                    </option>
+                  ))}
+                </select>
+                <span style={{ fontSize: 12, color: 'var(--cor-texto-suave)' }}>
+                  Vai aparecer em "Retiradas pendentes" no Dashboard até você registrar o saque.
+                </span>
+              </label>
+            )}
           </div>
         )}
 

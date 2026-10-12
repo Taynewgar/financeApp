@@ -280,4 +280,6 @@ export type Transacao = {
   fatura_referencia: string | null
   fatura_override: boolean
   ajuste_de_transacao_id: string | null
+  caixinha_origem_id: string | null
+  retirada_pendente: boolean
 }
