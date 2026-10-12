@@ -6269,3 +6269,214 @@ reabre, a 2ª ainda cobre), exclui a 2ª (reabre, nenhuma resta). Suíte:
 **Status:** implementado 2026-10-12. Caso raro (fluxo manual, fora do
 "Lançar retirada" do Dashboard) — sem cenário de teste manual
 dedicado; cobertura é só pelo teste automatizado acima.
+
+### Rodada 89 (2026-10-12) — Item 66: atualização reativa entre telas
+
+Implementa a Opção A da investigação completa (mesma rodada, ver
+detalhe no backlog) nos 3 casos reais confirmados — sem cache
+compartilhado, só re-buscar o que cada ação afeta.
+
+**Achado 1 — Dashboard (`Dashboard.tsx`):** confirmar um recorrente
+movia dinheiro (aplicação/retirada/despesa/receita) mas só re-buscava
+`buscarCompromissos()`; patrimônio de caixinhas e resumo do mês
+ficavam com o dado antigo até reload manual. **Fix:** o `Promise.all`
+que já buscava tudo isso no `useEffect` de carga virou a função
+`buscarDadosPeriodo()`, reaproveitada tanto pelo `useEffect` original
+quanto por `confirmarRecorrente()` (que agora chama
+`Promise.all([buscarCompromissos(), buscarDadosPeriodo()])` em vez de
+só o primeiro). `pularRecorrente()` ficou como estava — não move
+dinheiro, nada a re-buscar.
+
+**Achado 2 — categoria criada na aba Recorrentes não aparece no
+filtro da aba Lançamentos:** `RecorrentesSection.tsx` tem seu próprio
+`criarCategoria`/`criarSubcategoria` (chips inline do formulário),
+mas só atualizava o estado local da aba — `Lancamentos.tsx` guarda sua
+própria cópia de categorias/subcategorias (que alimenta os selects de
+filtro) e não sabia da categoria nova. **Fix:** `RecorrentesSection`
+ganhou props opcionais `onCategoriaCriada`/`onSubcategoriaCriada`,
+chamadas logo depois do `setState` local; `Lancamentos.tsx` passa
+handlers que inserem a categoria/subcategoria nova na própria cópia,
+já ordenada alfabeticamente (mesmo `localeCompare('pt-BR')` usado no
+resto do app).
+
+**Achado 3 — excluir lançamento não atualiza "Últimos lançamentos por
+conta":** `excluir()`/`excluirCompraParcelada()` só re-buscavam a
+lista filtrada + resumo (`carregar()`), nunca `ultimosPorConta`
+(item 54) — um lançamento excluído continuava aparecendo ali até
+reload. **Fix:** extraída `buscarUltimosPorConta()`, chamada também
+dentro dos dois handlers de exclusão, depois do `DELETE` confirmado.
+
+**Testes:** mudança 100% frontend, sem endpoint novo. `tsc -b`/`vite
+build` sem erro novo. Sem teste automatizado dedicado (comportamento
+só observável entre múltiplas interações numa sessão de browser real;
+ver checklist abaixo).
+
+**Status:** implementado 2026-10-12, aguardando teste do usuário.
+
+**Checklist de teste manual (usuário, localmente):**
+- [ ] No Dashboard, com uma caixinha visível em "Patrimônio em
+      Caixinhas", confirmar um recorrente de aplicação/retirada dessa
+      caixinha em Compromissos Futuros — confirmar que o saldo da
+      caixinha e o resumo do mês atualizam SEM precisar recarregar a
+      página.
+- [ ] Em Lançamentos, aba Recorrentes, criar uma categoria ou
+      subcategoria nova pelo formulário de recorrente — trocar pra aba
+      Lançamentos e confirmar que a categoria/subcategoria nova já
+      aparece no filtro, sem reload.
+- [ ] Em Lançamentos, excluir um lançamento avulso ou uma compra
+      parcelada que apareça em "Últimos lançamentos por conta" —
+      confirmar que ele desaparece dali também, sem reload.
+- [ ] Confirmar que "pular" um recorrente (sem confirmar) continua
+      funcionando normalmente, sem erro novo.
+
+### Rodada 90 (2026-10-12) — Item 10: exportação de relatório mensal/anual
+
+Implementa o export de dados estruturados (prioridade 1 da proposta
+original, item 10) — JSON pronto pra colar numa análise, não um
+relatório pra imprimir.
+
+**Backend:** `backend/app/schemas/relatorios.py` (novo) define
+`RelatorioMensal`/`RelatorioAnual` e `LancamentoExportado` (= `Transacao`
++ nomes resolvidos de categoria/subcategoria/conta/caixinha/caixinha de
+origem, pra ficar legível fora do app sem cruzar com outra tabela).
+`backend/app/routers/relatorios.py` (novo) expõe `GET /relatorios/mes/
+{vigencia_mes}` e `GET /relatorios/ano/{ano}` — **zero lógica de
+agregação nova**: ambos compõem a resposta chamando direto as funções
+dos routers já existentes e testados (`dashboard.resumo_mensal`,
+`dashboard.evolucao_mensal`, `dashboard.despesas_por_categoria(_periodo)`,
+`dashboard.despesas_por_subcategoria(_periodo)`, `estrutura_custo.obter`,
+`dashboard.patrimonio_caixinhas`, `transacoes.listar`,
+`transacoes.retiradas_pendentes`), passando `db=`/`user_id=` explícitos
+— uma função decorada com `@router.get(...)` é uma função Python comum,
+chamável direto de outro router.
+
+**Simplificação em relação ao formato detalhado no backlog:** a seção
+`planejamento` separada foi descartada — `estrutura_custo` (= o
+`EstruturaCustoMes` que a tela Estrutura de Custo já usa) cobre orçado
+× realizado por bucket e por item, sem duplicar dado. No escopo "ano",
+isso vira `estrutura_custo_mensal`: 1 `EstruturaCustoMes` por mês do
+ano, em vez de 12 chamadas ao endpoint mensal do frontend.
+
+**Frontend (`EstruturaCusto.tsx`):** dropdown "⤓ Exportar ▾" no
+cabeçalho da tela (local já decidido 2026-09-15, com a ressalva de
+que é provisório — deve migrar pra uma feature de relatórios futura),
+com opções "Mês atual (JSON)" / "Ano inteiro (JSON)". Baixa o arquivo
+via `Blob` + link temporário (`relatorio-{vigencia_mes}.json` /
+`relatorio-{ano}.json`), sem tela nova. Erro de rede mostra mensagem
+inline, sem travar a tela.
+
+**Testes:** `backend/tests/test_relatorios_api.py` (novo, 4 testes) —
+estrutura básica do relatório mensal, resolução do nome da caixinha de
+origem (retirada pendente), mês sem lançamentos fica vazio (não erro),
+estrutura básica do relatório anual. Suíte completa: 423 passed, 33
+skipped. Frontend: `tsc -b` limpo.
+
+**Status:** implementado 2026-10-12, aguardando teste do usuário.
+
+**Checklist de teste manual (usuário, localmente):**
+- [ ] Em Estrutura de Custo, abrir o dropdown "⤓ Exportar" e baixar
+      "Mês atual" — confirmar que o arquivo baixa e o JSON tem
+      lançamentos, despesas por categoria/subcategoria, estrutura de
+      custo e caixinhas do mês certo.
+- [ ] No mesmo dropdown, baixar "Ano inteiro" — confirmar que
+      `estrutura_custo_mensal` tem 12 entradas (uma por mês) e
+      `evolucao_mensal` cobre o ano inteiro.
+- [ ] Testar num mês sem nenhum lançamento — confirmar que o download
+      funciona (não trava/erro) e `lancamentos` vem vazio.
+- [ ] Testar num mês com retirada pendente de caixinha — confirmar que
+      `caixinha_origem_nome` vem resolvido (não só o id) na despesa
+      correspondente.
+
+### Rodada 91 (2026-10-12) — Item 51: comparadores dinâmicos de séries no tempo
+
+Implementa os 4 gráficos aprovados via mockup (canvas de mockups do
+item 51) — visão de tendência por categoria/subcategoria/estrutura/
+caixinha que `/graficos` não tinha ainda (só tinha snapshot de 1
+período, nunca evolução mês a mês quebrada por série).
+
+**Endpoint único pros 4 gráficos, em vez de 1 por gráfico
+(`backend/app/routers/dashboard.py`):** `GET /dashboard/series-mensais?
+series=tipo:id&inicio=&fim=` aceita uma lista de chaves no formato
+`"tipo:id"` — `subcategoria:<uuid>`, `categoria:<uuid>`,
+`estrutura:<fixo|variavel|sazonal|investimentos>`,
+`caixinha_aporte:<uuid>`, `caixinha_retirada:<uuid>` — e devolve 1
+`SerieMensal` (`{chave, nome, pontos: [{vigencia_mes, valor}]}`) por
+chave pedida. Mesmo padrão de performance de `/dashboard/evolucao`
+(Rodada 19.3): busca o período INTEIRO numa query só
+(`buscar_todas_paginado`), soma em Python por mês e por série — nunca
+1 query por mês nem por série. Validação em lote: 1 `SELECT ... IN
+(...)` por tabela referenciada (não 1 por id), erro 404 lista TODOS
+os ids inválidos/de outro usuário de uma vez, erro 422 pra chave mal
+formada ou tipo/estrutura desconhecido.
+
+**Por que 1 endpoint só:** os 4 gráficos dos mockups só diferem em
+COMO montam a chamada e reorganizam a resposta no frontend — o
+comparador dinâmico pede N séries livres; o ano a ano pede 1 série só
+num intervalo de 3 anos e separa por ano no cliente; o heatmap pede 1
+série por categoria de despesa; o fluxo de caixinha pede 2 séries
+(aporte e retirada da mesma caixinha) e soma o saldo acumulado no
+cliente. Nenhum precisou de agregação nova no backend.
+
+**4 componentes novos em `frontend/src/components/`** (SVG à mão,
+mesmo padrão de `EvolucaoChart.tsx` — projeto não usa biblioteca de
+gráficos):
+- **`ComparadorSeries.tsx`** — a ideia original do usuário: picker com
+  checkbox agrupado por Receita/Despesa·subcategoria, Despesa·estrutura
+  de custo, Caixinhas·aporte/retirada; qualquer combinação entra no
+  mesmo gráfico, sem limite. Toggle Linha/Barra + linha de média
+  (tracejada, calculada no cliente sobre as séries marcadas).
+- **`ComparadorAnoAno.tsx`** — escolhe 1 série, sobrepõe os últimos 3
+  anos mês a mês. Mesmo toggle Linha/Barra + média dos anos.
+- **`HeatmapCategorias.tsx`** — grade categoria de despesa × mês (12
+  meses), célula de cor interpolada entre a superfície do tema e o
+  acento (`#2dd4bf`) pelo valor normalizado; linhas ordenadas por total
+  do período (maior gasto primeiro).
+- **`CaixinhaFluxo.tsx`** — 1 caixinha por vez (chips), barras de
+  aporte/retirada lado a lado por mês + linha de saldo acumulado NO
+  PERÍODO exibido (não o saldo histórico total da caixinha — importante
+  não confundir os dois).
+
+**Cor estável por série (`frontend/src/lib/coresSeries.ts`):** cada
+subcategoria/estrutura/caixinha possível (não só as selecionadas)
+ganha uma cor fixa pelo índice numa lista plana e determinística —
+uma série marcada sempre mostra a mesma cor, independente do que mais
+está marcado junto (sem isso, a cor mudaria a cada seleção diferente,
+confuso pra comparar ao longo de várias sessões).
+
+**Cada gráfico tem período próprio** (12 meses corridos pro comparador
+dinâmico/heatmap/caixinha, últimos 3 anos pro ano a ano), independente
+do `SeletorPeriodo` da tela — a ideia é liberdade de montar a
+comparação sem depender do mês/intervalo navegado ali em cima.
+
+**Testes:** `backend/tests/test_dashboard_api.py` — 7 novos
+(`test_series_mensais_*`): soma por mês de 1 subcategoria, categoria
+de receita, estrutura de custo, aporte × retirada como séries
+separadas, erro 422 (chave sem `:`, estrutura desconhecida), erro 404
+(subcategoria de outro usuário). Suíte completa: 423 passed, 33
+skipped. Frontend: `tsc -b`/`vite build` limpos, `oxlint` sem warning
+de categoria nova (só o mesmo falso positivo de `set-state-in-effect`
+já presente em outros `useEffect` de busca do projeto).
+
+**Status:** implementado 2026-10-12, aguardando teste do usuário.
+
+**Checklist de teste manual (usuário, localmente):**
+- [ ] Comparador de Séries: marcar 2-3 subcategorias de despesa
+      diferentes e confirmar que cada uma mantém sua cor ao
+      marcar/desmarcar outras séries.
+- [ ] No mesmo gráfico, misturar uma subcategoria de receita com uma
+      estrutura de custo (ex: Fixo) no mesmo gráfico — confirmar que
+      funciona (esse é o caso de uso principal pedido).
+- [ ] Ligar "⟂ Média das selecionadas" e confirmar visualmente que a
+      linha tracejada fica entre as séries marcadas.
+- [ ] Alternar Linhas/Barras e confirmar que os valores batem com o
+      modo linha.
+- [ ] Ano a Ano: escolher uma série sazonal (ex: alguma subcategoria de
+      Sazonal) e confirmar que os 3 anos aparecem sobrepostos por mês.
+- [ ] Heatmap: confirmar que a categoria com maior gasto no período
+      aparece no topo e com a célula mais clara/intensa.
+- [ ] Fluxo de Caixinha: trocar entre caixinhas pelos chips e
+      confirmar que aporte/retirada/saldo mudam para os dados da
+      caixinha selecionada.
+- [ ] Testar os 4 gráficos com uma seleção vazia ou período sem dados —
+      confirmar que não aparece erro nem tela quebrada, só "nenhuma
+      série selecionada" ou gráfico vazio.

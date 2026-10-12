@@ -74,6 +74,16 @@ export function Lancamentos() {
   const [secaoUltimosAberta, setSecaoUltimosAberta] = useState(false)
   const [erroCarga, setErroCarga] = useState<string | null>(null)
 
+  // item 66: extraída pra poder ser re-chamada depois de excluir um
+  // lançamento (achado 2026-10-12 — excluir não atualizava "Últimos
+  // lançamentos por conta", que podia continuar mostrando o excluído até
+  // reload manual, se ele estivesse entre os 10 mais recentes da conta).
+  function buscarUltimosPorConta() {
+    return apiFetch<Record<string, Transacao[]>>('/transacoes/ultimos-por-conta?limite=10')
+      .then(setUltimosPorConta)
+      .catch(() => {})
+  }
+
   useEffect(() => {
     Promise.all([
       apiFetch<Conta[]>('/contas'),
@@ -225,6 +235,7 @@ export function Lancamentos() {
     try {
       await apiFetch(`/transacoes/${transacao.id}`, { method: 'DELETE' })
       carregar()
+      buscarUltimosPorConta()
     } catch (e) {
       setErro(e instanceof ApiError ? (typeof e.detail === 'string' ? e.detail : e.message) : 'Falha ao excluir lançamento')
     } finally {
@@ -245,6 +256,7 @@ export function Lancamentos() {
     try {
       await apiFetch(`/transacoes/parceladas/${transacao.compra_parcelada_id}`, { method: 'DELETE' })
       carregar()
+      buscarUltimosPorConta()
     } catch (e) {
       setErro(e instanceof ApiError ? (typeof e.detail === 'string' ? e.detail : e.message) : 'Falha ao excluir a compra parcelada')
     } finally {
@@ -269,7 +281,14 @@ export function Lancamentos() {
         </button>
       </div>
 
-      {aba === 'recorrentes' && <RecorrentesSection />}
+      {aba === 'recorrentes' && (
+        <RecorrentesSection
+          onCategoriaCriada={(c) => setCategorias((prev) => [...prev, c].sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR')))}
+          onSubcategoriaCriada={(s) =>
+            setSubcategorias((prev) => [...prev, s].sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR')))
+          }
+        />
+      )}
 
       {aba === 'lista' && (
         <>

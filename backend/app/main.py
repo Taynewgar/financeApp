@@ -10,6 +10,7 @@ from .routers import (
     estrutura_custo,
     lancamentos_recorrentes,
     orcamentos,
+    relatorios,
     subcategorias,
     transacoes,
 )
@@ -33,6 +34,7 @@ app.include_router(lancamentos_recorrentes.router)
 app.include_router(orcamentos.router)
 app.include_router(estrutura_custo.router)
 app.include_router(dashboard.router)
+app.include_router(relatorios.router)
 
 
 @app.get("/health")

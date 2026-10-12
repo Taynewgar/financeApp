@@ -920,3 +920,126 @@ def test_despesas_por_subcategoria_periodo_fim_antes_de_inicio_retorna_422(clien
         "/dashboard/despesas-por-subcategoria-periodo", params={"inicio": "2026-09-01", "fim": "2026-07-01"}
     )
     assert resposta.status_code == 422
+
+
+# item 51 do backlog: /dashboard/series-mensais — comparador dinâmico de Gráficos
+def _requisitar_series(client, series, inicio="2026-01-01", fim="2026-03-01"):
+    return client.get(
+        "/dashboard/series-mensais",
+        params={"series": series, "inicio": inicio, "fim": fim},
+    )
+
+
+def test_series_mensais_subcategoria_soma_por_mes(client):
+    conta = _conta(client)
+    mercado = client.post("/categorias", json={"nome": "Mercado"}).json()["id"]
+    hortifruti = client.post("/subcategorias", json={"categoria_id": mercado, "nome": "Hortifruti"}).json()["id"]
+    _lancar_despesa_com_subcategoria(client, conta, mercado, hortifruti, 100, data="2026-01-10")
+    _lancar_despesa_com_subcategoria(client, conta, mercado, hortifruti, 50, data="2026-01-20")
+    _lancar_despesa_com_subcategoria(client, conta, mercado, hortifruti, 70, data="2026-02-05")
+
+    resposta = _requisitar_series(client, [f"subcategoria:{hortifruti}"])
+    assert resposta.status_code == 200
+    corpo = resposta.json()
+    assert len(corpo) == 1
+    assert corpo[0]["chave"] == f"subcategoria:{hortifruti}"
+    assert corpo[0]["nome"] == "Hortifruti"
+    pontos = {p["vigencia_mes"]: p["valor"] for p in corpo[0]["pontos"]}
+    assert pontos == {"2026-01-01": 150, "2026-02-01": 70, "2026-03-01": 0}
+
+
+def test_series_mensais_categoria_de_receita_tambem_funciona(client):
+    conta = _conta(client)
+    salario = client.post("/categorias", json={"nome": "Salário", "tipo": "receita"}).json()["id"]
+    client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-02-05",
+            "valor": 3000,
+            "tipo_movimento": "receita",
+            "conta_id": conta["id"],
+            "categoria_id": salario,
+        },
+    )
+
+    corpo = _requisitar_series(client, [f"categoria:{salario}"]).json()
+    pontos = {p["vigencia_mes"]: p["valor"] for p in corpo[0]["pontos"]}
+    assert pontos["2026-02-01"] == 3000
+    assert corpo[0]["nome"] == "Salário"
+
+
+def test_series_mensais_estrutura_de_custo(client):
+    conta = _conta(client)
+    categoria = _categoria(client)
+    client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-01-15",
+            "valor": 400,
+            "tipo_movimento": "despesa",
+            "conta_id": conta["id"],
+            "categoria_id": categoria,
+            "estrutura_custo": "fixo",
+            "meio_pagamento": "pix",
+        },
+    )
+
+    corpo = _requisitar_series(client, ["estrutura:fixo"]).json()
+    assert corpo[0]["nome"] == "Fixo"
+    pontos = {p["vigencia_mes"]: p["valor"] for p in corpo[0]["pontos"]}
+    assert pontos["2026-01-01"] == 400
+
+
+def test_series_mensais_caixinha_aporte_e_retirada_sao_series_separadas(client):
+    conta = _conta(client)
+    caixinha = client.post("/caixinhas", json={"nome": "Viagem"}).json()["id"]
+    client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-01-10",
+            "valor": 300,
+            "tipo_movimento": "aplicacao",
+            "conta_id": conta["id"],
+            "caixinha_id": caixinha,
+        },
+    )
+    client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-02-10",
+            "valor": 100,
+            "tipo_movimento": "retirada",
+            "conta_id": conta["id"],
+            "caixinha_id": caixinha,
+        },
+    )
+
+    corpo = _requisitar_series(client, [f"caixinha_aporte:{caixinha}", f"caixinha_retirada:{caixinha}"]).json()
+    aporte = next(s for s in corpo if s["chave"] == f"caixinha_aporte:{caixinha}")
+    retirada = next(s for s in corpo if s["chave"] == f"caixinha_retirada:{caixinha}")
+    assert aporte["nome"] == "Viagem"
+    assert {p["vigencia_mes"]: p["valor"] for p in aporte["pontos"]}["2026-01-01"] == 300
+    assert {p["vigencia_mes"]: p["valor"] for p in retirada["pontos"]}["2026-02-01"] == 100
+
+
+def test_series_mensais_chave_sem_dois_pontos_retorna_422(client):
+    resposta = _requisitar_series(client, ["subcategoria-sem-separador"])
+    assert resposta.status_code == 422
+
+
+def test_series_mensais_estrutura_desconhecida_retorna_422(client):
+    resposta = _requisitar_series(client, ["estrutura:inexistente"])
+    assert resposta.status_code == 422
+
+
+def test_series_mensais_subcategoria_de_outro_usuario_retorna_404(client, current_user):
+    mercado = client.post("/categorias", json={"nome": "Mercado"}).json()["id"]
+
+    current_user["id"] = OUTRO_USUARIO
+    categoria_outro = client.post("/categorias", json={"nome": "Mercado"}).json()["id"]
+    sub_outro = client.post("/subcategorias", json={"categoria_id": categoria_outro, "nome": "Hortifruti"}).json()["id"]
+    current_user["id"] = "11111111-1111-1111-1111-111111111111"
+
+    resposta = _requisitar_series(client, [f"subcategoria:{sub_outro}"])
+    assert resposta.status_code == 404
+    _ = mercado  # só pra manter o padrão de criar uma categoria própria antes de trocar de usuário

@@ -100,8 +100,8 @@ changelog já documenta quando e como cada um foi entregue).
 **Alta**
 
 - **10.** **Exportação de relatório mensal/anual** `tipo: Implementação`
-  (detalhe abaixo) — próximo passo depois do MVP fechado (itens 1-8
-  acima).
+  (detalhe abaixo) — **✅ implementado 2026-10-12**, aguardando teste do
+  usuário.
 
 **Baixa**
 
@@ -119,12 +119,8 @@ changelog já documenta quando e como cada um foi entregue).
 **Média**
 
 - **51.** **Gráfico de despesa por categoria/subcategoria no tempo**
-  `tipo: Implementação` — similar ao de evolução mensal, mas com filtros de
-  categoria/subcategoria (incluindo receitas, investimentos etc.) e/ou
-  possibilidade de gráfico comparativo com elementos dinâmicos
-  selecionados na hora (ex: comparar receitas mensais excluindo
-  extraordinárias com custo fixo ou variável). *(trazido em CSV,
-  2026-09-30)*
+  `tipo: Implementação` (detalhe abaixo) — **✅ implementado 2026-10-12**,
+  aguardando teste do usuário. *(trazido em CSV, 2026-09-30)*
 
 #### Configurações
 
@@ -150,16 +146,9 @@ changelog já documenta quando e como cada um foi entregue).
 **Média**
 
 - **66.** **Avaliar atualização reativa entre telas após inserção de
-  dados** (detalhe abaixo) `tipo: Melhoria` — hoje cada tela busca seus
-  próprios dados só no próprio `useEffect` (sem cache nem invalidação
-  entre telas); uma ação numa tela não atualiza dado dependente
-  mostrado em outra parte da mesma tela ou de outra, só reload manual
-  resolve. 3 casos reais confirmados (investigação completa
-  2026-10-12): Dashboard (confirmar/pular recorrente não atualiza
-  patrimônio/resumo), e 2 em Lançamentos (criar categoria na aba
-  Recorrentes não propaga pro filtro da aba Lançamentos; excluir
-  lançamento não atualiza "Últimos lançamentos por conta"). Ver detalhe
-  abaixo. *(2026-10-02; investigação completa 2026-10-12)*
+  dados** (detalhe abaixo) `tipo: Melhoria` — **✅ implementado
+  2026-10-12** (os 3 casos confirmados na investigação), aguardando
+  teste do usuário. *(2026-10-02; investigação completa 2026-10-12)*
 
 **Baixa**
 
@@ -1130,10 +1119,23 @@ usuário aprovou todos, "ótimo"/"perfeito"):
 Todos de linha ou barra, exceto o heatmap (grade de células coloridas,
 sem eixo de valor).
 
-**Status:** registrado em CSV (2026-09-30), detalhado 2026-10-12 —
-escopo e endpoint propostos, mockups das 4 variações + comparador
-dinâmico aprovados. Falta decidir categoria×subcategoria padrão (do
-gráfico original, não do comparador) e confirmar antes de implementar.
+**Status:** ✅ implementado 2026-10-12 — ver changelog Rodada 91. O
+endpoint final não seguiu a proposta de `/dashboard/despesas-por-
+categoria-evolucao` acima — ficou mais genérico: `GET /dashboard/
+series-mensais?series=tipo:id&inicio=&fim=` aceita uma lista de chaves
+(`subcategoria:<id>`, `categoria:<id>`, `estrutura:<fixo|variavel|
+sazonal|investimentos>`, `caixinha_aporte:<id>`,
+`caixinha_retirada:<id>`), 1 série por chave — o MESMO endpoint serve
+os 4 gráficos dos mockups (cada um só varia como monta a chamada/
+reorganiza a resposta no frontend), em vez de 1 endpoint por gráfico.
+Resolve também a "decisão em aberto" acima: não há mais um
+categoria×subcategoria "padrão" fixo — o Comparador dinâmico deixa
+escolher qualquer combinação, sem limite de quantidade (usuário decide
+o que é legível). 4 componentes novos em `frontend/src/components/`:
+`ComparadorSeries.tsx`, `ComparadorAnoAno.tsx`, `HeatmapCategorias.tsx`,
+`CaixinhaFluxo.tsx` — todos com toggle Linha/Barra e linha de média
+(exceto o heatmap), aguardando teste do usuário (checklist no
+changelog).
 
 ### Feature "Gráficos" — tela nova na navegação
 
@@ -1260,9 +1262,13 @@ de resposta + testes, a maior parte reaproveitando código já testado
 que baixa o JSON como arquivo (`Blob` + link), sem tela nova (~30min-
 1h). Risco baixo — não toca nada existente, só lê.
 
-**Status:** registrado 2026-09-15 a pedido explícito do usuário, como
-próximo passo pós-MVP, local de disparo já decidido. Formato do JSON
-detalhado 2026-10-12 — falta só confirmar e implementar.
+**Status:** ✅ implementado 2026-10-12 — ver changelog Rodada 90.
+Formato final simplificado em relação ao JSON detalhado acima: a seção
+`planejamento` separada foi descartada (redundante — `estrutura_custo`
+já cobre orçado × realizado por bucket e por item, ano inteiro vira
+`estrutura_custo_mensal` com 12 meses). Endpoints reais: `GET
+/relatorios/mes/{vigencia_mes}` e `GET /relatorios/ano/{ano}`. Aguarda
+teste do usuário (checklist no changelog).
 
 ### Melhorias pós-MVP na tela Gráficos e na casca do app
 
@@ -2209,10 +2215,17 @@ compartilhado tipo React Query) continua descartada por ora — mudança
 de arquitetura grande pro número de casos reais (3) encontrados até
 agora; revisitar se mais pontos de dor aparecerem com o uso.
 
-**Status:** registrado 2026-10-02, investigação completa em todas as
-telas 2026-10-12 — 3 casos reais confirmados (Dashboard + 2 em
-Lançamentos), recomendação de escopo pronta, falta confirmar e
-implementar.
+**Status:** ✅ implementado 2026-10-12 — ver changelog Rodada 89.
+Opção A aplicada nos 3 casos: `Dashboard.tsx` extraiu o fetch de
+período pra `buscarDadosPeriodo()` e chama também ela (junto com
+`buscarCompromissos()`) ao confirmar um recorrente; `RecorrentesSection.tsx`
+ganhou props `onCategoriaCriada`/`onSubcategoriaCriada` que
+`Lancamentos.tsx` usa pra atualizar sua própria cópia de
+categorias/subcategorias (variante escolhida: notificar o pai via
+callback, não a alternativa de a aba filha parar de buscar e receber
+tudo via prop); `excluir()`/`excluirCompraParcelada()` em
+`Lancamentos.tsx` também re-buscam `ultimosPorConta()`. Aguarda teste
+do usuário (checklist no changelog).
 
 ### Subitem do bucket Reservas mostra nome da conta em vez da caixinha
 

@@ -84,7 +84,16 @@ const FORM_VAZIO: FormState = {
   data_fim: '',
 }
 
-export function RecorrentesSection() {
+type RecorrentesSectionProps = {
+  // item 66: Lançamentos (tela-pai) tem sua PRÓPRIA cópia de categorias/
+  // subcategorias, usada pelos filtros da aba "Lançamentos" — sem isso,
+  // criar uma categoria/subcategoria aqui (aba "Recorrentes", mesma tela,
+  // sem navegação) não aparecia no filtro até recarregar a página.
+  onCategoriaCriada?: (categoria: Categoria) => void
+  onSubcategoriaCriada?: (subcategoria: Subcategoria) => void
+}
+
+export function RecorrentesSection({ onCategoriaCriada, onSubcategoriaCriada }: RecorrentesSectionProps = {}) {
   const [recorrentes, setRecorrentes] = useState<LancamentoRecorrente[] | null>(null)
   const [contas, setContas] = useState<Conta[]>([])
   const [categorias, setCategorias] = useState<Categoria[]>([])
@@ -285,6 +294,7 @@ export function RecorrentesSection() {
         body: JSON.stringify({ nome, tipo: TIPO_CATEGORIA_ESPERADO[form.tipo_movimento] }),
       })
       setCategorias((prev) => [...prev, nova].sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR')))
+      onCategoriaCriada?.(nova)
       escolherCategoria(nova.id)
       setNovaCategoriaNome('')
     } catch (e) {
@@ -309,6 +319,7 @@ export function RecorrentesSection() {
         }),
       })
       setSubcategorias((prev) => [...prev, nova].sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR')))
+      onSubcategoriaCriada?.(nova)
       setForm((f) => ({ ...f, subcategoria_id: nova.id }))
       setNovaSubcategoriaNome('')
       setNovaSubcategoriaEstrutura('')

@@ -13,6 +13,7 @@ from ..schemas.dashboard import (
     ResumoMensal,
     ResumoPeriodo,
     SaldoCaixinha,
+    SerieMensal,
 )
 from ..services.crud import buscar_todas_paginado
 from ..services.fatura import somar_meses
@@ -346,6 +347,130 @@ def patrimonio_caixinhas(
         {"id": c["id"], "nome": c["nome"], "saldo": round(saldos_por_caixinha.get(c["id"], 0.0), 2)}
         for c in caixinhas
     ]
+
+
+_ESTRUTURA_LABEL = {"fixo": "Fixo", "variavel": "Variável", "sazonal": "Sazonal", "investimentos": "Investimentos"}
+_TIPOS_DE_SERIE = {"subcategoria", "categoria", "estrutura", "caixinha_aporte", "caixinha_retirada"}
+
+
+def _parsear_chave_serie(chave: str) -> tuple[str, str]:
+    if ":" not in chave:
+        raise HTTPException(status_code=422, detail=f"Chave de série inválida: '{chave}' (esperado 'tipo:id')")
+    tipo, _, valor = chave.partition(":")
+    if tipo not in _TIPOS_DE_SERIE or not valor:
+        raise HTTPException(status_code=422, detail=f"Chave de série inválida: '{chave}'")
+    if tipo == "estrutura" and valor not in _ESTRUTURA_LABEL:
+        raise HTTPException(status_code=422, detail=f"Estrutura de custo desconhecida: '{valor}'")
+    return tipo, valor
+
+
+def _validar_series(db: Client, user_id: str, series_parseadas: list[tuple[str, str]]) -> None:
+    """1 SELECT por tipo (não 1 por série) — confere que todo id
+    referenciado (subcategoria/categoria/caixinha) existe e pertence ao
+    usuário, mesmo cuidado de `_check_refs` em transacoes.py."""
+    ids_por_tabela = {
+        "subcategorias": {valor for tipo, valor in series_parseadas if tipo == "subcategoria"},
+        "categorias": {valor for tipo, valor in series_parseadas if tipo == "categoria"},
+        "caixinhas": {valor for tipo, valor in series_parseadas if tipo in ("caixinha_aporte", "caixinha_retirada")},
+    }
+    for tabela, ids in ids_por_tabela.items():
+        if not ids:
+            continue
+        encontrados = db.table(tabela).select("id").eq("user_id", user_id).in_("id", list(ids)).execute().data
+        ids_encontrados = {r["id"] for r in encontrados}
+        faltando = ids - ids_encontrados
+        if faltando:
+            raise HTTPException(status_code=404, detail=f"{tabela}: não encontrado(s) ou de outro usuário: {sorted(faltando)}")
+
+
+@router.get("/series-mensais", response_model=list[SerieMensal])
+def series_mensais(
+    series: list[str] = Query(..., description="chaves 'tipo:id' — tipo em subcategoria/categoria/estrutura/caixinha_aporte/caixinha_retirada"),
+    inicio: date = Query(...),
+    fim: date = Query(...),
+    db: Client = Depends(get_db),
+    user_id: str = Depends(get_current_user_id),
+):
+    """Item 51 do backlog — "comparador dinâmico" de Gráficos: qualquer
+    combinação de séries (subcategoria de receita/despesa, categoria,
+    estrutura de custo, aporte/retirada de caixinha), mês a mês, num
+    período livre. Mesmo padrão de performance de /evolucao (Rodada
+    19.3): busca o período INTEIRO numa query só e agrega em Python, em
+    vez de 1 SELECT por série — usado também pro comparativo ano a ano
+    (mesmas séries, período de vários anos, o cliente reagrupa por ano) e
+    pelo heatmap categoria×mês (1 série "categoria" por linha da grade)."""
+    mes_inicio = date(inicio.year, inicio.month, 1)
+    mes_fim = date(fim.year, fim.month, 1)
+    if mes_fim < mes_inicio:
+        raise HTTPException(status_code=422, detail="'fim' não pode ser anterior a 'inicio'")
+    total_meses = (mes_fim.year - mes_inicio.year) * 12 + (mes_fim.month - mes_inicio.month) + 1
+    if total_meses > _MESES_MAXIMO_NA_EVOLUCAO:
+        raise HTTPException(status_code=422, detail=f"Intervalo maior que {_MESES_MAXIMO_NA_EVOLUCAO} meses")
+
+    series_parseadas = [_parsear_chave_serie(chave) for chave in series]
+    _validar_series(db, user_id, series_parseadas)
+
+    meses: list[date] = []
+    mes_atual = mes_inicio
+    while mes_atual <= mes_fim:
+        meses.append(mes_atual)
+        mes_atual = somar_meses(mes_atual, 1)
+    indice_do_mes = {m.isoformat(): i for i, m in enumerate(meses)}
+
+    mes_fim_exclusivo = somar_meses(mes_fim, 1)
+    transacoes_do_periodo = buscar_todas_paginado(
+        lambda: db.table("transacoes")
+        .select("valor,tipo_movimento,categoria_id,subcategoria_id,estrutura_custo,caixinha_id,data_compra")
+        .eq("user_id", user_id)
+        .gte("data_compra", mes_inicio.isoformat())
+        .lt("data_compra", mes_fim_exclusivo.isoformat())
+    )
+
+    # nomes resolvidos em lote (1 SELECT por tabela referenciada, não 1 por série)
+    nomes: dict[str, dict[str, str]] = {}
+    for tipo, tabela in (("subcategoria", "subcategorias"), ("categoria", "categorias")):
+        ids = {valor for t, valor in series_parseadas if t == tipo}
+        if ids:
+            linhas = db.table(tabela).select("id,nome").in_("id", list(ids)).execute().data
+            nomes[tipo] = {r["id"]: r["nome"] for r in linhas}
+    ids_caixinha = {valor for t, valor in series_parseadas if t in ("caixinha_aporte", "caixinha_retirada")}
+    if ids_caixinha:
+        linhas = db.table("caixinhas").select("id,nome").in_("id", list(ids_caixinha)).execute().data
+        nomes["caixinha"] = {r["id"]: r["nome"] for r in linhas}
+
+    resultado = []
+    for chave, (tipo, valor) in zip(series, series_parseadas):
+        somas = [0.0] * len(meses)
+        for t in transacoes_do_periodo:
+            if tipo == "subcategoria" and t["subcategoria_id"] != valor:
+                continue
+            if tipo == "categoria" and t["categoria_id"] != valor:
+                continue
+            if tipo == "estrutura" and (t["tipo_movimento"] != "despesa" or t["estrutura_custo"] != valor):
+                continue
+            if tipo == "caixinha_aporte" and (t["tipo_movimento"] != "aplicacao" or t["caixinha_id"] != valor):
+                continue
+            if tipo == "caixinha_retirada" and (t["tipo_movimento"] != "retirada" or t["caixinha_id"] != valor):
+                continue
+            i = indice_do_mes.get(f"{t['data_compra'][:7]}-01")
+            if i is not None:
+                somas[i] += t["valor"]
+
+        if tipo == "estrutura":
+            nome = _ESTRUTURA_LABEL[valor]
+        elif tipo in ("caixinha_aporte", "caixinha_retirada"):
+            nome = nomes.get("caixinha", {}).get(valor, "Caixinha")
+        else:
+            nome = nomes.get(tipo, {}).get(valor, "Sem nome")
+
+        resultado.append(
+            {
+                "chave": chave,
+                "nome": nome,
+                "pontos": [{"vigencia_mes": m.isoformat(), "valor": round(v, 2)} for m, v in zip(meses, somas)],
+            }
+        )
+    return resultado
 
 
 @router.get("/compromissos-futuros", response_model=list[CompromissoFuturo])

@@ -1,0 +1,176 @@
+/* item 51 do backlog — Comparador dinâmico, Ano a ano, Heatmap e
+ * Caixinhas (aporte×retirada), em Gráficos. CSS compartilhado pelos 4. */
+
+.comparador-layout {
+  display: flex;
+  gap: 24px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.comparador-picker {
+  width: 280px;
+  flex-shrink: 0;
+  background: var(--cor-superficie);
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio);
+  padding: 14px;
+  max-height: 520px;
+  overflow-y: auto;
+}
+
+.comparador-grupo-titulo {
+  font-size: 11px;
+  color: var(--cor-texto-suave);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin: 14px 0 6px;
+}
+
+.comparador-grupo-titulo:first-child {
+  margin-top: 0;
+}
+
+.comparador-item-serie {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.comparador-item-serie:hover {
+  background: color-mix(in srgb, var(--cor-texto) 6%, transparent);
+}
+
+.comparador-item-serie input {
+  width: 14px;
+  height: 14px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.comparador-chip-cor {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.comparador-chart-card {
+  flex: 1;
+  min-width: 320px;
+  background: var(--cor-superficie);
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio);
+  padding: 20px;
+}
+
+.comparador-legenda {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin-bottom: 10px;
+  min-height: 20px;
+}
+
+.comparador-legenda-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--cor-texto-suave);
+}
+
+.comparador-eixo-texto {
+  font-size: 10px;
+  fill: var(--cor-texto-suave);
+}
+
+.comparador-grade {
+  stroke: var(--cor-borda);
+  stroke-width: 1;
+}
+
+.comparador-controles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.botao-chip {
+  padding: 7px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--cor-borda);
+  background: none;
+  color: var(--cor-texto-suave);
+  cursor: pointer;
+  font-size: 13px;
+  font-family: inherit;
+}
+
+.botao-chip.ativo {
+  border-color: var(--cor-acento);
+  color: var(--cor-acento);
+  background: color-mix(in srgb, var(--cor-acento) 8%, transparent);
+}
+
+/* Heatmap */
+.heatmap-tabela {
+  border-collapse: separate;
+  border-spacing: 3px;
+  width: 100%;
+}
+
+.heatmap-tabela th {
+  font-size: 11px;
+  color: var(--cor-texto-suave);
+  font-weight: 500;
+  padding: 4px;
+  text-align: center;
+}
+
+.heatmap-rotulo-categoria {
+  text-align: left !important;
+  font-size: 12px;
+  color: var(--cor-texto);
+  padding-right: 10px;
+  white-space: nowrap;
+}
+
+.heatmap-celula {
+  border-radius: 6px;
+  text-align: center;
+  font-size: 11px;
+  height: 34px;
+}
+
+.heatmap-escala {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 16px;
+  font-size: 11px;
+  color: var(--cor-texto-suave);
+}
+
+.heatmap-escala-barra {
+  width: 160px;
+  height: 10px;
+  border-radius: 5px;
+}
+
+@media (max-width: 720px) {
+  .comparador-layout {
+    flex-direction: column;
+  }
+
+  .comparador-picker {
+    width: 100%;
+    max-height: 280px;
+  }
+}

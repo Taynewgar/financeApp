@@ -1,7 +1,11 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { CaixinhaFluxo } from '../components/CaixinhaFluxo'
+import { ComparadorAnoAno } from '../components/ComparadorAnoAno'
+import { ComparadorSeries } from '../components/ComparadorSeries'
 import { DespesasPorCategoria } from '../components/DespesasPorCategoria'
 import { EvolucaoChart } from '../components/EvolucaoChart'
+import { HeatmapCategorias } from '../components/HeatmapCategorias'
 import { OrcadoRealizadoChart } from '../components/OrcadoRealizadoChart'
 import { Pareto } from '../components/Pareto'
 import { ParetoTendenciaChart } from '../components/ParetoTendenciaChart'
@@ -230,6 +234,29 @@ export function Graficos() {
           <DespesasPorCategoria dados={despesasCategoria} />
         </div>
       )}
+
+      {/* item 51 do backlog — período próprio de cada gráfico abaixo,
+       * independente do SeletorPeriodo acima: liberdade de montar a
+       * comparação sem ficar amarrado ao mês/intervalo navegado em cima. */}
+      <div style={{ marginTop: 32, marginBottom: 24 }}>
+        <h2 style={{ fontSize: 16, marginBottom: 8 }}>Comparador de Séries</h2>
+        <ComparadorSeries />
+      </div>
+
+      <div style={{ marginTop: 32, marginBottom: 24 }}>
+        <h2 style={{ fontSize: 16, marginBottom: 8 }}>Ano a Ano</h2>
+        <ComparadorAnoAno />
+      </div>
+
+      <div style={{ marginTop: 32, marginBottom: 24 }}>
+        <h2 style={{ fontSize: 16, marginBottom: 8 }}>Heatmap de Categorias</h2>
+        <HeatmapCategorias />
+      </div>
+
+      <div style={{ marginTop: 32, marginBottom: 24 }}>
+        <h2 style={{ fontSize: 16, marginBottom: 8 }}>Fluxo de Caixinha</h2>
+        <CaixinhaFluxo />
+      </div>
     </div>
   )
 }

@@ -153,7 +153,7 @@ export function Dashboard() {
         body: JSON.stringify({ vigencia_mes: `${c.data_compra.slice(0, 7)}-01` }),
       })
       setErroConfirmar(null)
-      await buscarCompromissos()
+      await Promise.all([buscarCompromissos(), buscarDadosPeriodo()])
     } catch (e) {
       setErroConfirmar(
         `Falha ao confirmar "${c.descricao ?? 'recorrente'}" (${formatarData(c.data_compra)}): ${e instanceof ApiError ? e.message : 'erro desconhecido'}`,
@@ -183,8 +183,11 @@ export function Dashboard() {
     }
   }
 
-  useEffect(() => {
-    if (modoData === 'todos' && primeiroMes === null) return // aguarda carregar o início do histórico
+  // item 66: extraída do useEffect de carga pra poder ser re-chamada depois
+  // de confirmar/pular um recorrente (achado 2026-10-02 — confirmar uma
+  // aplicação/retirada de caixinha recorrente não atualizava o patrimônio
+  // nem o resumo mostrados na mesma tela, só a lista de Compromissos).
+  function buscarDadosPeriodo() {
     setErro(null)
 
     const evolucaoInicio = modoData === 'mes' ? mesesAntes(vigenciaMes, 5) : periodoInicio
@@ -195,7 +198,7 @@ export function Dashboard() {
         ? apiFetch<ResumoMensal>(`/dashboard/mensal/${vigenciaMes}-01`)
         : apiFetch<ResumoPeriodo>(`/dashboard/resumo-periodo?inicio=${periodoInicio}-01&fim=${periodoFim}-01`)
 
-    Promise.all([
+    return Promise.all([
       buscaResumo,
       apiFetch<EvolucaoMensal>(`/dashboard/evolucao?inicio=${evolucaoInicio}-01&fim=${evolucaoFim}-01`),
       apiFetch<SaldoCaixinha[]>(`/dashboard/patrimonio/${mesReferencia}-01`),
@@ -212,6 +215,11 @@ export function Dashboard() {
         setMesAnterior(modoData === 'mes' && e.meses.length >= 2 ? e.meses[e.meses.length - 2] : null)
       })
       .catch((e) => setErro(e instanceof ApiError ? e.message : 'Falha ao carregar o dashboard'))
+  }
+
+  useEffect(() => {
+    if (modoData === 'todos' && primeiroMes === null) return // aguarda carregar o início do histórico
+    buscarDadosPeriodo()
   }, [modoData, vigenciaMes, periodoInicio, periodoFim, mesReferencia, primeiroMes])
 
   // taxa/resultado acumulado e contagem de meses negativos NO ANO do mês de

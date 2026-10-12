@@ -97,3 +97,19 @@ class DespesaPorSubcategoria(BaseModel):
     subcategoria_nome: str
     valor: float
     percentual: float
+
+
+class PontoSerieMensal(BaseModel):
+    vigencia_mes: date
+    valor: float
+
+
+class SerieMensal(BaseModel):
+    """Item 51 do backlog: "comparador dinâmico" de Gráficos — qualquer
+    combinação de subcategoria/categoria/estrutura de custo/caixinha,
+    mês a mês. `chave` é a mesma string enviada na query (`tipo:id`),
+    ecoada de volta pro frontend casar a resposta com a série que pediu."""
+
+    chave: str
+    nome: str
+    pontos: list[PontoSerieMensal]

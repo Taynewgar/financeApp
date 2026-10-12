@@ -404,6 +404,12 @@ export function EstruturaCusto() {
   const [contas, setContas] = useState<Conta[]>([])
   const [caixinhas, setCaixinhas] = useState<Caixinha[]>([])
   const [erro, setErro] = useState<string | null>(null)
+  // item 10 do backlog: export de relatório (mês/ano) em JSON — local
+  // provisório (ressalva do usuário: pode mudar quando uma feature nova,
+  // ainda não criada, oferecer um lugar melhor pro botão)
+  const [menuExportarAberto, setMenuExportarAberto] = useState(false)
+  const [exportando, setExportando] = useState(false)
+  const [erroExportar, setErroExportar] = useState<string | null>(null)
   const [bucketsAbertos, setBucketsAbertos] = useState<Set<BucketEstruturaCusto>>(new Set())
   // chave composta "bucket|categoria" — uma categoria pode ter o mesmo id
   // de agrupamento em buckets diferentes só em teoria, mas isolar por
@@ -508,6 +514,36 @@ export function EstruturaCusto() {
   const diferenca = resumoOrcamento ? resumoOrcamento.orcado - resumoOrcamento.realizado : 0
   const execucao = resumoOrcamento && resumoOrcamento.orcado > 0 ? (resumoOrcamento.realizado / resumoOrcamento.orcado) * 100 : null
 
+  function baixarJson(dados: unknown, nomeArquivo: string) {
+    const blob = new Blob([JSON.stringify(dados, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = nomeArquivo
+    link.click()
+    URL.revokeObjectURL(url)
+  }
+
+  async function exportarRelatorio(escopo: 'mes' | 'ano') {
+    setMenuExportarAberto(false)
+    setExportando(true)
+    setErroExportar(null)
+    try {
+      if (escopo === 'mes') {
+        const dados = await apiFetch(`/relatorios/mes/${vigenciaMes}-01`)
+        baixarJson(dados, `relatorio-${vigenciaMes}.json`)
+      } else {
+        const ano = vigenciaMes.split('-')[0]
+        const dados = await apiFetch(`/relatorios/ano/${ano}`)
+        baixarJson(dados, `relatorio-${ano}.json`)
+      }
+    } catch (e) {
+      setErroExportar(e instanceof ApiError ? e.message : 'Falha ao exportar o relatório.')
+    } finally {
+      setExportando(false)
+    }
+  }
+
   return (
     <div className="estrutura-custo">
       <div style={{ marginBottom: 12 }}>
@@ -518,30 +554,59 @@ export function EstruturaCusto() {
       </div>
 
       <div className="cabecalho-fixo cabecalho-fixo-card">
-        <div className="cabecalho-fixo-linha">
-          <button
-            type="button"
-            className="botao-secundario"
-            onClick={() => setVigenciaMes(mesesAntes(vigenciaMes, 1))}
-            title="Mês anterior"
-            aria-label="Mês anterior"
-          >
-            ←
-          </button>
-          <label className="campo" style={{ maxWidth: 180, margin: 0 }}>
-            Mês
-            <input type="month" value={vigenciaMes} onChange={(e) => setVigenciaMes(e.target.value)} />
-          </label>
-          <button
-            type="button"
-            className="botao-secundario"
-            onClick={() => setVigenciaMes(mesesAntes(vigenciaMes, -1))}
-            title="Próximo mês"
-            aria-label="Próximo mês"
-          >
-            →
-          </button>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+          <div className="cabecalho-fixo-linha" style={{ justifyContent: 'flex-start' }}>
+            <button
+              type="button"
+              className="botao-secundario"
+              onClick={() => setVigenciaMes(mesesAntes(vigenciaMes, 1))}
+              title="Mês anterior"
+              aria-label="Mês anterior"
+            >
+              ←
+            </button>
+            <label className="campo" style={{ maxWidth: 180, margin: 0 }}>
+              Mês
+              <input type="month" value={vigenciaMes} onChange={(e) => setVigenciaMes(e.target.value)} />
+            </label>
+            <button
+              type="button"
+              className="botao-secundario"
+              onClick={() => setVigenciaMes(mesesAntes(vigenciaMes, -1))}
+              title="Próximo mês"
+              aria-label="Próximo mês"
+            >
+              →
+            </button>
+          </div>
+          <div style={{ position: 'relative' }}>
+            <button
+              type="button"
+              className="botao-secundario"
+              onClick={() => setMenuExportarAberto((v) => !v)}
+              aria-haspopup="true"
+              aria-expanded={menuExportarAberto}
+              disabled={exportando}
+            >
+              ⤓ {exportando ? 'Exportando…' : 'Exportar'} {menuExportarAberto ? '▴' : '▾'}
+            </button>
+            {menuExportarAberto && (
+              <div className="menu-exportar-relatorio">
+                <button type="button" className="botao-link" onClick={() => exportarRelatorio('mes')}>
+                  Mês atual (JSON)
+                </button>
+                <button type="button" className="botao-link" onClick={() => exportarRelatorio('ano')}>
+                  Ano inteiro (JSON)
+                </button>
+              </div>
+            )}
+          </div>
         </div>
+        {erroExportar && (
+          <p role="alert" className="mensagem-erro" style={{ marginTop: 8 }}>
+            {erroExportar}
+          </p>
+        )}
         {dados && resumoOrcamento && (
           <div className="cabecalho-fixo-grid cabecalho-fixo-grid-4">
             <div className="cabecalho-fixo-stat">

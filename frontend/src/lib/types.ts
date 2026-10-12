@@ -169,6 +169,18 @@ export type DespesaPorSubcategoria = {
   percentual: number
 }
 
+// item 51 do backlog — comparador dinâmico de Gráficos
+export type PontoSerieMensal = {
+  vigencia_mes: string
+  valor: number
+}
+
+export type SerieMensal = {
+  chave: string
+  nome: string
+  pontos: PontoSerieMensal[]
+}
+
 export type PontoTendenciaOrcamento = {
   vigencia_mes: string
   orcado: number
