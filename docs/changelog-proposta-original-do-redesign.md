@@ -5159,8 +5159,10 @@ mantendo a coluna de valores alinhada e legível.
 **Status:** implementado 2026-10-11.
 
 **Checklist de teste manual (usuário, localmente):**
-- [ ] Em tela larga, confirmar que o card "Últimos lançamentos por
-      conta" (fundo + chips) ocupa a largura toda da tela.
-- [ ] Na mesma tela larga, expandir uma conta e confirmar que só a lista
+- [x] ~~Em tela larga, confirmar que o card "Últimos lançamentos por
+      conta" (fundo + chips) ocupa a largura toda da tela. — confirmado
+      2026-10-11.~~
+- [x] ~~Na mesma tela larga, expandir uma conta e confirmar que só a lista
       de lançamentos fica mais estreita (largura limitada), com os
-      valores alinhados numa coluna legível, não na borda da tela.
+      valores alinhados numa coluna legível, não na borda da tela. —
+      confirmado 2026-10-11.~~
