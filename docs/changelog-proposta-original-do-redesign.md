@@ -5650,25 +5650,44 @@ real (login exige credenciais reais do Supabase — mesma limitação de
 sempre nesta sessão).
 
 **Checklist de teste manual (usuário, localmente):**
-- [ ] Em Novo Lançamento, lançar uma despesa e marcar "Essa despesa já
+- [x] ~~Em Novo Lançamento, lançar uma despesa e marcar "Essa despesa já
       estava guardada numa caixinha?", escolher uma caixinha e salvar —
       confirmar que ela aparece em "Retiradas pendentes de caixinha" no
-      Dashboard.
-- [ ] No card do Dashboard, clicar "Lançar retirada agora" — confirmar
+      Dashboard.~~ — confirmado 2026-10-12.
+- [x] ~~No card do Dashboard, clicar "Lançar retirada agora" — confirmar
       que o formulário abre com Reserva/Retirada, a caixinha e o valor
       já preenchidos, e que a conta é preenchida sozinha (da caixinha).
-      Salvar e confirmar que a despesa some de "Retiradas pendentes".
-- [ ] Lançar outra despesa coberta por caixinha e, no card do Dashboard,
+      Salvar e confirmar que a despesa some de "Retiradas pendentes".~~
+      — confirmado 2026-10-12.
+- [x] ~~Lançar outra despesa coberta por caixinha e, no card do Dashboard,
       usar "Já retirei, só marcar" — confirmar que some da lista sem
-      criar nenhuma transação nova em Lançamentos.
-- [ ] Confirmar que a despesa pendente mostra o badge "Falta retirar:
-      {caixinha}" na lista de Lançamentos.
-- [ ] Editar uma despesa pendente mudando só a descrição (sem mexer na
+      criar nenhuma transação nova em Lançamentos.~~ — confirmado
+      2026-10-12.
+- [x] ~~Confirmar que a despesa pendente mostra o badge "Falta retirar:
+      {caixinha}" na lista de Lançamentos.~~ — confirmado 2026-10-12.
+- [x] ~~Editar uma despesa pendente mudando só a descrição (sem mexer na
       caixinha) e confirmar que ela CONTINUA pendente depois de salvar
-      (não reabre nem fecha sozinha).
-- [ ] Em Editar Lançamento, desmarcar o checkbox de uma despesa que já
+      (não reabre nem fecha sozinha).~~ — confirmado 2026-10-12.
+- [x] ~~Em Editar Lançamento, desmarcar o checkbox de uma despesa que já
       tinha vínculo e salvar — confirmar que ela some de "Retiradas
-      pendentes" (vínculo removido = resolvido).
+      pendentes" (vínculo removido = resolvido).~~ — confirmado
+      2026-10-12: marcar/desmarcar o vínculo altera o estado
+      corretamente.
+
+**2 achados/perguntas de usabilidade levantados testando este item (não
+são falha do que foi pedido — são comportamento como projetado, que o
+usuário questiona se é o ideal; discussão e decisão registradas na
+Rodada 85, abaixo, antes de qualquer implementação):**
+1. Depois de resolver o lembrete (via "Já retirei" ou "Lançar
+   retirada"), o checkbox em Editar Lançamento continua marcado (o
+   vínculo com a caixinha é permanente, por design) e editar sem tocar
+   nele não reabre o lembrete — só muda se o usuário trocar a caixinha.
+   Isso é como projetado (Rodada 77), mas pode confundir: o checkbox
+   não distingue "ainda pendente" de "já resolvido".
+2. Excluir a transação de retirada (criada via "Lançar retirada") não
+   devolve a despesa original pra "pendente" — a despesa fica
+   permanentemente resolvida mesmo sem a retirada real ter ficado
+   registrada.
 
 ### Rodada 78 (2026-10-12) — Fix: 2 testes de integração desatualizados (teto de bucket)
 
@@ -5703,12 +5722,13 @@ rodar a integração real de novo pra confirmar os 2 agora passam.
 rodando `tests/integration/` de novo.
 
 **Checklist de teste manual (usuário, localmente, com `backend/.env`):**
-- [ ] Rodar a suíte de integração completa e confirmar que
+- [x] ~~Rodar a suíte de integração completa e confirmar que
       `test_item_que_estoura_teto_do_bucket_retorna_409_e_forcar_
       aceita_contra_banco_real` e `test_sobra_acumulada_do_bucket_
-      amplia_teto_contra_banco_real` passam.
-- [ ] Confirmar que o total de `passed` bate com `passed + skipped` da
-      suíte offline (sinal de que nada mais ficou sem rodar).
+      amplia_teto_contra_banco_real` passam.~~ — confirmado 2026-10-12.
+- [x] ~~Confirmar que o total de `passed` bate com `passed + skipped` da
+      suíte offline (sinal de que nada mais ficou sem rodar).~~ —
+      confirmado 2026-10-12.
 
 ### Rodada 79 (2026-10-12) — Itens 59/60: ordenação alfabética das subcategorias
 
@@ -5737,11 +5757,13 @@ antes/depois, só deslocamento de linha dos avisos pré-existentes).
 **Status:** implementado 2026-10-12.
 
 **Checklist de teste manual (usuário, localmente):**
-- [ ] Em Planejamento, abrir um bucket com uma categoria de várias
-      subcategorias e confirmar que elas aparecem em ordem alfabética.
-- [ ] Em Estrutura de Custo, mesma checagem — confirmar que a ordem é
+- [x] ~~Em Planejamento, abrir um bucket com uma categoria de várias
+      subcategorias e confirmar que elas aparecem em ordem alfabética.~~
+      — confirmado 2026-10-12.
+- [x] ~~Em Estrutura de Custo, mesma checagem — confirmar que a ordem é
       alfabética e, principalmente, que não muda sozinha entre
-      recarregamentos da página (esse era o bug real: ordem instável).
+      recarregamentos da página (esse era o bug real: ordem instável).~~
+      — confirmado 2026-10-12.
 
 ### Rodada 80 (2026-10-12) — Item 71 (nova ordem do formulário) + follow-up do item 64 (botões ícone)
 
@@ -5851,14 +5873,16 @@ possível (mesma limitação de sempre).
 **Status:** implementado 2026-10-12.
 
 **Checklist de teste manual (usuário, localmente):**
-- [ ] Em Novo Lançamento, escolher Despesa + uma categoria/subcategoria
+- [x] ~~Em Novo Lançamento, escolher Despesa + uma categoria/subcategoria
       com descrições já usadas (chips aparecem), depois trocar pra
       Reserva — confirmar que os chips de despesa NÃO aparecem mais
-      (nem por um instante), só os de caixinha depois de escolher uma.
-- [ ] Repetir o mesmo teste trocando rápido entre vários tipos seguidos
+      (nem por um instante), só os de caixinha depois de escolher
+      uma.~~ — confirmado 2026-10-12.
+- [x] ~~Repetir o mesmo teste trocando rápido entre vários tipos seguidos
       (Despesa → Receita → Investimento → Reserva) — confirmar que os
       chips sempre terminam condizentes com o tipo/categoria/caixinha
-      selecionado no final, nunca um residual de uma escolha anterior.
+      selecionado no final, nunca um residual de uma escolha
+      anterior.~~ — confirmado 2026-10-12.
 
 ### Rodada 82 (2026-10-12) — Item 58: texto mais curto nos botões de "Retiradas pendentes"
 
@@ -5878,8 +5902,9 @@ novo; `oxlint` — diff idêntico antes/depois.
 **Status:** implementado 2026-10-12.
 
 **Checklist de teste manual (usuário, localmente):**
-- [ ] No card "Retiradas pendentes de caixinha", confirmar os novos
-      textos: "Lançar retirada" e "Já retirei".
+- [x] ~~No card "Retiradas pendentes de caixinha", confirmar os novos
+      textos: "Lançar retirada" e "Já retirei".~~ — confirmado
+      2026-10-12.
 
 ### Rodada 83 (2026-10-12) — Item 72: identificar a versão carregada no navegador/mobile
 
@@ -6009,10 +6034,92 @@ código.
       app e confirmar que a versão (`v` + hash) aparece ao lado de
       "Finance App" na barra do topo.~~ — confirmado 2026-10-12, depois
       de promover o deployment certo na Vercel.
-- [ ] Tocar/segurar pra ver o tooltip com a data/hora do build.
-- [ ] Comparar o hash mostrado com `git log --oneline -1` do branch —
-      devem bater.
+- [x] ~~Tocar/segurar pra ver o tooltip com a data/hora do build.~~ —
+      confirmado 2026-10-12.
+- [x] ~~Comparar o hash mostrado com `git log --oneline -1` do branch —
+      devem bater.~~ — confirmado 2026-10-12.
 - [x] ~~Em tela larga (desktop), confirmar que a versão continua
       aparecendo também no rodapé da barra lateral (Rodada 83), e que
       some junto ao recolher a barra (item 70).~~ — confirmado
       2026-10-12.
+
+### Rodada 85 (2026-10-12) — discussão: item 58, reabertura do lembrete de retirada
+
+2 achados de usabilidade do usuário testando a Rodada 77 (ver achados
+registrados ali). **Só discussão — nada implementado ainda, aguardando
+decisão.**
+
+**Achado 1 — checkbox não distingue "pendente" de "resolvido":**
+depois que o lembrete é resolvido (via "Já retirei" ou "Lançar
+retirada"), o checkbox em Editar Lançamento continua marcado, porque
+reflete "tem vínculo com uma caixinha" (fato permanente), não "ainda
+está pendente de retirar". Usuário sugeriu o checkbox refletir o
+status de pendência em vez do vínculo, e marcá-lo de novo reabrir o
+lembrete.
+
+Problema dessa troca: o checkbox hoje também controla o vínculo em si
+— desmarcá-lo remove `caixinha_origem_id` (testado e confirmado na
+Rodada 77). Se ele passar a refletir pendência, desmarcar deixaria de
+remover o vínculo, mudando o comportamento já testado/aprovado. E
+marcar de novo com a MESMA caixinha não dispara nada hoje — a lógica
+do backend só reabre pendência quando `caixinha_origem_id` **muda** de
+valor (`atualizar()` em `transacoes.py`), não quando o usuário
+"re-confirma" a mesma caixinha.
+
+**Proposta minha:** manter o checkbox como está (vínculo, já testado),
+e acrescentar, só quando a despesa tiver vínculo E não estiver mais
+pendente, um indicador + ação separada — ex: "Retirada já registrada
+— marcar como pendente de novo" (reaproveitando o mesmo endpoint
+`PATCH /transacoes/{id}/retirada-pendente` já construído, agora com
+`pendente: true`). Ação explícita, sem sobrecarregar o checkbox com 2
+significados.
+
+**Achado 2 — excluir a retirada não devolve a despesa pra pendente:**
+o fluxo "Lançar retirada" cria uma transação nova (a retirada em si) e
+manda o PATCH de resolver a despesa original só depois do POST ter
+sucesso — mas **não existe nenhum vínculo gravado no banco** entre a
+retirada e a despesa que ela resolveu (a referência vive só num `ref`
+temporário no frontend, `despesaOrigemRetiradaRef`, que se perde
+depois do PATCH). Excluir essa retirada depois não tem como saber qual
+despesa reabrir.
+
+Comparação com recorrentes (usuário perguntou se seria parecido):
+parecido no objetivo, mas não no mecanismo. Recorrentes não guardam
+flag nenhuma de "confirmado" — o status é **derivado** a cada consulta
+checando se existe uma transação com aquele `lancamento_recorrente_id`
+no mês (`_ja_confirmado()` em `lancamentos_recorrentes.py`). Por isso
+excluir a transação já desfaz a confirmação de graça, sem código
+extra. Item 58 usa um boolean guardado (`retirada_pendente`) na
+própria despesa, sem esse vínculo reverso — por isso hoje não se
+autocorrige.
+
+**Custo de implementar (fix aditivo, sem redesenhar o que já foi
+testado):**
+- 1 coluna nova (`despesa_origem_retirada_id`, nullable, FK pra
+  `transacoes.id`) na transação de retirada, preenchida no POST quando
+  ela nasce do fluxo "Lançar retirada".
+- No `DELETE /transacoes/{id}`: se a transação excluída tiver essa
+  coluna preenchida, tentar `PATCH` a despesa apontada de volta pra
+  `retirada_pendente: true` — só se ela ainda tiver
+  `caixinha_origem_id` (não reabrir se o vínculo foi removido
+  manualmente nesse meio tempo); ignorar silenciosamente se a despesa
+  não existir mais (404).
+- Ajuste pequeno no `NovoLancamento.tsx`: em vez de só guardar o ref
+  pra disparar o PATCH depois, mandar
+  `despesa_origem_retirada_id: despesaOrigemRetiradaRef.current` já no
+  payload do POST da retirada.
+- Estimativa: baixo-médio — 1 migração, ~20-30 linhas de backend, ~5
+  linhas de frontend, 2-3 testes novos.
+
+**Inconsistência possível a decidir:** se a despesa, nesse meio tempo,
+teve a caixinha **trocada** pra outra (não removida), reabrir a
+pendência genérica ("falta retirar") ainda faz sentido — é o mesmo
+"ainda não retirei", só que de uma caixinha diferente. Se forem
+lançadas 2 retiradas pra mesma despesa (fluxo incomum, já que ela some
+da lista de pendentes depois da 1ª) e uma delas for excluída, reabre a
+pendência mesmo a outra ainda existindo — caso raro, não me parece
+valer a pena tratar agora.
+
+**Pergunta pro usuário:** confirma os 2 fixes propostos (indicador +
+ação de reabrir manual, e excluir retirada reabre a pendência) antes
+de eu implementar?
