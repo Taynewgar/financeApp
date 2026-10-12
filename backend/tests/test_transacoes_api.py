@@ -2133,3 +2133,35 @@ def test_excluir_retirada_vinculada_sem_vinculo_na_despesa_nao_reabre(client):
     resposta = client.delete(f"/transacoes/{retirada['id']}")
     assert resposta.status_code == 204
     assert client.get(f"/transacoes/{despesa['id']}").json()["retirada_pendente"] is False
+
+
+def test_excluir_retirada_com_outra_ainda_vinculada_nao_reabre(client):
+    """Caso raro levantado na Rodada 85: 2 retiradas pra mesma despesa —
+    excluir uma não pode reabrir a pendência enquanto a outra ainda
+    existe cobrindo o saque (seria um lembrete falso)."""
+    conta = _criar_conta_corrente(client)
+    categoria = client.post("/categorias", json={"nome": "Lazer"}).json()
+    caixinha = client.post("/caixinhas", json={"nome": "Viagem"}).json()
+    despesa = _criar_despesa_basica(client, conta["id"], categoria["id"], caixinha["id"]).json()
+    client.patch(f"/transacoes/{despesa['id']}/retirada-pendente", json={"pendente": False})
+
+    payload_retirada = {
+        "data_compra": "2026-09-06",
+        "valor": 25,
+        "tipo_movimento": "retirada",
+        "conta_id": conta["id"],
+        "caixinha_id": caixinha["id"],
+        "despesa_origem_retirada_id": despesa["id"],
+    }
+    retirada_1 = client.post("/transacoes", json=payload_retirada).json()
+    retirada_2 = client.post(
+        "/transacoes", json={**payload_retirada, "data_compra": "2026-09-07", "valor": 25}
+    ).json()
+
+    resposta = client.delete(f"/transacoes/{retirada_1['id']}")
+    assert resposta.status_code == 204
+    assert client.get(f"/transacoes/{despesa['id']}").json()["retirada_pendente"] is False
+
+    resposta = client.delete(f"/transacoes/{retirada_2['id']}")
+    assert resposta.status_code == 204
+    assert client.get(f"/transacoes/{despesa['id']}").json()["retirada_pendente"] is True

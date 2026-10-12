@@ -6236,3 +6236,22 @@ real.
       aviso de sempre (não o "Retirada já registrada").
 - [ ] Numa despesa sem vínculo nenhum (checkbox desmarcado), confirmar
       que nenhum dos dois blocos aparece.
+
+### Rodada 88 (2026-10-12) — Item 58: excluir 1 de 2 retiradas da mesma despesa não reabre à toa
+
+Implementa o Caso B da Rodada 85 (aprovado): antes de reabrir a
+pendência no `DELETE /transacoes/{id}`, confere se ainda existe OUTRA
+transação com `despesa_origem_retirada_id` apontando pra essa mesma
+despesa — se sim, não reabre (a outra retirada ainda cobre o saque, um
+lembrete reaberto aqui seria falso). Nova função
+`_existe_outra_retirada_para()` em `transacoes.py`, 1 `SELECT` extra só
+quando o fluxo de reabertura já ia rodar (não pesa no caminho comum).
+
+**Testes:** 1 novo, `test_excluir_retirada_com_outra_ainda_vinculada_
+nao_reabre` — cria 2 retiradas pra mesma despesa, exclui a 1ª (não
+reabre, a 2ª ainda cobre), exclui a 2ª (reabre, nenhuma resta). Suíte:
+412 passed, 33 skipped (era 411 antes desta rodada).
+
+**Status:** implementado 2026-10-12. Caso raro (fluxo manual, fora do
+"Lançar retirada" do Dashboard) — sem cenário de teste manual
+dedicado; cobertura é só pelo teste automatizado acima.

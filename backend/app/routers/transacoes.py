@@ -786,21 +786,39 @@ def excluir_parcelada(
     db.table("compras_parceladas").delete().eq("id", compra_parcelada_id).eq("user_id", user_id).execute()
 
 
+def _existe_outra_retirada_para(db: Client, user_id: str, despesa_id: str) -> bool:
+    """Caso raro (fluxo manual, fora do "Lançar retirada" do Dashboard):
+    2 retiradas apontando pra mesma despesa. Excluir uma delas não pode
+    reabrir a pendência se a outra ainda existe cobrindo o saque — seria
+    um lembrete falso."""
+    outras = (
+        db.table(TABLE)
+        .select("id")
+        .eq("user_id", user_id)
+        .eq("despesa_origem_retirada_id", despesa_id)
+        .execute()
+        .data
+    )
+    return bool(outras)
+
+
 def _reabrir_retirada_pendente_se_aplicavel(db: Client, user_id: str, despesa_id: str) -> None:
     """Item 58: excluir a transação de retirada que resolveu uma despesa
     devolve o lembrete pra "pendente" — sem isso, a despesa fica
     permanentemente marcada como resolvida mesmo sem a retirada real ter
     ficado registrada. Só reabre se a despesa ainda tiver vínculo com
     caixinha de origem (se o usuário removeu o vínculo manualmente nesse
-    meio tempo, não há o que reabrir); ignora silenciosamente se a
-    despesa já não existir mais (despesa_origem_retirada_id vira null
-    sozinho via "on delete set null" nesse caso, mas a exclusão da
-    despesa pode ter vindo antes da da retirada)."""
+    meio tempo, não há o que reabrir) e se não existir OUTRA retirada
+    ainda vinculada a ela (ver _existe_outra_retirada_para). Ignora
+    silenciosamente se a despesa já não existir mais
+    (despesa_origem_retirada_id vira null sozinho via "on delete set
+    null" nesse caso, mas a exclusão da despesa pode ter vindo antes da
+    da retirada)."""
     try:
         despesa = crud.get_one(db, TABLE, user_id, despesa_id)
     except crud.NotFound:
         return
-    if despesa.get("caixinha_origem_id"):
+    if despesa.get("caixinha_origem_id") and not _existe_outra_retirada_para(db, user_id, despesa_id):
         crud.update(db, TABLE, user_id, despesa_id, {"retirada_pendente": True})
 
 
