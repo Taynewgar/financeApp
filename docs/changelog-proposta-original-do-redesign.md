@@ -5702,3 +5702,36 @@ rodando `tests/integration/` de novo.
       amplia_teto_contra_banco_real` passam.
 - [ ] Confirmar que o total de `passed` bate com `passed + skipped` da
       suíte offline (sinal de que nada mais ficou sem rodar).
+
+### Rodada 79 (2026-10-12) — Itens 59/60: ordenação alfabética das subcategorias
+
+Parte barata do mockup discutido anteriormente, implementada agora a
+pedido do usuário — a parte cara (ordenação manual/drag-and-drop) segue
+registrada no backlog como opção não implementada, baixa prioridade.
+
+**Planejamento** (`agruparItensPorCategoria`, `Planejamento.tsx`): as
+folhas de cada grupo agora ordenam por `rotuloFolha(...)` (mesmo texto
+exibido na tela), `.localeCompare(..., 'pt-BR')` — antes vinham na
+ordem física que a API devolvia, nunca garantida por nenhum `ORDER BY`.
+
+**Estrutura de Custo** (`agruparPorCategoria`, `EstruturaCusto.tsx`):
+mesma mudança — cada folha já carrega um campo `nome` direto, sort mais
+simples ainda. Essa tela estava pior que Planejamento: a ordem vinha de
+um `set()` do Python no backend, literalmente arbitrária (podia mudar
+entre requests sem nenhuma mudança de dado).
+
+Os GRUPOS (categoria pai) já eram ordenados alfabeticamente nas duas
+telas — só as folhas dentro de cada grupo estavam sem ordenação.
+
+**Testes:** mudança de frontend puro (2 funções). `tsc -b && vite
+build` — sem erro novo; `oxlint` — sem warning novo (diff idêntico
+antes/depois, só deslocamento de linha dos avisos pré-existentes).
+
+**Status:** implementado 2026-10-12.
+
+**Checklist de teste manual (usuário, localmente):**
+- [ ] Em Planejamento, abrir um bucket com uma categoria de várias
+      subcategorias e confirmar que elas aparecem em ordem alfabética.
+- [ ] Em Estrutura de Custo, mesma checagem — confirmar que a ordem é
+      alfabética e, principalmente, que não muda sozinha entre
+      recarregamentos da página (esse era o bug real: ordem instável).

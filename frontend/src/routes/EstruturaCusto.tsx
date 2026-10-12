@@ -191,6 +191,14 @@ export function agruparPorCategoria(
     g.folhas.push(folha)
   }
 
+  // itens 59/60 do backlog: ordem alfabética das folhas dentro de cada
+  // grupo — antes vinha da ordem de um `set()` do Python no backend,
+  // literalmente arbitrária (pior que Planejamento, que ao menos tinha
+  // a ordem física estável da tabela)
+  for (const g of grupos.values()) {
+    g.folhas.sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'))
+  }
+
   return [...grupos.values()].sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'))
 }
 

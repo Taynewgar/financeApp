@@ -177,6 +177,13 @@ function agruparItensPorCategoria(
     g.folhas.push({ chave: item.id, item })
   }
 
+  // itens 59/60 do backlog: ordem alfabética das folhas dentro de cada
+  // grupo — antes era a ordem física que a API devolvia (nunca
+  // garantida por nenhum ORDER BY), ficava instável a cada reload
+  for (const g of grupos.values()) {
+    g.folhas.sort((a, b) => rotuloFolha(a.item, subcategorias, contas).localeCompare(rotuloFolha(b.item, subcategorias, contas), 'pt-BR'))
+  }
+
   return [...grupos.values()].sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'))
 }
 

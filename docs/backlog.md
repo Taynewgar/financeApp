@@ -143,15 +143,17 @@ changelog já documenta quando e como cada um foi entregue).
 **Baixa**
 
 - **59.** **Ordenação das subcategorias dentro dos envelopes**
-  `tipo: Melhoria` — em Planejamento. Hoje a ordem nem é garantida (vem
-  da ordem física da tabela). Investigado: ordenar alfabeticamente seria
-  barato (1 `.sort()` no frontend, zero schema); mas o uso real que o
-  usuário imagina é **ordenar por importância** (customizável), não
-  alfabética — isso já é caro (coluna nova + endpoint de reordenar +
-  biblioteca de drag-and-drop, nenhuma existe no projeto hoje).
-  **Decisão do usuário 2026-10-12:** mantém baixa prioridade por
-  enquanto — vai usar o app no dia a dia e decidir depois se a
-  reordenação manual compensa o custo. *(trazido em CSV, 2026-09-30)*
+  `tipo: Melhoria` — em Planejamento. **Parte alfabética ✅ implementada
+  2026-10-12** — as folhas de cada grupo agora ordenam por nome
+  (`.sort()` no frontend, zero schema); antes a ordem nem era garantida
+  (vinha da ordem física da tabela). **Ordenação manual/customizável
+  (drag-and-drop) segue como opção registrada, não implementada** — é
+  caro (coluna nova + endpoint de reordenar + biblioteca de D&D,
+  nenhuma existe no projeto hoje) pro uso real que o usuário imagina
+  (**ordenar por importância**, não por nome). Mantém baixa prioridade
+  — vai usar o app no dia a dia com a alfabética e decidir depois se o
+  manual compensa o custo. *(trazido em CSV, 2026-09-30; alfabética
+  implementada 2026-10-12)*
 
 #### Estrutura de Custo
 
@@ -165,10 +167,12 @@ changelog já documenta quando e como cada um foi entregue).
 
 - **60.** **Ordenação das subcategorias dentro dos envelopes**
   `tipo: Melhoria` — mesmo pedido do item 59, aplicado também à tela de
-  Estrutura de Custo (lá a ordem é ainda pior: vem de um `set()` do
-  Python, literalmente arbitrária). Mesma decisão do item 59 — baixa
-  prioridade, revisitar depois do uso real. *(trazido em CSV,
-  2026-09-30)*
+  Estrutura de Custo (lá a ordem era ainda pior: vinha de um `set()` do
+  Python, literalmente arbitrária). **Parte alfabética ✅ implementada
+  2026-10-12**, mesma mudança do item 59. **Ordenação manual/
+  customizável segue como opção registrada, não implementada** — mesma
+  decisão do item 59, baixa prioridade, revisitar depois do uso real.
+  *(trazido em CSV, 2026-09-30; alfabética implementada 2026-10-12)*
 
 #### Gráficos
 
