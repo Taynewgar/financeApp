@@ -5992,7 +5992,19 @@ oxlint, não é efeito da mudança).
 deploy real — essa é a tela que realmente importa (mobile/PWA é o caso
 de uso original do pedido).
 
-**Checklist de teste manual (usuário, no deploy real):**
+**Addendum 2026-10-12 — causa raiz do "não aparece em lugar nenhum":**
+usuário testou em aba anônima (sem cache/service worker possível) e
+mesmo assim não apareceu, nem desktop nem mobile — descartando CSS e
+cache de uma vez. Causa real: **não é bug de código** — o Vercel tinha
+deployments novos sendo gerados a cada push, mas não promovendo
+automaticamente pra produção (mesma classe de problema das Rodadas
+75-80, quando o Vercel parou de detectar commits novos). O domínio de
+produção ficou apontando pra um deployment antigo enquanto os commits
+43ddd6a/869ad5e já existiam no branch. Ação é do usuário no painel da
+Vercel (promover o deployment certo pra produção), não uma correção de
+código.
+
+**Checklist de teste manual (usuário, depois de promover o deployment certo):**
 - [ ] No celular (ou navegador com a janela estreita, ≤720px), abrir o
       app e confirmar que a versão (`v` + hash) aparece ao lado de
       "Finance App" na barra do topo.
