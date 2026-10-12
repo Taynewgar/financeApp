@@ -171,26 +171,55 @@ export function NovoLancamento() {
   const [erroSubcategoria, setErroSubcategoria] = useState<string | null>(null)
 
   useEffect(() => {
+    // "cancelado" evita condição de corrida: trocar de tipo (ex: Despesa
+    // → Reserva) dispara ESTE efeito com a categoria ainda antiga (o
+    // reset de categoriaId só roda num efeito seguinte — ver "ao trocar
+    // o tipo" abaixo) antes de disparar de novo já limpo; sem a guarda,
+    // a resposta da 1ª chamada (categoria antiga) podia chegar DEPOIS do
+    // `setCategoriasMaisUsadas([])` do efeito seguinte e sobrescrever o
+    // estado limpo com chips de um tipo que não é mais o selecionado.
+    let cancelado = false
     if (!tipoCategoriaEfetivo) {
       setCategoriasMaisUsadas([])
       return
     }
     apiFetch<Categoria[]>(`/categorias/mais-usadas?tipo=${tipoCategoriaEfetivo}`)
-      .then(setCategoriasMaisUsadas)
-      .catch(() => setCategoriasMaisUsadas([]))
+      .then((res) => {
+        if (!cancelado) setCategoriasMaisUsadas(res)
+      })
+      .catch(() => {
+        if (!cancelado) setCategoriasMaisUsadas([])
+      })
+    return () => {
+      cancelado = true
+    }
   }, [tipoCategoriaEfetivo])
 
   useEffect(() => {
+    let cancelado = false
     if (!categoriaId) {
       setSubcategoriasMaisUsadas([])
       return
     }
     apiFetch<Subcategoria[]>(`/subcategorias/mais-usadas?categoria_id=${categoriaId}`)
-      .then(setSubcategoriasMaisUsadas)
-      .catch(() => setSubcategoriasMaisUsadas([]))
+      .then((res) => {
+        if (!cancelado) setSubcategoriasMaisUsadas(res)
+      })
+      .catch(() => {
+        if (!cancelado) setSubcategoriasMaisUsadas([])
+      })
+    return () => {
+      cancelado = true
+    }
   }, [categoriaId])
 
   useEffect(() => {
+    // mesma guarda de corrida do efeito de categoriasMaisUsadas acima —
+    // achado real 2026-10-12: trocar de Despesa (com categoria) pra
+    // Reserva deixava os chips de descrição da despesa anterior
+    // aparecendo por cima dos de caixinha, porque a resposta da
+    // categoria antiga chegava depois do `setDescricoesSugeridas([])`.
+    let cancelado = false
     // reserva não usa categoria/subcategoria — agrupa por caixinha; o
     // `tipo === 'reserva'` evita usar um caixinhaId que sobrou de uma
     // escolha anterior depois de trocar pra outro tipo de lançamento
@@ -208,8 +237,15 @@ export function NovoLancamento() {
       params.set('caixinha_id', caixinhaId)
     }
     apiFetch<string[]>(`/transacoes/descricoes-mais-usadas?${params.toString()}`)
-      .then(setDescricoesSugeridas)
-      .catch(() => setDescricoesSugeridas([]))
+      .then((res) => {
+        if (!cancelado) setDescricoesSugeridas(res)
+      })
+      .catch(() => {
+        if (!cancelado) setDescricoesSugeridas([])
+      })
+    return () => {
+      cancelado = true
+    }
   }, [categoriaId, subcategoriaId, caixinhaId, tipo])
 
   const descricaoQuaseDuplicata = useMemo(

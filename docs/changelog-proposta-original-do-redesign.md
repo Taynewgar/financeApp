@@ -5785,20 +5785,77 @@ exige credenciais reais do Supabase — mesma limitação de sempre).
 **Status:** implementado 2026-10-12.
 
 **Checklist de teste manual (usuário, localmente):**
-- [ ] Em Novo Lançamento (despesa), confirmar a nova ordem dos campos:
+- [x] ~~Em Novo Lançamento (despesa), confirmar a nova ordem dos campos:
       Valor/Data, Categoria/Subcategoria, Conta, Descrição, Estrutura
-      de custo/Meio de pagamento.
-- [ ] Escolher uma categoria/subcategoria já usada antes e confirmar
+      de custo/Meio de pagamento. — confirmado 2026-10-12 (depois de
+      achado que o deploy em `estelosfinance.vercel.app` tinha parado de
+      acompanhar os pushes — resolvido pelo usuário recriando o deploy
+      a partir da branch).~~
+- [x] ~~Escolher uma categoria/subcategoria já usada antes e confirmar
       que os chips de descrição sugerida aparecem assim que chega no
-      campo Descrição (sem precisar digitar nada primeiro).
-- [ ] Em Reserva, confirmar que o campo Caixinha aparece no lugar de
-      Categoria/Subcategoria, na mesma posição (antes de Conta).
-- [ ] No Dashboard, em Compromissos Futuros, confirmar que um item
+      campo Descrição (sem precisar digitar nada primeiro). — confirmado
+      2026-10-12.~~
+- [x] ~~Em Reserva, confirmar que o campo Caixinha aparece no lugar de
+      Categoria/Subcategoria, na mesma posição (antes de Conta). —
+      confirmado 2026-10-12.~~
+- [x] ~~No Dashboard, em Compromissos Futuros, confirmar que um item
       recorrente mostra 2 botões de ícone lado a lado (✓ e ⏭), com
       tooltip ao passar o mouse, e que a altura da linha ficou igual à
-      de um item de parcela (sem ação).
-- [ ] Confirmar que os 2 botões de ícone continuam funcionando
+      de um item de parcela (sem ação). — confirmado 2026-10-12.~~
+- [x] ~~Confirmar que os 2 botões de ícone continuam funcionando
       (Confirmar materializa o mês; Pular pede confirmação antes de
-      marcar como não aplicável).
-- [ ] Confirmar que o card "Retiradas pendentes de caixinha" (item 58)
-      NÃO mudou — continua com os 2 botões de texto empilhados.
+      marcar como não aplicável). — confirmado 2026-10-12.~~
+- [x] ~~Confirmar que o card "Retiradas pendentes de caixinha" (item 58)
+      NÃO mudou — continua com os 2 botões de texto empilhados. —
+      confirmado funcionando 2026-10-12, com pedido de texto mais curto
+      pros 2 botões — ver Rodada 81.~~
+
+### Rodada 81 (2026-10-12) — Fix: chips de descrição "vazavam" entre tipos de lançamento (condição de corrida)
+
+Reportado testando a Rodada 80 — trocar de Despesa (com categoria já
+escolhida) pra Reserva mostrava, por um instante, os chips de descrição
+da categoria da despesa anterior, em vez dos da caixinha. Confirmado:
+não era esperado, é bug real.
+
+**Causa raiz:** os 3 efeitos de "sugestão" em `NovoLancamento.tsx`
+(`categoriasMaisUsadas`, `subcategoriasMaisUsadas`, `descricoesSugeridas`)
+disparavam uma busca na API sem nenhuma guarda contra resposta
+desatualizada. Ao trocar de tipo, 2 efeitos independentes reagem à
+mesma mudança, em ordem de declaração no componente: o efeito de
+`descricoesSugeridas` roda PRIMEIRO (está declarado antes no arquivo),
+ainda vendo o `categoriaId` antigo (o reset de `categoriaId` só
+acontece num efeito seguinte, "ao trocar o tipo") — isso dispara uma
+busca pra categoria antiga. Essa busca segue em voo. Em seguida, o
+efeito "ao trocar o tipo" zera `categoriaId`, o que dispara o efeito de
+`descricoesSugeridas` DE NOVO, agora corretamente limpando os chips
+(`setDescricoesSugeridas([])`). O problema: se a resposta da 1ª busca
+(categoria antiga) chegar DEPOIS desse `[]`, ela sobrescreve o estado
+já limpo — os chips errados "vencem a corrida" e aparecem na tela.
+
+**Fix:** os 3 efeitos ganharam a guarda padrão de corrida já usada em
+outros pontos do projeto (ex: `AppShell.tsx`, checagem de backend
+acordando) — uma flag `cancelado` fechada sobre o escopo do efeito,
+virada `true` na função de cleanup (disparada automaticamente pelo
+React antes de rodar o efeito de novo ou desmontar o componente), e
+checada antes de cada `setState` dentro do `.then()`/`.catch()`. Uma
+resposta que chega depois do efeito já ter sido re-executado (ou do
+componente ter desmontado) é descartada, nunca mais sobrescreve estado
+mais novo.
+
+**Testes:** mudança de frontend puro (3 `useEffect`). `tsc -b && vite
+build` — sem erro novo; `oxlint` — diff idêntico antes/depois. Backend
+não foi tocado — suíte offline continua 407 passed, 33 skipped (rodada
+de sanity-check, não esperava impacto). Sem reprodução visual local
+possível (mesma limitação de sempre).
+
+**Status:** implementado 2026-10-12.
+
+**Checklist de teste manual (usuário, localmente):**
+- [ ] Em Novo Lançamento, escolher Despesa + uma categoria/subcategoria
+      com descrições já usadas (chips aparecem), depois trocar pra
+      Reserva — confirmar que os chips de despesa NÃO aparecem mais
+      (nem por um instante), só os de caixinha depois de escolher uma.
+- [ ] Repetir o mesmo teste trocando rápido entre vários tipos seguidos
+      (Despesa → Receita → Investimento → Reserva) — confirmar que os
+      chips sempre terminam condizentes com o tipo/categoria/caixinha
+      selecionado no final, nunca um residual de uma escolha anterior.
