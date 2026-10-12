@@ -6123,3 +6123,71 @@ valer a pena tratar agora.
 **Pergunta pro usuário:** confirma os 2 fixes propostos (indicador +
 ação de reabrir manual, e excluir retirada reabre a pendência) antes
 de eu implementar?
+
+**Decisão do usuário:** achado 1 (indicador/reabrir manual) — pediu
+mockup antes de decidir (publicado no mesmo canvas das Rodadas
+75-77/79-80, artboard "58 — Reabrir pendência de retirada"); achado 2
+(excluir retirada reabre a pendência) — aprovado direto. Implementação
+do achado 2 abaixo (Rodada 86); achado 1 segue pendente de aprovação
+do mockup.
+
+### Rodada 86 (2026-10-12) — Item 58: excluir a retirada reabre o lembrete na despesa
+
+Implementa o achado 2 da Rodada 85, aprovado pelo usuário.
+
+**Fix:**
+- Coluna nova `despesa_origem_retirada_id` (nullable, FK pra
+  `transacoes.id`, `on delete set null`) — fica na transação de
+  RETIRADA (não na despesa), apontando de volta pra despesa que ela
+  resolveu. Migração documentada no `README.md` (mesmo padrão das
+  colunas do item 58 anteriores).
+- `TransacaoCreate`/`Transacao` (`schemas/transacoes.py`) ganham o
+  campo. `_check_refs()` confere que a despesa referenciada existe e
+  pertence ao usuário (404 senão). `_check_regras_tipo_movimento()`
+  exige `tipo_movimento == "retirada"` quando o campo vem preenchido
+  (422 senão) — mesma simetria de `caixinha_origem_id`, que exige
+  `"despesa"`.
+- `DELETE /transacoes/{id}`: se a transação excluída tinha
+  `despesa_origem_retirada_id` preenchido, tenta devolver a despesa
+  apontada pra `retirada_pendente: true` — só se ela ainda tiver
+  `caixinha_origem_id` (vínculo removido manualmente nesse meio tempo
+  = nada pra reabrir) e só se ela ainda existir (404 silencioso,
+  `try/except NotFound`, sem propagar erro pro DELETE que já aconteceu
+  com sucesso).
+- `NovoLancamento.tsx`: `montarPayloadAvista()` manda
+  `despesa_origem_retirada_id` só quando a transação sendo criada é
+  uma retirada que nasceu do prefill "Lançar retirada" do Dashboard
+  (`despesaOrigemRetiradaRef.current`) — fluxo manual de retirada
+  continua mandando `null`, sem mudança de comportamento.
+
+**Inconsistências levantadas na Rodada 85 — decisão tomada:** caixinha
+trocada (não removida) ainda reabre a pendência genérica, igual
+proposto. 2 retiradas pra mesma despesa não tratado (caso raro) — sem
+mudança.
+
+**Testes:** 4 novos em `test_transacoes_api.py`:
+`test_despesa_origem_retirada_em_despesa_retorna_422`,
+`test_despesa_origem_retirada_de_outro_usuario_retorna_404`,
+`test_excluir_retirada_vinculada_reabre_retirada_pendente_na_despesa`,
+`test_excluir_retirada_vinculada_sem_vinculo_na_despesa_nao_reabre`.
+Suíte: 411 passed, 33 skipped (era 407 passed antes desta rodada).
+Frontend: `tsc -b`/`vite build` sem erro novo; `oxlint` diff vazio.
+
+**Status:** implementado 2026-10-12, pede teste do usuário no fluxo
+real (login exige credenciais reais do Supabase).
+
+**Checklist de teste manual (usuário, localmente):**
+- [ ] Lançar uma despesa coberta por caixinha, usar "Lançar retirada"
+      no card do Dashboard pra criar a retirada de verdade — confirmar
+      que a despesa some de "Retiradas pendentes" (comportamento já
+      existente, sem mudança).
+- [ ] Ir em Lançamentos, excluir a transação de retirada que você
+      acabou de criar — confirmar que a despesa original VOLTA a
+      aparecer em "Retiradas pendentes de caixinha" no Dashboard.
+- [ ] Repetir o fluxo, mas antes de excluir a retirada, editar a
+      despesa original e desmarcar "já estava guardada numa
+      caixinha" — confirmar que excluir a retirada DEPOIS disso NÃO
+      traz a pendência de volta (vínculo já foi removido).
+- [ ] Confirmar que excluir uma retirada "normal" (sem ter nascido de
+      "Lançar retirada", ex: lançada manualmente) continua funcionando
+      sem erro, sem nenhum efeito colateral.

@@ -2019,3 +2019,117 @@ def test_editar_despesa_trocando_caixinha_origem_volta_a_ficar_pendente(client):
     )
     assert editada.status_code == 200
     assert editada.json()["retirada_pendente"] is True
+
+
+def test_despesa_origem_retirada_em_despesa_retorna_422(client):
+    conta = _criar_conta_corrente(client)
+    categoria = client.post("/categorias", json={"nome": "Lazer"}).json()
+    despesa = _criar_despesa_basica(client, conta["id"], categoria["id"]).json()
+
+    resposta = client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-09-05",
+            "valor": 50,
+            "tipo_movimento": "despesa",
+            "conta_id": conta["id"],
+            "categoria_id": categoria["id"],
+            "estrutura_custo": "variavel",
+            "meio_pagamento": "pix",
+            "despesa_origem_retirada_id": despesa["id"],
+        },
+    )
+    assert resposta.status_code == 422
+
+
+def test_despesa_origem_retirada_de_outro_usuario_retorna_404(client, current_user):
+    conta = _criar_conta_corrente(client)
+    caixinha = client.post("/caixinhas", json={"nome": "Viagem"}).json()
+
+    current_user["id"] = OUTRO_USUARIO
+    conta_outro = _criar_conta_corrente(client)
+    categoria_outro = client.post("/categorias", json={"nome": "Lazer"}).json()
+    despesa_outro = _criar_despesa_basica(client, conta_outro["id"], categoria_outro["id"]).json()
+    current_user["id"] = "11111111-1111-1111-1111-111111111111"
+
+    resposta = client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-09-05",
+            "valor": 50,
+            "tipo_movimento": "retirada",
+            "conta_id": conta["id"],
+            "caixinha_id": caixinha["id"],
+            "despesa_origem_retirada_id": despesa_outro["id"],
+        },
+    )
+    assert resposta.status_code == 404
+
+
+def test_excluir_retirada_vinculada_reabre_retirada_pendente_na_despesa(client):
+    """Item 58, Rodada 85: excluir a transação de retirada que resolveu
+    uma despesa devolve o lembrete pra pendente — sem isso, a despesa
+    fica resolvida pra sempre mesmo sem a retirada real ter ficado
+    registrada."""
+    conta = _criar_conta_corrente(client)
+    categoria = client.post("/categorias", json={"nome": "Lazer"}).json()
+    caixinha = client.post("/caixinhas", json={"nome": "Viagem"}).json()
+    despesa = _criar_despesa_basica(client, conta["id"], categoria["id"], caixinha["id"]).json()
+    client.patch(f"/transacoes/{despesa['id']}/retirada-pendente", json={"pendente": False})
+
+    retirada = client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-09-06",
+            "valor": 50,
+            "tipo_movimento": "retirada",
+            "conta_id": conta["id"],
+            "caixinha_id": caixinha["id"],
+            "despesa_origem_retirada_id": despesa["id"],
+        },
+    ).json()
+    assert client.get(f"/transacoes/{despesa['id']}").json()["retirada_pendente"] is False
+
+    resposta = client.delete(f"/transacoes/{retirada['id']}")
+    assert resposta.status_code == 204
+    assert client.get(f"/transacoes/{despesa['id']}").json()["retirada_pendente"] is True
+
+
+def test_excluir_retirada_vinculada_sem_vinculo_na_despesa_nao_reabre(client):
+    """Se o usuário removeu o vínculo com a caixinha de origem (editou e
+    desmarcou o checkbox) depois de lançar a retirada, excluir a
+    retirada não deve reabrir nada — não há mais vínculo pra reabrir."""
+    conta = _criar_conta_corrente(client)
+    categoria = client.post("/categorias", json={"nome": "Lazer"}).json()
+    caixinha = client.post("/caixinhas", json={"nome": "Viagem"}).json()
+    despesa = _criar_despesa_basica(client, conta["id"], categoria["id"], caixinha["id"]).json()
+
+    retirada = client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-09-06",
+            "valor": 50,
+            "tipo_movimento": "retirada",
+            "conta_id": conta["id"],
+            "caixinha_id": caixinha["id"],
+            "despesa_origem_retirada_id": despesa["id"],
+        },
+    ).json()
+
+    client.patch(
+        f"/transacoes/{despesa['id']}",
+        json={
+            "data_compra": despesa["data_compra"],
+            "valor": despesa["valor"],
+            "tipo_movimento": "despesa",
+            "conta_id": conta["id"],
+            "categoria_id": categoria["id"],
+            "estrutura_custo": "variavel",
+            "meio_pagamento": "pix",
+            "caixinha_origem_id": None,
+        },
+    )
+
+    resposta = client.delete(f"/transacoes/{retirada['id']}")
+    assert resposta.status_code == 204
+    assert client.get(f"/transacoes/{despesa['id']}").json()["retirada_pendente"] is False

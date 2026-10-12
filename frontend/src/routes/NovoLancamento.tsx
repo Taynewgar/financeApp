@@ -597,6 +597,10 @@ export function NovoLancamento() {
       meio_pagamento: tipo === 'despesa' || tipo === 'ajuste' ? meioPagamento || null : null,
       ajuste_de_transacao_id: tipo === 'ajuste' ? despesaSelecionada!.id : null,
       caixinha_origem_id: tipo === 'despesa' && coberto ? caixinhaOrigemId || null : null,
+      // item 58: só vem preenchido quando a retirada nasceu do prefill
+      // "Lançar retirada" do Dashboard — permite reabrir o lembrete na
+      // despesa de origem se essa retirada for excluída depois.
+      despesa_origem_retirada_id: tipoMovimento === 'retirada' ? despesaOrigemRetiradaRef.current : null,
     }
   }
 

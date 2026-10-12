@@ -186,6 +186,13 @@ create table transacoes (
     -- /transacoes/retiradas-pendentes, que alimenta o card do Dashboard.
     caixinha_origem_id uuid references caixinhas(id),
     retirada_pendente boolean not null default false,
+    -- item 58: na transação de RETIRADA (não na despesa) criada pelo
+    -- fluxo "Lançar retirada" do Dashboard — aponta de volta pra despesa
+    -- que ela resolveu. Permite reabrir o lembrete (retirada_pendente)
+    -- se essa retirada for excluída depois (ver DELETE /transacoes/{id}).
+    -- set null se a despesa original for apagada — sem despesa pra
+    -- reabrir, o vínculo não tem mais pra que servir.
+    despesa_origem_retirada_id uuid references transacoes(id) on delete set null,
     -- transação real criada ao confirmar um mês de um lançamento
     -- recorrente (projeção virtual) — set null se o recorrente for
     -- apagado depois, o histórico já confirmado não deve sumir junto

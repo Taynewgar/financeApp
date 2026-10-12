@@ -512,6 +512,22 @@ alter table transacoes
 Um projeto novo, criado rodando `db/schema.sql` já com esta versão, não
 precisa desse passo — as 2 colunas já nascem criadas.
 
+### Migração pendente no seu Supabase: `transacoes.despesa_origem_retirada_id`
+
+Item 58 do backlog — excluir a transação de retirada (criada via "Lançar
+retirada" no Dashboard) agora reabre o lembrete na despesa original, em
+vez de deixá-la permanentemente marcada como resolvida sem a retirada
+real ter ficado registrada. Se o seu projeto já existia antes desta
+entrega, rode uma vez no *SQL Editor*:
+
+```sql
+alter table transacoes
+  add column if not exists despesa_origem_retirada_id uuid references transacoes(id) on delete set null;
+```
+
+Um projeto novo, criado rodando `db/schema.sql` já com esta versão, não
+precisa desse passo — a coluna já nasce criada.
+
 ## Desenvolvimento local
 
 ```bash

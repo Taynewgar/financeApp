@@ -282,4 +282,5 @@ export type Transacao = {
   ajuste_de_transacao_id: string | null
   caixinha_origem_id: string | null
   retirada_pendente: boolean
+  despesa_origem_retirada_id: string | null
 }

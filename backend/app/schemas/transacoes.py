@@ -33,6 +33,11 @@ class TransacaoCreate(BaseModel):
     # inferido automaticamente, usuário escolhe manualmente. Ver
     # retirada_pendente em Transacao e GET /transacoes/retiradas-pendentes.
     caixinha_origem_id: str | None = None
+    # item 58: na transação de RETIRADA (tipo_movimento == "retirada")
+    # criada pelo fluxo "Lançar retirada" do Dashboard — aponta de volta
+    # pra despesa que ela resolveu, pra poder reabrir o lembrete se essa
+    # retirada for excluída depois (ver excluir() no router).
+    despesa_origem_retirada_id: str | None = None
     # usado por POST/PATCH /transacoes, pra desambiguar um 409 de
     # hash_dedup que o usuário confirmou ser lançamento real (não
     # double-submit acidental) — ver _com_desambiguacao_de_duplicata no
@@ -120,6 +125,7 @@ class Transacao(BaseModel):
     ajuste_de_transacao_id: str | None = None
     caixinha_origem_id: str | None = None
     retirada_pendente: bool = False
+    despesa_origem_retirada_id: str | None = None
 
 
 class RetiradaPendentePayload(BaseModel):

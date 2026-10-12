@@ -119,6 +119,11 @@ changelog já documenta quando e como cada um foi entregue).
   "Retiradas pendentes de caixinha" no Dashboard com "Lançar retirada
   agora"/"Já retirei, só marcar", badge na lista de Lançamentos. Mockup
   aprovado antes de implementar. Ver detalhe no changelog (Rodada 77).
+  Testado e confirmado 2026-10-12. 2 melhorias de usabilidade
+  levantadas no teste: excluir a transação de retirada volta a marcar
+  a despesa como pendente ✅ (Rodada 86); indicador + ação de "marcar
+  como pendente de novo" em Editar Lançamento — mockup publicado,
+  aguardando aprovação do usuário (Rodada 85).
   *(trazido em CSV, 2026-09-30; implementado 2026-10-12)*
 - **69.** **CRUD em lote de transações** `tipo: Melhoria` — criar/
   editar/excluir várias transações de uma vez. Desmembrado do item 44;

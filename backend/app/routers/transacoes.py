@@ -89,6 +89,7 @@ def _check_refs(
     caixinha_id: str | None = None,
     ajuste_de_transacao_id: str | None = None,
     caixinha_origem_id: str | None = None,
+    despesa_origem_retirada_id: str | None = None,
 ) -> None:
     if not crud.get_owned(db, "contas", user_id, conta_id):
         raise HTTPException(status_code=404, detail="Conta não encontrada")
@@ -102,6 +103,8 @@ def _check_refs(
         raise HTTPException(status_code=404, detail="Transação de ajuste referenciada não encontrada")
     if caixinha_origem_id and not crud.get_owned(db, "caixinhas", user_id, caixinha_origem_id):
         raise HTTPException(status_code=404, detail="Caixinha de origem não encontrada")
+    if despesa_origem_retirada_id and not crud.get_owned(db, TABLE, user_id, despesa_origem_retirada_id):
+        raise HTTPException(status_code=404, detail="Despesa de origem da retirada não encontrada")
 
 
 # receita usa a categoria "pai" tipo receita, despesa/estorno/ressarcimento
@@ -125,6 +128,7 @@ def _check_regras_tipo_movimento(
     caixinha_id: str | None,
     conta_id: str | None = None,
     caixinha_origem_id: str | None = None,
+    despesa_origem_retirada_id: str | None = None,
 ) -> None:
     """Caixinha é reserva, não investimento nem despesa — só faz sentido em
     aplicação/retirada. Categoria (quando informada) precisa ser do tipo
@@ -133,11 +137,19 @@ def _check_regras_tipo_movimento(
     precisa usar a mesma conta, senão a reserva fica registrada num ledger
     diferente de onde o dinheiro realmente está. caixinha_origem_id (item
     58) é o oposto de caixinha_id: só faz sentido em DESPESA — é a marca
-    de "isso já tava guardado", não uma movimentação de reserva em si."""
+    de "isso já tava guardado", não uma movimentação de reserva em si.
+    despesa_origem_retirada_id (item 58) é o inverso: só faz sentido numa
+    RETIRADA — é o rastro pra reabrir o lembrete da despesa se essa
+    retirada for excluída."""
     if caixinha_origem_id and tipo_movimento != "despesa":
         raise HTTPException(
             status_code=422,
             detail="Vínculo com caixinha de origem só se aplica a lançamentos de despesa",
+        )
+    if despesa_origem_retirada_id and tipo_movimento != "retirada":
+        raise HTTPException(
+            status_code=422,
+            detail="Vínculo com despesa de origem só se aplica a lançamentos de retirada",
         )
     if categoria_id:
         categoria = db.table("categorias").select("tipo").eq("id", categoria_id).eq("user_id", user_id).execute()
@@ -421,10 +433,11 @@ def criar(payload: TransacaoCreate, db: Client = Depends(get_db), user_id: str =
         payload.caixinha_id,
         payload.ajuste_de_transacao_id,
         payload.caixinha_origem_id,
+        payload.despesa_origem_retirada_id,
     )
     _check_regras_tipo_movimento(
         db, user_id, payload.tipo_movimento, payload.categoria_id, payload.caixinha_id, payload.conta_id,
-        payload.caixinha_origem_id,
+        payload.caixinha_origem_id, payload.despesa_origem_retirada_id,
     )
     _check_campos_obrigatorios(
         payload.tipo_movimento, payload.categoria_id, payload.estrutura_custo, payload.meio_pagamento,
@@ -594,10 +607,11 @@ def atualizar(
     _check_refs(
         db, user_id, payload.conta_id, payload.categoria_id, payload.subcategoria_id,
         payload.caixinha_id, payload.ajuste_de_transacao_id, payload.caixinha_origem_id,
+        payload.despesa_origem_retirada_id,
     )
     _check_regras_tipo_movimento(
         db, user_id, payload.tipo_movimento, payload.categoria_id, payload.caixinha_id, payload.conta_id,
-        payload.caixinha_origem_id,
+        payload.caixinha_origem_id, payload.despesa_origem_retirada_id,
     )
     _check_campos_obrigatorios(
         payload.tipo_movimento, payload.categoria_id, payload.estrutura_custo, payload.meio_pagamento,
@@ -772,8 +786,29 @@ def excluir_parcelada(
     db.table("compras_parceladas").delete().eq("id", compra_parcelada_id).eq("user_id", user_id).execute()
 
 
+def _reabrir_retirada_pendente_se_aplicavel(db: Client, user_id: str, despesa_id: str) -> None:
+    """Item 58: excluir a transação de retirada que resolveu uma despesa
+    devolve o lembrete pra "pendente" — sem isso, a despesa fica
+    permanentemente marcada como resolvida mesmo sem a retirada real ter
+    ficado registrada. Só reabre se a despesa ainda tiver vínculo com
+    caixinha de origem (se o usuário removeu o vínculo manualmente nesse
+    meio tempo, não há o que reabrir); ignora silenciosamente se a
+    despesa já não existir mais (despesa_origem_retirada_id vira null
+    sozinho via "on delete set null" nesse caso, mas a exclusão da
+    despesa pode ter vindo antes da da retirada)."""
+    try:
+        despesa = crud.get_one(db, TABLE, user_id, despesa_id)
+    except crud.NotFound:
+        return
+    if despesa.get("caixinha_origem_id"):
+        crud.update(db, TABLE, user_id, despesa_id, {"retirada_pendente": True})
+
+
 @router.delete("/{transacao_id}", status_code=204)
 def excluir(transacao_id: str, db: Client = Depends(get_db), user_id: str = Depends(get_current_user_id)):
     result = db.table(TABLE).delete().eq("id", transacao_id).eq("user_id", user_id).execute()
     if not result.data:
         raise HTTPException(status_code=404, detail="Transação não encontrada")
+    despesa_origem_id = result.data[0].get("despesa_origem_retirada_id")
+    if despesa_origem_id:
+        _reabrir_retirada_pendente_se_aplicavel(db, user_id, despesa_origem_id)
