@@ -201,12 +201,6 @@ changelog já documenta quando e como cada um foi entregue).
   dispositivo em vez de fixar um fuso no código, a pedido do usuário
   (pode mudar de cidade). Ver detalhe no changelog (Rodada 70). *(trazido
   em CSV, 2026-09-30; implementado 2026-10-12)*
-- **63.** **Racional de testes com `/financeapp-ref`** (detalhe abaixo)
-  `tipo: Validação` — roteiro consolidando as pendências de checklist
-  (Rodadas 35-37) que a skill resolve, as que ela não resolve, e os
-  pontos de cálculo que merecem atenção extra. **Liberado 2026-10-02**
-  — a Rodada 40 (condição da fila) já foi verificada pelo usuário.
-  *(2026-10-01)*
 - **66.** **Avaliar atualização reativa entre telas após inserção de
   dados** (detalhe abaixo) `tipo: Melhoria` — hoje cada tela busca seus
   próprios dados só no próprio `useEffect` (sem cache nem invalidação
@@ -436,6 +430,19 @@ já documenta quando e como cada um foi entregue.
   com `forcar_duplicado` pro caso de 2 compras reais e diferentes
   coincidirem. Detalhe na subseção própria abaixo, ver changelog Rodada
   46.
+- **63.** ~~Racional de testes com `/financeapp-ref`~~ **feito
+  2026-10-10/11** — rodado contra a conta real
+  (`referencia_saldo_anterior.py` + `/financeapp-ref`), achou 2 bugs:
+  um no próprio script (cache sem a chave `bucket`) e um real no app —
+  `realizado` de item de Planejamento vazando entre buckets quando a
+  mesma categoria está em 2 buckets diferentes no mesmo mês (corrigido
+  2026-10-11). Também validou a cadeia de `saldo_anterior` inteira (625
+  itens, 0 divergências pós-fix). 1 dos 6 pontos do roteiro (Caixinhas/
+  Patrimônio batendo com "Guardado") segue sem reconfirmação formal
+  pós-RPC — baixo risco, mesma fórmula já confirmada por cálculo direto
+  do CSV na Rodada 35. Detalhe na subseção própria abaixo, ver changelog
+  Rodadas 35/37 (confirmações) e a seção "`realizado` de item de
+  Planejamento soma transação de outro bucket..." do detalhamento.
 
 Este arquivo não substitui o `README.md` da raiz (que descreve o que
 existe) nem o `/status-projeto` (relatório de andamento) — é o registro do
@@ -2762,10 +2769,23 @@ e. **"sem_estrutura" inesperado** — a migração real fechou com 0
    validação que não está exigindo o campo de verdade em algum
    caminho (ex: `PATCH` deixando um despesa sem o campo).
 
-**Status:** registrado 2026-10-01, prioridade média, na fila pra depois
-da Rodada 40 (ordem pedida pelo usuário). Extensão do script já
-implementada e testada manualmente (CSV sintético, ver commit); nenhum
-dos itens 1-6 foi efetivamente rodado ainda.
+**Status:** feito 2026-10-10/11. Itens 2 e 3 da lista "o que a skill
+resolve" (Dashboard Todos-os-meses/Intervalo; Estrutura de
+Custo/Planejamento metade Realizado) confirmados contra a conta real
+via `/financeapp-ref` + `referencia_saldo_anterior.py`, com
+screenshots/relatório (ver changelog Rodadas 35 e 37, confirmações de
+2026-10-11). Ponto extra (a) (cadeia de `saldo_anterior`) também
+coberto pelo mesmo script: 625 itens, 0 divergências pós-fix de um bug
+de cache no próprio script (chave sem o `bucket`, commit `7e80642`,
+não afetava o app). A rodada real encontrou, além disso, um bug sério
+**no app** — `realizado` de item de Planejamento somando transação de
+outro bucket quando a mesma categoria está vinculada a 2 buckets no
+mesmo mês — corrigido 2026-10-11 (ver seção "`realizado` de item de
+Planejamento soma transação de outro bucket..." abaixo, detalhe
+completo). Único ponto do roteiro sem reconfirmação formal: item 1
+(Caixinhas/Patrimônio × coluna "Guardado") — segue sem rodar de novo
+pós-RPC (Rodada 37), mas a mesma fórmula já bateu por cálculo direto do
+CSV na investigação original da Rodada 35; risco residual baixo.
 
 ---
 
