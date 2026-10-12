@@ -74,14 +74,15 @@ changelog já documenta quando e como cada um foi entregue).
 **Média**
 
 - **31.** **Lançamentos: painel de filtros muito alto no mobile em
-  paisagem** `tipo: Melhoria` ✅ — 3 causas encontradas em rodadas
+  paisagem** `tipo: Melhoria` ✅ — 4 causas encontradas em rodadas
   sucessivas de reteste: (1) gatilho do toggle mobile só por largura
   (`max-width: 720px`) — paisagem costuma passar disso; (2) o mesmo
   critério faltava no `AppShell.css` (sidebar vs. barra inferior), app
   ficava num híbrido desktop+mobile; (3) o FAB não tinha `z-index`,
-  então o card de filtros/legenda (que tem) desenhava por cima dele. Ver
-  detalhe no changelog (Rodadas 69-73). *(reportado 2026-09-25;
-  implementado 2026-10-12)*
+  então o card de filtros/legenda (que tem) desenhava por cima dele; (4)
+  o menu mobile ("•••") tinha `z-index` menor que o card, mesmo bug
+  invertido. Ver detalhe no changelog (Rodadas 69-74). *(reportado
+  2026-09-25; implementado 2026-10-12)*
 - **53.** **Filtro por tipo de transação: parcelado ou à vista**
   `tipo: Melhoria` ✅ — ver detalhe no changelog (Rodada 60). *(trazido
   em CSV, 2026-09-30; implementado 2026-10-11)*

@@ -5331,14 +5331,16 @@ revelaram uma causa mais funda que esse fix não cobria sozinho.
       confirmado por evidência visual 2026-10-12 (imagem do retrato sem
       o fix da Rodada 69 mostrava a barra; a mudança desta rodada já
       resolve, sem depender da Rodada 72).~~
-- [ ] Em paisagem, abrir os filtros e confirmar que o painel não
+- [x] ~~Em paisagem, abrir os filtros e confirmar que o painel não
       sobrepõe mais a barra de navegação inferior — fica visível e
       clicável mesmo com o painel aberto. **Achado 2026-10-12** (ver
       Rodada 72): nesse aparelho a largura em paisagem passa de 720px,
       então o app cai no layout desktop (sidebar) mas os filtros ficavam
       no modo "mobile compacto" sozinhos — mistura inconsistente, com o
       FAB (sempre fixo a 24px do fundo, independente da altura da tela)
-      sobrepondo o card. Corrigido na Rodada 72.
+      sobrepondo o card. **Marcado como superado** a pedido do usuário,
+      2026-10-12 — ciclo encerrado aqui; reteste real acontece via
+      Rodada 72/73/74.~~
 
 ### Rodada 72 (2026-10-12) — Item 31: critério "tela pequena" unificado em todo o app shell
 
@@ -5425,8 +5427,45 @@ real, mesma limitação das Rodadas 69-72).
 aparelho real, em paisagem.
 
 **Checklist de teste manual (usuário, localmente, celular real):**
-- [ ] Em paisagem (tela curta), confirmar que o FAB ("+") aparece
+- [x] ~~Em paisagem (tela curta), confirmar que o FAB ("+") aparece
       inteiro, por cima do card de filtros/legenda, sem ser cortado ou
-      escondido atrás dele.
-- [ ] Confirmar que o FAB continua funcionando normalmente em todas as
-      outras telas (retrato, desktop) — sem regressão visual.
+      escondido atrás dele. — confirmado 2026-10-12.~~
+- [x] ~~Confirmar que o FAB continua funcionando normalmente em todas as
+      outras telas (retrato, desktop) — sem regressão visual. —
+      confirmado 2026-10-12.~~
+
+### Rodada 74 (2026-10-12) — Item 31: menu mobile também perdia empilhamento pro card de filtros
+
+Com o FAB resolvido (Rodada 73), o usuário reportou — com fotos, retrato
+e paisagem — que o card de filtros/legenda também desenha por cima do
+menu "•••" (fundo escurecido e a sheet com a lista de seções), deixando
+"Configurações" ilegível atrás do card. Mesma classe de bug da Rodada
+73, só que na direção oposta.
+
+**Causa:** `.shell-menu-backdrop` (`z-index: 3`) e `.shell-menu-sheet`
+(`z-index: 4`) — ambos menores que o `z-index: 5` de `.cabecalho-fixo`
+(cabecalhoFixo.css, o card de filtros/legenda). Como o card tem o
+`z-index` maior, ele desenha por cima do menu em vez do menu (que deveria
+ser uma camada modal, por cima de tudo) cobrir o card.
+
+**Fix:** `.shell-menu-backdrop` e `.shell-menu-sheet` subiram pra
+`z-index: 7` e `8` — acima do `5` do cabeçalho fixo/barra inferior e do
+`6` do FAB (que já se esconde quando o menu abre, então nem compete).
+Com isso a ordem de empilhamento fica coerente: menu modal > FAB >
+cabeçalhos sticky > barra inferior, que é a hierarquia que sempre fez
+sentido pra essas camadas.
+
+**Testes:** mudança de CSS puro (2 propriedades). `tsc -b && vite build`
+— sem erro novo; `oxlint` — sem warning novo (diff idêntico
+antes/depois). Sem reprodução local possível (precisa de celular real).
+
+**Status:** implementado 2026-10-12, pede reteste do usuário num
+aparelho real.
+
+**Checklist de teste manual (usuário, localmente, celular real):**
+- [ ] Em Lançamentos, com o card de filtros/legenda visível, abrir o
+      menu "•••" e confirmar que ele aparece inteiro e legível por cima
+      do card (fundo escurecido cobrindo tudo, sheet com "Configurações"
+      etc. legível) — tanto em retrato quanto em paisagem.
+- [ ] Confirmar que o menu continua funcionando normalmente nas outras
+      telas (Dashboard, Planejamento etc.) — sem regressão visual.

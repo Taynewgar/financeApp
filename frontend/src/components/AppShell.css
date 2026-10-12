@@ -242,6 +242,14 @@
     flex: 0 0 58px;
   }
 
+  /* item 31 do backlog (achado 2026-10-12, Rodada 73): mesma causa do
+   * FAB, só que invertida — esses dois tinham z-index MENOR que o 5 de
+   * `.cabecalho-fixo` (cabecalhoFixo.css, o card de filtros/legenda em
+   * Lançamentos), então o card desenhava por cima do menu em vez do
+   * contrário (confirmado por imagem, tanto retrato quanto paisagem).
+   * Precisam ficar acima de tudo que não seja eles mesmos — maior que o
+   * 5 do cabeçalho fixo e o 6 do FAB (que já se esconde quando o menu
+   * abre, então não compete por empilhamento aqui mesmo assim). */
   .shell-menu-backdrop {
     position: fixed;
     left: 0;
@@ -249,7 +257,7 @@
     top: 0;
     bottom: var(--shell-altura-barra-mobile);
     background: rgba(0, 0, 0, 0.45);
-    z-index: 3;
+    z-index: 7;
   }
 
   .shell-menu-sheet {
@@ -264,7 +272,7 @@
     border-top: 1px solid var(--cor-borda);
     border-radius: 16px 16px 0 0;
     box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.25);
-    z-index: 4;
+    z-index: 8;
   }
 
   .shell-menu-sheet-handle {
