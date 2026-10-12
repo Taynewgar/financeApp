@@ -73,9 +73,22 @@
   margin-bottom: 16px;
 }
 
+/* recolhida por padrão (decisão discutida com o usuário — ver changelog):
+ * fica fora do caminho de quem só quer ver a lista/filtros, sem o custo
+ * de navegação de uma aba própria. */
 .ultimos-por-conta-titulo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  border: none;
+  background: none;
+  padding: 0;
+  font: inherit;
   font-size: 13px;
   font-weight: 600;
+  color: var(--cor-texto);
+  cursor: pointer;
 }
 
 .chips-conta {

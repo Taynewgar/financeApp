@@ -4992,3 +4992,37 @@ que ela encolha com reticências quando o texto não couber.
       tamanhos bem diferentes e confirmar que o valor fica logo depois
       de cada descrição (posição variando linha a linha), nunca com um
       vão vazio nem preso na borda direita.
+
+### Rodada 65 (2026-10-11) — "Últimos lançamentos por conta" recolhida por padrão
+
+**Pergunta do usuário:** a seção deveria virar uma aba própria (como
+"Recorrentes"), já que ocupa espaço na tela principal de Lançamentos?
+
+**Resposta discutida e decisão:** aba própria tem um custo que o uso real
+da feature não paga de volta — "Últimos lançamentos por conta" é uma
+lente sobre os MESMOS dados da lista logo abaixo (não uma entidade
+separada, como Recorrentes, que é CRUD de moldes — domínio diferente de
+verdade). O propósito declarado da feature (item 54: "saber onde parei
+de lançar numa conta", olhada rápida antes de lançar algo novo) pede
+zero fricção; uma aba adiciona navegação exatamente onde o valor da
+feature é não precisar navegar — o mesmo raciocínio que já tinha tirado
+isso de Configurações. Alternativa proposta e aprovada: manter na própria
+tela de Lançamentos, mas **recolhida por padrão** — resolve o incômodo de
+espaço sem o custo de navegação de uma aba.
+
+**Fix:** `.ultimos-por-conta-titulo` virou um botão (`aria-expanded`,
+▼/▲) que alterna um novo estado `secaoUltimosAberta` (`false` por
+padrão) — só o título fica visível até o clique; chips + painel
+expandido só renderizam depois disso.
+
+**Testes:** mudança de frontend puro. `tsc -b && vite build` — sem erro
+novo; `oxlint` — sem warning novo (diff idêntico antes/depois).
+
+**Status:** implementado 2026-10-11.
+
+**Checklist de teste manual (usuário, localmente):**
+- [ ] Abrir Lançamentos e confirmar que "Últimos lançamentos por conta"
+      aparece recolhida (só o título + ▼), sem os chips de conta visíveis
+      de cara.
+- [ ] Clicar no título e confirmar que expande (chips de conta aparecem,
+      seta vira ▲); clicar de novo e confirmar que recolhe.

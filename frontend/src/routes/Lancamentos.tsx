@@ -68,6 +68,10 @@ export function Lancamentos() {
   const [caixinhas, setCaixinhas] = useState<Caixinha[]>([])
   const [ultimosPorConta, setUltimosPorConta] = useState<Record<string, Transacao[]>>({})
   const [contaExpandidaId, setContaExpandidaId] = useState<string | null>(null)
+  // recolhida por padrão — fica fora do caminho de quem só quer ver a
+  // lista/filtros, sem o custo de navegação de uma aba própria (decisão
+  // discutida com o usuário, ver changelog)
+  const [secaoUltimosAberta, setSecaoUltimosAberta] = useState(false)
   const [erroCarga, setErroCarga] = useState<string | null>(null)
 
   useEffect(() => {
@@ -271,7 +275,17 @@ export function Lancamentos() {
         <>
       {contas.filter((c) => c.ativo).length > 0 && (
         <div className="ultimos-por-conta">
-          <div className="ultimos-por-conta-titulo">Últimos lançamentos por conta</div>
+          <button
+            type="button"
+            className="ultimos-por-conta-titulo"
+            aria-expanded={secaoUltimosAberta}
+            onClick={() => setSecaoUltimosAberta((v) => !v)}
+          >
+            Últimos lançamentos por conta
+            <span aria-hidden="true">{secaoUltimosAberta ? ' ▲' : ' ▼'}</span>
+          </button>
+          {secaoUltimosAberta && (
+            <>
           <div className="chips-conta">
             {contas
               .filter((c) => c.ativo)
@@ -322,6 +336,8 @@ export function Lancamentos() {
                 Ver tudo em Lançamentos, filtrado por {contasPorId.get(contaExpandidaId)?.nome} →
               </button>
             </div>
+          )}
+            </>
           )}
         </div>
       )}
