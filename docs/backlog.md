@@ -74,17 +74,11 @@ changelog já documenta quando e como cada um foi entregue).
 **Média**
 
 - **31.** **Lançamentos: painel de filtros muito alto no mobile em
-  paisagem** `tipo: Melhoria` — reportado pelo usuário testando a Rodada 28 num celular
-  real girado pra paisagem: o painel de filtros expandido (`Tipo`,
-  `Descrição`, `Mês`, `Ano`, `De`/`Até`, `Conta`, `Caixinha`,
-  `Categoria`, `Subcategoria`, `Estrutura de custo`, `Meio de
-  pagamento`, `Limpar filtros`) ocupa a tela inteira em paisagem (altura
-  menor que em retrato) e esconde a lista de lançamentos abaixo, sem
-  indicar que há mais conteúdo pra rolar. Print anexado pelo usuário.
-  Sem causa raiz investigada ainda.
-- **33.** **Lançamento com mais de 1 categoria** `tipo: Implementação`
-  (detalhe abaixo) — surgiu durante a análise do item 9 (migração de
-  dados).
+  paisagem** `tipo: Melhoria` ✅ — causa raiz: o gatilho do toggle mobile
+  era só por largura (`max-width: 720px`), e um celular em paisagem
+  costuma passar disso — o painel completo renderizava sempre aberto,
+  sem caber na altura menor da tela deitada. Ver detalhe no changelog.
+  *(reportado 2026-09-25; implementado 2026-10-12)*
 - **53.** **Filtro por tipo de transação: parcelado ou à vista**
   `tipo: Melhoria` ✅ — ver detalhe no changelog (Rodada 60). *(trazido
   em CSV, 2026-09-30; implementado 2026-10-11)*
@@ -97,6 +91,10 @@ changelog já documenta quando e como cada um foi entregue).
 
 **Baixa**
 
+- **33.** **Lançamento com mais de 1 categoria** `tipo: Implementação`
+  (detalhe abaixo) — surgiu durante a análise do item 9 (migração de
+  dados). Rebaixado de Média pra Baixa a pedido do usuário.
+  *(2026-10-12)*
 - **58.** **Marcador de origem caixinha** `tipo: Melhoria` — um
   marcador pra indicar, na lista de lançamentos, uma transação cuja
   origem é retirada de caixinha — facilita identificar uma compra/gasto

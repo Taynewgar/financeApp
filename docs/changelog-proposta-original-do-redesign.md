@@ -5166,3 +5166,44 @@ mantendo a coluna de valores alinhada e legível.
       de lançamentos fica mais estreita (largura limitada), com os
       valores alinhados numa coluna legível, não na borda da tela. —
       confirmado 2026-10-11.~~
+
+### Rodada 69 (2026-10-12) — Item 31: painel de filtros tomando a tela em paisagem
+
+Causa raiz investigada (pedido pendente desde a Rodada 28, 2026-09-25).
+
+**Causa:** o gatilho do toggle mobile de filtros (botão "Filtros" que
+esconde o painel completo até tocar) era só por **largura**
+(`@media (max-width: 720px)`). Um celular comum em paisagem passa dessa
+largura (ex: ~850-930px de largura lógica) — então o toggle nunca entrava
+em ação e o painel completo (12 campos + "Limpar filtros") renderizava
+sempre aberto, sem caber na altura bem menor da tela deitada, escondendo
+a lista de lançamentos abaixo sem nenhum indício visual de que havia mais
+conteúdo pra rolar.
+
+**Fix:** `frontend/src/components/lancamentos.css` — o gatilho do toggle
+agora também considera **altura** curta (`@media (max-width: 720px), (max-height:
+500px)`, união — qualquer uma das condições ativa o modo compacto), não só
+largura estreita. Além disso, o painel aberto (`.filtros.filtros-mobile-
+aberto`) ganhou `max-height: 60vh` + `overflow-y: auto` — mesmo expandido,
+nunca mais ocupa a tela inteira sem indício nenhum: fica uma caixa com
+altura máxima e rolagem própria (barra de rolagem visível, campo cortado
+no meio indicando que há mais abaixo).
+
+**Testes:** mudança de CSS puro. `tsc -b && vite build` — sem erro novo;
+`oxlint` — sem warning novo (diff idêntico antes/depois). Sem reprodução
+local possível (precisa de um celular real em paisagem — mesma limitação
+de sempre nesta sessão, ver `CLAUDE.md`).
+
+**Status:** implementado 2026-10-12, pede reteste do usuário num
+aparelho real.
+
+**Checklist de teste manual (usuário, localmente, celular real):**
+- [ ] Girar o celular pra paisagem em Lançamentos e confirmar que o
+      painel de filtros aparece recolhido por padrão (só o botão
+      "Filtros"), não expandido ocupando a tela.
+- [ ] Tocar pra abrir os filtros em paisagem e confirmar que o painel
+      fica limitado em altura, com rolagem própria (barra de rolagem
+      visível ou campo cortado no meio) em vez de empurrar a lista pra
+      fora da tela sem aviso.
+- [ ] Confirmar que em retrato (orientação normal) o comportamento
+      continua igual a antes — nada mudou pra esse caso.

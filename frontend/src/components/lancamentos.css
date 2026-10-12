@@ -25,12 +25,25 @@
 
 /* resumo colapsado, só no mobile: o painel de filtro completo não cabe
  * fixo na tela pequena (ver docs/backlog.md, "Lançamentos — filtro
- * fixo"); toca pra abrir/fechar o painel completo por cima da lista */
+ * fixo"); toca pra abrir/fechar o painel completo por cima da lista.
+ *
+ * item 31 do backlog: o gatilho era só por LARGURA (`max-width: 720px`)
+ * — em paisagem, a largura de um celular costuma passar de 720px (ex:
+ * iPhone comum gira pra ~850-930px de largura lógica), então o toggle
+ * nunca entrava em ação e o painel completo renderizava sempre aberto,
+ * sem caber na altura menor da tela deitada, escondendo a lista abaixo
+ * sem indicar que havia mais conteúdo pra rolar. Agora o gatilho também
+ * considera ALTURA curta (`max-height: 500px`, cobre celular em
+ * paisagem), não só largura estreita — o toggle entra em ação nos dois
+ * casos. Além disso, o painel aberto ganha altura máxima + rolagem
+ * própria: mesmo expandido, nunca mais ocupa a tela inteira sem dar
+ * nenhum indício visual (barra de rolagem, corte no meio de um campo)
+ * de que há mais abaixo dele. */
 .filtros-resumo-mobile {
   display: none;
 }
 
-@media (max-width: 720px) {
+@media (max-width: 720px), (max-height: 500px) {
   .filtros-resumo-mobile {
     width: 100%;
     box-sizing: border-box;
@@ -56,6 +69,8 @@
 
   .filtros.filtros-mobile-aberto {
     display: flex;
+    max-height: 60vh;
+    overflow-y: auto;
   }
 }
 
