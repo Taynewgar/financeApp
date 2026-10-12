@@ -59,6 +59,13 @@ changelog já documenta quando e como cada um foi entregue).
   caixinhas têm saldo calculado (`GET /dashboard/patrimonio/{mes}`); dar
   saldo a `contas` também seria a extensão natural, mas não é urgente.
   *(2026-09-15)*
+- **73.** **Título do card "Retiradas pendentes de caixinha" em
+  minúsculas** `tipo: Melhoria` — os outros títulos de card do Dashboard
+  usam Title Case ("Compromissos Futuros", "Patrimônio em Caixinhas");
+  esse ficou em sentence case. Corrigir pra "Retiradas Pendentes de
+  Caixinha". Achado testando a Rodada 86/87 — a pedido do usuário, não
+  implementar isolado, agrupar com os próximos itens do backlog.
+  *(2026-10-12)*
 
 #### Lançamentos
 

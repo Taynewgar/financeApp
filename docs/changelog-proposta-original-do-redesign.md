@@ -6177,20 +6177,22 @@ Frontend: `tsc -b`/`vite build` sem erro novo; `oxlint` diff vazio.
 real (login exige credenciais reais do Supabase).
 
 **Checklist de teste manual (usuário, localmente):**
-- [ ] Lançar uma despesa coberta por caixinha, usar "Lançar retirada"
+- [x] ~~Lançar uma despesa coberta por caixinha, usar "Lançar retirada"
       no card do Dashboard pra criar a retirada de verdade — confirmar
       que a despesa some de "Retiradas pendentes" (comportamento já
-      existente, sem mudança).
-- [ ] Ir em Lançamentos, excluir a transação de retirada que você
+      existente, sem mudança).~~ — confirmado 2026-10-12.
+- [x] ~~Ir em Lançamentos, excluir a transação de retirada que você
       acabou de criar — confirmar que a despesa original VOLTA a
-      aparecer em "Retiradas pendentes de caixinha" no Dashboard.
-- [ ] Repetir o fluxo, mas antes de excluir a retirada, editar a
+      aparecer em "Retiradas pendentes de caixinha" no Dashboard.~~ —
+      confirmado 2026-10-12.
+- [x] ~~Repetir o fluxo, mas antes de excluir a retirada, editar a
       despesa original e desmarcar "já estava guardada numa
       caixinha" — confirmar que excluir a retirada DEPOIS disso NÃO
-      traz a pendência de volta (vínculo já foi removido).
-- [ ] Confirmar que excluir uma retirada "normal" (sem ter nascido de
+      traz a pendência de volta (vínculo já foi removido).~~ —
+      confirmado 2026-10-12.
+- [x] ~~Confirmar que excluir uma retirada "normal" (sem ter nascido de
       "Lançar retirada", ex: lançada manualmente) continua funcionando
-      sem erro, sem nenhum efeito colateral.
+      sem erro, sem nenhum efeito colateral.~~ — confirmado 2026-10-12.
 
 ### Rodada 87 (2026-10-12) — Item 58: reabrir pendência manualmente em Editar Lançamento
 
@@ -6225,17 +6227,29 @@ diferente.
 real.
 
 **Checklist de teste manual (usuário, localmente):**
-- [ ] Resolver uma despesa pendente (via "Já retirei" ou "Lançar
+- [x] ~~Resolver uma despesa pendente (via "Já retirei" ou "Lançar
       retirada"), ir em Editar Lançamento dela — confirmar que aparece
       "Retirada já registrada" no lugar do aviso de pendência, com o
-      checkbox/caixinha ainda marcados normalmente.
-- [ ] Clicar "Marcar como pendente de novo" — confirmar que o bloco
+      checkbox/caixinha ainda marcados normalmente.~~ — confirmado
+      2026-10-12.
+- [x] ~~Clicar "Marcar como pendente de novo" — confirmar que o bloco
       muda pro aviso de pendência de volta, e que a despesa volta a
-      aparecer em "Retiradas pendentes de caixinha" no Dashboard.
-- [ ] Numa despesa AINDA pendente, confirmar que o bloco mostra o
-      aviso de sempre (não o "Retirada já registrada").
-- [ ] Numa despesa sem vínculo nenhum (checkbox desmarcado), confirmar
-      que nenhum dos dois blocos aparece.
+      aparecer em "Retiradas pendentes de caixinha" no Dashboard.~~ —
+      confirmado 2026-10-12.
+- [x] ~~Numa despesa AINDA pendente, confirmar que o bloco mostra o
+      aviso de sempre (não o "Retirada já registrada").~~ — confirmado
+      2026-10-12.
+- [x] ~~Numa despesa sem vínculo nenhum (checkbox desmarcado), confirmar
+      que nenhum dos dois blocos aparece.~~ — confirmado 2026-10-12.
+
+**Achado de usabilidade (testando esta rodada) — correção registrada,
+NÃO implementada ainda, a pedido do usuário (agrupar com os próximos
+itens do backlog):** título do card "Retiradas pendentes de caixinha"
+no Dashboard está em minúsculas (sentence case); os outros títulos de
+card da mesma tela usam Title Case ("Compromissos Futuros",
+"Patrimônio em Caixinhas") — corrigir pra "Retiradas Pendentes de
+Caixinha" (preposição "de" minúscula, igual "em" em "Patrimônio em
+Caixinhas").
 
 ### Rodada 88 (2026-10-12) — Item 58: excluir 1 de 2 retiradas da mesma despesa não reabre à toa
 
