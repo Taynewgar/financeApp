@@ -122,13 +122,15 @@
   font-size: 12px;
 }
 
-/* flex:1 pra ocupar o espaço disponível (truncando com reticências) —
- * achado testando a Rodada 62: sem isso, o bloco data+descrição só
- * ocupava a largura do próprio texto e o `justify-content: space-between`
- * da linha empurrava o valor pra ponta direita do card, deixando um vão
- * vazio no meio e "espremendo" o valor na borda. */
+/* SEM flex-grow de propósito — achado testando a Rodada 63: dar flex:1
+ * aqui reproduzia o mesmo "vão vazio" que o `justify-content:
+ * space-between` da Rodada 61 já causava, só que por outro caminho (a
+ * caixa cresce pra preencher a linha mesmo com texto curto, empurrando o
+ * valor pra ponta). Sem flex-grow (o default já é `0 1 auto`), a caixa
+ * fica do tamanho do próprio texto e o valor senta logo ao lado, só com
+ * o `gap` da linha — `min-width: 0` continua garantindo que ela encolha
+ * com reticências quando o texto não couber. */
 .ultimo-conta-info {
-  flex: 1 1 auto;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -154,14 +156,19 @@
  * apareciam certas, mas sem explicação de qual é qual) + achado testando
  * a Rodada 62 (usuário pediu que ficasse sempre visível, não só acima da
  * lista) — por isso mora dentro de `.cabecalho-fixo` (sticky), como
- * último bloco, depois dos filtros. */
+ * último bloco, depois dos filtros. Precisa do próprio card (fundo +
+ * borda), não só um `border-top` — achado testando a Rodada 63: sem
+ * fundo opaco, a lista por baixo (também dentro da área sticky ao
+ * rolar) aparecia sobreposta ao texto da legenda. */
 .legenda-cores-transacao {
   display: flex;
   flex-wrap: wrap;
   gap: 8px 16px;
   margin-top: 10px;
-  padding-top: 10px;
-  border-top: 1px solid var(--cor-borda);
+  padding: 10px 14px;
+  background: var(--cor-superficie);
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio);
   font-size: 11px;
   color: var(--cor-texto-suave);
 }

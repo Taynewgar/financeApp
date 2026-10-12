@@ -4928,17 +4928,67 @@ depender do default).
 **Status:** implementado 2026-10-11.
 
 **Checklist de teste manual (usuário, localmente):**
-- [ ] Em Lançamentos, rolar a lista principal pra baixo e confirmar que
+- [x] ~~Em Lançamentos, rolar a lista principal pra baixo e confirmar que
       a legenda de cores continua visível (dentro do bloco fixo do
-      topo), não some ao rolar.
-- [ ] Expandir "últimos lançamentos" de uma conta e confirmar que o
+      topo), não some ao rolar. — **achado 2026-10-11**: ficou sobreposta
+      à lista por baixo — a legenda não tinha fundo opaco próprio (só um
+      `border-top`), então o conteúdo que rolava por baixo (dentro da
+      mesma área sticky) aparecia por trás do texto, ilegível. Corrigido
+      na Rodada 64: legenda virou um card com fundo/borda próprios, igual
+      ao painel de filtros.~~
+- [x] ~~Expandir "últimos lançamentos" de uma conta e confirmar que o
       valor fica logo depois da descrição/data, sem vão vazio nem
-      encostado na borda direita do card.
-- [ ] Selecionar um Mês e um Ano nos filtros, depois clicar "Ver tudo em
+      encostado na borda direita do card. — **achado 2026-10-11**:
+      continuava com vão — o `flex: 1 1 auto` adicionado na Rodada 63
+      reproduzia o mesmo problema por outro caminho (a caixa de
+      data+descrição cresce pra preencher a linha mesmo com texto curto,
+      empurrando o valor pra ponta). Corrigido na Rodada 64: removido o
+      flex-grow, a caixa volta a ficar do tamanho do próprio texto.~~
+- [x] ~~Selecionar um Mês e um Ano nos filtros, depois clicar "Ver tudo em
       Lançamentos, filtrado por..." num chip de conta — confirmar que
-      AMBOS os selects (Mês e Ano) voltam pro estado padrão.
-- [ ] Repetir o teste anterior com o botão "Limpar filtros" (não só o
-      "Ver tudo") — confirmar que também reseta Mês e Ano.
-- [ ] Expandir "últimos lançamentos" de uma conta com mais de 5
+      AMBOS os selects (Mês e Ano) voltam pro estado padrão. — confirmado
+      2026-10-11.~~
+- [x] ~~Repetir o teste anterior com o botão "Limpar filtros" (não só o
+      "Ver tudo") — confirmar que também reseta Mês e Ano. — confirmado
+      2026-10-11.~~
+- [x] ~~Expandir "últimos lançamentos" de uma conta com mais de 5
       lançamentos raiz recentes e confirmar que agora mostra até 10, não
-      mais só 5.
+      mais só 5. — confirmado 2026-10-11.~~
+
+### Rodada 64 (2026-10-11) — 2 achados testando a Rodada 63
+
+**Achado 1 — legenda sobreposta à lista:** `.legenda-cores-transacao`
+não tinha fundo próprio, só um `border-top` separando do painel de
+filtros — como ela mora dentro de `.cabecalho-fixo` (sticky), o conteúdo
+da lista que rola por baixo (mesma área, por cima do `z-index` do
+cabeçalho) aparecia visível por trás do texto da legenda, ilegível.
+
+**Fix 1:** legenda virou um card próprio — fundo (`var(--cor-
+superficie)`), borda e `border-radius`, igual ao painel de filtros —
+opaco o suficiente pra cobrir o que rola por baixo.
+
+**Achado 2 — valor do card de "últimos por conta" continuava com vão:**
+o `flex: 1 1 auto` da Rodada 63 reproduzia o mesmo problema por outro
+caminho — a caixa de data+descrição cresce pra preencher toda a largura
+da linha mesmo quando o texto é curto (flex-grow distribui o espaço
+livre pra ela, não pro valor), empurrando o valor pra ponta direita de
+qualquer jeito, com ou sem `justify-content: space-between`.
+
+**Fix 2:** removido o `flex: 1 1 auto` — sem flex-grow (o default já é
+`0 1 auto`), a caixa fica do tamanho do próprio texto e o valor senta
+logo ao lado, só com o `gap` da linha. `min-width: 0` continua garantindo
+que ela encolha com reticências quando o texto não couber.
+
+**Testes:** mudança de CSS puro. `tsc -b && vite build` — sem erro novo;
+`oxlint` — sem warning novo (diff idêntico antes/depois).
+
+**Status:** implementado 2026-10-11.
+
+**Checklist de teste manual (usuário, localmente):**
+- [ ] Em Lançamentos, rolar a lista principal pra baixo e confirmar que
+      a legenda de cores continua legível (fundo opaco), sem texto da
+      lista aparecendo por trás dela.
+- [ ] Expandir "últimos lançamentos" de uma conta com descrições de
+      tamanhos bem diferentes e confirmar que o valor fica logo depois
+      de cada descrição (posição variando linha a linha), nunca com um
+      vão vazio nem preso na borda direita.
