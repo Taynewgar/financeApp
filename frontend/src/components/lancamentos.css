@@ -1,0 +1,274 @@
+/* sem fundo/borda/padding próprios de propósito — achado testando a
+ * Rodada 64: o usuário achou a legenda "destacada" do card de filtros,
+ * cada uma com seu próprio card, quando deveria ler como um painel só.
+ * Agora `.filtros`, o toggle mobile e a legenda são 3 blocos dentro do
+ * mesmo `.cabecalho-fixo-card` (`cabecalhoFixo.css`, mesmo padrão já
+ * usado em Planejamento/Dashboard) — ele é quem dá o fundo opaco, a
+ * borda e o padding únicos; o espaçamento entre os 3 blocos vem do
+ * `gap` do card pai, não de margin aqui. */
+.filtros {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.filtros-linha {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.filtros-linha > .campo {
+  flex: 1;
+  min-width: 140px;
+}
+
+/* resumo colapsado, só no mobile: o painel de filtro completo não cabe
+ * fixo na tela pequena (ver docs/backlog.md, "Lançamentos — filtro
+ * fixo"); toca pra abrir/fechar o painel completo por cima da lista.
+ *
+ * item 31 do backlog: o gatilho era só por LARGURA (`max-width: 720px`)
+ * — em paisagem, a largura de um celular costuma passar de 720px (ex:
+ * iPhone comum gira pra ~850-930px de largura lógica), então o toggle
+ * nunca entrava em ação e o painel completo renderizava sempre aberto,
+ * sem caber na altura menor da tela deitada. Agora o gatilho também
+ * considera ORIENTAÇÃO paisagem + altura curta, não só largura estreita
+ * — union com `or`, então continua sem afetar retrato (que já funcionava
+ * por largura, sem precisar do critério de altura). */
+.filtros-resumo-mobile {
+  display: none;
+}
+
+@media (max-width: 720px), (orientation: landscape) and (max-height: 500px) {
+  .filtros-resumo-mobile {
+    width: 100%;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border: none;
+    background: none;
+    padding: 0;
+    font-size: 13px;
+    color: var(--cor-texto);
+    cursor: pointer;
+  }
+
+  .filtros-resumo-mobile-contador {
+    flex: 1;
+    text-align: left;
+  }
+
+  .filtros {
+    display: none;
+  }
+
+  .filtros.filtros-mobile-aberto {
+    display: flex;
+  }
+}
+
+/* altura máxima + rolagem própria do painel aberto — só em PAISAGEM
+ * curta, não em retrato. Achados testando a Rodada 69, 2 problemas
+ * opostos do mesmo `max-height: 60vh` fixo de antes:
+ * 1. Em retrato, aplicar isso sempre criava uma barra de rolagem que não
+ *    existia antes — retrato já tinha altura de sobra, nunca foi o
+ *    problema do item 31 (só paisagem é).
+ * 2. Em paisagem, 60vh fixo não descontava a altura da barra de
+ *    navegação inferior fixa (`--shell-altura-barra-mobile`,
+ *    `AppShell.css`) — o painel podia esticar até sobrepor a barra. */
+@media (orientation: landscape) and (max-height: 500px) {
+  .filtros.filtros-mobile-aberto {
+    max-height: calc(60vh - var(--shell-altura-barra-mobile, 0px));
+    overflow-y: auto;
+  }
+}
+
+/* "últimos lançamentos por conta" — item 54 do backlog: helper pra ver
+ * rápido onde parou de lançar numa conta, sem precisar montar filtro.
+ * Fica acima dos filtros/resumo, não troca nem substitui a Busca de
+ * Lançamentos — só atalho pra ela ("Ver tudo", via contaId do filtro).
+ * O card em si fica largura total (achado testando a Rodada 67: o
+ * usuário quer o card até a borda da tela — só a LISTA de lançamentos
+ * dentro dele é que precisa de um limitador, ver `.painel-ultimos-conta`
+ * abaixo); o limite de largura mora só ali, não aqui. */
+.ultimos-por-conta {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 14px;
+  background: var(--cor-superficie);
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio);
+  margin-bottom: 16px;
+}
+
+/* recolhida por padrão (decisão discutida com o usuário — ver changelog):
+ * fica fora do caminho de quem só quer ver a lista/filtros, sem o custo
+ * de navegação de uma aba própria. */
+.ultimos-por-conta-titulo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  border: none;
+  background: none;
+  padding: 0;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--cor-texto);
+  cursor: pointer;
+}
+
+.chips-conta {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+
+.chip-conta {
+  flex: none;
+  padding: 7px 12px;
+  border-radius: 999px;
+  border: 1.5px solid var(--cor-borda);
+  background: var(--cor-fundo);
+  color: var(--cor-texto);
+  font-size: 13px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.chip-conta.ativo {
+  border-color: var(--cor-acento);
+  color: var(--cor-acento);
+  font-weight: 600;
+}
+
+/* max-width (mesmo valor de .form em forms.css — o "compacto" já
+ * convencionado no projeto) — achado testando a Rodada 67: o card em
+ * volta (`.ultimos-por-conta`) fica largura total de propósito; o
+ * limitador precisa estar só aqui, envolvendo a lista em si, pra coluna
+ * de valores (`justify-content: space-between` nas linhas) não "esticar"
+ * até a borda da tela em monitores largos. */
+.painel-ultimos-conta {
+  border-top: 1px solid var(--cor-borda);
+  padding-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: 560px;
+}
+
+/* .botao-link (crud.css) é `white-space: nowrap` de propósito pros links
+ * curtos (Editar/Duplicar/Excluir) — esse é uma frase inteira com o nome
+ * da conta, então precisa poder quebrar linha. Achado testando a Rodada
+ * 66: no mobile, sem isso, o texto estourava a largura da tela. */
+.link-ver-tudo-conta {
+  align-self: flex-start;
+  padding: 4px 0;
+  white-space: normal;
+  text-align: left;
+  max-width: 100%;
+}
+
+/* data primeiro (igual à lista principal "dd/mm — descrição"), valor logo
+ * ao lado — achado testando a Rodada 61: 3 colunas com justify-content:
+ * space-between espalhava demais (descrição esquerda, data no meio,
+ * valor na ponta), ficava ruim de ler. */
+/* justify-content: space-between de volta — achado testando a Rodada 64:
+ * sem alinhamento, o valor "arrastava" pra posição diferente em cada
+ * linha, dependendo do tamanho da descrição; o usuário preferiu uma
+ * coluna de valores alinhada à direita, delimitada pela largura do
+ * `.painel-ultimos-conta` (não da tela inteira) — diferente do problema
+ * original (Rodada 61), que era 3 colunas soltas, não 2 alinhadas. */
+.ultimo-conta-linha {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+  font-size: 12px;
+}
+
+/* SEM flex-grow de propósito — achado testando a Rodada 63: dar flex:1
+ * aqui reproduzia o mesmo "vão vazio" que o `justify-content:
+ * space-between` da Rodada 61 já causava, só que por outro caminho (a
+ * caixa cresce pra preencher a linha mesmo com texto curto, empurrando o
+ * valor pra ponta). Sem flex-grow (o default já é `0 1 auto`), a caixa
+ * fica do tamanho do próprio texto e o valor senta logo ao lado, só com
+ * o `gap` da linha — `min-width: 0` continua garantindo que ela encolha
+ * com reticências quando o texto não couber. */
+.ultimo-conta-info {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ultimo-conta-data {
+  color: var(--cor-texto-suave);
+}
+
+.ultimo-conta-parcela {
+  color: var(--cor-texto-suave);
+}
+
+.ultimo-conta-valor {
+  font-weight: 600;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+
+/* legenda de cores — achado testando a Rodada 61 (cores do item 55
+ * apareciam certas, mas sem explicação de qual é qual) + achado testando
+ * a Rodada 62 (usuário pediu que ficasse sempre visível, não só acima da
+ * lista) — por isso mora dentro de `.cabecalho-fixo-card` (sticky,
+ * fundo opaco), como último bloco, depois dos filtros. Já não precisa de
+ * fundo/borda próprios (achado da Rodada 63, corrigido com um card
+ * isolado) — achado da Rodada 64: dois cards separados ficava com a
+ * legenda "destacada" do painel de filtros; voltou a ser só um
+ * `border-top` como divisor dentro do card único (`cabecalho-fixo-card`,
+ * que já é opaco — sem o bug de sobreposição da Rodada 63). */
+.legenda-cores-transacao {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  padding-top: 10px;
+  border-top: 1px solid var(--cor-borda);
+  font-size: 11px;
+  color: var(--cor-texto-suave);
+}
+
+.legenda-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.legenda-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  flex-shrink: 0;
+  display: inline-block;
+}
+
+/* item 58 do backlog: lembrete de retirada pendente, na própria linha da
+ * despesa — cor âmbar (nem acento nem nenhuma das 4 cores já usadas na
+ * legenda) pra não ser confundido com classificação de tipo de
+ * transação, só um aviso temporário até o usuário resolver. */
+.badge-retirada-pendente {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  background: rgba(245, 158, 11, 0.16);
+  color: #f59e0b;
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  width: fit-content;
+}
