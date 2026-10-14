@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { InfoIcon } from '../components/InfoIcon'
 import { SeletorPeriodo } from '../components/SeletorPeriodo'
@@ -99,10 +99,24 @@ export function Dashboard() {
   const LIMITE_BUSCA = 50
   const QUANTIDADE_COLAPSADA = 4
 
+  // mesma guarda de corrida de buscarDadosPeriodo abaixo — confirmar 2
+  // recorrentes em sequência rápida dispara 2 chamadas aqui, e a mais
+  // lenta podia resolver por último e reexibir um compromisso já
+  // confirmado (achado 2026-10-14: card de recorrente confirmado
+  // continuava aparecendo como pendente).
+  const buscaCompromissosRef = useRef(0)
+
   function buscarCompromissos() {
+    const minhaBusca = ++buscaCompromissosRef.current
     return apiFetch<CompromissoFuturo[]>(`/dashboard/compromissos-futuros?limite=${LIMITE_BUSCA}&hoje=${hojeLocal()}`)
-      .then(setCompromissos)
-      .catch(() => setCompromissos([]))
+      .then((r) => {
+        if (minhaBusca !== buscaCompromissosRef.current) return
+        setCompromissos(r)
+      })
+      .catch(() => {
+        if (minhaBusca !== buscaCompromissosRef.current) return
+        setCompromissos([])
+      })
   }
 
   // compromissos futuros não dependem do período navegado (é sempre "a partir de hoje")
@@ -153,7 +167,13 @@ export function Dashboard() {
         body: JSON.stringify({ vigencia_mes: `${c.data_compra.slice(0, 7)}-01` }),
       })
       setErroConfirmar(null)
-      await Promise.all([buscarCompromissos(), buscarDadosPeriodo()])
+      // buscarDadosPeriodo() NÃO é esperado aqui de propósito (achado
+      // 2026-10-14, rodada 89: esperar os 2 em paralelo deixava o botão
+      // "confirmando…" travado pelo tempo do re-fetch inteiro do
+      // dashboard, bem mais lento que só re-buscar compromissos) — dispara
+      // e deixa seguir em paralelo, sem bloquear o fim da ação.
+      buscarDadosPeriodo()
+      await buscarCompromissos()
     } catch (e) {
       setErroConfirmar(
         `Falha ao confirmar "${c.descricao ?? 'recorrente'}" (${formatarData(c.data_compra)}): ${e instanceof ApiError ? e.message : 'erro desconhecido'}`,
@@ -183,11 +203,22 @@ export function Dashboard() {
     }
   }
 
+  // guarda de corrida (mesmo padrão de NovoLancamento.tsx pras "mais
+  // usadas" — achado 2026-10-02 lá, reproduzido aqui 2026-10-14):
+  // confirmarRecorrente chama isto sem esperar, então uma 2ª chamada pode
+  // disparar antes da 1ª terminar; se a resposta da 1ª (mais lenta) chegar
+  // DEPOIS da 2ª, ela sobrescrevia caixinhas/resumo já atualizados com
+  // dado velho — "confirmei 2 reservas em sequência, só a 1ª atualizou a
+  // caixinha". Cada chamada carimba um número; só aplica o resultado se
+  // ainda for a chamada mais recente.
+  const buscaPeriodoRef = useRef(0)
+
   // item 66: extraída do useEffect de carga pra poder ser re-chamada depois
   // de confirmar/pular um recorrente (achado 2026-10-02 — confirmar uma
   // aplicação/retirada de caixinha recorrente não atualizava o patrimônio
   // nem o resumo mostrados na mesma tela, só a lista de Compromissos).
   function buscarDadosPeriodo() {
+    const minhaBusca = ++buscaPeriodoRef.current
     setErro(null)
 
     const evolucaoInicio = modoData === 'mes' ? mesesAntes(vigenciaMes, 5) : periodoInicio
@@ -205,6 +236,7 @@ export function Dashboard() {
       apiFetch<DespesaPorCategoriaT[]>(`/dashboard/despesas-por-categoria/${mesReferencia}-01`),
     ])
       .then(([r, e, c, d]) => {
+        if (minhaBusca !== buscaPeriodoRef.current) return // resposta obsoleta, uma busca mais nova já chegou
         setResumo(r)
         setEvolucao(e)
         setCaixinhas(c)
@@ -214,7 +246,10 @@ export function Dashboard() {
         // anterior" quando se está vendo 1 mês só
         setMesAnterior(modoData === 'mes' && e.meses.length >= 2 ? e.meses[e.meses.length - 2] : null)
       })
-      .catch((e) => setErro(e instanceof ApiError ? e.message : 'Falha ao carregar o dashboard'))
+      .catch((e) => {
+        if (minhaBusca !== buscaPeriodoRef.current) return
+        setErro(e instanceof ApiError ? e.message : 'Falha ao carregar o dashboard')
+      })
   }
 
   useEffect(() => {

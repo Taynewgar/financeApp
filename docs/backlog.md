@@ -65,18 +65,31 @@ changelog já documenta quando e como cada um foi entregue).
 
 #### Lançamentos
 
+**Alta**
+
+- **74.** **Excluir categoria/subcategoria sem transação associada**
+  `tipo: Implementação` (detalhe abaixo) — hoje só existe desativar
+  (`PATCH .../ativo`), nenhum DELETE real. *(2026-10-14)*
+- **69.** **Excluir transações em massa** `tipo: Implementação`
+  (detalhe abaixo) — **repriorizado de Baixa pra Alta a pedido do
+  usuário 2026-10-14**; escopo reduzido ao de exclusão só (o pedido foi
+  especificamente "excluir em massa" — criar/editar em lote, do escopo
+  original do item, segue registrado separado como item 76, Baixa, sem
+  caso de uso concreto que justifique agora). *(originalmente
+  2026-10-11, desmembrado do item 44)*
+
 **Baixa**
 
 - **33.** **Lançamento com mais de 1 categoria** `tipo: Implementação`
   (detalhe abaixo) — surgiu durante a análise do item 9 (migração de
   dados). Rebaixado de Média pra Baixa a pedido do usuário.
   *(2026-10-12)*
-- **69.** **CRUD em lote de transações** `tipo: Melhoria` — criar/
-  editar/excluir várias transações de uma vez. Desmembrado do item 44;
-  rebaixado pra baixa prioridade a pedido do usuário — inserir uma
-  transação já está mais ágil (item 44) e vai ficar mais ainda, sem um
-  caso de uso concreto que justifique o custo de uma UI de lote agora.
-  *(2026-10-11)*
+- **76.** **Criar/editar transações em lote** `tipo: Melhoria` — parte
+  de criação/edição do antigo escopo do item 69 (ver item 69 acima,
+  agora só exclusão) — inserir uma transação já está ágil (item 44),
+  sem caso de uso concreto que justifique o custo de uma UI de lote
+  pra criar/editar várias de uma vez. *(2026-10-14, desmembrado do
+  item 69)*
 
 #### Planejamento
 
@@ -934,6 +947,104 @@ Dashboard/Lançamentos) e `EditarLancamento.tsx` ganhou busca+"Trocar"
 pra despesa original de Estorno/Ressarcimento (bug pré-existente, só
 tinha isso no Novo Lançamento). Ver changelog Rodadas 54-57 pro detalhe
 técnico e os checklists de teste manual.
+
+### Excluir categoria/subcategoria sem transação associada (item 74)
+
+**Pedido pelo usuário 2026-10-14**, prioridade alta. Hoje só existe
+desativar (`PATCH /categorias/{id}/ativo`, `PATCH
+/subcategorias/{id}/ativo`) — some dos formulários de novo lançamento,
+mas continua existindo e visível em telas de histórico/filtro. Nenhum
+endpoint `DELETE` existe pra nenhuma das duas tabelas.
+
+**Por que não é só "adicionar um DELETE":** `db/schema.sql` não declara
+`on delete cascade`/`set null` em NENHUMA referência a
+`categorias`/`subcategorias` fora de `subcategorias.categoria_id → categorias`
+(essa sim cascade — apagar uma categoria já apaga suas subcategorias
+hoje). As 3 tabelas abaixo referenciam categoria/subcategoria com FK
+padrão (`on delete` implícito = `restrict`) — um `DELETE` direto no
+Postgres contra uma categoria/subcategoria ainda referenciada por
+qualquer uma delas falha com erro de integridade (não um 404/409
+amigável):
+- `transacoes.categoria_id`/`subcategoria_id` — o caso que o usuário
+  pediu pra checar ("não associada a nenhuma transação").
+- `lancamentos_recorrentes.categoria_id`/`subcategoria_id` — um molde
+  recorrente ativo (ou inativo) apontando pra ela também bloqueia.
+- `orcamento_itens.categoria_id`/`subcategoria_id` — item de orçamento
+  (ativo ou não) apontando pra ela também bloqueia.
+
+**Decisão em aberto antes de implementar:** o pedido foi "não
+associada a nenhuma TRANSAÇÃO" — mas como o banco bloqueia pelos 3
+vínculos acima, a checagem do endpoint precisa cobrir os 3 de
+qualquer forma (senão o usuário recebe um erro 500 cru do Postgres em
+vez de uma mensagem clara). Falta decidir só a REDAÇÃO da mensagem de
+erro quando o bloqueio vem de recorrente/orçamento e não de transação
+(ex: "não é possível excluir — ainda usada por 1 lançamento recorrente
+ativo (Aluguel)", nomeando o que está segurando).
+
+**Custo estimado:** baixo. Backend: `DELETE /categorias/{id}` e
+`DELETE /subcategorias/{id}` (~1-1.5h) — 1 `SELECT count` em cada uma
+das 3 tabelas (ou 1 query com `or_` combinando categoria/subcategoria),
+404 se a categoria não existe, 409 com a contagem/nome do que bloqueia
+se houver vínculo, senão `DELETE` normal. Subcategoria é mais simples
+(só 2 tabelas têm `subcategoria_id` relevante pro bloqueio, já que
+cascade de categoria não se aplica aqui). Testes: ~4-6 casos (bloqueio
+por transação/recorrente/orçamento, sucesso sem vínculo nenhum, 404).
+Frontend (`CategoriasSection.tsx`/`CaixinhasSection.tsx`... na verdade
+`CategoriasSection.tsx` cobre as duas): botão "Excluir" ao lado do já
+existente toggle ativo/inativo, com `window.confirm`, tratando o 409
+como mensagem inline (mesmo padrão já usado em `erroCategoria`/
+`erroSubcategoria` dessa tela) (~1h). **Total: ~2.5-3.5h.**
+
+**Status:** registrado 2026-10-14, não implementado — falta confirmar
+a decisão em aberto acima antes de codar.
+
+### Excluir transações em massa (item 69, repriorizado)
+
+**Pedido original 2026-10-11** (então "CRUD em lote", baixa
+prioridade — ver "Agilidade na inserção de transações" acima).
+**Repriorizado pra alta 2026-10-14**, escopo reduzido só a exclusão
+(criação/edição em lote segue como item 76, baixa prioridade, sem
+pedido novo).
+
+**Estado atual:** `DELETE /transacoes/{id}` exclui 1 transação por
+vez; se ela veio de "Lançar retirada" (tem
+`despesa_origem_retirada_id`), reabre a pendência da despesa de origem
+(`_reabrir_retirada_pendente_se_aplicavel`, já coberto por teste).
+`DELETE /transacoes/parceladas/{compra_parcelada_id}` já existe
+separado, exclui o GRUPO inteiro de uma compra parcelada de uma vez
+(não é bulk de transações arbitrárias — é 1 ação em cima de 1 compra
+específica). Hoje não existe NENHUMA seleção múltipla na lista de
+Lançamentos (sem checkbox, sem "selecionar todos").
+
+**Decisão em aberto antes de implementar — linha de parcela dentro da
+seleção:** a lista de Lançamentos mostra cada parcela de uma compra
+parcelada como uma linha própria. Se o usuário marcar só ALGUMAS
+parcelas de uma mesma compra (não todas) e mandar excluir em massa, o
+comportamento correto é excluir só essas linhas (parcela a parcela,
+reaproveitando o `DELETE /transacoes/{id}` existente, deixando a
+compra com um grupo "furado") ou bloquear/avisar que parcela só se
+exclui em grupo (via o endpoint de parcelada já existente)? Precisa de
+decisão do usuário antes de codar — muda o contrato do endpoint novo.
+
+**Custo estimado:** médio. Backend: 1 endpoint novo, ex. `POST
+/transacoes/excluir-em-lote` com `{ids: list[str]}` — reaproveita o
+mesmo corpo de `excluir()` (delete + reabertura de retirada pendente
+condicional) num loop por id, todos escopados a `user_id` (~1.5-2h,
+incluindo testes: sucesso parcial quando 1 id é de outro
+usuário/não existe, reabertura de retirada pendente disparando pra
+mais de 1 id ao mesmo tempo). Frontend: bem mais caro que o backend
+aqui — checkbox por linha na lista de `Lancamentos.tsx`, "selecionar
+todos (os filtrados)"/"limpar seleção", barra de ação fixa mostrando
+"N selecionados" + botão "Excluir selecionados" com
+`window.confirm` nomeando a quantidade, chamada ao endpoint novo,
+depois reaproveita `carregar()` + `buscarUltimosPorConta()` (item 66)
+pra refletir o resultado (~3-4h, é o mesmo tipo de UI de seleção que
+qualquer lista com ação em lote precisa, sem padrão pronto no projeto
+ainda pra copiar). **Total: ~4.5-6h** — a decisão em aberto acima
+(parcela parcial) pode reduzir o escopo se a resposta for "bloquear".
+
+**Status:** repriorizado pra alta 2026-10-14, não implementado — falta
+confirmar a decisão em aberto acima antes de codar.
 
 ### Caixinhas com saldo errado / limite de 1000 linhas do Supabase
 

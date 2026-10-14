@@ -6314,20 +6314,26 @@ ver checklist abaixo).
 **Status:** implementado 2026-10-12, aguardando teste do usuário.
 
 **Checklist de teste manual (usuário, localmente):**
-- [ ] No Dashboard, com uma caixinha visível em "Patrimônio em
+- [x] ~~No Dashboard, com uma caixinha visível em "Patrimônio em
       Caixinhas", confirmar um recorrente de aplicação/retirada dessa
       caixinha em Compromissos Futuros — confirmar que o saldo da
       caixinha e o resumo do mês atualizam SEM precisar recarregar a
-      página.
-- [ ] Em Lançamentos, aba Recorrentes, criar uma categoria ou
+      página.~~ — **reprovado 2026-10-14**: lento, e em teste de
+      múltiplas confirmações em sequência só a 1ª atualizou a
+      caixinha. Além disso, um recorrente já confirmado (409 "já foi
+      confirmado" ao tentar de novo) continuou aparecendo como
+      pendente em Compromissos Futuros. Causa raiz e fix na Rodada 92
+      abaixo.
+- [x] ~~Em Lançamentos, aba Recorrentes, criar uma categoria ou
       subcategoria nova pelo formulário de recorrente — trocar pra aba
       Lançamentos e confirmar que a categoria/subcategoria nova já
-      aparece no filtro, sem reload.
-- [ ] Em Lançamentos, excluir um lançamento avulso ou uma compra
+      aparece no filtro, sem reload.~~ — confirmado 2026-10-14.
+- [x] ~~Em Lançamentos, excluir um lançamento avulso ou uma compra
       parcelada que apareça em "Últimos lançamentos por conta" —
-      confirmar que ele desaparece dali também, sem reload.
-- [ ] Confirmar que "pular" um recorrente (sem confirmar) continua
-      funcionando normalmente, sem erro novo.
+      confirmar que ele desaparece dali também, sem reload.~~ —
+      confirmado 2026-10-14.
+- [x] ~~Confirmar que "pular" um recorrente (sem confirmar) continua
+      funcionando normalmente, sem erro novo.~~ — confirmado 2026-10-14.
 
 ### Rodada 90 (2026-10-12) — Item 10: exportação de relatório mensal/anual
 
@@ -6480,3 +6486,64 @@ já presente em outros `useEffect` de busca do projeto).
 - [ ] Testar os 4 gráficos com uma seleção vazia ou período sem dados —
       confirmar que não aparece erro nem tela quebrada, só "nenhuma
       série selecionada" ou gráfico vazio.
+
+### Rodada 92 (2026-10-14) — Fix: corrida assíncrona ao confirmar recorrente
+
+Achado testando a Rodada 89 (checklist, item 1 reprovado): lentidão ao
+confirmar + caixinha não atualizando em confirmações em sequência + um
+recorrente já confirmado continuando a aparecer como pendente em
+Compromissos Futuros.
+
+**Causa raiz 1 — lentidão:** a própria mudança da Rodada 89 passou a
+esperar `buscarDadosPeriodo()` (4 chamadas: resumo, evolução,
+patrimônio, despesas por categoria) e `buscarCompromissos()` em
+paralelo ANTES de liberar o botão "Confirmar" de volta — o botão ficou
+preso pelo tempo do re-fetch inteiro do dashboard, bem mais lento que
+só re-buscar compromissos (o que fazia antes).
+
+**Causa raiz 2 — caixinha não atualiza / card confirmado continua
+pendente:** corrida assíncrona clássica. Nem `buscarDadosPeriodo()`
+nem `buscarCompromissos()` tinham proteção contra respostas fora de
+ordem — confirmar 2 recorrentes em sequência rápida dispara 2 chamadas
+de cada; se a 1ª (mais lenta, exatamente o cenário relatado) resolver
+DEPOIS da 2ª, ela sobrescreve o estado já atualizado (caixinha,
+compromissos) com o retrato mais antigo — inclusive reexibindo como
+pendente um recorrente que a 2ª resposta já tinha corrigido. Mesma
+classe de bug documentada em `NovoLancamento.tsx` (achado 2026-10-02,
+chips de "mais usadas") só que lá já tinha a proteção (`cancelado`);
+aqui, não.
+
+**Fix (`Dashboard.tsx`):**
+- `confirmarRecorrente()` não espera mais `buscarDadosPeriodo()` —
+  dispara e segue, só aguarda `buscarCompromissos()` (rápida, 1
+  query) antes de liberar o botão.
+- `buscarDadosPeriodo()` e `buscarCompromissos()` ganharam guarda de
+  corrida via `useRef` incremental: cada chamada carimba um número;
+  ao resolver, só aplica o resultado (`setState`) se ainda for a
+  chamada mais recente — uma resposta atrasada de uma chamada já
+  superada é descartada em vez de sobrescrever o estado mais novo.
+
+**Testes:** mudança 100% frontend, sem endpoint novo. `tsc -b`/`vite
+build` sem erro novo. Corrida assíncrona não é reproduzível de forma
+determinística em teste automatizado sem mockar atraso de rede — sem
+teste dedicado; cobertura é o checklist abaixo.
+
+**Status:** implementado 2026-10-14, aguardando reteste do usuário.
+
+**Checklist de teste manual (usuário, localmente):**
+- [ ] Confirmar 2-3 recorrentes de caixinha em sequência rápida (sem
+      esperar o anterior terminar) — confirmar que TODAS as caixinhas
+      envolvidas atualizam o saldo corretamente, não só a 1ª.
+- [ ] Confirmar um recorrente e observar se o botão "Confirmar" libera
+      mais rápido que na Rodada 89 (não trava mais pelo tempo do
+      re-fetch completo do dashboard).
+- [ ] Confirmar um recorrente, aguardar terminar, e checar que
+      Compromissos Futuros avança pro mês seguinte (não continua
+      mostrando o mesmo mês já confirmado).
+- [ ] Se o erro "Este mês já foi confirmado" aparecer de novo em
+      QUALQUER cenário (mesmo após este fix), anotar os passos exatos
+      pra reproduzir — essa mensagem em si é esperada (o backend
+      bloqueia confirmar 2x o mesmo mês), o problema era só a lista
+      não refletir isso. Se continuar aparecendo com a lista
+      desatualizada mesmo após este fix, é um bug diferente, não
+      coberto por esta rodada.
