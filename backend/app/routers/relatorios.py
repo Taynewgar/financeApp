@@ -6,6 +6,7 @@ from supabase import Client
 from ..auth import get_current_user_id, get_db
 from ..schemas.relatorios import LancamentoExportado, RelatorioAnual, RelatorioMensal
 from ..services.fatura import somar_meses
+from ..services.orcamento_saldo import carregar_dados_periodo
 from . import dashboard, estrutura_custo, transacoes
 
 router = APIRouter(prefix="/relatorios", tags=["relatorios"])
@@ -85,9 +86,23 @@ def relatorio_anual(ano: int, db: Client = Depends(get_db), user_id: str = Depen
     nomes = _mapas_de_nomes(db, user_id)
 
     evolucao = dashboard.evolucao_mensal(inicio=inicio, fim=fim, db=db, user_id=user_id)
-    estrutura_mensal = [
-        estrutura_custo.obter(vigencia_mes=date(ano, mes, 1), db=db, user_id=user_id) for mes in range(1, 13)
-    ]
+
+    # mesmo padrão de perf de evolucao_orcamento() (estrutura_custo.py,
+    # Rodada 2026-09-22/27) — 1 busca em lote pro ano inteiro, não 12
+    # chamadas sequenciais de obter() (3 idas ao banco cada). Achado
+    # 2026-10-21: usuário notou lentidão real gerando o export "Ano
+    # inteiro". cache_saldo compartilhado entre os 12 meses, mesma razão.
+    orcamento_por_mes, itens_por_orcamento_id, transacoes_por_mes = carregar_dados_periodo(db, user_id, inicio, fim)
+    cache_saldo: dict = {}
+    estrutura_mensal = []
+    for mes in range(1, 13):
+        mes_inicio_do_bucket = date(ano, mes, 1)
+        estrutura = estrutura_custo._estrutura_custo_do_mes_em_lote(
+            mes_inicio_do_bucket, orcamento_por_mes, itens_por_orcamento_id, transacoes_por_mes, cache_saldo
+        )
+        estrutura_custo._enriquecer_saldo_reservas(db, user_id, mes_inicio_do_bucket, estrutura)
+        estrutura_mensal.append(estrutura)
+
     retiradas = [t for t in transacoes.retiradas_pendentes(db=db, user_id=user_id) if inicio <= date.fromisoformat(t["data_compra"]) <= ultimo_dia]
 
     return {

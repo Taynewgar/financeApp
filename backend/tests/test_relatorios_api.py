@@ -96,3 +96,72 @@ def test_relatorio_anual_estrutura_basica(client):
     assert corpo["lancamentos"][0]["descricao"] == "Viagem"
     marco = next(m for m in corpo["evolucao_mensal"] if m["vigencia_mes"] == "2026-03-01")
     assert marco["despesas_brutas"] == 200
+
+
+def _bucket(estrutura_do_mes, nome):
+    return next(b for b in estrutura_do_mes["buckets"] if b["bucket"] == nome)
+
+
+def test_relatorio_anual_estrutura_custo_mensal_reflete_o_mes_certo(client):
+    """Guarda de regressão da perf da Rodada 94: relatorio_anual() passou
+    a montar os 12 meses a partir de 1 busca em lote (carregar_dados_
+    periodo + cache_saldo compartilhado) em vez de 12 chamadas
+    sequenciais de estrutura_custo.obter() — confere que o lote não
+    mistura o realizado de um mês com o de outro."""
+    conta = _criar_conta_corrente(client)
+    categoria = client.post("/categorias", json={"nome": "Lazer"}).json()
+    client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-03-10",
+            "valor": 200,
+            "tipo_movimento": "despesa",
+            "conta_id": conta["id"],
+            "categoria_id": categoria["id"],
+            "estrutura_custo": "sazonal",
+            "meio_pagamento": "pix",
+        },
+    )
+
+    estrutura_mensal = client.get("/relatorios/ano/2026").json()["estrutura_custo_mensal"]
+    assert _bucket(estrutura_mensal[2], "sazonalidades")["realizado"] == 200  # março = índice 2
+    for indice, mes in enumerate(estrutura_mensal):
+        if indice == 2:
+            continue
+        assert _bucket(mes, "sazonalidades")["realizado"] == 0
+
+
+def test_relatorio_anual_saldo_anterior_encadeia_entre_meses(client):
+    """Mesma guarda de regressão, pro cache_saldo compartilhado: a sobra
+    de um mês precisa continuar alimentando o saldo_anterior do mês
+    seguinte DENTRO do relatório anual, igual já funciona em
+    /estrutura-custo/evolucao/tendencia (mesmo padrão)."""
+    conta = _criar_conta_corrente(client)
+    categoria = client.post("/categorias", json={"nome": "Aluguel"}).json()
+
+    setembro = client.post(
+        "/orcamentos", json={"vigencia_mes": "2026-09-01", "receita_base": 15000, "percentual_geral": 90}
+    ).json()
+    client.post(
+        f"/orcamentos/{setembro['id']}/itens",
+        json={"bucket": "custos_fixos", "categoria_id": categoria["id"], "orcamento_mensal": 1000},
+    )
+    client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-09-05",
+            "valor": 700,
+            "tipo_movimento": "despesa",
+            "conta_id": conta["id"],
+            "categoria_id": categoria["id"],
+            "estrutura_custo": "fixo",
+            "meio_pagamento": "pix",
+        },
+    )
+    client.post(f"/orcamentos/{setembro['id']}/proximo-mes")  # outubro nasce com saldo_anterior=300
+
+    estrutura_mensal = client.get("/relatorios/ano/2026").json()["estrutura_custo_mensal"]
+    item_outubro = next(
+        i for i in _bucket(estrutura_mensal[9], "custos_fixos")["itens"] if i["categoria_id"] == categoria["id"]
+    )
+    assert item_outubro["saldo_anterior"] == 300

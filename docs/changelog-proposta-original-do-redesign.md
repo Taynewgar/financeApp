@@ -6380,18 +6380,21 @@ skipped. Frontend: `tsc -b` limpo.
 **Status:** implementado 2026-10-12, aguardando teste do usuário.
 
 **Checklist de teste manual (usuário, localmente):**
-- [ ] Em Estrutura de Custo, abrir o dropdown "⤓ Exportar" e baixar
+- [x] ~~Em Estrutura de Custo, abrir o dropdown "⤓ Exportar" e baixar
       "Mês atual" — confirmar que o arquivo baixa e o JSON tem
       lançamentos, despesas por categoria/subcategoria, estrutura de
-      custo e caixinhas do mês certo.
-- [ ] No mesmo dropdown, baixar "Ano inteiro" — confirmar que
+      custo e caixinhas do mês certo.~~ — confirmado 2026-10-21.
+- [x] ~~No mesmo dropdown, baixar "Ano inteiro" — confirmar que
       `estrutura_custo_mensal` tem 12 entradas (uma por mês) e
-      `evolucao_mensal` cobre o ano inteiro.
-- [ ] Testar num mês sem nenhum lançamento — confirmar que o download
-      funciona (não trava/erro) e `lancamentos` vem vazio.
-- [ ] Testar num mês com retirada pendente de caixinha — confirmar que
+      `evolucao_mensal` cobre o ano inteiro.~~ — confirmado 2026-10-21;
+      usuário notou lentidão pra gerar o JSON de "Ano inteiro" —
+      achado investigado e corrigido na Rodada 94 abaixo.
+- [x] ~~Testar num mês sem nenhum lançamento — confirmar que o download
+      funciona (não trava/erro) e `lancamentos` vem vazio.~~ —
+      confirmado 2026-10-21.
+- [x] ~~Testar num mês com retirada pendente de caixinha — confirmar que
       `caixinha_origem_nome` vem resolvido (não só o id) na despesa
-      correspondente.
+      correspondente.~~ — confirmado 2026-10-21.
 
 ### Rodada 91 (2026-10-12) — Item 51: comparadores dinâmicos de séries no tempo
 
@@ -6585,9 +6588,58 @@ sem warning novo.
 **Status:** implementado 2026-10-21.
 
 **Checklist de teste manual (usuário, localmente):**
-- [ ] Abrir o Dashboard, clicar no `?` ao lado de "Patrimônio em
+- [x] ~~Abrir o Dashboard, clicar no `?` ao lado de "Patrimônio em
       Caixinhas" e confirmar que o texto explica o recorte por mês
-      selecionado.
-- [ ] Confirmar um recorrente de aplicação/retirada de caixinha pra um
+      selecionado.~~ — confirmado 2026-10-21.
+- [x] ~~Confirmar um recorrente de aplicação/retirada de caixinha pra um
       mês diferente do selecionado no Dashboard, navegar até esse mês
-      e confirmar que o saldo aparece certo lá.
+      e confirmar que o saldo aparece certo lá.~~ — confirmado
+      2026-10-21.
+
+### Rodada 94 (2026-10-21) — Perf: export "Ano inteiro" (item 10) lento
+
+Achado testando a Rodada 90: usuário notou lentidão real gerando o
+JSON de "Ano inteiro" em Estrutura de Custo.
+
+**Causa raiz:** `relatorio_anual()` montava `estrutura_custo_mensal`
+chamando `estrutura_custo.obter(vigencia_mes=...)` **12 vezes em
+loop** — e cada chamada de `obter()` faz suas próprias idas ao banco
+(`carregar_dados_periodo`: 1 SELECT em `orcamentos`, 1 em
+`orcamento_itens`, 1 RPC `saldo_transacoes_agregado`), então o
+relatório anual fazia ~36 idas sequenciais ao Supabase só pra montar
+essa seção — exatamente o padrão N+1 que o projeto já tinha resolvido
+em `/estrutura-custo/evolucao/tendencia` (`evolucao_orcamento()`,
+Rodada 2026-09-22/27), mas que `relatorio_anual()` (escrito depois,
+Rodada 90) não reaproveitou.
+
+**Fix (`relatorios.py`):** `relatorio_anual()` passou a chamar
+`carregar_dados_periodo()` **1 vez só** pro ano inteiro (igual
+`evolucao_orcamento()` já faz), com um `cache_saldo` compartilhado
+entre os 12 meses, e monta cada mês via `estrutura_custo.
+_estrutura_custo_do_mes_em_lote()` (função 100% em memória, sem
+consulta ao banco) em vez de `obter()`. `_enriquecer_saldo_reservas()`
+continua sendo chamada por mês (1 RPC extra só quando o bucket
+reservas tem item naquele mês) — não dava pra batchar com segurança
+sem risco de subcontar caixinhas com histórico anterior à janela
+carregada, então ficou como estava (impacto bem menor que os ~36→3
+round-trips do resto).
+
+**Testes:** 2 novos em `test_relatorios_api.py` —
+`test_relatorio_anual_estrutura_custo_mensal_reflete_o_mes_certo`
+(confirma que o lote não mistura o realizado de um mês com outro) e
+`test_relatorio_anual_saldo_anterior_encadeia_entre_meses` (confirma
+que a sobra de um mês ainda alimenta o `saldo_anterior` do mês
+seguinte com o `cache_saldo` compartilhado). Suíte completa: 425
+passed, 33 skipped (era 423 antes desta rodada).
+
+**Status:** implementado 2026-10-21. Sem medição de tempo real (sem
+Supabase nesta sessão) — a redução é de ~36 pra ~3+N idas ao banco
+(N = nº de meses com bucket reservas não-vazio), deve ser perceptível;
+pede confirmação do usuário no ambiente real.
+
+**Checklist de teste manual (usuário, localmente):**
+- [ ] Baixar "Ano inteiro" de novo em Estrutura de Custo e comparar a
+      sensação de velocidade com antes.
+- [ ] Conferir que o JSON ainda tem os mesmos dados de antes (12
+      meses em `estrutura_custo_mensal`, valores batendo com o que a
+      tela de Estrutura de Custo mostra mês a mês).
