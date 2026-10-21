@@ -4,6 +4,7 @@ import { ApiError, apiFetch } from '../lib/api'
 import { corDaSerie } from '../lib/coresSeries'
 import { formatarMoeda } from '../lib/formatar'
 import { calcularPeriodoGrafico, hojeAnoMes, PERIODOS_GRAFICO } from '../lib/periodo'
+import { montarLinhasPicker, type ItemPicker } from '../lib/pickerSeries'
 import { usePrivacidade } from '../lib/PrivacyContext'
 import { escalaY } from '../lib/escala'
 import type { Caixinha, Categoria, SerieMensal, Subcategoria } from '../lib/types'
@@ -12,7 +13,6 @@ const LARG = 900
 const ALT = 420
 const MARG = { topo: 16, base: 32, esq: 64, dir: 70 }
 const ALT_PLOT = ALT - MARG.topo - MARG.base
-const LIMITE_PADRAO = 5
 const COR_MEDIA_PERIODO = '#f59e0b'
 
 const LABEL_ESTRUTURA: Record<string, string> = {
@@ -23,10 +23,8 @@ const LABEL_ESTRUTURA: Record<string, string> = {
 }
 
 type AbaChave = 'receita' | 'despesaSub' | 'categoriaPai' | 'estrutura' | 'caixinha'
-type ItemSerie = { chave: string; nome: string; cor: string; secao?: string }
-type LinhaPicker = { tipo: 'cabecalho'; titulo: string } | { tipo: 'item'; item: ItemSerie }
+type ItemSerie = ItemPicker
 type Modo = 'linha' | 'barra'
-type Hover = { x: number; y: number; nome: string; mes: string; valor: number; cor: string }
 
 const ABAS_DEF: { chave: AbaChave; titulo: string }[] = [
   { chave: 'receita', titulo: 'Receita' },
@@ -136,7 +134,7 @@ export function ComparadorSeries() {
   const [modo, setModo] = useState<Modo>('linha')
   const [mostrarMediaSeries, setMostrarMediaSeries] = useState(true)
   const [mostrarMediaPeriodo, setMostrarMediaPeriodo] = useState(false)
-  const [hover, setHover] = useState<Hover | null>(null)
+  const [hoverIndice, setHoverIndice] = useState<number | null>(null)
   const [series, setSeries] = useState<SerieMensal[] | null>(null)
   const [erro, setErro] = useState<string | null>(null)
 
@@ -149,56 +147,21 @@ export function ComparadorSeries() {
     })
   }
 
-  const { linhas: linhasAba, linkRodape } = useMemo(() => {
-    const todos = grupos[abaAtiva] ?? []
-    const buscaTexto = busca.trim().toLowerCase()
-    const buscaAtiva = buscaTexto.length > 0
-    const temCorte = todos.length > LIMITE_PADRAO
-    const expandida = !!verTodas[abaAtiva]
-    const fazerItem = (s: ItemSerie): LinhaPicker => ({ tipo: 'item', item: s })
-    const semLink = { mostrar: false, texto: '', acao: () => {} }
-
-    if (!buscaAtiva && temCorte && !expandida) {
-      // já vem ranqueado por uso (backend) — os 5 primeiros são os mais usados
-      return {
-        linhas: todos.slice(0, LIMITE_PADRAO).map(fazerItem),
-        linkRodape: {
-          mostrar: true,
-          texto: `Mostrando as mais usadas · ver todas (${todos.length})`,
-          acao: () => setVerTodas((v) => ({ ...v, [abaAtiva]: true })),
-        },
+  const expandida = !!verTodas[abaAtiva]
+  const { linhas: linhasAba, temCorte } = useMemo(
+    () => montarLinhasPicker(grupos[abaAtiva] ?? [], busca, expandida),
+    [grupos, abaAtiva, busca, expandida],
+  )
+  const buscaAtiva = busca.trim().length > 0
+  const linkRodape = !buscaAtiva && temCorte && !expandida
+    ? {
+        mostrar: true,
+        texto: `Mostrando as mais usadas · ver todas (${(grupos[abaAtiva] ?? []).length})`,
+        acao: () => setVerTodas((v) => ({ ...v, [abaAtiva]: true })),
       }
-    }
-
-    const filtrados = buscaAtiva ? todos.filter((s) => s.nome.toLowerCase().includes(buscaTexto)) : todos
-    const recolher = {
-      mostrar: temCorte && expandida && !buscaAtiva,
-      texto: 'Recolher pra mais usadas',
-      acao: () => setVerTodas((v) => ({ ...v, [abaAtiva]: false })),
-    }
-
-    const temSecoes = filtrados.some((s) => s.secao)
-    if (temSecoes && !buscaAtiva) {
-      const ordemSecoes: string[] = []
-      const porSecao = new Map<string, ItemSerie[]>()
-      filtrados.forEach((s) => {
-        const chaveSecao = s.secao ?? ''
-        if (!porSecao.has(chaveSecao)) {
-          porSecao.set(chaveSecao, [])
-          ordemSecoes.push(chaveSecao)
-        }
-        porSecao.get(chaveSecao)!.push(s)
-      })
-      const linhas: LinhaPicker[] = []
-      ordemSecoes.forEach((secao) => {
-        linhas.push({ tipo: 'cabecalho', titulo: secao })
-        porSecao.get(secao)!.forEach((s) => linhas.push(fazerItem(s)))
-      })
-      return { linhas, linkRodape: recolher.mostrar ? recolher : semLink }
-    }
-
-    return { linhas: filtrados.map(fazerItem), linkRodape: recolher.mostrar ? recolher : semLink }
-  }, [grupos, abaAtiva, busca, verTodas])
+    : temCorte && expandida && !buscaAtiva
+      ? { mostrar: true, texto: 'Recolher pra mais usadas', acao: () => setVerTodas((v) => ({ ...v, [abaAtiva]: false })) }
+      : { mostrar: false, texto: '', acao: () => {} }
 
   const periodoAtual = PERIODOS_GRAFICO[periodoIndice]
   const [mesFim] = useState(() => hojeAnoMes())
@@ -246,31 +209,39 @@ export function ComparadorSeries() {
     return `${nomes[Number(mes) - 1]}/${ano.slice(2)}`
   }
 
-  const tooltip = useMemo(() => {
-    if (!hover) return null
-    // o <svg> recorta tudo fora do viewBox (overflow:hidden é o padrão de
-    // UA pra <svg> embutido em HTML) — sem esses 2 clamps a caixa nascia
-    // com x/y negativo perto das bordas (sobretudo perto do topo, onde
-    // ficam os valores mais altos — exatamente onde mais se passa o
-    // mouse) e ficava cortada, invisível. Achado real do usuário testando.
-    const estouraDireita = hover.x + 190 > LARG - 10
-    const rectX = estouraDireita ? hover.x - 190 : hover.x + 10
-    const colocarAbaixo = hover.y < ALT / 2
-    const rectY = colocarAbaixo ? hover.y + 10 : hover.y - 36
-    return {
-      cx: hover.x,
-      cy: hover.y,
-      cor: hover.cor,
-      rectX,
-      rectY,
-      textX: rectX + 10,
-      linha1Y: rectY + 18,
-      linha2Y: rectY + 32,
-      nome: hover.nome,
-      mes: hover.mes,
-      valor: oculto ? '•••' : formatarMoeda(hover.valor),
-    }
-  }, [hover, oculto])
+  // Rodada 98: hover de QUALQUER lugar da coluna do mês (não só em cima
+  // da bolinha, que o usuário reportou ser pequena/difícil demais) e a
+  // caixa lista TODAS as séries selecionadas daquele mês de uma vez (não
+  // só a que está sob o cursor) — bem mais informação por hover. Y fixo
+  // perto do topo do plot, não mais perto do ponto: evita de vez o bug
+  // de clipping de antes (a caixa saindo do viewBox do <svg>).
+  const linhasTooltip =
+    hoverIndice !== null && series
+      ? [
+          ...series.map((s) => ({
+            nome: nomePorChave.get(s.chave) ?? s.nome,
+            cor: corPorChave.get(s.chave) ?? 'var(--cor-texto)',
+            valor: oculto ? '•••' : formatarMoeda(s.pontos[hoverIndice].valor),
+          })),
+          ...(mostrarMediaSeries && series.length >= 2
+            ? [{ nome: 'Média entre as séries', cor: 'var(--cor-texto)', valor: oculto ? '•••' : formatarMoeda(mediaPorMes[hoverIndice]) }]
+            : []),
+        ]
+      : null
+
+  const tooltip =
+    hoverIndice !== null && linhasTooltip && linhasTooltip.length > 0
+      ? (() => {
+          const maiorNome = Math.max(...linhasTooltip.map((l) => l.nome.length))
+          const largura = Math.min(260, Math.max(150, 58 + maiorNome * 5.4))
+          const altura = 24 + linhasTooltip.length * 15
+          const xPonto = x(hoverIndice)
+          const estouraDireita = xPonto + 14 + largura > LARG - 6
+          const rectX = estouraDireita ? xPonto - 14 - largura : xPonto + 14
+          const rectY = MARG.topo + 4
+          return { rectX, rectY, largura, altura, textX: rectX + 10, mes: rotuloMes(meses[hoverIndice]), linhas: linhasTooltip }
+        })()
+      : null
 
   const chipsSelecionadas = Array.from(selecionadas).map((chave) => ({
     chave,
@@ -431,29 +402,7 @@ export function ComparadorSeries() {
                     strokeWidth={2.5}
                   />
                   {s.pontos.map((p, i) => (
-                    <g key={i}>
-                      <circle cx={x(i)} cy={y(p.valor)} r={3.5} fill={corPorChave.get(s.chave)} />
-                      {/* círculo invisível maior só pra facilitar o hover — o
-                       * ponto visível (r=3.5) é pequeno demais de acertar */}
-                      <circle
-                        cx={x(i)}
-                        cy={y(p.valor)}
-                        r={10}
-                        fill="transparent"
-                        style={{ cursor: 'pointer' }}
-                        onMouseEnter={() =>
-                          setHover({
-                            x: x(i),
-                            y: y(p.valor),
-                            nome: nomePorChave.get(s.chave) ?? s.nome,
-                            mes: rotuloMes(p.vigencia_mes),
-                            valor: p.valor,
-                            cor: corPorChave.get(s.chave) ?? 'var(--cor-texto)',
-                          })
-                        }
-                        onMouseLeave={() => setHover(null)}
-                      />
-                    </g>
+                    <circle key={i} cx={x(i)} cy={y(p.valor)} r={3.5} fill={corPorChave.get(s.chave)} />
                   ))}
                 </g>
               ))}
@@ -473,18 +422,6 @@ export function ComparadorSeries() {
                       height={Math.abs(yBase - y(v))}
                       rx={2}
                       fill={corPorChave.get(s.chave)}
-                      style={{ cursor: 'pointer' }}
-                      onMouseEnter={() =>
-                        setHover({
-                          x: xBarra + larguraBarra / 2,
-                          y: yTopo,
-                          nome: nomePorChave.get(s.chave) ?? s.nome,
-                          mes: rotuloMes(meses[i]),
-                          valor: v,
-                          cor: corPorChave.get(s.chave) ?? 'var(--cor-texto)',
-                        })
-                      }
-                      onMouseLeave={() => setHover(null)}
                     />
                   )
                 }),
@@ -517,16 +454,41 @@ export function ComparadorSeries() {
               />
             )}
 
+            {hoverIndice !== null && (
+              <line x1={x(hoverIndice)} x2={x(hoverIndice)} y1={MARG.topo} y2={ALT - MARG.base} className="comparador-linha-guia" />
+            )}
+
+            {/* faixa invisível por mês — hover em QUALQUER lugar da coluna
+             * (não só em cima de um ponto/barra específico), por cima de
+             * tudo o mais (precisa ser o último elemento desenhado) */}
+            {meses.map((_, i) => (
+              <rect
+                key={`banda-${i}`}
+                x={x(i) - (espacamento > 0 ? espacamento / 2 : (LARG - MARG.esq - MARG.dir) / 2)}
+                y={MARG.topo}
+                width={espacamento > 0 ? espacamento : LARG - MARG.esq - MARG.dir}
+                height={ALT_PLOT}
+                fill="transparent"
+                style={{ cursor: 'pointer' }}
+                onMouseEnter={() => setHoverIndice(i)}
+                onMouseLeave={() => setHoverIndice(null)}
+              />
+            ))}
+
             {tooltip && (
               <g>
-                <circle cx={tooltip.cx} cy={tooltip.cy} r={6} fill="none" stroke={tooltip.cor} strokeWidth={2} />
-                <rect x={tooltip.rectX} y={tooltip.rectY} width={170} height={34} rx={6} fill="var(--cor-superficie)" stroke={tooltip.cor} strokeWidth={1.5} />
-                <text x={tooltip.textX} y={tooltip.linha1Y} className="comparador-tooltip-titulo" fill={tooltip.cor}>
-                  {tooltip.nome}
+                <rect x={tooltip.rectX} y={tooltip.rectY} width={tooltip.largura} height={tooltip.altura} rx={6} fill="var(--cor-superficie)" stroke="var(--cor-borda)" strokeWidth={1.5} />
+                <text x={tooltip.textX} y={tooltip.rectY + 15} className="comparador-tooltip-titulo" fill="var(--cor-texto)">
+                  {tooltip.mes}
                 </text>
-                <text x={tooltip.textX} y={tooltip.linha2Y} className="comparador-tooltip-texto">
-                  {tooltip.mes} · {tooltip.valor}
-                </text>
+                {tooltip.linhas.map((l, i) => (
+                  <g key={i}>
+                    <rect x={tooltip.textX} y={tooltip.rectY + 23 + i * 15 - 7} width={8} height={8} rx={2} fill={l.cor} />
+                    <text x={tooltip.textX + 13} y={tooltip.rectY + 23 + i * 15} className="comparador-tooltip-texto">
+                      {l.nome}: {l.valor}
+                    </text>
+                  </g>
+                ))}
               </g>
             )}
           </svg>

@@ -6847,3 +6847,65 @@ build` sem erro novo.
 - [ ] Em tela larga (desktop, janela maximizada), confirmar que os 4
       gráficos novos aparecem em 2 colunas (não empilhados ocupando
       100% da largura cada um).
+
+### Rodada 99 (2026-10-21) — Tooltip redesenhado + picker do Ano a Ano igualado ao Comparador
+
+Usuário testou a Rodada 98 e reportou 3 problemas:
+
+1. "Tooltip é horrível... só aparece se passar o mouse em cima da
+   bolinha da linha, ao invés da região do gráfico." — o fix da Rodada
+   98 (clamp vertical) resolveu o clipping, mas não o problema de fundo:
+   o alvo de hover continuava sendo o pontinho (minúsculo), e a caixa só
+   mostrava a série sob o cursor, uma de cada vez.
+2. "Achei que as mudanças seriam aplicadas ao Ano a Ano também. O
+   gráfico está totalmente fora de proporção." — com screenshot: o
+   picker do Ano a Ano continuava a lista de rádio antiga (não
+   redesenhada na Rodada 97/98, que mexeu só no Comparador de Séries),
+   com itens de 2 linhas cada — ficava gigante, desproporcional ao
+   gráfico ao lado.
+
+**Fix (`ComparadorSeries.tsx` e `ComparadorAnoAno.tsx`):**
+
+- **Tooltip reformulado**: hover em QUALQUER ponto da coluna do mês
+  (uma faixa invisível cobrindo a largura inteira daquele mês, não só o
+  pontinho de 3.5px) mostra uma caixa com TODAS as séries selecionadas
+  daquele mês de uma vez (nome + valor de cada uma, + a média entre as
+  séries/anos quando ligada) — não só a que está embaixo do cursor.
+  Linha guia vertical marca o mês em hover. A caixa agora fica ancorada
+  perto do topo do gráfico (não mais perto do ponto) — elimina de vez a
+  classe de bug de clipping da Rodada 98.
+- **Picker do Ano a Ano reescrito** pra usar a mesma estrutura em abas
+  do Comparador de Séries (Receita/Despesa sub/Categoria pai/Estrutura/
+  Caixinhas, com busca e corte "mais usadas"), resolvendo a
+  desproporção — o picker deixa de ser uma lista de rádio gigante e
+  vira a mesma faixa compacta. Ganhou também categoria pai como
+  série selecionável (não tinha) e caixinha com aporte/retirada
+  separados (antes só aporte).
+- **`lib/pickerSeries.ts`** (novo): lógica de montar as linhas da aba
+  (corte "mais usadas" + agrupamento por seção) extraída pra um só
+  lugar — Comparador de Séries e Ano a Ano reusam a mesma função, só
+  muda como cada um RENDERIZA a linha (checkbox multi-seleção vs. rádio
+  de 1 item).
+
+**Testes:** mudança de frontend puro. `tsc -b`, `oxlint` e `npm run
+build` sem erro novo.
+
+**Ainda em aberto, perguntado ao usuário** (não implementado nesta
+rodada): layout dos gráficos de Caixinha (o usuário esperava barras
+agrupadas num gráfico só, não cards separados) e qual abordagem de
+proporção seguir pros 4 gráficos novos (grid de 2 colunas vs. reduzir
+altura vs. outras).
+
+**Status:** implementado 2026-10-21, aguardando teste do usuário.
+
+**Checklist de teste manual (usuário, localmente):**
+- [ ] No Comparador de Séries, passar o mouse em qualquer lugar da
+      região do gráfico (não só em cima de um ponto) — confirmar que o
+      tooltip aparece e lista TODAS as séries marcadas daquele mês.
+- [ ] No Ano a Ano, confirmar que o picker agora é em abas (como no
+      Comparador de Séries), não mais uma lista de rádio longa — e que
+      a proporção do card melhorou.
+- [ ] No Ano a Ano, passar o mouse na região do gráfico e confirmar que
+      o tooltip lista todos os anos comparados + a média, de uma vez.
+- [ ] No Ano a Ano, selecionar uma categoria pai (aba nova) e confirmar
+      que o gráfico carrega normalmente.
