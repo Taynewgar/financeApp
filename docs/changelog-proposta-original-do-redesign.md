@@ -3379,11 +3379,11 @@ truncado em 1000) — usuário confirmou com a conta já em 1.956
 lançamentos. Itens 1-3 ainda sem confirmação.
 
 **Checklist de teste manual (usuário, localmente):**
-- [ ] Recarregar o Dashboard e conferir que todas as caixinhas em
+- [x] ~~Recarregar o Dashboard e conferir que todas as caixinhas em
       Caixinhas/Patrimônio batem com a coluna "Guardado" da planilha
       (não a "Real", que inclui rendimento de banco — divergência
-      esperada). — pendente, usuário precisa atualizar os lançamentos
-      antes de testar.
+      esperada).~~ — confirmado 2026-10-21, depois de lançar as
+      transações pendentes.
 - [x] ~~Conferir Dashboard no modo "Todos os meses" e no modo Intervalo —
       totais de receita/despesa e o gráfico de Evolução. — confirmado
       2026-10-11, via `/financeapp-ref` + screenshots do gráfico
@@ -3545,10 +3545,10 @@ Planejamento — precisaria ser estendida antes de servir pra isso.**
 - [x] ~~Rodar o SQL das 3 funções no *SQL Editor* do Supabase (seção
       "Migração pendente" do `README.md`) antes de qualquer teste
       abaixo.~~
-- [ ] Recarregar Caixinhas/Patrimônio e confirmar que os saldos
+- [x] ~~Recarregar Caixinhas/Patrimônio e confirmar que os saldos
       continuam batendo com a coluna "Guardado" da planilha (mesmo
-      resultado da Rodada 35, agora vindo do RPC). — pendente, usuário
-      precisa atualizar os lançamentos antes de testar.
+      resultado da Rodada 35, agora vindo do RPC).~~ — confirmado
+      2026-10-21.
 - [x] ~~Dashboard no modo "Todos os meses" e Intervalo — confirmar que os
       totais de receita/despesa/resultado continuam os mesmos de antes.
       — confirmado 2026-10-11, via `/financeapp-ref` + screenshots do

@@ -77,6 +77,11 @@ changelog já documenta quando e como cada um foi entregue).
   original do item, segue registrado separado como item 76, Baixa, sem
   caso de uso concreto que justifique agora). *(originalmente
   2026-10-11, desmembrado do item 44)*
+- **77.** **Chips de "mais usadas" (categoria/subcategoria/descrição)
+  em todos os formulários de criação/edição, não só Novo Lançamento**
+  `tipo: Melhoria` (detalhe abaixo) — hoje só existe em Novo Lançamento;
+  faltam em Editar Lançamento e no formulário de Lançamento Recorrente.
+  *(2026-10-21)*
 
 **Baixa**
 
@@ -1045,6 +1050,69 @@ ainda pra copiar). **Total: ~4.5-6h** — a decisão em aberto acima
 
 **Status:** repriorizado pra alta 2026-10-14, não implementado — falta
 confirmar a decisão em aberto acima antes de codar.
+
+### Chips de "mais usadas" fora de Novo Lançamento (item 77)
+
+**Pedido pelo usuário 2026-10-21**, prioridade alta — depois de notar,
+testando a Rodada 89, que o formulário de Lançamento Recorrente não
+tem os chips de categoria/subcategoria que Novo Lançamento tem.
+Escopo ampliado explicitamente pelo próprio usuário: não é só
+Recorrentes — é **todo formulário de criação/edição que envolva
+categoria/subcategoria OU descrição**, com os dois tipos de chip
+(categoria/subcategoria "mais usadas" do item 4 **e** descrição
+"mais usadas" + aviso de quase-duplicata do item 43).
+
+**Onde já existe (não precisa de trabalho):** `NovoLancamento.tsx` —
+os dois tipos de chip, único lugar implementado até aqui.
+
+**Onde falta, levantado 2026-10-21 (grep em todo `frontend/src`):**
+- **`EditarLancamento.tsx`** — tem os selects de categoria/subcategoria
+  (`categoriaId`/`subcategoriaId`) E o campo Descrição (2 variantes do
+  formulário — despesa normal e estorno/ressarcimento), nenhum chip em
+  nenhum dos dois. Maior ganho: é o 2º formulário mais usado do app
+  depois de Novo Lançamento.
+- **`RecorrentesSection.tsx`** (aba Recorrentes de Lançamentos) — select
+  de categoria/subcategoria E campo Descrição, nenhum chip. Caso que
+  disparou o pedido.
+- **`Planejamento.tsx`** (formulário de item de orçamento) — select de
+  categoria/subcategoria (sem campo Descrição — item de orçamento não
+  tem um). **Decisão em aberto:** aqui a semântica é diferente —
+  não é "etiquetar uma transação com a categoria mais usada", é
+  "escolher pra qual categoria/subcategoria já existente este item de
+  orçamento aponta" (tipicamente 1 item por categoria, não repetido
+  mês a mês como uma transação). Vale confirmar se "mais usada" faz
+  sentido aqui antes de implementar, ou se este formulário fica de
+  fora do escopo.
+
+**Onde NÃO se aplica (descartado da varredura):** `Lancamentos.tsx` usa
+`descricao` só como filtro de busca (texto livre pra PROCURAR, não pra
+CRIAR um lançamento) — chip de uniformidade na entrada não faz sentido
+num campo de busca. `CategoriasSection.tsx` cria a categoria/
+subcategoria em si (campo "nome" dela mesma) — não é um seletor de
+categoria já existente, chip não se aplica. `Graficos.tsx`/
+`EstruturaCusto.tsx` usam `categoria_id` só em filtro/leitura, sem
+formulário de criação.
+
+**Custo estimado:** baixo, backend em zero. Os 3 endpoints que os
+chips consomem já são genéricos, sem acoplamento a Novo Lançamento:
+`GET /categorias/mais-usadas?tipo=`, `GET
+/subcategorias/mais-usadas?categoria_id=`, `GET
+/transacoes/descricoes-mais-usadas?categoria_id=&subcategoria_id=&caixinha_id=`
+— plugam direto em qualquer formulário novo. O custo é só frontend,
+replicando a lógica (2 `useEffect` com guarda de corrida `cancelado` +
+o aviso de Levenshtein de `lib/texto.ts`) nos 2-3 formulários acima.
+**Recomendação de implementação:** extrair a lógica de
+`NovoLancamento.tsx` pra um hook compartilhado (ex:
+`useCategoriasMaisUsadas`/`useDescricoesSugeridas`) antes de
+replicá-la pela 2ª e 3ª vez — 3 cópias do mesmo `useEffect` com guarda
+de corrida é exatamente o tipo de duplicação que vale virar
+abstração, diferente de uma duplicação pontual de 2 linhas. Estimativa:
+~1-1.5h por formulário (EditarLancamento, Recorrentes) usando o hook
+já extraído, mais ~1h pra extrair o hook em si — **total ~3.5-4.5h**
+pros 2 formulários confirmados, decisão do Planejamento à parte.
+
+**Status:** registrado 2026-10-21, não implementado — falta confirmar
+a decisão em aberto sobre Planejamento antes de fechar o escopo final.
 
 ### Caixinhas com saldo errado / limite de 1000 linhas do Supabase
 
