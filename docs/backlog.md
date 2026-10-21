@@ -49,6 +49,14 @@ changelog já documenta quando e como cada um foi entregue).
 
 #### Dashboard
 
+**Alta**
+
+- **83.** **Somatório dos lançamentos que faltam ser retirados das
+  caixinhas** `tipo: Implementação` — valor total das retiradas
+  pendentes de caixinha, junto do card "Retiradas Pendentes de
+  Caixinha" (hoje só lista os itens, sem um total agregado).
+  *(trazido em CSV, 2026-10-21)*
+
 **Baixa**
 
 - **25.** **Saldo atual de contas** `tipo: Implementação` — hoje só
@@ -82,6 +90,40 @@ changelog já documenta quando e como cada um foi entregue).
   `tipo: Melhoria` (detalhe abaixo) — hoje só existe em Novo Lançamento;
   faltam em Editar Lançamento e no formulário de Lançamento Recorrente.
   *(2026-10-21)*
+- **82.** **Campo de valor com formatação de moeda** `tipo: Melhoria` —
+  input de Valor hoje é texto livre, sem máscara/formatação (R$,
+  separador de milhar/decimal) enquanto digita. *(trazido em CSV,
+  2026-10-21)*
+- **84.** **Seletor de subcategoria liberado sem categoria preenchida**
+  `tipo: Melhoria` — hoje a subcategoria só fica disponível depois de
+  escolher a categoria; permitir escolher a subcategoria primeiro e
+  preencher a categoria automaticamente a partir dela. *(trazido em
+  CSV, 2026-10-21)*
+- **86.** **Melhorar carregamento dos chips** `tipo: Melhoria` —
+  performance/percepção de carregamento dos chips de "mais usadas"
+  (categoria/subcategoria/descrição) em Novo Lançamento. *(trazido em
+  CSV, 2026-10-21)*
+- **87.** **Categorias desativadas aparecem no dropdown de escolha de
+  categoria** `tipo: Bug` — select de categoria deveria listar só
+  `ativo: true`, igual já é feito em outras listas do app. *(trazido em
+  CSV, 2026-10-21)*
+- **88.** **Aviso de retirada pendente de caixinha não aparece pra
+  transações parceladas** `tipo: Bug` — o aviso/fluxo de "falta
+  retirar da caixinha" (item 58) parece cobrir só transação à vista;
+  conferir o caminho de compra parcelada. *(trazido em CSV, 2026-10-21)*
+- **89.** **"Últimos lançamentos por conta" não atualiza ao CRIAR uma
+  transação nova** `tipo: Bug` — relacionado ao item 66 (reatividade
+  entre telas, Rodada 89): aquela rodada corrigiu o caso de EXCLUIR um
+  lançamento (`excluir()`/`excluirCompraParcelada()` passaram a
+  re-buscar `ultimosPorConta()`); o caminho de CRIAR (Novo Lançamento)
+  não foi coberto — precisa confirmar se é o mesmo tipo de causa
+  (re-fetch faltando) ou outra coisa. *(trazido em CSV, 2026-10-21)*
+
+**Média**
+
+- **85.** **Flag/marcador pra identificar transações que são "contas"**
+  `tipo: Implementação` — prepara terreno pra feature futura Agenda de
+  Contas (item 41, ainda stub). *(trazido em CSV, 2026-10-21)*
 
 **Baixa**
 
@@ -134,6 +176,21 @@ changelog já documenta quando e como cada um foi entregue).
 
 #### Gráficos
 
+**Alta**
+
+- **79.** **Gráfico/análise de saúde financeira prevendo sazonalidade**
+  `tipo: Criação` — relacionar e evidenciar graficamente a saúde
+  financeira baseada na estrutura de custo, com destaque pra custos
+  sazonais PREVISTOS (não só o realizado histórico) — forma de
+  visualização ainda a definir. *(trazido em CSV, 2026-10-21)*
+- **80.** **Gráfico de estrutura de custos no tempo** `tipo: Criação`
+  — **possível sobreposição com o item 51** (✅ implementado Rodada 91):
+  o Comparador de Séries e o Ano a Ano já aceitam "estrutura de custo"
+  (fixo/variável/sazonal/investimentos) como série selecionável ao
+  longo do tempo. Vale conferir se os gráficos novos (`/graficos`)
+  cobrem o que foi pedido aqui antes de tratar como trabalho
+  adicional. *(trazido em CSV, 2026-10-21)*
+
 **Média**
 
 - **51.** **Gráfico de despesa por categoria/subcategoria no tempo**
@@ -160,6 +217,9 @@ changelog já documenta quando e como cada um foi entregue).
   agora — é uma passada de revisão geral de layout depois do MVP
   fechado, numa V2. Sem escopo detalhado ainda (quais telas, quais
   elementos específicos) — a definir quando for priorizado.
+- **81.** **2 guias de usuário (completo + rápido)** `tipo: Criação` —
+  um guia completo com todos os detalhes de todas as funcionalidades
+  do app, e um guia rápido resumido. *(trazido em CSV, 2026-10-21)*
 
 **Média**
 
@@ -222,6 +282,14 @@ changelog já documenta quando e como cada um foi entregue).
 - **57.** **Imóveis** (nova feature) `tipo: Nova Feature` ·
   `maturidade: stub — a detalhar` — registrar entrada como item futuro
   que receberá subitens. *(trazido em CSV, 2026-09-30)*
+
+#### Calculadoras
+
+**Alta**
+
+- **78.** **Calculadora de compra à vista ou parcelada** (nova
+  feature) `tipo: Nova Feature` — comparar o custo de pagar uma compra
+  à vista vs. parcelada. *(trazido em CSV, 2026-10-21)*
 
 ### Concluído
 
