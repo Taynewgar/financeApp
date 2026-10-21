@@ -38,6 +38,8 @@ const EXPLICACAO: Record<string, string> = {
   taxa_poupanca: 'Percentual da receita (já somando ajustes soltos) que sobrou depois das despesas líquidas.',
   meses_negativos: 'Quantos meses de janeiro até o mês de referência tiveram resultado (leitura de saúde) negativo.',
   maior_categoria_despesa: 'Categoria com maior soma de despesas no mês de referência — mesmo recorte do gráfico "Despesas por Categoria".',
+  patrimonio_caixinhas:
+    'Saldo acumulado (aplicações menos retiradas, desde sempre) ATÉ O FIM DO MÊS SELECIONADO no período acima — não é "o saldo de hoje". Confirmou um recorrente de aplicação/retirada pra um mês diferente do selecionado? Navegue até esse mês pra ver o valor refletido aqui.',
 }
 
 function classeResultado(valor: number): string {
@@ -581,7 +583,10 @@ export function Dashboard() {
           )}
 
           <div className="dashboard-secao">
-            <h2 style={{ fontSize: 16, marginTop: 0, marginBottom: 8 }}>Patrimônio em Caixinhas</h2>
+            <h2 style={{ fontSize: 16, marginTop: 0, marginBottom: 8 }}>
+              Patrimônio em Caixinhas
+              <InfoIcon texto={EXPLICACAO.patrimonio_caixinhas} />
+            </h2>
             <p style={{ fontSize: 12, color: 'var(--cor-texto-suave)', marginTop: 0 }}>
               Contas ainda não têm saldo próprio nesta versão — só caixinhas.
             </p>

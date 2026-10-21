@@ -6547,3 +6547,47 @@ teste dedicado; cobertura é o checklist abaixo.
       não refletir isso. Se continuar aparecendo com a lista
       desatualizada mesmo após este fix, é um bug diferente, não
       coberto por esta rodada.
+
+### Rodada 93 (2026-10-21) — Investigação: "caixinhas pararam de atualizar" (não era bug)
+
+Usuário reportou, testando a Rodada 92, que o Patrimônio em Caixinhas
+do Dashboard parou completamente de refletir recorrentes confirmados
+(mesmo com reload da página) — só lançamento manual atualizava.
+
+**Investigação:** revisão de código (`confirmar()` em
+`lancamentos_recorrentes.py` cria a transação com `caixinha_id`
+correto; `GET /dashboard/patrimonio/{mes}` soma via RPC
+`saldo_caixinhas`, que não distingue origem manual vs. recorrente) +
+teste de ponta a ponta reproduzindo o fluxo completo (criar recorrente
+de aplicação com caixinha → confirmar → consultar patrimônio) —
+passou limpo, sem bug. Perguntas de diagnóstico ao usuário isolaram a
+causa real: o mês selecionado no Dashboard era DIFERENTE do mês da
+ocorrência confirmada.
+
+**Causa raiz (não é bug):** `/dashboard/patrimonio/{mês}` mostra o
+saldo acumulado **até o fim do mês selecionado no período do
+Dashboard**, não "o saldo de agora" — comportamento intencional
+(permite ver patrimônio histórico navegando por meses passados).
+Confirmar uma ocorrência de um mês que ainda não é o selecionado no
+Dashboard não atualiza o card até navegar até esse mês (ou um
+posterior) — confuso porque o nome do card ("Patrimônio em
+Caixinhas") não deixa esse recorte óbvio.
+
+**Fix (UX, não funcional):** `InfoIcon` novo no título "Patrimônio em
+Caixinhas", mesmo padrão já usado nos KPIs do Dashboard, explicando o
+recorte por mês selecionado e o que fazer quando o valor esperado não
+aparece (navegar até o mês da ocorrência confirmada).
+
+**Testes:** mudança de frontend puro (1 entrada no dicionário
+`EXPLICACAO`, 1 `InfoIcon` a mais). `tsc -b` sem erro novo, `oxlint`
+sem warning novo.
+
+**Status:** implementado 2026-10-21.
+
+**Checklist de teste manual (usuário, localmente):**
+- [ ] Abrir o Dashboard, clicar no `?` ao lado de "Patrimônio em
+      Caixinhas" e confirmar que o texto explica o recorte por mês
+      selecionado.
+- [ ] Confirmar um recorrente de aplicação/retirada de caixinha pra um
+      mês diferente do selecionado no Dashboard, navegar até esse mês
+      e confirmar que o saldo aparece certo lá.
