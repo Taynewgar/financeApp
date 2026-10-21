@@ -174,3 +174,178 @@
     max-height: 280px;
   }
 }
+
+/* Comparador de Séries — Rodada 91: picker em abas, só no ComparadorSeries
+ * (ComparadorAnoAno continua com .comparador-picker, sidebar de rádio). */
+
+.comparador-series-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.comparador-abas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+}
+
+.comparador-aba-botao {
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--cor-borda);
+  background: none;
+  color: var(--cor-texto-suave);
+  font-size: 12px;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.comparador-aba-botao.ativa {
+  border-color: var(--cor-acento);
+  color: var(--cor-acento);
+  background: color-mix(in srgb, var(--cor-acento) 8%, transparent);
+}
+
+.comparador-busca {
+  margin-left: auto;
+  width: 160px;
+  box-sizing: border-box;
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--cor-borda);
+  background: var(--cor-fundo);
+  color: var(--cor-texto);
+  font-size: 12px;
+  font-family: inherit;
+}
+
+/* min-height garante pelo menos 2 linhas de chips visíveis mesmo com um
+ * cabeçalho de seção em cima (achado do usuário: texto da seção cortado
+ * quando a faixa ficava baixa demais na aba expandida) — scroll cuida do
+ * resto quando a lista completa é maior que isso. */
+.comparador-faixa {
+  display: flex;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  gap: 5px;
+  background: var(--cor-fundo);
+  border: 1px solid var(--cor-borda);
+  border-radius: 8px;
+  padding: 8px;
+  min-height: 92px;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.comparador-faixa-vazia {
+  font-size: 12px;
+  color: var(--cor-texto-suave);
+  padding: 4px;
+}
+
+.comparador-rotulo-secao {
+  width: 100%;
+  font-size: 10px;
+  color: var(--cor-texto-suave);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  margin: 3px 0 0;
+}
+
+.comparador-rotulo-secao:first-child {
+  margin-top: 0;
+}
+
+.comparador-item-compacto {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 9px;
+  border-radius: 14px;
+  border: 1px solid var(--cor-borda);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.comparador-item-compacto:hover {
+  border-color: var(--cor-acento);
+}
+
+.comparador-item-compacto input {
+  width: 12px;
+  height: 12px;
+  cursor: pointer;
+}
+
+.comparador-link-mostrar {
+  align-self: flex-start;
+  background: none;
+  border: none;
+  color: var(--cor-acento);
+  font-size: 11px;
+  cursor: pointer;
+  padding: 1px 0;
+  font-family: inherit;
+}
+
+.comparador-link-mostrar:hover {
+  text-decoration: underline;
+}
+
+.comparador-chips-selecionadas {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-height: 20px;
+}
+
+.comparador-chip-selecionada {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 8px;
+  border-radius: 14px;
+  border: 1px solid var(--cor-borda);
+  font-size: 12px;
+  color: var(--cor-texto);
+}
+
+.comparador-chip-remover {
+  background: none;
+  border: none;
+  color: var(--cor-texto-suave);
+  cursor: pointer;
+  font-size: 11px;
+  padding: 0;
+  margin-left: 2px;
+}
+
+.comparador-chip-remover:hover {
+  color: var(--cor-texto);
+}
+
+.comparador-tooltip-titulo {
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.comparador-tooltip-texto {
+  font-size: 10px;
+  fill: var(--cor-texto-suave);
+}
+
+.botao-chip.ativo-laranja {
+  border-color: #f59e0b;
+  color: #f59e0b;
+  background: rgba(245, 158, 11, 0.1);
+}
+
+@media (max-width: 720px) {
+  .comparador-busca {
+    margin-left: 0;
+    width: 100%;
+  }
+}

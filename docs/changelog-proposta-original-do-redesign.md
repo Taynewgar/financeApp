@@ -6700,3 +6700,83 @@ dos anos.
 - [ ] Selecionar qualquer série no Ano a Ano e confirmar que a
       legenda do gráfico mostra o nome dela, sem precisar olhar o
       picker lateral.
+
+### Rodada 97 (2026-10-21) — Redesign do Comparador de Séries (item 51/91)
+
+Feedback da Rodada 91: picker do Comparador "desorganizado/bagunçado",
+sem categoria pai selecionável, sem botão de limpar seleção, sem
+tooltip, média sem clareza de cálculo, gráfico não afetado pelo filtro
+de período do topo. 3 mockups foram montados no canvas de design
+(sanfona, dropdown flutuante, abas horizontais) — usuário escolheu a
+Proposta C (abas + chips), com ajuste adicional pro gargalo de abas com
+muitos itens (Despesa sub, Caixinhas).
+
+**Fix (`ComparadorSeries.tsx`, reescrito):**
+- Picker em abas (Receita / Despesa sub / Categoria pai / Estrutura /
+  Caixinhas) + busca, em vez da sidebar com os 5 grupos sempre abertos.
+  Categoria pai agora é um tipo de série selecionável (o backend já
+  suportava `categoria:<id>` em `/dashboard/series-mensais`, só não
+  estava exposto no picker).
+- Abas com mais de 5 itens mostram só as mais usadas por padrão (ordem
+  vem de `/categorias`, `/subcategorias` e `/caixinhas` `mais-usadas`
+  com limite alto — mesma fonte de verdade de "mais usada" já usada no
+  Novo Lançamento, sem reordenar no cliente), com link "ver todas" que
+  expande agrupado por seção (categoria pai em Despesa sub, Receita/
+  Despesa em Categoria pai, Aporte/Retirada em Caixinhas).
+- Chips das séries selecionadas, removíveis com ✕, + botão "Limpar
+  seleções".
+- Tooltip ao passar o mouse num ponto/barra: nome da série, mês e
+  valor.
+- Seletor de período só do gráfico (Últimos 6 meses / 12 meses / Ano
+  corrente), independente do filtro de período do topo do Dashboard —
+  os gráficos novos (Comparador, Ano a Ano, Heatmap, Caixinha Fluxo)
+  são período-livre por natureza (Ano a Ano sempre compara 3 anos,
+  Heatmap sempre mostra o ano inteiro), não fazia sentido prendê-los ao
+  mês único do topo.
+- 2 médias, nomeadas e calculadas separadamente: "Média entre as
+  séries" (por mês, como já era) e "Média do período" (nova — média da
+  SOMA mensal das séries selecionadas, não da média já dividida por
+  nº de séries; achado nos mockups: a conta antiga, se reaproveitada
+  ingenuamente, dividia duas vezes e fazia a média CAIR ao marcar mais
+  séries).
+
+**Backend:** `GET /caixinhas/mais-usadas` (novo, mesmo padrão de
+`/categorias/mais-usadas` e `/subcategorias/mais-usadas`: frequência de
+uso — aporte ou retirada — nos últimos ~180 dias, só ativas, não mistura
+usuário).
+
+**Testes:** `backend/tests/test_caixinhas_mais_usadas_api.py` (6 casos,
+mesma cobertura dos outros 2 `mais-usadas`: ordena por frequência,
+aporte e retirada contam igual, ignora uso fora da janela, respeita
+limite, não inclui inativa, não mistura usuário). Frontend: `tsc -b`,
+`oxlint` e `npm run build` sem erro novo.
+
+**Escopo explicitamente fora desta rodada** (ainda sem mockup/decisão):
+agrupamento responsivo dos 4 gráficos novos por tamanho de tela,
+proporção/tamanho dos gráficos antigos, Caixinha Fluxo com
+multi-seleção, e levar a mesma "Média do período" + seletor de período
+pro Ano a Ano/Heatmap/Caixinha Fluxo.
+
+**Status:** implementado 2026-10-21, aguardando teste do usuário.
+
+**Checklist de teste manual (usuário, localmente):**
+- [ ] Abrir o Comparador de Séries em Gráficos — confirmar que o
+      picker aparece em abas (Receita/Despesa sub/Categoria pai/
+      Estrutura/Caixinhas), não mais sidebar fixa.
+- [ ] Selecionar uma categoria pai (aba "Categoria (pai)") e confirmar
+      que o gráfico carrega normalmente.
+- [ ] Numa aba com mais de 5 itens (ex: Despesa sub), confirmar que só
+      as mais usadas aparecem por padrão, com link "ver todas (N)" —
+      clicar e confirmar que expande agrupado por categoria, sem
+      cortar o texto do cabeçalho da seção.
+- [ ] Marcar 2+ séries, passar o mouse num ponto/barra do gráfico e
+      confirmar que aparece o tooltip com nome, mês e valor.
+- [ ] Marcar 2+ séries, ligar "Média do período" e confirmar que o
+      valor mostrado na legenda é coerente com a soma mensal das
+      séries (não cai ao marcar mais séries).
+- [ ] Clicar no seletor de período (📅) e confirmar que cicla entre
+      "Últimos 6 meses" / "Últimos 12 meses" / "Ano corrente",
+      recarregando o gráfico, sem depender do filtro de período do
+      topo do Dashboard.
+- [ ] Marcar algumas séries e clicar "✕ Limpar seleções" — confirmar
+      que o gráfico esvazia e os chips somem.
