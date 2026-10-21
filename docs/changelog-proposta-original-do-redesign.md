@@ -6780,3 +6780,70 @@ pro Ano a Ano/Heatmap/Caixinha Fluxo.
       topo do Dashboard.
 - [ ] Marcar algumas séries e clicar "✕ Limpar seleções" — confirmar
       que o gráfico esvazia e os chips somem.
+
+### Rodada 98 (2026-10-21) — Fix do tooltip + resto do escopo da Rodada 91
+
+**Fix (`ComparadorSeries.tsx`):** usuário reportou que o tooltip da
+Rodada 97 não aparecia. Achado: o `<svg>` recorta tudo fora do viewBox
+(`overflow: hidden` é o padrão de user-agent pra `<svg>` embutido em
+HTML) — a caixa do tooltip nascia acima do ponto (`y - 36`) sem checar
+se isso ia pra fora do viewBox, cortando-a perto do topo do gráfico
+(exatamente onde ficam os valores mais altos — o lugar mais comum de
+passar o mouse). Fix: a caixa agora nasce abaixo do ponto quando ele
+está na metade de cima do gráfico, e vice-versa (mesmo clamp que já
+existia pra esquerda/direita, agora também em cima/embaixo). Aproveitei
+pra aumentar a área de hover de cada ponto (um círculo invisível de raio
+maior por trás do ponto visível — o visível, de 3.5px, era pequeno
+demais de acertar o mouse com precisão).
+
+Resto do escopo que ficou de fora da Rodada 97 ("fora desta rodada,
+ainda sem mockup/decisão"), implementado nesta:
+
+- **`ComparadorAnoAno.tsx`:** mesma "Média do período" (soma mensal,
+  não a média já dividida por nº de anos — mesmo bug de cálculo
+  corrigido no Comparador de Séries) ao lado da já renomeada "Média
+  entre os anos". Seletor de período próprio: cicla 2/3/5 anos
+  comparados (antes fixo em 3).
+- **`HeatmapCategorias.tsx`:** ganhou o mesmo seletor de período dos
+  outros 3 gráficos novos (6/12 meses ou ano corrente) — antes fixo em
+  12 meses.
+- **`CaixinhaFluxo.tsx`:** multi-seleção de caixinhas (antes só 1 por
+  vez) com toggle "Separado" (1 mini-gráfico por caixinha, lado a lado
+  num grid) ou "Somado" (aporte/retirada agregados num gráfico só) —
+  decisão da conversa: toggle, não escolha fixa. Seletor de período
+  próprio igual aos outros.
+- **Layout responsivo (`Graficos.tsx`):** os 4 gráficos novos agora
+  ficam num grid que se reorganiza em colunas conforme a largura da
+  tela (`repeat(auto-fit, minmax(560px, 1fr))`), em vez de cada um
+  ocupar 100% da largura sempre. A página de Gráficos como um todo
+  ganhou um teto de largura (1400px, centralizado) — reduz o "ocupa a
+  tela toda" em monitores muito largos pros gráficos antigos também,
+  sem redesenhar cada um deles individualmente (isso continua em
+  aberto — não há mockup/decisão de dimensão por gráfico antigo; ver
+  item 32 do backlog, que já previa essa limpeza de layout mais ampla
+  pra uma V2 dedicada).
+- Util novo compartilhado (`lib/periodo.ts`): `PERIODOS_GRAFICO` +
+  `calcularPeriodoGrafico()` — evita reimplementar o mesmo seletor
+  cíclico de período em cada um dos 4 componentes.
+
+**Testes:** mudança de frontend puro. `tsc -b`, `oxlint` e `npm run
+build` sem erro novo.
+
+**Status:** implementado 2026-10-21, aguardando teste do usuário.
+
+**Checklist de teste manual (usuário, localmente):**
+- [ ] No Comparador de Séries, marcar 2+ séries e passar o mouse num
+      ponto perto do TOPO do gráfico (valor alto) — confirmar que o
+      tooltip aparece (esse era o caso que sumia antes).
+- [ ] No Ano a Ano, ligar "Média do período" e confirmar que o valor
+      não cai ao comparar mais anos (clicar no seletor de período pra
+      alternar 2/3/5 anos).
+- [ ] No Heatmap, clicar no seletor de período (📅) e confirmar que o
+      heatmap recarrega com a janela certa.
+- [ ] No Fluxo de Caixinha, marcar 2+ caixinhas — confirmar que
+      aparece o toggle Separado/Somado, e que os 2 modos mostram
+      números coerentes (separado = 1 gráfico por caixinha; somado =
+      totais batendo com a soma dos separados).
+- [ ] Em tela larga (desktop, janela maximizada), confirmar que os 4
+      gráficos novos aparecem em 2 colunas (não empilhados ocupando
+      100% da largura cada um).

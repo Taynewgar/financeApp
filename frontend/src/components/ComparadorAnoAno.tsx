@@ -10,9 +10,10 @@ import type { Caixinha, Categoria, SerieMensal, Subcategoria } from '../lib/type
 
 const LARG = 900
 const ALT = 420
-const MARG = { topo: 16, base: 32, esq: 64, dir: 16 }
+const MARG = { topo: 16, base: 32, esq: 64, dir: 70 }
 const ALT_PLOT = ALT - MARG.topo - MARG.base
-const QTD_ANOS = 3
+const QTD_ANOS_OPCOES = [2, 3, 5]
+const COR_MEDIA_PERIODO = '#f59e0b'
 
 const LABEL_ESTRUTURA: Record<string, string> = {
   fixo: 'Fixo',
@@ -66,6 +67,8 @@ export function ComparadorAnoAno() {
   const [chaveSelecionada, setChaveSelecionada] = useState<string | null>(null)
   const [modo, setModo] = useState<Modo>('linha')
   const [mostrarMedia, setMostrarMedia] = useState(true)
+  const [mostrarMediaPeriodo, setMostrarMediaPeriodo] = useState(false)
+  const [anosIndice, setAnosIndice] = useState(1) // índice em QTD_ANOS_OPCOES — 3 anos por padrão
   const [porAno, setPorAno] = useState<Map<string, SerieMensal> | null>(null)
   const [erro, setErro] = useState<string | null>(null)
 
@@ -73,8 +76,12 @@ export function ComparadorAnoAno() {
     if (opcoes.length > 0 && chaveSelecionada === null) setChaveSelecionada(opcoes[0].chave)
   }, [opcoes, chaveSelecionada])
 
+  const qtdAnos = QTD_ANOS_OPCOES[anosIndice]
   const anoAtual = Number(hojeAnoMes().slice(0, 4))
-  const anos = useMemo(() => Array.from({ length: QTD_ANOS }, (_, i) => anoAtual - (QTD_ANOS - 1) + i), [anoAtual])
+  const anos = useMemo(
+    () => Array.from({ length: qtdAnos }, (_, i) => anoAtual - (qtdAnos - 1) + i),
+    [anoAtual, qtdAnos],
+  )
 
   useEffect(() => {
     if (!chaveSelecionada) return
@@ -93,7 +100,7 @@ export function ComparadorAnoAno() {
       })
       .catch((e) => setErro(e instanceof ApiError ? e.message : 'Falha ao carregar o comparador ano a ano'))
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [chaveSelecionada])
+  }, [chaveSelecionada, qtdAnos])
 
   const mesesDoAno = Array.from({ length: 12 }, (_, i) => i + 1)
   const todosValores = porAno ? Array.from(porAno.values()).flatMap((s) => s.pontos.map((p) => p.valor)) : []
@@ -111,6 +118,16 @@ export function ComparadorAnoAno() {
       .filter((v): v is number => v !== undefined)
     return valores.length > 0 ? valores.reduce((a, b) => a + b, 0) / valores.length : 0
   })
+
+  // soma bruta por mês primeiro — "média do período" é a média DESSA soma,
+  // nunca dividida por nº de anos de novo (mesmo bug achado nos mockups do
+  // Comparador de Séries: dividir a média mês-a-mês mais uma vez fazia a
+  // média do período CAIR ao comparar mais anos, em vez de acompanhar a soma)
+  const somaPorMes = mesesDoAno.map((_, i) => {
+    if (!porAno) return 0
+    return Array.from(porAno.values()).reduce((acc, s) => acc + (s.pontos[i]?.valor ?? 0), 0)
+  })
+  const mediaDoPeriodo = somaPorMes.length ? somaPorMes.reduce((a, b) => a + b, 0) / somaPorMes.length : 0
 
   const nomeSelecionado = opcoes.find((o) => o.chave === chaveSelecionada)?.nome ?? ''
   const nomesMes = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez']
@@ -138,9 +155,13 @@ export function ComparadorAnoAno() {
 
       <div style={{ flex: 1, minWidth: 320 }}>
         <div className="comparador-controles">
-          <span style={{ fontSize: 13, color: 'var(--cor-texto-suave)' }}>
-            {anos[0]}–{anos[anos.length - 1]}
-          </span>
+          <button
+            type="button"
+            className="botao-chip"
+            onClick={() => setAnosIndice((i) => (i + 1) % QTD_ANOS_OPCOES.length)}
+          >
+            📅 {anos[0]}–{anos[anos.length - 1]} ({qtdAnos} anos) ▾
+          </button>
           <button type="button" className={`botao-chip ${modo === 'linha' ? 'ativo' : ''}`} onClick={() => setModo('linha')}>
             ╱ Linhas
           </button>
@@ -152,7 +173,14 @@ export function ComparadorAnoAno() {
             className={`botao-chip ${mostrarMedia ? 'ativo' : ''}`}
             onClick={() => setMostrarMedia((v) => !v)}
           >
-            ⟂ Média dos anos
+            ⟂ Média entre os anos
+          </button>
+          <button
+            type="button"
+            className={`botao-chip ${mostrarMediaPeriodo ? 'ativo-laranja' : ''}`}
+            onClick={() => setMostrarMediaPeriodo((v) => !v)}
+          >
+            — Média do período
           </button>
         </div>
 
@@ -174,7 +202,13 @@ export function ComparadorAnoAno() {
             {mostrarMedia && listaAnos.length >= 2 && (
               <span className="comparador-legenda-item">
                 <span style={{ display: 'inline-block', width: 14, height: 2, borderTop: '2px dashed var(--cor-texto)' }} />
-                Média dos anos
+                Média entre os anos
+              </span>
+            )}
+            {mostrarMediaPeriodo && listaAnos.length >= 1 && (
+              <span className="comparador-legenda-item">
+                <span style={{ display: 'inline-block', width: 14, height: 2, borderTop: `2px dashed ${COR_MEDIA_PERIODO}` }} />
+                Média do período: {oculto ? '•••' : formatarMoeda(mediaDoPeriodo)}
               </span>
             )}
           </div>
@@ -243,6 +277,18 @@ export function ComparadorAnoAno() {
                     <circle key={i} cx={x(i)} cy={y(v)} r={3} fill="var(--cor-texto)" />
                   ))}
                 </>
+              )}
+
+              {mostrarMediaPeriodo && listaAnos.length >= 1 && (
+                <line
+                  x1={MARG.esq}
+                  x2={LARG - MARG.dir}
+                  y1={y(mediaDoPeriodo)}
+                  y2={y(mediaDoPeriodo)}
+                  stroke={COR_MEDIA_PERIODO}
+                  strokeWidth={2}
+                  strokeDasharray="3 5"
+                />
               )}
             </svg>
           )}

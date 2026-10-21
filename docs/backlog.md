@@ -195,7 +195,9 @@ changelog já documenta quando e como cada um foi entregue).
 
 - **51.** **Gráfico de despesa por categoria/subcategoria no tempo**
   `tipo: Implementação` (detalhe abaixo) — **✅ implementado 2026-10-12**,
-  aguardando teste do usuário. *(trazido em CSV, 2026-09-30)*
+  redesign do picker + médias/período/multi-caixinha nos Rodadas 97/98
+  (2026-10-21), aguardando teste do usuário. *(trazido em CSV,
+  2026-09-30)*
 
 #### Configurações
 

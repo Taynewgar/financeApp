@@ -3,7 +3,7 @@ import './graficosComparativos.css'
 import { ApiError, apiFetch } from '../lib/api'
 import { corDaSerie } from '../lib/coresSeries'
 import { formatarMoeda } from '../lib/formatar'
-import { hojeAnoMes, mesesAntes } from '../lib/periodo'
+import { calcularPeriodoGrafico, hojeAnoMes, PERIODOS_GRAFICO } from '../lib/periodo'
 import { usePrivacidade } from '../lib/PrivacyContext'
 import { escalaY } from '../lib/escala'
 import type { Caixinha, Categoria, SerieMensal, Subcategoria } from '../lib/types'
@@ -34,12 +34,6 @@ const ABAS_DEF: { chave: AbaChave; titulo: string }[] = [
   { chave: 'categoriaPai', titulo: 'Categoria (pai)' },
   { chave: 'estrutura', titulo: 'Estrutura' },
   { chave: 'caixinha', titulo: 'Caixinhas' },
-]
-
-const PERIODOS: { label: string; meses: number | null }[] = [
-  { label: 'Últimos 6 meses', meses: 5 },
-  { label: 'Últimos 12 meses', meses: 11 },
-  { label: 'Ano corrente', meses: null },
 ]
 
 /** Item 51/91 do backlog — "comparador dinâmico": qualquer combinação de
@@ -206,10 +200,9 @@ export function ComparadorSeries() {
     return { linhas: filtrados.map(fazerItem), linkRodape: recolher.mostrar ? recolher : semLink }
   }, [grupos, abaAtiva, busca, verTodas])
 
-  const periodoAtual = PERIODOS[periodoIndice]
+  const periodoAtual = PERIODOS_GRAFICO[periodoIndice]
   const [mesFim] = useState(() => hojeAnoMes())
-  const mesInicio =
-    periodoAtual.meses !== null ? mesesAntes(mesFim, periodoAtual.meses) : `${mesFim.slice(0, 4)}-01`
+  const { inicio: mesInicio } = calcularPeriodoGrafico(periodoIndice, mesFim)
 
   useEffect(() => {
     if (selecionadas.size === 0) {
@@ -255,17 +248,24 @@ export function ComparadorSeries() {
 
   const tooltip = useMemo(() => {
     if (!hover) return null
+    // o <svg> recorta tudo fora do viewBox (overflow:hidden é o padrão de
+    // UA pra <svg> embutido em HTML) — sem esses 2 clamps a caixa nascia
+    // com x/y negativo perto das bordas (sobretudo perto do topo, onde
+    // ficam os valores mais altos — exatamente onde mais se passa o
+    // mouse) e ficava cortada, invisível. Achado real do usuário testando.
     const estouraDireita = hover.x + 190 > LARG - 10
     const rectX = estouraDireita ? hover.x - 190 : hover.x + 10
+    const colocarAbaixo = hover.y < ALT / 2
+    const rectY = colocarAbaixo ? hover.y + 10 : hover.y - 36
     return {
       cx: hover.x,
       cy: hover.y,
       cor: hover.cor,
       rectX,
-      rectY: hover.y - 36,
+      rectY,
       textX: rectX + 10,
-      linha1Y: hover.y - 18,
-      linha2Y: hover.y - 4,
+      linha1Y: rectY + 18,
+      linha2Y: rectY + 32,
       nome: hover.nome,
       mes: hover.mes,
       valor: oculto ? '•••' : formatarMoeda(hover.valor),
@@ -351,7 +351,7 @@ export function ComparadorSeries() {
       </div>
 
       <div className="comparador-controles">
-        <button type="button" className="botao-chip" onClick={() => setPeriodoIndice((i) => (i + 1) % PERIODOS.length)}>
+        <button type="button" className="botao-chip" onClick={() => setPeriodoIndice((i) => (i + 1) % PERIODOS_GRAFICO.length)}>
           📅 {periodoAtual.label} ▾
         </button>
         <button type="button" className={`botao-chip ${modo === 'linha' ? 'ativo' : ''}`} onClick={() => setModo('linha')}>
@@ -431,25 +431,29 @@ export function ComparadorSeries() {
                     strokeWidth={2.5}
                   />
                   {s.pontos.map((p, i) => (
-                    <circle
-                      key={i}
-                      cx={x(i)}
-                      cy={y(p.valor)}
-                      r={3.5}
-                      fill={corPorChave.get(s.chave)}
-                      style={{ cursor: 'pointer' }}
-                      onMouseEnter={() =>
-                        setHover({
-                          x: x(i),
-                          y: y(p.valor),
-                          nome: nomePorChave.get(s.chave) ?? s.nome,
-                          mes: rotuloMes(p.vigencia_mes),
-                          valor: p.valor,
-                          cor: corPorChave.get(s.chave) ?? 'var(--cor-texto)',
-                        })
-                      }
-                      onMouseLeave={() => setHover(null)}
-                    />
+                    <g key={i}>
+                      <circle cx={x(i)} cy={y(p.valor)} r={3.5} fill={corPorChave.get(s.chave)} />
+                      {/* círculo invisível maior só pra facilitar o hover — o
+                       * ponto visível (r=3.5) é pequeno demais de acertar */}
+                      <circle
+                        cx={x(i)}
+                        cy={y(p.valor)}
+                        r={10}
+                        fill="transparent"
+                        style={{ cursor: 'pointer' }}
+                        onMouseEnter={() =>
+                          setHover({
+                            x: x(i),
+                            y: y(p.valor),
+                            nome: nomePorChave.get(s.chave) ?? s.nome,
+                            mes: rotuloMes(p.vigencia_mes),
+                            valor: p.valor,
+                            cor: corPorChave.get(s.chave) ?? 'var(--cor-texto)',
+                          })
+                        }
+                        onMouseLeave={() => setHover(null)}
+                      />
+                    </g>
                   ))}
                 </g>
               ))}

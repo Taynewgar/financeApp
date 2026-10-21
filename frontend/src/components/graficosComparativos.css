@@ -349,3 +349,31 @@
     width: 100%;
   }
 }
+
+/* Caixinha Fluxo — Rodada 91: modo "Separado" com 2+ caixinhas marcadas
+ * mostra 1 mini-gráfico por caixinha lado a lado em vez de empilhado. */
+.comparador-fluxo-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+  gap: 16px;
+}
+
+.comparador-fluxo-titulo {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--cor-texto);
+  margin-bottom: 8px;
+}
+
+/* Grade dos 4 gráficos novos (item 51/91) — se agrupam em colunas quando
+ * a tela é larga o bastante, em vez de cada um ocupar 100% da largura
+ * (feedback da Rodada 91: "ocupam excessivamente a tela toda"). */
+.graficos-grid-novos {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(560px, 1fr));
+  gap: 24px;
+}
+
+.graficos-grid-novos > div {
+  min-width: 0;
+}

@@ -14,6 +14,7 @@ import { SeletorPeriodo } from '../components/SeletorPeriodo'
 import { TaxaPoupancaChart } from '../components/TaxaPoupancaChart'
 import '../components/cabecalhoFixo.css'
 import '../components/forms.css'
+import '../components/graficosComparativos.css'
 import { ApiError, apiFetch } from '../lib/api'
 import { useGraficosPeriodo } from '../lib/GraficosPeriodoContext'
 import { mesesAntes, rotuloMesLongo } from '../lib/periodo'
@@ -131,7 +132,7 @@ export function Graficos() {
     modoData === 'mes' ? rotuloMesLongo(mesReferencia) : `${rotuloMesLongo(periodoInicio)} a ${rotuloMesLongo(periodoFim)}`
 
   return (
-    <div>
+    <div style={{ maxWidth: 1400, marginLeft: 'auto', marginRight: 'auto' }}>
       <h1 style={{ fontSize: 22, marginTop: 0, marginBottom: 12 }}>Gráficos</h1>
 
       <div className="cabecalho-fixo">
@@ -235,27 +236,31 @@ export function Graficos() {
         </div>
       )}
 
-      {/* item 51 do backlog — período próprio de cada gráfico abaixo,
+      {/* item 51/91 do backlog — período próprio de cada gráfico abaixo,
        * independente do SeletorPeriodo acima: liberdade de montar a
-       * comparação sem ficar amarrado ao mês/intervalo navegado em cima. */}
-      <div style={{ marginTop: 32, marginBottom: 24 }}>
-        <h2 style={{ fontSize: 16, marginBottom: 8 }}>Comparador de Séries</h2>
-        <ComparadorSeries />
-      </div>
+       * comparação sem ficar amarrado ao mês/intervalo navegado em cima.
+       * Em grid (não empilhados) pra não "ocupar a tela toda" em telas
+       * largas — se agrupam em colunas conforme o espaço disponível. */}
+      <div className="graficos-grid-novos" style={{ marginTop: 32, marginBottom: 24 }}>
+        <div>
+          <h2 style={{ fontSize: 16, marginBottom: 8 }}>Comparador de Séries</h2>
+          <ComparadorSeries />
+        </div>
 
-      <div style={{ marginTop: 32, marginBottom: 24 }}>
-        <h2 style={{ fontSize: 16, marginBottom: 8 }}>Ano a Ano</h2>
-        <ComparadorAnoAno />
-      </div>
+        <div>
+          <h2 style={{ fontSize: 16, marginBottom: 8 }}>Ano a Ano</h2>
+          <ComparadorAnoAno />
+        </div>
 
-      <div style={{ marginTop: 32, marginBottom: 24 }}>
-        <h2 style={{ fontSize: 16, marginBottom: 8 }}>Heatmap de Categorias</h2>
-        <HeatmapCategorias />
-      </div>
+        <div>
+          <h2 style={{ fontSize: 16, marginBottom: 8 }}>Heatmap de Categorias</h2>
+          <HeatmapCategorias />
+        </div>
 
-      <div style={{ marginTop: 32, marginBottom: 24 }}>
-        <h2 style={{ fontSize: 16, marginBottom: 8 }}>Fluxo de Caixinha</h2>
-        <CaixinhaFluxo />
+        <div>
+          <h2 style={{ fontSize: 16, marginBottom: 8 }}>Fluxo de Caixinha</h2>
+          <CaixinhaFluxo />
+        </div>
       </div>
     </div>
   )

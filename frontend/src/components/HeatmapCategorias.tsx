@@ -2,11 +2,10 @@ import { useEffect, useMemo, useState } from 'react'
 import './graficosComparativos.css'
 import { ApiError, apiFetch } from '../lib/api'
 import { formatarMoedaCompacta } from '../lib/formatar'
-import { hojeAnoMes, mesesAntes } from '../lib/periodo'
+import { calcularPeriodoGrafico, hojeAnoMes, PERIODOS_GRAFICO } from '../lib/periodo'
 import { usePrivacidade } from '../lib/PrivacyContext'
 import type { Categoria, SerieMensal } from '../lib/types'
 
-const MESES_JANELA = 12
 const COR_MIN = { r: 0x13, g: 0x1c, b: 0x2e } // --cor-superficie
 const COR_MAX = { r: 0x2d, g: 0xd4, b: 0xbf } // --cor-acento
 
@@ -30,9 +29,10 @@ export function HeatmapCategorias() {
   const [categorias, setCategorias] = useState<Categoria[]>([])
   const [series, setSeries] = useState<SerieMensal[] | null>(null)
   const [erro, setErro] = useState<string | null>(null)
+  const [periodoIndice, setPeriodoIndice] = useState(1)
 
-  const mesInicio = useMemo(() => mesesAntes(hojeAnoMes(), MESES_JANELA - 1), [])
-  const mesFim = useMemo(() => hojeAnoMes(), [])
+  const [mesFim] = useState(() => hojeAnoMes())
+  const { inicio: mesInicio } = calcularPeriodoGrafico(periodoIndice, mesFim)
 
   useEffect(() => {
     apiFetch<Categoria[]>('/categorias?tipo=despesa')
@@ -64,6 +64,12 @@ export function HeatmapCategorias() {
 
   return (
     <div>
+      <div className="comparador-controles">
+        <button type="button" className="botao-chip" onClick={() => setPeriodoIndice((i) => (i + 1) % PERIODOS_GRAFICO.length)}>
+          📅 {PERIODOS_GRAFICO[periodoIndice].label} ▾
+        </button>
+      </div>
+
       {erro && <p className="mensagem-erro">{erro}</p>}
       {linhas.length === 0 && !erro && (
         <p style={{ color: 'var(--cor-texto-suave)', fontSize: 13 }}>Carregando heatmap…</p>

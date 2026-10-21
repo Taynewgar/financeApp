@@ -29,6 +29,25 @@ export function rotuloMesLongo(anoMes: string): string {
   return `${MESES_NOME[mes - 1]} de ${ano}`
 }
 
+/** Período próprio de cada gráfico de Gráficos (item 51/91 do backlog),
+ * independente do SeletorPeriodo do topo da página — Comparador de
+ * Séries, Heatmap e Caixinha Fluxo compartilham o mesmo seletor cíclico
+ * (6/12 meses ou ano corrente), reaproveitado em vez de reimplementado
+ * em cada componente. */
+export type PeriodoGraficoOpcao = { label: string; meses: number | null }
+
+export const PERIODOS_GRAFICO: PeriodoGraficoOpcao[] = [
+  { label: 'Últimos 6 meses', meses: 5 },
+  { label: 'Últimos 12 meses', meses: 11 },
+  { label: 'Ano corrente', meses: null },
+]
+
+export function calcularPeriodoGrafico(indice: number, mesFim: string): { inicio: string; fim: string } {
+  const opcao = PERIODOS_GRAFICO[indice] ?? PERIODOS_GRAFICO[1]
+  const inicio = opcao.meses !== null ? mesesAntes(mesFim, opcao.meses) : `${mesFim.slice(0, 4)}-01`
+  return { inicio, fim: mesFim }
+}
+
 /** Estado + derivação do seletor Mês/Intervalo/Todos os meses — reaproveitado
  * pelo Dashboard e pela tela de Gráficos (mesmo componente, não um 3º
  * modelo de filtro), ver docs/backlog.md item 5. */
