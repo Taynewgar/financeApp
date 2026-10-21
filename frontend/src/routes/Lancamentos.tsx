@@ -1,0 +1,688 @@
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
+import { InfoIcon } from '../components/InfoIcon'
+import '../components/cabecalhoFixo.css'
+import '../components/crud.css'
+import '../components/forms.css'
+import '../components/lancamentos.css'
+import '../components/resumoCards.css'
+import { RecorrentesSection } from './RecorrentesSection'
+import { ApiError, apiFetch } from '../lib/api'
+import { formatarData, formatarMoeda } from '../lib/formatar'
+import { FILTROS_VAZIOS, useLancamentosFiltros, type Filtros } from '../lib/LancamentosFiltrosContext'
+import { usePrivacidade } from '../lib/PrivacyContext'
+import {
+  ESTRUTURAS,
+  MEIOS_PAGAMENTO,
+  TIPOS_MOVIMENTO,
+  TIPO_CATEGORIA_ESPERADO,
+  badgeAjuste,
+  classePorTipoMovimento,
+  direcaoAplicacaoRetirada,
+  rotuloEstruturaCusto,
+  rotuloMeioPagamento,
+  rotuloTipoMovimento,
+} from '../lib/rotulos'
+import type {
+  Caixinha,
+  Categoria,
+  Conta,
+  EstruturaCusto,
+  MeioPagamento,
+  ResumoLancamentos,
+  Subcategoria,
+  Transacao,
+  TipoMovimento,
+} from '../lib/types'
+
+const MESES = [
+  'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+  'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro',
+]
+
+const EXPLICACAO_RESUMO: Record<string, string> = {
+  total: 'Quantidade de lançamentos que batem com os filtros aplicados.',
+  receitas: 'Soma de todos os lançamentos do tipo Receita no período filtrado.',
+  despesas_liquidas: 'Despesas menos estornos/ressarcimentos vinculados a elas — o quanto de fato saiu do bolso.',
+  fluxo_caixa: 'Receitas menos despesas brutas (sem descontar estornos) — o que de fato entrou e saiu das contas.',
+  taxa_poupanca: 'Percentual da receita (já somando ajustes soltos) que sobrou depois das despesas líquidas.',
+}
+
+// último dia do mês (JS: dia 0 do mês seguinte)
+function ultimoDiaDoMes(ano: number, mesIndice: number): number {
+  return new Date(ano, mesIndice + 1, 0).getDate()
+}
+
+function pad2(n: number): string {
+  return String(n).padStart(2, '0')
+}
+
+export function Lancamentos() {
+  const { oculto } = usePrivacidade()
+  // aba local, não persiste entre navegações — mesmo critério de
+  // filtroMobileAberto (estado de UI, não de filtro)
+  const [aba, setAba] = useState<'lista' | 'recorrentes'>('lista')
+  const [contas, setContas] = useState<Conta[]>([])
+  const [categorias, setCategorias] = useState<Categoria[]>([])
+  const [subcategorias, setSubcategorias] = useState<Subcategoria[]>([])
+  const [caixinhas, setCaixinhas] = useState<Caixinha[]>([])
+  const [ultimosPorConta, setUltimosPorConta] = useState<Record<string, Transacao[]>>({})
+  const [contaExpandidaId, setContaExpandidaId] = useState<string | null>(null)
+  // recolhida por padrão — fica fora do caminho de quem só quer ver a
+  // lista/filtros, sem o custo de navegação de uma aba própria (decisão
+  // discutida com o usuário, ver changelog)
+  const [secaoUltimosAberta, setSecaoUltimosAberta] = useState(false)
+  const [erroCarga, setErroCarga] = useState<string | null>(null)
+
+  // item 66: extraída pra poder ser re-chamada depois de excluir um
+  // lançamento (achado 2026-10-12 — excluir não atualizava "Últimos
+  // lançamentos por conta", que podia continuar mostrando o excluído até
+  // reload manual, se ele estivesse entre os 10 mais recentes da conta).
+  function buscarUltimosPorConta() {
+    return apiFetch<Record<string, Transacao[]>>('/transacoes/ultimos-por-conta?limite=10')
+      .then(setUltimosPorConta)
+      .catch(() => {})
+  }
+
+  useEffect(() => {
+    Promise.all([
+      apiFetch<Conta[]>('/contas'),
+      apiFetch<Categoria[]>('/categorias'),
+      apiFetch<Subcategoria[]>('/subcategorias'),
+      apiFetch<Caixinha[]>('/caixinhas'),
+      apiFetch<Record<string, Transacao[]>>('/transacoes/ultimos-por-conta?limite=10'),
+    ])
+      .then(([c, cat, sub, cx, ultimos]) => {
+        setContas(c)
+        setCategorias(cat)
+        setSubcategorias(sub)
+        setCaixinhas(cx)
+        setUltimosPorConta(ultimos)
+      })
+      .catch((e) => setErroCarga(e instanceof ApiError ? e.message : 'Falha ao carregar dados de apoio'))
+  }, [])
+
+  const contasPorId = useMemo(() => new Map(contas.map((c) => [c.id, c])), [contas])
+  const categoriasPorId = useMemo(() => new Map(categorias.map((c) => [c.id, c])), [categorias])
+  const subcategoriasPorId = useMemo(() => new Map(subcategorias.map((s) => [s.id, s])), [subcategorias])
+  const caixinhasPorId = useMemo(() => new Map(caixinhas.map((c) => [c.id, c])), [caixinhas])
+
+  const { filtros, setFiltros, mesRapido, setMesRapido, anoRapido, setAnoRapido } = useLancamentosFiltros()
+  const [filtroMobileAberto, setFiltroMobileAberto] = useState(false)
+  const filtrosAtivos = Object.values(filtros).filter(Boolean).length
+
+  // drill-down vindo de outra tela (ex: Estrutura de Custo) — lê uma vez na
+  // montagem; categoria_id/subcategoria_id/mes (YYYY-MM) na URL
+  const [searchParams] = useSearchParams()
+  useEffect(() => {
+    const categoriaId = searchParams.get('categoria_id')
+    const subcategoriaId = searchParams.get('subcategoria_id')
+    const mes = searchParams.get('mes')
+    if (!categoriaId && !subcategoriaId && !mes) return
+    setFiltros((atual) => {
+      const proximo = { ...atual }
+      if (categoriaId) proximo.categoriaId = categoriaId
+      if (subcategoriaId) proximo.subcategoriaId = subcategoriaId
+      if (mes) {
+        const [ano, mesNum] = mes.split('-').map(Number)
+        proximo.dataInicio = `${ano}-${pad2(mesNum)}-01`
+        proximo.dataFim = `${ano}-${pad2(mesNum)}-${pad2(ultimoDiaDoMes(ano, mesNum - 1))}`
+      }
+      return proximo
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const categoriasFiltro = useMemo(() => {
+    if (!filtros.tipoMovimento) return categorias
+    return categorias.filter((c) => c.tipo === TIPO_CATEGORIA_ESPERADO[filtros.tipoMovimento as TipoMovimento])
+  }, [categorias, filtros.tipoMovimento])
+
+  const subcategoriasFiltro = useMemo(
+    () => subcategorias.filter((s) => s.categoria_id === filtros.categoriaId),
+    [subcategorias, filtros.categoriaId],
+  )
+
+  const anosDisponiveis = useMemo(() => {
+    const atual = new Date().getFullYear()
+    return Array.from({ length: 6 }, (_, i) => atual - 4 + i)
+  }, [])
+
+  function atualizarFiltro<K extends keyof Filtros>(campo: K, valor: Filtros[K]) {
+    setMesRapido('')
+    setFiltros((atual) => {
+      const proximo = { ...atual, [campo]: valor }
+      if (campo === 'tipoMovimento') {
+        proximo.categoriaId = ''
+        proximo.subcategoriaId = ''
+      }
+      if (campo === 'categoriaId') {
+        proximo.subcategoriaId = ''
+      }
+      return proximo
+    })
+  }
+
+  // recebe o ano como parâmetro em vez de ler `anoRapido` do escopo — trocar
+  // ano e mês quase juntos (o clique no Ano dispara isso antes do
+  // setAnoRapido de cima re-renderizar) pegaria o valor antigo do estado
+  function aplicarMesRapido(mesIndice: string, ano = Number(anoRapido)) {
+    setMesRapido(mesIndice)
+    if (mesIndice === '') return
+    const mes = Number(mesIndice)
+    setFiltros((atual) => ({
+      ...atual,
+      dataInicio: `${ano}-${pad2(mes + 1)}-01`,
+      dataFim: `${ano}-${pad2(mes + 1)}-${pad2(ultimoDiaDoMes(ano, mes))}`,
+    }))
+  }
+
+  const [transacoes, setTransacoes] = useState<Transacao[] | null>(null)
+  const [resumo, setResumo] = useState<ResumoLancamentos | null>(null)
+  const [erro, setErro] = useState<string | null>(null)
+  const [excluindoId, setExcluindoId] = useState<string | null>(null)
+
+  const queryString = useMemo(() => {
+    const params = new URLSearchParams()
+    if (filtros.tipoMovimento) params.set('tipo_movimento', filtros.tipoMovimento)
+    if (filtros.categoriaId) params.set('categoria_id', filtros.categoriaId)
+    if (filtros.subcategoriaId) params.set('subcategoria_id', filtros.subcategoriaId)
+    if (filtros.contaId) params.set('conta_id', filtros.contaId)
+    if (filtros.caixinhaId) params.set('caixinha_id', filtros.caixinhaId)
+    if (filtros.estruturaCusto) params.set('estrutura_custo', filtros.estruturaCusto)
+    if (filtros.meioPagamento) params.set('meio_pagamento', filtros.meioPagamento)
+    if (filtros.pagamento) params.set('pagamento', filtros.pagamento)
+    if (filtros.dataInicio) params.set('data_inicio', filtros.dataInicio)
+    if (filtros.dataFim) params.set('data_fim', filtros.dataFim)
+    if (filtros.descricao.trim()) params.set('descricao', filtros.descricao.trim())
+    return params.toString()
+  }, [filtros])
+
+  // guarda contra corrida: se o filtro mudar de novo antes da resposta
+  // anterior voltar, essa resposta desatualizada (de um filtro mais largo,
+  // por exemplo) não pode sobrescrever o resultado do filtro atual
+  const ultimaRequisicao = useRef(0)
+
+  function carregar() {
+    const idRequisicao = ++ultimaRequisicao.current
+    setErro(null)
+    Promise.all([
+      apiFetch<Transacao[]>(`/transacoes${queryString ? `?${queryString}` : ''}`),
+      apiFetch<ResumoLancamentos>(`/transacoes/resumo${queryString ? `?${queryString}` : ''}`),
+    ])
+      .then(([lista, res]) => {
+        if (idRequisicao !== ultimaRequisicao.current) return
+        setTransacoes(lista)
+        setResumo(res)
+      })
+      .catch((e) => {
+        if (idRequisicao !== ultimaRequisicao.current) return
+        setErro(e instanceof ApiError ? e.message : 'Falha ao buscar lançamentos')
+      })
+  }
+
+  // debounce: espera parar de trocar filtro (ou digitar na descrição) antes de consultar a API
+  useEffect(() => {
+    const timer = setTimeout(carregar, 300)
+    return () => clearTimeout(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [queryString])
+
+  async function excluir(transacao: Transacao) {
+    const rotulo = transacao.descricao ?? `${rotuloTipoMovimento(transacao.tipo_movimento)} de ${formatarMoeda(transacao.valor)}`
+    if (!window.confirm(`Excluir o lançamento "${rotulo}"? Essa ação não pode ser desfeita.`)) return
+    setExcluindoId(transacao.id)
+    try {
+      await apiFetch(`/transacoes/${transacao.id}`, { method: 'DELETE' })
+      carregar()
+      buscarUltimosPorConta()
+    } catch (e) {
+      setErro(e instanceof ApiError ? (typeof e.detail === 'string' ? e.detail : e.message) : 'Falha ao excluir lançamento')
+    } finally {
+      setExcluindoId(null)
+    }
+  }
+
+  async function excluirCompraParcelada(transacao: Transacao) {
+    if (!transacao.compra_parcelada_id) return
+    const rotulo = transacao.descricao ?? 'esta compra parcelada'
+    if (
+      !window.confirm(
+        `Excluir TODAS as ${transacao.parcela_total} parcelas de "${rotulo}"? Essa ação não pode ser desfeita.`,
+      )
+    )
+      return
+    setExcluindoId(transacao.compra_parcelada_id)
+    try {
+      await apiFetch(`/transacoes/parceladas/${transacao.compra_parcelada_id}`, { method: 'DELETE' })
+      carregar()
+      buscarUltimosPorConta()
+    } catch (e) {
+      setErro(e instanceof ApiError ? (typeof e.detail === 'string' ? e.detail : e.message) : 'Falha ao excluir a compra parcelada')
+    } finally {
+      setExcluindoId(null)
+    }
+  }
+
+  if (erroCarga) {
+    return <p className="mensagem-erro">{erroCarga}</p>
+  }
+
+  return (
+    <div>
+      <h1 style={{ fontSize: 22, marginTop: 0 }}>Lançamentos</h1>
+
+      <div className="tabs">
+        <button type="button" className={aba === 'lista' ? 'ativo' : ''} onClick={() => setAba('lista')}>
+          Lançamentos
+        </button>
+        <button type="button" className={aba === 'recorrentes' ? 'ativo' : ''} onClick={() => setAba('recorrentes')}>
+          Recorrentes
+        </button>
+      </div>
+
+      {aba === 'recorrentes' && (
+        <RecorrentesSection
+          onCategoriaCriada={(c) => setCategorias((prev) => [...prev, c].sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR')))}
+          onSubcategoriaCriada={(s) =>
+            setSubcategorias((prev) => [...prev, s].sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR')))
+          }
+        />
+      )}
+
+      {aba === 'lista' && (
+        <>
+      {contas.filter((c) => c.ativo).length > 0 && (
+        <div className="ultimos-por-conta">
+          <button
+            type="button"
+            className="ultimos-por-conta-titulo"
+            aria-expanded={secaoUltimosAberta}
+            onClick={() => setSecaoUltimosAberta((v) => !v)}
+          >
+            Últimos lançamentos por conta
+            <span aria-hidden="true">{secaoUltimosAberta ? ' ▲' : ' ▼'}</span>
+          </button>
+          {secaoUltimosAberta && (
+            <>
+          <div className="chips-conta">
+            {contas
+              .filter((c) => c.ativo)
+              .map((c) => (
+                <button
+                  key={c.id}
+                  type="button"
+                  className={`chip-conta${contaExpandidaId === c.id ? ' ativo' : ''}`}
+                  onClick={() => setContaExpandidaId((atual) => (atual === c.id ? null : c.id))}
+                >
+                  {c.nome}
+                </button>
+              ))}
+          </div>
+          {contaExpandidaId && (
+            <div className="painel-ultimos-conta">
+              {(ultimosPorConta[contaExpandidaId] ?? []).length === 0 ? (
+                <p className="item-detalhe" style={{ margin: 0 }}>
+                  Nenhum lançamento ainda nesta conta.
+                </p>
+              ) : (
+                (ultimosPorConta[contaExpandidaId] ?? []).map((t) => (
+                  <div className="ultimo-conta-linha" key={t.id}>
+                    <span className="ultimo-conta-info">
+                      <span className="ultimo-conta-data">{formatarData(t.data_compra)}</span>
+                      {' — '}
+                      {t.descricao ?? '(sem descrição)'}
+                      {t.pagamento === 'parcelado' && (
+                        <span className="ultimo-conta-parcela"> · parcela {t.parcela_atual}/{t.parcela_total}</span>
+                      )}
+                    </span>
+                    <span className={`ultimo-conta-valor ${classePorTipoMovimento(t.tipo_movimento, t.caixinha_id)}`}>
+                      {formatarMoeda(t.valor, oculto)}
+                    </span>
+                  </div>
+                ))
+              )}
+              <button
+                type="button"
+                className="botao-link link-ver-tudo-conta"
+                onClick={() => {
+                  setMesRapido('')
+                  setAnoRapido(String(new Date().getFullYear()))
+                  setFiltros({ ...FILTROS_VAZIOS, contaId: contaExpandidaId })
+                }}
+              >
+                Ver tudo em Lançamentos, filtrado por {contasPorId.get(contaExpandidaId)?.nome} →
+              </button>
+            </div>
+          )}
+            </>
+          )}
+        </div>
+      )}
+
+      {resumo && (
+        <div className="resumo-cards">
+          <div className="resumo-card">
+            <span className="resumo-card-rotulo">
+              Lançamentos
+              <InfoIcon texto={EXPLICACAO_RESUMO.total} />
+            </span>
+            <span className="resumo-card-valor">{resumo.total_lancamentos}</span>
+          </div>
+          <div className="resumo-card">
+            <span className="resumo-card-rotulo">
+              Receitas
+              <InfoIcon texto={EXPLICACAO_RESUMO.receitas} />
+            </span>
+            <span className="resumo-card-valor valor-receita">{formatarMoeda(resumo.receitas, oculto)}</span>
+          </div>
+          <div className="resumo-card">
+            <span className="resumo-card-rotulo">
+              Despesas líquidas
+              <InfoIcon texto={EXPLICACAO_RESUMO.despesas_liquidas} />
+            </span>
+            <span className="resumo-card-valor valor-despesa">{formatarMoeda(resumo.despesas_liquidas, oculto)}</span>
+          </div>
+          <div className="resumo-card">
+            <span className="resumo-card-rotulo">
+              Fluxo de caixa
+              <InfoIcon texto={EXPLICACAO_RESUMO.fluxo_caixa} />
+            </span>
+            <span className={`resumo-card-valor ${resumo.resultado_fluxo_caixa >= 0 ? 'valor-receita' : 'valor-despesa'}`}>
+              {formatarMoeda(resumo.resultado_fluxo_caixa, oculto)}
+            </span>
+          </div>
+          <div className="resumo-card">
+            <span className="resumo-card-rotulo">
+              Taxa de poupança
+              <InfoIcon texto={EXPLICACAO_RESUMO.taxa_poupanca} />
+            </span>
+            <span className="resumo-card-valor">
+              {resumo.taxa_poupanca === null ? '—' : `${resumo.taxa_poupanca.toFixed(1)}%`}
+            </span>
+          </div>
+        </div>
+      )}
+
+      <div className="cabecalho-fixo cabecalho-fixo-card">
+        <button
+          type="button"
+          className="filtros-resumo-mobile"
+          onClick={() => setFiltroMobileAberto((v) => !v)}
+          aria-expanded={filtroMobileAberto}
+        >
+          <span aria-hidden="true">⚲</span>
+          <span className="filtros-resumo-mobile-contador">
+            {filtrosAtivos === 0 ? 'Sem filtros' : `${filtrosAtivos} filtro${filtrosAtivos > 1 ? 's' : ''} ativo${filtrosAtivos > 1 ? 's' : ''}`}
+          </span>
+          <span aria-hidden="true">{filtroMobileAberto ? '▲' : '▼'}</span>
+        </button>
+
+        <div className={`filtros${filtroMobileAberto ? ' filtros-mobile-aberto' : ''}`}>
+        {/* um único container flex-wrap — no desktop, a largura decide quantos
+            campos cabem por linha (menos linhas fixas que os 3 grupos fixos de
+            antes; bug reportado 2026-09-24: painel fixo ficava alto demais) */}
+        <div className="filtros-linha">
+          <label className="campo">
+            Tipo
+            <select
+              value={filtros.tipoMovimento}
+              onChange={(e) => atualizarFiltro('tipoMovimento', e.target.value as TipoMovimento | '')}
+            >
+              <option value="">Todos</option>
+              {TIPOS_MOVIMENTO.map((t) => (
+                <option key={t.valor} value={t.valor}>
+                  {t.rotulo}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="campo">
+            Descrição
+            <input
+              type="text"
+              placeholder="Buscar por texto…"
+              value={filtros.descricao}
+              onChange={(e) => atualizarFiltro('descricao', e.target.value)}
+            />
+          </label>
+          <label className="campo">
+            Mês
+            <select value={mesRapido} onChange={(e) => aplicarMesRapido(e.target.value)}>
+              <option value="">Personalizado</option>
+              {MESES.map((nome, indice) => (
+                <option key={nome} value={indice}>
+                  {nome}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="campo">
+            Ano
+            <select
+              value={anoRapido}
+              onChange={(e) => {
+                setAnoRapido(e.target.value)
+                if (mesRapido !== '') aplicarMesRapido(mesRapido, Number(e.target.value))
+              }}
+            >
+              {anosDisponiveis.map((ano) => (
+                <option key={ano} value={ano}>
+                  {ano}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="campo">
+            De
+            <input type="date" value={filtros.dataInicio} onChange={(e) => atualizarFiltro('dataInicio', e.target.value)} />
+          </label>
+          <label className="campo">
+            Até
+            <input type="date" value={filtros.dataFim} onChange={(e) => atualizarFiltro('dataFim', e.target.value)} />
+          </label>
+          <label className="campo">
+            Conta
+            <select value={filtros.contaId} onChange={(e) => atualizarFiltro('contaId', e.target.value)}>
+              <option value="">Todas</option>
+              {contas.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.nome}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="campo">
+            Caixinha
+            <select value={filtros.caixinhaId} onChange={(e) => atualizarFiltro('caixinhaId', e.target.value)}>
+              <option value="">Todas</option>
+              {caixinhas.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.nome}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="campo">
+            Categoria
+            <select value={filtros.categoriaId} onChange={(e) => atualizarFiltro('categoriaId', e.target.value)}>
+              <option value="">Todas</option>
+              {categoriasFiltro.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.nome}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="campo">
+            Subcategoria
+            <select
+              value={filtros.subcategoriaId}
+              onChange={(e) => atualizarFiltro('subcategoriaId', e.target.value)}
+              disabled={!filtros.categoriaId}
+            >
+              <option value="">Todas</option>
+              {subcategoriasFiltro.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.nome}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="campo">
+            Estrutura de custo
+            <select
+              value={filtros.estruturaCusto}
+              onChange={(e) => atualizarFiltro('estruturaCusto', e.target.value as EstruturaCusto | '')}
+            >
+              <option value="">Todas</option>
+              {ESTRUTURAS.map((e) => (
+                <option key={e.valor} value={e.valor}>
+                  {e.rotulo}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="campo">
+            Meio de pagamento
+            <select
+              value={filtros.meioPagamento}
+              onChange={(e) => atualizarFiltro('meioPagamento', e.target.value as MeioPagamento | '')}
+            >
+              <option value="">Todos</option>
+              {MEIOS_PAGAMENTO.map((m) => (
+                <option key={m.valor} value={m.valor}>
+                  {m.rotulo}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="campo">
+            Parcelamento
+            <select
+              value={filtros.pagamento}
+              onChange={(e) => atualizarFiltro('pagamento', e.target.value as 'avista' | 'parcelado' | '')}
+            >
+              <option value="">Todos</option>
+              <option value="avista">À vista</option>
+              <option value="parcelado">Parcelado</option>
+            </select>
+          </label>
+        </div>
+
+        <div className="filtros-linha">
+          <button
+            type="button"
+            className="botao-secundario"
+            onClick={() => {
+              setMesRapido('')
+              setAnoRapido(String(new Date().getFullYear()))
+              setFiltros(FILTROS_VAZIOS)
+            }}
+          >
+            Limpar filtros
+          </button>
+        </div>
+        </div>
+
+        <div className="legenda-cores-transacao">
+          <span className="legenda-item"><span className="legenda-swatch" style={{ background: '#146c2e' }} />Receita / estorno / ressarcimento</span>
+          <span className="legenda-item"><span className="legenda-swatch" style={{ background: '#b3261e' }} />Despesa</span>
+          <span className="legenda-item"><span className="legenda-swatch" style={{ background: '#2563eb' }} />Investimento</span>
+          <span className="legenda-item"><span className="legenda-swatch" style={{ background: '#7c3aed' }} />Reserva (caixinha)</span>
+          <span className="legenda-item">Pílula cheia = aplicação · contorno = retirada</span>
+        </div>
+      </div>
+
+      {erro && <p className="mensagem-erro">{erro}</p>}
+
+      {transacoes === null && <p>Carregando…</p>}
+      {transacoes?.length === 0 && <p>Nenhum lançamento encontrado com esses filtros.</p>}
+      {transacoes && transacoes.length > 0 && (
+        <ul className="lista-crud">
+          {transacoes.map((t) => {
+            const conta = contasPorId.get(t.conta_id)
+            const categoria = t.categoria_id ? categoriasPorId.get(t.categoria_id) : undefined
+            const subcategoria = t.subcategoria_id ? subcategoriasPorId.get(t.subcategoria_id) : undefined
+            const caixinha = t.caixinha_id ? caixinhasPorId.get(t.caixinha_id) : undefined
+            const caixinhaOrigem = t.caixinha_origem_id ? caixinhasPorId.get(t.caixinha_origem_id) : undefined
+
+            const detalhes = [
+              rotuloTipoMovimento(t.tipo_movimento),
+              conta?.nome,
+              categoria?.nome,
+              subcategoria?.nome,
+              caixinha?.nome,
+              t.estrutura_custo ? rotuloEstruturaCusto(t.estrutura_custo) : null,
+              t.meio_pagamento ? rotuloMeioPagamento(t.meio_pagamento) : null,
+              t.pagamento === 'parcelado' ? `parcela ${t.parcela_atual}/${t.parcela_total}` : null,
+            ].filter(Boolean)
+
+            const direcao = direcaoAplicacaoRetirada(t.tipo_movimento)
+            const badge = badgeAjuste(t.tipo_movimento)
+            const classeValor = classePorTipoMovimento(t.tipo_movimento, t.caixinha_id)
+
+            return (
+              <li key={t.id}>
+                <div className="item-linha">
+                  <div className="item-info">
+                    <span className="item-titulo">
+                      {formatarData(t.data_compra)} — {t.descricao ?? '(sem descrição)'}
+                    </span>
+                    <span className="item-detalhe">{detalhes.join(' — ')}</span>
+                    {t.retirada_pendente && (
+                      <span className="badge-retirada-pendente">
+                        <span aria-hidden="true">◆</span> Falta retirar{caixinhaOrigem ? `: ${caixinhaOrigem.nome}` : ''}
+                      </span>
+                    )}
+                  </div>
+                  <div className="item-acoes">
+                    <span className="valor-col">
+                      {badge && <span className="badge-ajuste">{badge}</span>}
+                      <span
+                        className={
+                          direcao
+                            ? `chip-valor ${classeValor} ${direcao === 'entrada' ? 'chip-entrada' : 'chip-saida'}`
+                            : classeValor
+                        }
+                        style={direcao ? undefined : { fontWeight: 600 }}
+                      >
+                        {formatarMoeda(t.valor, oculto)}
+                      </span>
+                    </span>
+                    <Link to={`/lancamentos/${t.id}/editar`} className="botao-link">
+                      Editar
+                    </Link>
+                    <Link to="/lancamentos/novo" state={{ duplicar: t }} className="botao-link">
+                      Duplicar
+                    </Link>
+                    <button
+                      type="button"
+                      className="botao-link"
+                      disabled={excluindoId === t.id}
+                      onClick={() => excluir(t)}
+                    >
+                      Excluir
+                    </button>
+                    {t.compra_parcelada_id && (
+                      <button
+                        type="button"
+                        className="botao-link"
+                        disabled={excluindoId === t.compra_parcelada_id}
+                        onClick={() => excluirCompraParcelada(t)}
+                      >
+                        Excluir compra inteira
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </li>
+            )
+          })}
+        </ul>
+      )}
+        </>
+      )}
+    </div>
+  )
+}

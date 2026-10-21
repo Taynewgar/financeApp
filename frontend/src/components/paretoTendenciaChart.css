@@ -1,0 +1,24 @@
+/* Eixo/grade/tooltip reaproveitam as classes genéricas de evolucaoChart.css,
+ * mas --grade-cor/--eixo-cor só existem dentro de .evolucao-chart — precisam
+ * ser redeclaradas aqui (mesmo bug já corrigido em taxaPoupancaChart.css).
+ * Cor da série reaproveita a mesma de pareto.css (--pareto-cor, slot 2 da
+ * paleta — laranja): "% acumulado" e "despesa" são a mesma entidade, cor
+ * segue a entidade. */
+.pareto-tendencia-chart {
+  --grade-cor: #e1e0d9;
+  --eixo-cor: #898781;
+  --pareto-tendencia-cor: var(--serie-despesas, #eb6834);
+  margin-top: 12px;
+}
+
+@media (prefers-color-scheme: dark) {
+  .pareto-tendencia-chart {
+    --grade-cor: #2c2c2a;
+    --eixo-cor: #898781;
+    --pareto-tendencia-cor: #d95926;
+  }
+}
+
+.serie-pareto-tendencia {
+  background: var(--pareto-tendencia-cor);
+}

@@ -1,0 +1,219 @@
+/* Mesma paleta categórica validada usada no Dashboard — ordem fixa por
+ * bucket (não por valor), então a cor de cada bucket nunca muda. */
+.planejamento {
+  --bucket-fixos: #2a78d6;
+  --bucket-variaveis: #eb6834;
+  --bucket-sazonalidades: #4a3aa7;
+  --bucket-investimentos: #1baf7a;
+}
+
+@media (prefers-color-scheme: dark) {
+  .planejamento {
+    --bucket-fixos: #3987e5;
+    --bucket-variaveis: #d95926;
+    --bucket-sazonalidades: #9085e9;
+    --bucket-investimentos: #199e70;
+  }
+}
+
+.planejamento-resumo {
+  color: var(--cor-texto-suave);
+  font-size: 13px;
+  margin: 4px 0 16px;
+}
+
+.planejamento-config-resumo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.planejamento-alocacao {
+  margin-bottom: 20px;
+}
+
+.planejamento-estouro {
+  color: var(--cor-perigo);
+  font-weight: 600;
+}
+
+.planejamento-alocacao-barra-estourada {
+  outline: 2px solid var(--cor-perigo);
+  outline-offset: 2px;
+}
+
+.planejamento-alocacao-cabecalho {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 6px;
+  font-size: 13px;
+}
+
+.planejamento-alocacao-barra {
+  display: flex;
+  height: 10px;
+  border-radius: 5px;
+  overflow: hidden;
+  background: var(--cor-borda);
+  gap: 1px;
+}
+
+.planejamento-alocacao-segmento {
+  height: 100%;
+}
+
+.planejamento-alocacao-legenda {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--cor-texto-suave);
+}
+
+.planejamento-alocacao-legenda-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.planejamento-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.planejamento-buckets {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 24px;
+}
+
+/* bucket/categoria/seta/vazio/ir-busca reaproveitam as classes de
+ * estruturaCusto.css (importado em Planejamento.tsx) — mesmo acordeão de
+ * 2 níveis (bucket > categoria pai > subcategoria), pedido explícito do
+ * usuário 2026-09-30 ("assim como já acontece em estrutura de custos").
+ * Só o que é específico de Planejamento (barra de progresso, cabeçalho
+ * de colunas com Sobra do envelope/Disponível em vez de Realizado/
+ * Diferença/Status) mora aqui. */
+
+.planejamento-progresso {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--cor-borda);
+  overflow: hidden;
+  margin: 0 14px 12px 44px;
+}
+
+.planejamento-progresso-fill {
+  height: 100%;
+  border-radius: 2px;
+}
+
+.planejamento-cabecalho-colunas {
+  display: grid;
+  grid-template-columns: 1fr 85px 100px 85px 140px;
+  gap: 8px;
+  padding: 0 14px 6px 48px;
+  font-size: 11px;
+  color: var(--cor-texto-suave);
+  text-transform: uppercase;
+  letter-spacing: .03em;
+}
+
+.planejamento-cabecalho-colunas span:not(:first-child) {
+  text-align: right;
+}
+
+.planejamento-cabecalho-colunas span:last-child {
+  text-align: left;
+}
+
+.planejamento-sub-linha {
+  display: grid;
+  grid-template-columns: 1fr 85px 100px 85px 140px;
+  gap: 8px;
+  align-items: center;
+  padding: 10px 14px 10px 50px;
+  border-top: 1px solid var(--cor-borda);
+  font-size: 13px;
+  background: color-mix(in srgb, var(--cor-fundo) 55%, transparent);
+}
+
+.planejamento-sub-linha.inativo {
+  opacity: 0.55;
+}
+
+.planejamento-sub-linha .col-orcado,
+.planejamento-sub-linha .col-sobra,
+.planejamento-sub-linha .col-disponivel {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.planejamento-sub-linha .rotulo-inline {
+  display: none;
+}
+
+.planejamento-sub-linha-nome {
+  font-weight: 600;
+  min-width: 0;
+  overflow-wrap: break-word;
+}
+
+.planejamento-sub-linha-acoes {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 2px 6px;
+}
+
+/* mesmo breakpoint/estratégia de estruturaCusto.css: grid de colunas
+ * fixas nunca cabe em tela de celular — vira flex-wrap com o nome numa
+ * linha inteira e os valores (agora rotulados, já que o cabeçalho de
+ * coluna fica escondido) fluindo numa 2ª linha, em vez de vazar. */
+@media (max-width: 720px) {
+  .planejamento-cabecalho-colunas {
+    display: none;
+  }
+
+  .planejamento-sub-linha {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    row-gap: 6px;
+    column-gap: 14px;
+    padding-left: 30px;
+  }
+
+  .planejamento-sub-linha-nome {
+    flex: 1 1 100%;
+  }
+
+  .planejamento-sub-linha .col-orcado,
+  .planejamento-sub-linha .col-sobra,
+  .planejamento-sub-linha .col-disponivel {
+    text-align: left;
+  }
+
+  .planejamento-sub-linha .rotulo-inline {
+    display: inline;
+  }
+
+  .planejamento-sub-linha-acoes {
+    flex: 1 1 100%;
+    justify-content: flex-start;
+  }
+
+  .planejamento-progresso {
+    margin-left: 24px;
+  }
+}
