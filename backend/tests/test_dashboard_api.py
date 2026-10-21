@@ -948,6 +948,44 @@ def test_series_mensais_subcategoria_soma_por_mes(client):
     assert pontos == {"2026-01-01": 150, "2026-02-01": 70, "2026-03-01": 0}
 
 
+def test_series_mensais_categoria_abate_ressarcimento_vinculado(client):
+    """Achado 2026-10-21 (heatmap de categorias, item 51): ressarcimento
+    vinculado herda a mesma categoria/subcategoria da despesa original
+    — sem sinal próprio, ele somava junto em vez de abater, dobrando o
+    total exibido em vez de aproximar de zero."""
+    conta = _conta(client)
+    educacao = client.post("/categorias", json={"nome": "Educação"}).json()["id"]
+    despesa = client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-09-14",
+            "valor": 3696,
+            "tipo_movimento": "despesa",
+            "conta_id": conta["id"],
+            "categoria_id": educacao,
+            "estrutura_custo": "sazonal",
+            "meio_pagamento": "cartao_credito",
+        },
+    ).json()
+    client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-09-14",
+            "valor": 3696,
+            "tipo_movimento": "ressarcimento",
+            "conta_id": conta["id"],
+            "categoria_id": educacao,
+            "ajuste_de_transacao_id": despesa["id"],
+        },
+    )
+
+    corpo = _requisitar_series(
+        client, [f"categoria:{educacao}"], inicio="2026-09-01", fim="2026-09-01"
+    ).json()
+    pontos = {p["vigencia_mes"]: p["valor"] for p in corpo[0]["pontos"]}
+    assert pontos["2026-09-01"] == 0  # 3696 (despesa) - 3696 (ressarcimento) = 0, não 7392
+
+
 def test_series_mensais_categoria_de_receita_tambem_funciona(client):
     conta = _conta(client)
     salario = client.post("/categorias", json={"nome": "Salário", "tipo": "receita"}).json()["id"]

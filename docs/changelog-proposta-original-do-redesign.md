@@ -6643,3 +6643,60 @@ pede confirmação do usuário no ambiente real.
 - [ ] Conferir que o JSON ainda tem os mesmos dados de antes (12
       meses em `estrutura_custo_mensal`, valores batendo com o que a
       tela de Estrutura de Custo mostra mês a mês).
+
+### Rodada 95 (2026-10-21) — Fix: heatmap contava ressarcimento como gasto a mais
+
+Achado testando a Rodada 91: usuário reportou valor de Educação em
+setembro/26 muito acima do real — enviou print de "Últimos
+lançamentos por conta" mostrando "Acervo CBCS" (despesa, R$ 3.696) e
+"Ressarcimento Acervo CBCS" (mesma categoria/subcategoria, mesmo
+valor) no mesmo dia.
+
+**Causa raiz (`GET /dashboard/series-mensais`):** o predicado de
+`tipo: "categoria"`/`"subcategoria"` soma `valor` de QUALQUER
+transação com aquele categoria_id/subcategoria_id, sem aplicar sinal
+por `tipo_movimento` — diferente de `despesas_liquidas`
+(`/dashboard/mensal`) e do `_SINAL_REALIZADO` de
+`estrutura_custo.py`, que já tratam estorno/ressarcimento como
+abatimento (-1), não soma (+1). Um ressarcimento vinculado herda a
+mesma categoria da despesa original (confirmado no print), então
+estava sendo CONTADO A MAIS em vez de abater — R$ 3.696 (despesa) +
+R$ 3.696 (ressarcimento, deveria ser -3.696) = R$ 7.392 em vez de
+R$ 0. Afeta todos os consumidores de `series-mensais` que usam tipo
+`categoria`/`subcategoria` pra uma categoria de despesa com algum
+estorno/ressarcimento vinculado — heatmap, Comparador de Séries, Ano
+a Ano.
+
+**Fix:** novo dicionário `_SINAL_SERIE_CATEGORIA` (receita: +1,
+despesa: +1, estorno: -1, ressarcimento: -1), aplicado só nos tipos
+`subcategoria`/`categoria` (os outros tipos — estrutura, caixinha_
+aporte/retirada — já filtram por `tipo_movimento` exato e não tinham
+esse problema).
+
+**Testes:** 1 novo,
+`test_series_mensais_categoria_abate_ressarcimento_vinculado` —
+despesa de R$ 3.696 + ressarcimento vinculado de R$ 3.696 na mesma
+categoria, confirma soma do mês = 0. Suíte: 426 passed, 33 skipped
+(era 425 antes).
+
+**Status:** implementado 2026-10-21, aguardando teste do usuário.
+
+### Rodada 96 (2026-10-21) — Fix: legenda do Ano a Ano não dizia qual série
+
+Achado testando a Rodada 91: a legenda do gráfico "Ano a Ano" mostra
+só os anos sobrepostos (2024/2025/2026 + média), sem nenhuma indicação
+de QUAL categoria/subcategoria/estrutura/caixinha está sendo exibida
+— só visível no picker lateral (que pode estar rolado/fora de vista).
+
+**Fix (`ComparadorAnoAno.tsx`):** 1ª entrada da legenda do gráfico
+agora mostra "Série: {nome da opção selecionada}" em destaque, antes
+dos anos.
+
+**Testes:** mudança de frontend puro. `tsc -b`/`oxlint` sem erro novo.
+
+**Status:** implementado 2026-10-21, aguardando teste do usuário.
+
+**Checklist de teste manual (usuário, localmente):**
+- [ ] Selecionar qualquer série no Ano a Ano e confirmar que a
+      legenda do gráfico mostra o nome dela, sem precisar olhar o
+      picker lateral.

@@ -351,6 +351,13 @@ def patrimonio_caixinhas(
 
 _ESTRUTURA_LABEL = {"fixo": "Fixo", "variavel": "Variável", "sazonal": "Sazonal", "investimentos": "Investimentos"}
 _TIPOS_DE_SERIE = {"subcategoria", "categoria", "estrutura", "caixinha_aporte", "caixinha_retirada"}
+# série de categoria/subcategoria mistura despesa e seus ajustes vinculados
+# (estorno/ressarcimento sempre têm a mesma categoria da despesa original —
+# achado 2026-10-21: heatmap contava o ressarcimento como gasto A MAIS em
+# vez de abater, dobrando o total) — mesmo sinal de despesas_liquidas/
+# _SINAL_REALIZADO (estrutura_custo.py), com receita incluída aqui porque,
+# diferente de lá, series-mensais também serve categoria de receita.
+_SINAL_SERIE_CATEGORIA = {"receita": 1, "despesa": 1, "estorno": -1, "ressarcimento": -1}
 
 
 def _parsear_chave_serie(chave: str) -> tuple[str, str]:
@@ -453,7 +460,11 @@ def series_mensais(
             if tipo == "caixinha_retirada" and (t["tipo_movimento"] != "retirada" or t["caixinha_id"] != valor):
                 continue
             i = indice_do_mes.get(f"{t['data_compra'][:7]}-01")
-            if i is not None:
+            if i is None:
+                continue
+            if tipo in ("subcategoria", "categoria"):
+                somas[i] += _SINAL_SERIE_CATEGORIA.get(t["tipo_movimento"], 0) * t["valor"]
+            else:
                 somas[i] += t["valor"]
 
         if tipo == "estrutura":

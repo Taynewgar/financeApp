@@ -112,6 +112,7 @@ export function ComparadorAnoAno() {
     return valores.length > 0 ? valores.reduce((a, b) => a + b, 0) / valores.length : 0
   })
 
+  const nomeSelecionado = opcoes.find((o) => o.chave === chaveSelecionada)?.nome ?? ''
   const nomesMes = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez']
   const grupoLargura = espacamento * 0.72
   const listaAnos = porAno ? Array.from(porAno.entries()) : []
@@ -159,6 +160,11 @@ export function ComparadorAnoAno() {
 
         <div className="comparador-chart-card">
           <div className="comparador-legenda">
+            {nomeSelecionado && (
+              <span className="comparador-legenda-item" style={{ color: 'var(--cor-texto)', fontWeight: 600 }}>
+                Série: {nomeSelecionado}
+              </span>
+            )}
             {listaAnos.map(([ano], i) => (
               <span key={ano} className="comparador-legenda-item">
                 <span className="comparador-chip-cor" style={{ background: corDaSerie(i) }} />
