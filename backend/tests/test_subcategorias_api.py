@@ -76,6 +76,82 @@ def test_mover_subcategoria_para_outra_categoria_despesa(client):
     assert movida.json()["categoria_id"] == casa["id"]
 
 
+def test_mover_subcategoria_atualiza_categoria_em_transacoes_existentes(client):
+    # achado 2026-11-03 (bug urgente): mover a subcategoria só atualizava
+    # subcategorias.categoria_id — a transação já lançada ficava presa na
+    # categoria pai antiga (denormalizada em transacoes.categoria_id),
+    # sumindo do filtro pela categoria nova.
+    pessoais = client.post("/categorias", json={"nome": "Pessoais"}).json()
+    espiritualidade = client.post("/categorias", json={"nome": "Espiritualidade"}).json()
+    sub = client.post("/subcategorias", json={"categoria_id": pessoais["id"], "nome": "Trabalhos e Ebós"}).json()
+    conta = client.post("/contas", json={"nome": "Conta", "tipo_conta": "corrente", "saldo_inicial": 0}).json()
+    transacao = client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-11-01",
+            "valor": 500,
+            "descricao": "Ebó",
+            "tipo_movimento": "despesa",
+            "conta_id": conta["id"],
+            "categoria_id": pessoais["id"],
+            "subcategoria_id": sub["id"],
+            "estrutura_custo": "sazonal",
+            "meio_pagamento": "pix",
+        },
+    ).json()
+
+    client.patch(f"/subcategorias/{sub['id']}", json={"categoria_id": espiritualidade["id"]})
+
+    atualizada = client.get(f"/transacoes/{transacao['id']}").json()
+    assert atualizada["categoria_id"] == espiritualidade["id"]
+
+
+def test_mover_subcategoria_atualiza_categoria_em_recorrentes_existentes(client):
+    pessoais = client.post("/categorias", json={"nome": "Pessoais"}).json()
+    espiritualidade = client.post("/categorias", json={"nome": "Espiritualidade"}).json()
+    sub = client.post("/subcategorias", json={"categoria_id": pessoais["id"], "nome": "Trabalhos e Ebós"}).json()
+    conta = client.post("/contas", json={"nome": "Conta", "tipo_conta": "corrente", "saldo_inicial": 0}).json()
+    recorrente = client.post(
+        "/lancamentos-recorrentes",
+        json={
+            "descricao": "Ebó mensal",
+            "valor": 200,
+            "dia_mes": 1,
+            "tipo_movimento": "despesa",
+            "conta_id": conta["id"],
+            "categoria_id": pessoais["id"],
+            "subcategoria_id": sub["id"],
+            "estrutura_custo": "fixo",
+            "meio_pagamento": "pix",
+            "data_inicio": "2026-11-01",
+        },
+    ).json()
+
+    client.patch(f"/subcategorias/{sub['id']}", json={"categoria_id": espiritualidade["id"]})
+
+    atualizado = client.get(f"/lancamentos-recorrentes/{recorrente['id']}").json()
+    assert atualizado["categoria_id"] == espiritualidade["id"]
+
+
+def test_mover_subcategoria_atualiza_categoria_em_itens_de_orcamento_existentes(client):
+    pessoais = client.post("/categorias", json={"nome": "Pessoais"}).json()
+    espiritualidade = client.post("/categorias", json={"nome": "Espiritualidade"}).json()
+    sub = client.post("/subcategorias", json={"categoria_id": pessoais["id"], "nome": "Trabalhos e Ebós"}).json()
+    orcamento = client.post(
+        "/orcamentos", json={"vigencia_mes": "2026-11-01", "receita_base": 10000, "percentual_geral": 90}
+    ).json()
+    item = client.post(
+        f"/orcamentos/{orcamento['id']}/itens",
+        json={"bucket": "sazonalidades", "categoria_id": pessoais["id"], "subcategoria_id": sub["id"], "orcamento_mensal": 300},
+    ).json()
+
+    client.patch(f"/subcategorias/{sub['id']}", json={"categoria_id": espiritualidade["id"]})
+
+    itens = client.get(f"/orcamentos/{orcamento['id']}/itens").json()
+    item_atualizado = next(i for i in itens if i["id"] == item["id"])
+    assert item_atualizado["categoria_id"] == espiritualidade["id"]
+
+
 def test_mover_subcategoria_para_categoria_receita_retorna_422(client):
     mercado = client.post("/categorias", json={"nome": "Mercado"}).json()
     receita = client.post("/categorias", json={"nome": "Salário", "tipo": "receita"}).json()

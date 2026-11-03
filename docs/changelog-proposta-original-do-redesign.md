@@ -6984,3 +6984,54 @@ build` sem erro novo.
 - [ ] No mesmo cenário, trocar pra "Σ Somado" — confirmar que vira 1
       barra por mês, e que o valor bate com a soma das barras do modo
       "Por caixinha" daquele mês.
+
+### Rodada 102 (2026-11-03) — Fix urgente: mover subcategoria não levava os lançamentos junto
+
+Usuário reportou: moveu a subcategoria "Espiritualidade" (renomeada pra
+"Trabalhos e Ebós") de dentro de "Pessoais" pra uma nova categoria pai
+"Espiritualidade" separada. Filtrando Lançamentos só por essa categoria
+pai nova, nada aparecia — as transações continuavam presas na categoria
+pai antiga ("Pessoais").
+
+**Causa raiz:** `PATCH /subcategorias/{id}` (item 21 do backlog, mover
+subcategoria pra outra categoria pai) só atualizava
+`subcategorias.categoria_id`. `transacoes`, `lancamentos_recorrentes` e
+`orcamento_itens` guardam `categoria_id` **denormalizado** junto com
+`subcategoria_id` (pra filtro rápido sem precisar de join) — nenhuma das
+3 tabelas era atualizada quando a subcategoria mudava de categoria pai,
+deixando todo lançamento já existente "preso" na categoria antiga: some
+do filtro pela categoria nova, continua aparecendo filtrando pela
+antiga.
+
+**Fix (`subcategorias.py`):** ao mover a subcategoria, a mesma mudança
+de `categoria_id` agora é propagada em cascata pras 3 tabelas que
+denormalizam o par categoria/subcategoria, filtrando por
+`subcategoria_id` (+ `user_id` em transacoes/lancamentos_recorrentes;
+`orcamento_itens` não tem `user_id` próprio, mas filtrar só por
+`subcategoria_id` já é seguro — o FK garante que só linha do dono da
+subcategoria pode referenciá-la).
+
+**Dado já afetado na conta real:** esse fix só vale pra movimentações
+NOVAS a partir de agora — não corrige retroativamente o que já ficou
+desalinhado antes dele. Pra consertar a subcategoria "Trabalhos e Ebós"
+que você já moveu: depois que isto for pro ar, abra Configurações e
+mova ela de novo (pode ser pra ela mesma categoria "Espiritualidade"
+onde já está) — qualquer PATCH que inclua `categoria_id` dispara a
+cascata, mesmo repetindo o valor atual, e realinha as transações
+antigas.
+
+**Testes:** `test_mover_subcategoria_atualiza_categoria_em_transacoes_
+existentes`, `..._em_recorrentes_existentes`, `..._em_itens_de_
+orcamento_existentes` — 3 casos novos em `test_subcategorias_api.py`,
+1 por tabela denormalizada. Suíte completa: 435 passed/33 skipped
+(offline).
+
+**Status:** implementado 2026-11-03, aguardando teste do usuário.
+
+**Checklist de teste manual (usuário, localmente):**
+- [ ] Mover novamente a subcategoria "Trabalhos e Ebós" (mesmo destino
+      ou outro) e confirmar que as transações antigas passam a
+      aparecer filtrando pela categoria pai nova.
+- [ ] Mover uma subcategoria de teste com transações, recorrentes e
+      item de orçamento vinculados — confirmar que os 3 seguem a
+      subcategoria pra nova categoria pai.

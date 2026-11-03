@@ -84,9 +84,35 @@ def atualizar(
         if nova_categoria[0]["tipo"] != "despesa":
             raise HTTPException(status_code=422, detail="Só é possível mover a subcategoria para outra categoria de despesa")
     try:
-        return crud.update(db, TABLE, user_id, subcategoria_id, dados)
+        resultado = crud.update(db, TABLE, user_id, subcategoria_id, dados)
     except crud.NotFound:
         raise HTTPException(status_code=404, detail="Subcategoria não encontrada")
+
+    if "categoria_id" in dados:
+        # achado 2026-11-03 (bug urgente reportado pelo usuário): mover a
+        # subcategoria só atualizava subcategorias.categoria_id — toda
+        # transação/recorrente/item de orçamento já lançado continuava
+        # com o categoria_id ANTIGO (denormalizado em cada tabela pra
+        # filtro rápido sem precisar de join), ficando "preso" na
+        # categoria pai velha: sumia do filtro pela categoria nova e
+        # ainda aparecia filtrando pela antiga. Mantém os 2 campos
+        # sincronizados em cascata pras 3 tabelas que denormalizam
+        # categoria_id+subcategoria_id. orcamento_itens não tem user_id
+        # próprio (só via orcamento_id→orcamentos.user_id), mas filtrar só
+        # por subcategoria_id já é seguro — o FK garante que só linhas do
+        # dono da subcategoria podem referenciá-la.
+        nova_categoria_id = dados["categoria_id"]
+        db.table("transacoes").update({"categoria_id": nova_categoria_id}).eq(
+            "subcategoria_id", subcategoria_id
+        ).eq("user_id", user_id).execute()
+        db.table("lancamentos_recorrentes").update({"categoria_id": nova_categoria_id}).eq(
+            "subcategoria_id", subcategoria_id
+        ).eq("user_id", user_id).execute()
+        db.table("orcamento_itens").update({"categoria_id": nova_categoria_id}).eq(
+            "subcategoria_id", subcategoria_id
+        ).execute()
+
+    return resultado
 
 
 @router.patch("/{subcategoria_id}/ativo", response_model=Subcategoria)
