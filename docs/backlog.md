@@ -127,12 +127,23 @@ changelog já documenta quando e como cada um foi entregue).
   re-buscar `ultimosPorConta()`); o caminho de CRIAR (Novo Lançamento)
   não foi coberto — precisa confirmar se é o mesmo tipo de causa
   (re-fetch faltando) ou outra coisa. *(trazido em CSV, 2026-10-21)*
+- **92.** **KPI de despesas líquidas em Lançamentos não considera
+  ressarcimento** `tipo: Bug` — mesma classe de problema do item 90
+  (Pareto bruto × líquido): o KPI de despesas líquidas da tela de
+  Lançamentos erra a conta ao não abater estorno/ressarcimento
+  vinculado. Conferir se usa o mesmo sinal de `_SINAL_SERIE_CATEGORIA`/
+  `_SINAL_REALIZADO` já estabelecido em `estrutura_custo.py` e corrigido
+  em `series-mensais` (Rodada 95) — provável causa raiz igual, endpoint
+  diferente. *(trazido em CSV, 2026-11-03)*
 
 **Média**
 
 - **85.** **Flag/marcador pra identificar transações que são "contas"**
   `tipo: Implementação` — prepara terreno pra feature futura Agenda de
   Contas (item 41, ainda stub). *(trazido em CSV, 2026-10-21)*
+- **93.** **Filtro de ordenação pros lançamentos exibidos** `tipo:
+  Melhoria` — só deve afetar a ordem de exibição da lista atual, sem
+  mexer em filtros/dados por trás. *(trazido em CSV, 2026-11-03)*
 
 **Baixa**
 
@@ -220,6 +231,13 @@ changelog já documenta quando e como cada um foi entregue).
   2026-09-30)*
 
 #### Configurações
+
+**Média**
+
+- **94.** **Formulário de edição de categoria pai abre no topo da
+  página em vez de perto do card editado** `tipo: Bug` — deveria abrir
+  logo abaixo do card da categoria que está sendo editada, não forçar
+  rolar até o topo. *(trazido em CSV, 2026-11-03)*
 
 **Baixa**
 
