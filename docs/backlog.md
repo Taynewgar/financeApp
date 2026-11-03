@@ -178,6 +178,17 @@ changelog já documenta quando e como cada um foi entregue).
 
 **Alta**
 
+- **90.** **Toggle despesa bruta × líquida no Pareto** `tipo: Melhoria`
+  — o Pareto (tabela + curva de % acumulado, por categoria e por
+  subcategoria) soma só despesa bruta (`_despesas_por_categoria_entre`),
+  sem abater estorno/ressarcimento vinculado, então diverge do
+  `despesas_liquidas` de Lançamentos/Dashboard (ex: Lazer 2026 até
+  02/11: R$ 28.440,58 bruto × R$ 27.265,58 líquido; Educação perde
+  R$ 3.696 de ressarcimentos). Decidido: um toggle Bruto/Líquido na tela,
+  mantendo bruto como padrão atual; o líquido usa o mesmo sinal de
+  `_SINAL_SERIE_CATEGORIA` (despesa +, estorno/ressarcimento vinculado
+  −). Percentual e corte de 80% recalculados sobre o total da leitura
+  escolhida. *(trazido na conversa, 2026-11-03)*
 - **79.** **Gráfico/análise de saúde financeira prevendo sazonalidade**
   `tipo: Criação` — relacionar e evidenciar graficamente a saúde
   financeira baseada na estrutura de custo, com destaque pra custos
