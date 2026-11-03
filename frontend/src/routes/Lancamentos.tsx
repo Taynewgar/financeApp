@@ -621,6 +621,10 @@ export function Lancamentos() {
             const direcao = direcaoAplicacaoRetirada(t.tipo_movimento)
             const badge = badgeAjuste(t.tipo_movimento)
             const classeValor = classePorTipoMovimento(t.tipo_movimento, t.caixinha_id)
+            // item 91 do backlog: ajuste sem ajuste_de_transacao_id não abate
+            // despesas_liquidas e conta como receita extra na leitura de
+            // saúde — hoje nada avisa, só dá pra notar comparando os números
+            const semVinculo = badge !== null && !t.ajuste_de_transacao_id
 
             return (
               <li key={t.id}>
@@ -633,6 +637,11 @@ export function Lancamentos() {
                     {t.retirada_pendente && (
                       <span className="badge-retirada-pendente">
                         <span aria-hidden="true">◆</span> Falta retirar{caixinhaOrigem ? `: ${caixinhaOrigem.nome}` : ''}
+                      </span>
+                    )}
+                    {semVinculo && (
+                      <span className="badge-sem-vinculo" title="Sem a despesa original vinculada — não abate despesas líquidas nem taxa de poupança">
+                        <span aria-hidden="true">⚠</span> Sem despesa original vinculada
                       </span>
                     )}
                   </div>

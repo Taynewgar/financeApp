@@ -76,7 +76,8 @@ changelog já documenta quando e como cada um foi entregue).
 **Alta**
 
 - **91.** **Sinalizar no card se estorno/ressarcimento já está vinculado
-  à despesa original** `tipo: Melhoria` — o card de um estorno/
+  à despesa original** `tipo: Melhoria` — **✅ implementado 2026-11-03**
+  (Rodada 103), aguardando teste do usuário. O card de um estorno/
   ressarcimento deve mostrar se `ajuste_de_transacao_id` está
   preenchido. Motivo: um ajuste sem vínculo não abate `despesas_liquidas`
   e conta como receita extra na leitura de saúde (distorcendo a taxa de

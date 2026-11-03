@@ -7035,3 +7035,33 @@ orcamento_existentes` — 3 casos novos em `test_subcategorias_api.py`,
 - [ ] Mover uma subcategoria de teste com transações, recorrentes e
       item de orçamento vinculados — confirmar que os 3 seguem a
       subcategoria pra nova categoria pai.
+
+### Rodada 103 (2026-11-03) — Item 91: avisar estorno/ressarcimento sem vínculo
+
+Card de estorno/ressarcimento em Lançamentos não avisava quando
+`ajuste_de_transacao_id` estava vazio — só dava pra notar comparando
+despesas brutas × líquidas (achado 2026-11-03: 35 ajustes sem vínculo
+em 2026). Um ajuste sem vínculo não abate `despesas_liquidas` e conta
+como receita extra na leitura de saúde/taxa de poupança.
+
+**Fix (`Lancamentos.tsx`/`lancamentos.css`):** badge âmbar "⚠ Sem
+despesa original vinculada" no card, só quando o tipo é estorno/
+ressarcimento E `ajuste_de_transacao_id` é nulo — mesmo padrão visual
+já usado pro "Falta retirar da caixinha" (item 58): só avisa quando há
+pendência, sem badge nenhum (nem verde) quando já está tudo vinculado
+— evita ruído visual na maioria dos cards, que já estão corretos.
+
+**Testes:** mudança de frontend puro. `tsc -b`, `oxlint` e `npm run
+build` sem erro novo — sem teste automatizado dedicado (é só
+renderização condicional de um badge, a lógica de quando o vínculo
+deveria existir já está coberta pelos testes do fluxo de confirmação
+de estorno/ressarcimento).
+
+**Status:** implementado 2026-11-03, aguardando teste do usuário.
+
+**Checklist de teste manual (usuário, localmente):**
+- [ ] Em Lançamentos, localizar um estorno/ressarcimento SEM despesa
+      original vinculada (ex: os 35 achados em 2026) e confirmar que o
+      badge "⚠ Sem despesa original vinculada" aparece no card.
+- [ ] Confirmar que um estorno/ressarcimento vinculado corretamente
+      NÃO mostra esse badge (nem nenhum outro no lugar).

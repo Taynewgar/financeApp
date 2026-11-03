@@ -272,3 +272,21 @@
   border: 1px solid rgba(245, 158, 11, 0.4);
   width: fit-content;
 }
+
+/* item 91 do backlog: estorno/ressarcimento sem ajuste_de_transacao_id
+ * vinculado — mesmo visual de aviso do badge-retirada-pendente acima
+ * (mesma cor âmbar, mesmo motivo: pendência que distorce os números até
+ * o usuário resolver). */
+.badge-sem-vinculo {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  background: rgba(245, 158, 11, 0.16);
+  color: #f59e0b;
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  width: fit-content;
+}
