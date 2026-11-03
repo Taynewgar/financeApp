@@ -75,6 +75,15 @@ changelog já documenta quando e como cada um foi entregue).
 
 **Alta**
 
+- **91.** **Sinalizar no card se estorno/ressarcimento já está vinculado
+  à despesa original** `tipo: Melhoria` — o card de um estorno/
+  ressarcimento deve mostrar se `ajuste_de_transacao_id` está
+  preenchido. Motivo: um ajuste sem vínculo não abate `despesas_liquidas`
+  e conta como receita extra na leitura de saúde (distorcendo a taxa de
+  poupança); hoje nada na tela avisa — só dá pra descobrir comparando os
+  números (achado 2026-11-03: 35 ajustes sem vínculo em 2026, ex:
+  "Ressarcimento mãe aniversário", R$ 509,80). *(trazido na conversa,
+  2026-11-03)*
 - **74.** **Excluir categoria/subcategoria sem transação associada**
   `tipo: Implementação` (detalhe abaixo) — hoje só existe desativar
   (`PATCH .../ativo`), nenhum DELETE real. *(2026-10-14)*
