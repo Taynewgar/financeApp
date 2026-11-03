@@ -6909,3 +6909,44 @@ altura vs. outras).
       o tooltip lista todos os anos comparados + a média, de uma vez.
 - [ ] No Ano a Ano, selecionar uma categoria pai (aba nova) e confirmar
       que o gráfico carrega normalmente.
+
+### Rodada 100 (2026-11-03) — Proporção (altura menor + grid) + mockup de Caixinha Fluxo
+
+Usuário escolheu, entre as opções levantadas na Rodada 99:
+
+1. **Opção B pra proporção**: altura menor nos 3 gráficos SVG (Comparador
+   de Séries, Ano a Ano, Caixinha Fluxo) **combinada** com o grid de 2
+   colunas que já existia (não substituindo um pelo outro).
+2. **Mockup** pra decidir como juntar várias caixinhas marcadas num
+   gráfico só (hoje "Separado" ainda gera 1 card por caixinha) — pediu
+   mockup antes de implementar, não decisão direta.
+
+**Fix — altura (`ComparadorSeries.tsx`, `ComparadorAnoAno.tsx`,
+`CaixinhaFluxo.tsx`):** altura do SVG de 420 → 300px (margens internas
+também reduzidas de 16/32 pra 14/28) nos 3 gráficos. O Heatmap não
+mudou — é uma tabela, não um SVG de altura fixa, não tinha o mesmo
+problema. O grid de 2 colunas (`Graficos.tsx`, já na Rodada 98)
+continua como estava.
+
+**Mockup — Caixinha Fluxo em barras agrupadas** (canvas de design, veja
+link na resposta ao usuário): simula 3 caixinhas marcadas (Viagem,
+Emergência, Reforma) com um toggle entre as 3 abordagens discutidas —
+aporte só, fluxo líquido (aporte − retirada, pode ficar negativo), ou
+aporte+retirada lado a lado (mostra a densidade real com 3 caixinhas:
+6 barras por mês). Nenhum código de `CaixinhaFluxo.tsx` mudou ainda —
+aguardando a escolha do usuário.
+
+**Testes:** mudança de frontend puro (altura/margem). `tsc -b`,
+`oxlint` e `npm run build` sem erro novo. Suíte backend revalidada
+(432 passed/33 skipped) depois de recriar o ambiente (container novo
+desta sessão não tinha `node_modules`/venv).
+
+**Status:** implementado 2026-11-03, aguardando teste do usuário (altura)
+e decisão do usuário (mockup de barras).
+
+**Checklist de teste manual (usuário, localmente):**
+- [ ] Comparador de Séries, Ano a Ano e Caixinha Fluxo — confirmar que
+      ficaram mais baixos (menos "ocupando a tela toda" em conjunto com
+      o grid de 2 colunas).
+- [ ] Abrir o mockup do canvas e escolher uma das 3 opções de barras
+      agrupadas pra Caixinha Fluxo (ou propor outra).

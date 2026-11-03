@@ -10,8 +10,8 @@ import { escalaY } from '../lib/escala'
 import type { Caixinha, Categoria, SerieMensal, Subcategoria } from '../lib/types'
 
 const LARG = 900
-const ALT = 420
-const MARG = { topo: 16, base: 32, esq: 64, dir: 70 }
+const ALT = 300
+const MARG = { topo: 14, base: 28, esq: 64, dir: 70 }
 const ALT_PLOT = ALT - MARG.topo - MARG.base
 const QTD_ANOS_OPCOES = [2, 3, 5]
 const COR_MEDIA_PERIODO = '#f59e0b'

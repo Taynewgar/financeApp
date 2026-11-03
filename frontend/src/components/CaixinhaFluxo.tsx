@@ -43,8 +43,8 @@ function FluxoChart({
   compacto?: boolean
   oculto: boolean
 }) {
-  const alt = compacto ? 260 : 420
-  const marg = { topo: 16, base: 32, esq: 64, dir: 16 }
+  const alt = compacto ? 260 : 300
+  const marg = { topo: 14, base: 28, esq: 64, dir: 16 }
   const altPlot = alt - marg.topo - marg.base
 
   const meses = aporte ? aporte.pontos.map((p) => p.vigencia_mes) : []
