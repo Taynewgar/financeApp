@@ -5,8 +5,10 @@ import { corDaSerie } from '../lib/coresSeries'
 import { formatarMoeda } from '../lib/formatar'
 import { calcularPeriodoGrafico, hojeAnoMes, PERIODOS_GRAFICO } from '../lib/periodo'
 import { montarLinhasPicker, type ItemPicker } from '../lib/pickerSeries'
+import { montarTooltip, type LinhaTooltip } from '../lib/tooltipSvg'
 import { usePrivacidade } from '../lib/PrivacyContext'
 import { escalaY } from '../lib/escala'
+import { TooltipSvgGroup } from './TooltipSvgGroup'
 import type { Caixinha, Categoria, SerieMensal, Subcategoria } from '../lib/types'
 
 const LARG = 900
@@ -210,12 +212,11 @@ export function ComparadorSeries() {
   }
 
   // Rodada 98: hover de QUALQUER lugar da coluna do mês (não só em cima
-  // da bolinha, que o usuário reportou ser pequena/difícil demais) e a
-  // caixa lista TODAS as séries selecionadas daquele mês de uma vez (não
-  // só a que está sob o cursor) — bem mais informação por hover. Y fixo
-  // perto do topo do plot, não mais perto do ponto: evita de vez o bug
-  // de clipping de antes (a caixa saindo do viewBox do <svg>).
-  const linhasTooltip =
+  // da bolinha) e a caixa lista TODAS as séries selecionadas daquele mês
+  // de uma vez. Rodada 104: geometria/fonte corrigidas de vez e extraídas
+  // pra lib/tooltipSvg.ts (usuário reportou caixa cortando a última
+  // linha e fonte pequena — mesmo helper usado pelos outros gráficos).
+  const linhasTooltip: LinhaTooltip[] =
     hoverIndice !== null && series
       ? [
           ...series.map((s) => ({
@@ -227,20 +228,11 @@ export function ComparadorSeries() {
             ? [{ nome: 'Média entre as séries', cor: 'var(--cor-texto)', valor: oculto ? '•••' : formatarMoeda(mediaPorMes[hoverIndice]) }]
             : []),
         ]
-      : null
+      : []
 
   const tooltip =
-    hoverIndice !== null && linhasTooltip && linhasTooltip.length > 0
-      ? (() => {
-          const maiorNome = Math.max(...linhasTooltip.map((l) => l.nome.length))
-          const largura = Math.min(260, Math.max(150, 58 + maiorNome * 5.4))
-          const altura = 24 + linhasTooltip.length * 15
-          const xPonto = x(hoverIndice)
-          const estouraDireita = xPonto + 14 + largura > LARG - 6
-          const rectX = estouraDireita ? xPonto - 14 - largura : xPonto + 14
-          const rectY = MARG.topo + 4
-          return { rectX, rectY, largura, altura, textX: rectX + 10, mes: rotuloMes(meses[hoverIndice]), linhas: linhasTooltip }
-        })()
+    hoverIndice !== null
+      ? montarTooltip(rotuloMes(meses[hoverIndice]), linhasTooltip, x(hoverIndice), MARG.topo + 4, LARG, MARG.dir)
       : null
 
   const chipsSelecionadas = Array.from(selecionadas).map((chave) => ({
@@ -475,22 +467,7 @@ export function ComparadorSeries() {
               />
             ))}
 
-            {tooltip && (
-              <g>
-                <rect x={tooltip.rectX} y={tooltip.rectY} width={tooltip.largura} height={tooltip.altura} rx={6} fill="var(--cor-superficie)" stroke="var(--cor-borda)" strokeWidth={1.5} />
-                <text x={tooltip.textX} y={tooltip.rectY + 15} className="comparador-tooltip-titulo" fill="var(--cor-texto)">
-                  {tooltip.mes}
-                </text>
-                {tooltip.linhas.map((l, i) => (
-                  <g key={i}>
-                    <rect x={tooltip.textX} y={tooltip.rectY + 23 + i * 15 - 7} width={8} height={8} rx={2} fill={l.cor} />
-                    <text x={tooltip.textX + 13} y={tooltip.rectY + 23 + i * 15} className="comparador-tooltip-texto">
-                      {l.nome}: {l.valor}
-                    </text>
-                  </g>
-                ))}
-              </g>
-            )}
+            <TooltipSvgGroup tooltip={tooltip} />
           </svg>
         )}
       </div>

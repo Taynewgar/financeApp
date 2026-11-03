@@ -5,8 +5,10 @@ import { corDaSerie } from '../lib/coresSeries'
 import { formatarMoeda } from '../lib/formatar'
 import { hojeAnoMes } from '../lib/periodo'
 import { montarLinhasPicker, type ItemPicker } from '../lib/pickerSeries'
+import { montarTooltip, type LinhaTooltip } from '../lib/tooltipSvg'
 import { usePrivacidade } from '../lib/PrivacyContext'
 import { escalaY } from '../lib/escala'
+import { TooltipSvgGroup } from './TooltipSvgGroup'
 import type { Caixinha, Categoria, SerieMensal, Subcategoria } from '../lib/types'
 
 const LARG = 900
@@ -214,8 +216,9 @@ export function ComparadorAnoAno() {
 
   // Rodada 98: mesmo tooltip por coluna do mês do Comparador de Séries —
   // hover em qualquer lugar da coluna, lista todos os anos + a média de
-  // uma vez, caixa ancorada perto do topo (nunca sai do viewBox do <svg>).
-  const linhasTooltip =
+  // uma vez. Rodada 104: geometria/fonte corrigidas de vez e extraídas
+  // pra lib/tooltipSvg.ts (caixa cortava a última linha, fonte pequena).
+  const linhasTooltip: LinhaTooltip[] =
     hoverIndice !== null && porAno
       ? [
           ...listaAnos.map(([ano], i) => ({
@@ -227,20 +230,11 @@ export function ComparadorAnoAno() {
             ? [{ nome: 'Média entre os anos', cor: 'var(--cor-texto)', valor: oculto ? '•••' : formatarMoeda(mediaPorMes[hoverIndice]) }]
             : []),
         ]
-      : null
+      : []
 
   const tooltip =
-    hoverIndice !== null && linhasTooltip && linhasTooltip.length > 0
-      ? (() => {
-          const maiorNome = Math.max(...linhasTooltip.map((l) => l.nome.length))
-          const largura = Math.min(260, Math.max(150, 58 + maiorNome * 5.4))
-          const altura = 24 + linhasTooltip.length * 15
-          const xPonto = x(hoverIndice)
-          const estouraDireita = xPonto + 14 + largura > LARG - 6
-          const rectX = estouraDireita ? xPonto - 14 - largura : xPonto + 14
-          const rectY = MARG.topo + 4
-          return { rectX, rectY, largura, altura, textX: rectX + 10, mes: NOMES_MES[hoverIndice], linhas: linhasTooltip }
-        })()
+    hoverIndice !== null
+      ? montarTooltip(NOMES_MES[hoverIndice], linhasTooltip, x(hoverIndice), MARG.topo + 4, LARG, MARG.dir)
       : null
 
   return (
@@ -447,22 +441,7 @@ export function ComparadorAnoAno() {
               />
             ))}
 
-            {tooltip && (
-              <g>
-                <rect x={tooltip.rectX} y={tooltip.rectY} width={tooltip.largura} height={tooltip.altura} rx={6} fill="var(--cor-superficie)" stroke="var(--cor-borda)" strokeWidth={1.5} />
-                <text x={tooltip.textX} y={tooltip.rectY + 15} className="comparador-tooltip-titulo" fill="var(--cor-texto)">
-                  {tooltip.mes}
-                </text>
-                {tooltip.linhas.map((l, i) => (
-                  <g key={i}>
-                    <rect x={tooltip.textX} y={tooltip.rectY + 23 + i * 15 - 7} width={8} height={8} rx={2} fill={l.cor} />
-                    <text x={tooltip.textX + 13} y={tooltip.rectY + 23 + i * 15} className="comparador-tooltip-texto">
-                      {l.nome}: {l.valor}
-                    </text>
-                  </g>
-                ))}
-              </g>
-            )}
+            <TooltipSvgGroup tooltip={tooltip} />
           </svg>
         )}
       </div>

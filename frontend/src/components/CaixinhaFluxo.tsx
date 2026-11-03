@@ -4,8 +4,10 @@ import { ApiError, apiFetch } from '../lib/api'
 import { corDaSerie } from '../lib/coresSeries'
 import { formatarMoeda } from '../lib/formatar'
 import { calcularPeriodoGrafico, hojeAnoMes, PERIODOS_GRAFICO } from '../lib/periodo'
+import { montarTooltip } from '../lib/tooltipSvg'
 import { usePrivacidade } from '../lib/PrivacyContext'
 import { escalaY } from '../lib/escala'
+import { TooltipSvgGroup } from './TooltipSvgGroup'
 import type { Caixinha, SerieMensal } from '../lib/types'
 
 const LARG = 900
@@ -27,6 +29,7 @@ function FluxoChart({ aporte, retirada, oculto }: { aporte: SerieMensal | null; 
   const alt = 300
   const marg = { topo: 14, base: 28, esq: 64, dir: 16 }
   const altPlot = alt - marg.topo - marg.base
+  const [hoverIndice, setHoverIndice] = useState<number | null>(null)
 
   const meses = aporte ? aporte.pontos.map((p) => p.vigencia_mes) : []
   const saldoAcumulado: number[] = []
@@ -54,6 +57,22 @@ function FluxoChart({ aporte, retirada, oculto }: { aporte: SerieMensal | null; 
   const larguraBarra = Math.max(2, (grupoLargura - 2) / 2)
 
   if (!aporte || !retirada || meses.length === 0) return null
+
+  const tooltip =
+    hoverIndice !== null
+      ? montarTooltip(
+          rotuloMes(meses[hoverIndice]),
+          [
+            { nome: 'Aporte', cor: COR_APORTE, valor: oculto ? '•••' : formatarMoeda(aporte.pontos[hoverIndice].valor) },
+            { nome: 'Retirada', cor: COR_RETIRADA, valor: oculto ? '•••' : formatarMoeda(retirada.pontos[hoverIndice].valor) },
+            { nome: 'Saldo acumulado', cor: 'var(--cor-texto)', valor: oculto ? '•••' : formatarMoeda(saldoAcumulado[hoverIndice]) },
+          ],
+          x(hoverIndice),
+          marg.topo + 4,
+          LARG,
+          marg.dir,
+        )
+      : null
 
   return (
     <div className="comparador-chart-card">
@@ -123,6 +142,24 @@ function FluxoChart({ aporte, retirada, oculto }: { aporte: SerieMensal | null; 
         {saldoAcumulado.map((v, i) => (
           <circle key={i} cx={x(i)} cy={y(v)} r={3.5} fill="var(--cor-texto)" />
         ))}
+
+        {hoverIndice !== null && (
+          <line x1={x(hoverIndice)} x2={x(hoverIndice)} y1={marg.topo} y2={alt - marg.base} className="comparador-linha-guia" />
+        )}
+        {meses.map((_, i) => (
+          <rect
+            key={`banda-${i}`}
+            x={x(i) - (espacamento > 0 ? espacamento / 2 : (LARG - marg.esq - marg.dir) / 2)}
+            y={marg.topo}
+            width={espacamento > 0 ? espacamento : LARG - marg.esq - marg.dir}
+            height={altPlot}
+            fill="transparent"
+            style={{ cursor: 'pointer' }}
+            onMouseEnter={() => setHoverIndice(i)}
+            onMouseLeave={() => setHoverIndice(null)}
+          />
+        ))}
+        <TooltipSvgGroup tooltip={tooltip} />
       </svg>
     </div>
   )
@@ -147,6 +184,7 @@ function FluxoLiquidoChart({
   const alt = 300
   const marg = { topo: 14, base: 28, esq: 64, dir: 16 }
   const altPlot = alt - marg.topo - marg.base
+  const [hoverIndice, setHoverIndice] = useState<number | null>(null)
 
   const meses = series.length > 0 ? series[0].pontos.map((p) => p.vigencia_mes) : []
 
@@ -171,6 +209,24 @@ function FluxoLiquidoChart({
   const larguraBarra = Math.max(2, (grupoLargura - (totalBarras - 1) * 2) / totalBarras)
 
   if (meses.length === 0) return null
+
+  const tooltip =
+    hoverIndice !== null
+      ? montarTooltip(
+          rotuloMes(meses[hoverIndice]),
+          modoAgregacao === 'porCaixinha'
+            ? liquidoPorCaixinha.map((p, k) => ({
+                nome: p.caixinha.nome,
+                cor: corDaSerie(k),
+                valor: oculto ? '•••' : formatarMoeda(p.liquido[hoverIndice]),
+              }))
+            : [{ nome: 'Fluxo líquido somado', cor: 'var(--cor-acento)', valor: oculto ? '•••' : formatarMoeda(liquidoSomado[hoverIndice]) }],
+          x(hoverIndice),
+          marg.topo + 4,
+          LARG,
+          marg.dir,
+        )
+      : null
 
   return (
     <div className="comparador-chart-card">
@@ -227,6 +283,24 @@ function FluxoLiquidoChart({
         {/* linha do zero em destaque — com valor líquido negativo é
          * importante deixar claro onde a barra "vira" */}
         <line x1={marg.esq} x2={LARG - marg.dir} y1={yBase} y2={yBase} stroke="var(--cor-texto-suave)" strokeWidth={1} />
+
+        {hoverIndice !== null && (
+          <line x1={x(hoverIndice)} x2={x(hoverIndice)} y1={marg.topo} y2={alt - marg.base} className="comparador-linha-guia" />
+        )}
+        {meses.map((_, i) => (
+          <rect
+            key={`banda-${i}`}
+            x={x(i) - (espacamento > 0 ? espacamento / 2 : (LARG - marg.esq - marg.dir) / 2)}
+            y={marg.topo}
+            width={espacamento > 0 ? espacamento : LARG - marg.esq - marg.dir}
+            height={altPlot}
+            fill="transparent"
+            style={{ cursor: 'pointer' }}
+            onMouseEnter={() => setHoverIndice(i)}
+            onMouseLeave={() => setHoverIndice(null)}
+          />
+        ))}
+        <TooltipSvgGroup tooltip={tooltip} />
       </svg>
     </div>
   )

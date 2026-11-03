@@ -327,14 +327,18 @@
   color: var(--cor-texto);
 }
 
-.comparador-tooltip-titulo {
-  font-size: 11px;
-  font-weight: 600;
+/* Rodada 104: fonte maior e contraste cheio (não mais cor-texto-suave) —
+ * usuário reportou o tooltip anterior pequeno demais e pouco legível.
+ * Compartilhado pelos 4 gráficos via TooltipSvgGroup/lib/tooltipSvg. */
+.tooltip-svg-titulo {
+  font-size: 13px;
+  font-weight: 700;
+  fill: var(--cor-texto);
 }
 
-.comparador-tooltip-texto {
-  font-size: 10px;
-  fill: var(--cor-texto-suave);
+.tooltip-svg-texto {
+  font-size: 12.5px;
+  fill: var(--cor-texto);
 }
 
 .comparador-linha-guia {

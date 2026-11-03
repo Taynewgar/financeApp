@@ -7065,3 +7065,63 @@ de estorno/ressarcimento).
       badge "⚠ Sem despesa original vinculada" aparece no card.
 - [ ] Confirmar que um estorno/ressarcimento vinculado corretamente
       NÃO mostra esse badge (nem nenhum outro no lugar).
+
+### Rodada 104 (2026-11-03) — Fix definitivo do tooltip: geometria + fonte + padrão replicado
+
+Usuário reportou, com screenshot do Ano a Ano: tooltip "muito ruim,
+quebrado, com fonte pequena, nada legível" — mesmo depois do fix da
+Rodada 99 (hover por coluna). Olhando o screenshot: o título ("jul")
+ficava colado/vazando pra fora do topo da caixa, e a última linha
+("Média entre os anos") ficava cortada bem na borda de baixo.
+
+**Causa raiz (2 bugs, não 1):**
+1. **Altura da caixa não tinha folga suficiente**: linha de 15px
+   (`altura = 24 + linhas.length * 15`) é curta demais pra uma fonte de
+   12-13px incluindo o espaço do título — a última linha ficava com a
+   base do texto quase ou encostando na borda inferior da caixa.
+2. **Fonte pequena e sem contraste**: `.comparador-tooltip-titulo`
+   (11px) e `.comparador-tooltip-texto` (10px, cor `--cor-texto-suave`
+   — cinza apagado) — pequena demais e com contraste baixo demais pra
+   ler num relance.
+
+**Fix:** geometria + render extraídos pra um helper único
+(`lib/tooltipSvg.ts` + `components/TooltipSvgGroup.tsx`), usado agora
+pelos 3 gráficos SVG de Gráficos (não só onde já existia — Caixinha
+Fluxo nunca teve tooltip, ganhou agora, nos 2 modos):
+- Altura de linha generosa (19px) com padding de 10px em cima/embaixo
+  — nunca mais corta a última linha, qualquer quantidade de séries.
+- Largura calculada pelo texto "nome: valor" INTEIRO de cada linha (o
+  cálculo antigo só olhava o nome, ignorando o valor — causa provável
+  do "quebrado" que o usuário viu, texto estourando a caixa).
+- Fonte maior (13px título / 12.5px corpo) e cor de contraste total
+  (`--cor-texto`, não mais `-suave`).
+- `ComparadorSeries.tsx` e `ComparadorAnoAno.tsx` migrados pro helper
+  compartilhado (mesmo visual, menos código duplicado).
+- `CaixinhaFluxo.tsx`: ganhou o mesmo tooltip por coluna (antes não
+  tinha nenhum) — no gráfico de 1 caixinha mostra aporte/retirada/
+  saldo do mês; no gráfico de 2+ caixinhas mostra o líquido de cada
+  caixinha (ou o somado, conforme o toggle).
+
+**Fora do escopo:** Heatmap de Categorias continua com `title` nativo
+do navegador — ele já mostra o valor direto na célula (não depende de
+hover pra ver o número, diferente dos gráficos de linha/barra), então
+não tem a mesma urgência; avaliar separado se vale unificar também.
+
+**Testes:** mudança de frontend puro. `tsc -b`, `oxlint` e `npm run
+build` sem erro novo.
+
+**Status:** implementado 2026-11-03, aguardando teste do usuário.
+
+**Checklist de teste manual (usuário, localmente):**
+- [ ] Ano a Ano: passar o mouse na região do gráfico, com 3+ anos e
+      "Média entre os anos" ligada — confirmar que a última linha da
+      caixa (a média) aparece completa, não cortada, e que o título do
+      mês fica visivelmente DENTRO da caixa.
+- [ ] Comparador de Séries: mesma checagem, com várias séries marcadas.
+- [ ] Caixinha Fluxo, 1 caixinha: passar o mouse no gráfico e
+      confirmar que aparece tooltip com Aporte/Retirada/Saldo do mês
+      (não tinha tooltip nenhum antes).
+- [ ] Caixinha Fluxo, 2+ caixinhas, nos 2 modos (Por caixinha/Somado):
+      confirmar que o tooltip aparece com os valores certos.
+- [ ] Em qualquer um dos 4, confirmar que a fonte está legível (maior
+      e mais contrastada que antes) sem precisar aproximar a tela.
