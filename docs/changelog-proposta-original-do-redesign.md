@@ -6950,3 +6950,37 @@ e decisão do usuário (mockup de barras).
       o grid de 2 colunas).
 - [ ] Abrir o mockup do canvas e escolher uma das 3 opções de barras
       agrupadas pra Caixinha Fluxo (ou propor outra).
+
+### Rodada 101 (2026-11-03) — Caixinha Fluxo: fluxo líquido pra 2+ caixinhas
+
+Usuário escolheu a opção ② do mockup da Rodada 100: fluxo líquido
+(aporte − retirada do mês, 1 barra por caixinha, podendo ficar negativa).
+
+**Fix (`CaixinhaFluxo.tsx`, reescrito):**
+- **1 caixinha marcada**: continua o gráfico detalhado de sempre
+  (aporte × retirada + saldo acumulado) — não tem problema de "como
+  combinar várias", então mantém o nível de detalhe original.
+- **2+ caixinhas marcadas**: 1 gráfico só (`FluxoLiquidoChart`, novo),
+  barras de fluxo líquido por mês. Toggle "Por caixinha" (1 barra
+  agrupada por caixinha, cor própria) vs "Σ Somado" (1 barra por mês,
+  soma do líquido de todas as marcadas) — reaproveita a mesma ideia do
+  toggle antigo (separado/somado), só troca o que cada lado mostra.
+  Linha do zero em destaque (valor líquido pode ser negativo).
+- Removido o grid de mini-cards por caixinha (`.comparador-fluxo-grid`/
+  `.comparador-fluxo-titulo`, sem uso depois dessa mudança) — não era o
+  que o usuário esperava de "Separado".
+
+**Testes:** mudança de frontend puro. `tsc -b`, `oxlint` e `npm run
+build` sem erro novo.
+
+**Status:** implementado 2026-11-03, aguardando teste do usuário.
+
+**Checklist de teste manual (usuário, localmente):**
+- [ ] Marcar 1 caixinha só — confirmar que o gráfico continua
+      detalhado (aporte/retirada/saldo), sem mudança.
+- [ ] Marcar 2+ caixinhas, modo "Por caixinha" — confirmar que vira 1
+      gráfico com barras agrupadas (1 por caixinha, cores diferentes),
+      podendo ficar abaixo da linha do zero em meses de saldo negativo.
+- [ ] No mesmo cenário, trocar pra "Σ Somado" — confirmar que vira 1
+      barra por mês, e que o valor bate com a soma das barras do modo
+      "Por caixinha" daquele mês.

@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import './graficosComparativos.css'
 import { ApiError, apiFetch } from '../lib/api'
+import { corDaSerie } from '../lib/coresSeries'
 import { formatarMoeda } from '../lib/formatar'
 import { calcularPeriodoGrafico, hojeAnoMes, PERIODOS_GRAFICO } from '../lib/periodo'
 import { usePrivacidade } from '../lib/PrivacyContext'
@@ -11,7 +12,7 @@ const LARG = 900
 const COR_APORTE = '#2dd4bf'
 const COR_RETIRADA = '#f59e0b'
 
-type ModoAgregacao = 'separado' | 'somado'
+type ModoAgregacao = 'porCaixinha' | 'somado'
 
 function rotuloMes(vigenciaMes: string): string {
   const [ano, mes] = vigenciaMes.split('-')
@@ -19,43 +20,23 @@ function rotuloMes(vigenciaMes: string): string {
   return `${nomes[Number(mes) - 1]}/${ano.slice(2)}`
 }
 
-function somarSeries(series: SerieMensal[], chaves: string[], meses: string[]): SerieMensal {
-  const pontos = meses.map((m, i) => ({
-    vigencia_mes: m,
-    valor: chaves.reduce((acc, chave) => acc + (series.find((s) => s.chave === chave)?.pontos[i]?.valor ?? 0), 0),
-  }))
-  return { chave: 'somado', nome: 'Somado', pontos }
-}
-
-/** 1 gráfico de fluxo (aporte × retirada + saldo acumulado) — usado tanto
- * pro modo "Separado" (1 instância compacta por caixinha marcada) quanto
- * pro "Somado" (1 instância cheia, com os totais agregados). */
-function FluxoChart({
-  aporte,
-  retirada,
-  titulo,
-  compacto,
-  oculto,
-}: {
-  aporte: SerieMensal | null
-  retirada: SerieMensal | null
-  titulo?: string
-  compacto?: boolean
-  oculto: boolean
-}) {
-  const alt = compacto ? 260 : 300
+/** 1 caixinha marcada: gráfico detalhado — aporte x retirada mês a mês +
+ * saldo acumulado sobreposto. Não tem problema de "como combinar várias"
+ * (é só 1), então mantém o nível de detalhe original. */
+function FluxoChart({ aporte, retirada, oculto }: { aporte: SerieMensal | null; retirada: SerieMensal | null; oculto: boolean }) {
+  const alt = 300
   const marg = { topo: 14, base: 28, esq: 64, dir: 16 }
   const altPlot = alt - marg.topo - marg.base
 
   const meses = aporte ? aporte.pontos.map((p) => p.vigencia_mes) : []
-  const saldoAcumulado = useMemo(() => {
-    if (!aporte || !retirada) return []
+  const saldoAcumulado: number[] = []
+  if (aporte && retirada) {
     let acumulado = 0
-    return aporte.pontos.map((p, i) => {
+    aporte.pontos.forEach((p, i) => {
       acumulado += p.valor - retirada.pontos[i].valor
-      return acumulado
+      saldoAcumulado.push(acumulado)
     })
-  }, [aporte, retirada])
+  }
 
   const todosValores = [
     ...(aporte?.pontos.map((p) => p.valor) ?? []),
@@ -76,7 +57,6 @@ function FluxoChart({
 
   return (
     <div className="comparador-chart-card">
-      {titulo && <div className="comparador-fluxo-titulo">{titulo}</div>}
       <div className="comparador-legenda">
         <span className="comparador-legenda-item">
           <span className="comparador-chip-cor" style={{ background: COR_APORTE }} />
@@ -148,16 +128,121 @@ function FluxoChart({
   )
 }
 
-/** Item 51/91 do backlog — fluxo de caixinha: aporte x retirada mês a
- * mês, com linha de saldo acumulado no período sobreposta. Rodada 91:
- * ganhou multi-seleção (antes só 1 caixinha por vez) com modo Separado
- * (1 mini-gráfico por caixinha) ou Somado (totais agregados num gráfico
- * só) e seletor de período próprio, igual aos outros 3 gráficos novos. */
+/** 2+ caixinhas marcadas: 1 gráfico só, barras de FLUXO LÍQUIDO (aporte −
+ * retirada do mês, pode ficar negativo) — opção escolhida pelo usuário
+ * num mockup (Rodada 100) entre 3 formas de combinar várias caixinhas
+ * num gráfico. "Por caixinha" agrupa 1 barra por caixinha; "Somado"
+ * soma o líquido de todas as marcadas numa barra só por mês. */
+function FluxoLiquidoChart({
+  caixinhasSelecionadas,
+  series,
+  modoAgregacao,
+  oculto,
+}: {
+  caixinhasSelecionadas: Caixinha[]
+  series: SerieMensal[]
+  modoAgregacao: ModoAgregacao
+  oculto: boolean
+}) {
+  const alt = 300
+  const marg = { topo: 14, base: 28, esq: 64, dir: 16 }
+  const altPlot = alt - marg.topo - marg.base
+
+  const meses = series.length > 0 ? series[0].pontos.map((p) => p.vigencia_mes) : []
+
+  const liquidoPorCaixinha = caixinhasSelecionadas.map((c) => {
+    const aporte = series.find((s) => s.chave === `caixinha_aporte:${c.id}`)
+    const retirada = series.find((s) => s.chave === `caixinha_retirada:${c.id}`)
+    const liquido = meses.map((_, i) => (aporte?.pontos[i]?.valor ?? 0) - (retirada?.pontos[i]?.valor ?? 0))
+    return { caixinha: c, liquido }
+  })
+  const liquidoSomado = meses.map((_, i) => liquidoPorCaixinha.reduce((acc, p) => acc + p.liquido[i], 0))
+
+  const todosValores = modoAgregacao === 'somado' ? liquidoSomado : liquidoPorCaixinha.flatMap((p) => p.liquido)
+  const { min, max, marcacoes } = escalaY(todosValores)
+
+  const espacamento = meses.length > 1 ? (LARG - marg.esq - marg.dir) / (meses.length - 1) : 0
+  const x = (i: number) => (meses.length > 1 ? marg.esq + espacamento * i : marg.esq)
+  const y = (v: number) => marg.topo + altPlot * (1 - (v - min) / (max - min || 1))
+  const yBase = y(0)
+
+  const grupoLargura = espacamento * 0.78
+  const totalBarras = modoAgregacao === 'somado' ? 1 : liquidoPorCaixinha.length
+  const larguraBarra = Math.max(2, (grupoLargura - (totalBarras - 1) * 2) / totalBarras)
+
+  if (meses.length === 0) return null
+
+  return (
+    <div className="comparador-chart-card">
+      <div className="comparador-legenda">
+        {modoAgregacao === 'porCaixinha' ? (
+          caixinhasSelecionadas.map((c, i) => (
+            <span key={c.id} className="comparador-legenda-item">
+              <span className="comparador-chip-cor" style={{ background: corDaSerie(i) }} />
+              {c.nome}
+            </span>
+          ))
+        ) : (
+          <span className="comparador-legenda-item">
+            <span className="comparador-chip-cor" style={{ background: 'var(--cor-acento)' }} />
+            Fluxo líquido somado ({caixinhasSelecionadas.length} caixinhas)
+          </span>
+        )}
+      </div>
+
+      <svg viewBox={`0 0 ${LARG} ${alt}`} style={{ width: '100%', height: 'auto' }} role="img" aria-label="Fluxo líquido das caixinhas marcadas">
+        {marcacoes.map((v) => (
+          <g key={v}>
+            <line x1={marg.esq} x2={LARG - marg.dir} y1={y(v)} y2={y(v)} className="comparador-grade" />
+            <text x={marg.esq - 8} y={y(v)} className="comparador-eixo-texto" textAnchor="end" dominantBaseline="middle">
+              {oculto ? '•••' : formatarMoeda(v).replace('R$', '').trim()}
+            </text>
+          </g>
+        ))}
+        {meses.map((m, i) => (
+          <text key={m} x={x(i)} y={alt - 10} className="comparador-eixo-texto" textAnchor="middle">
+            {rotuloMes(m)}
+          </text>
+        ))}
+
+        {modoAgregacao === 'porCaixinha' &&
+          meses.map((_, i) => {
+            const centro = x(i)
+            return liquidoPorCaixinha.map((p, k) => {
+              const v = p.liquido[i]
+              const xBarra = centro - grupoLargura / 2 + k * (larguraBarra + 2)
+              const yTopo = Math.min(yBase, y(v))
+              return <rect key={p.caixinha.id} x={xBarra} y={yTopo} width={larguraBarra} height={Math.abs(yBase - y(v))} rx={2} fill={corDaSerie(k)} />
+            })
+          })}
+
+        {modoAgregacao === 'somado' &&
+          meses.map((m, i) => {
+            const v = liquidoSomado[i]
+            const xBarra = x(i) - larguraBarra / 2
+            const yTopo = Math.min(yBase, y(v))
+            return <rect key={m} x={xBarra} y={yTopo} width={larguraBarra} height={Math.abs(yBase - y(v))} rx={2} fill="var(--cor-acento)" />
+          })}
+
+        {/* linha do zero em destaque — com valor líquido negativo é
+         * importante deixar claro onde a barra "vira" */}
+        <line x1={marg.esq} x2={LARG - marg.dir} y1={yBase} y2={yBase} stroke="var(--cor-texto-suave)" strokeWidth={1} />
+      </svg>
+    </div>
+  )
+}
+
+/** Item 51/91/98 do backlog — fluxo de caixinha. Rodada 91: ganhou
+ * multi-seleção (antes só 1 caixinha por vez). Rodada 100: a forma de
+ * combinar várias caixinhas num gráfico só virou fluxo líquido (aporte
+ * − retirada do mês, por caixinha), escolhida pelo usuário num mockup
+ * entre 3 opções — antes "Separado" virava 1 card por caixinha, decisão
+ * que o usuário não esperava/não gostou. */
 export function CaixinhaFluxo() {
   const { oculto } = usePrivacidade()
   const [caixinhas, setCaixinhas] = useState<Caixinha[]>([])
   const [selecionadas, setSelecionadas] = useState<Set<string>>(new Set())
-  const [modoAgregacao, setModoAgregacao] = useState<ModoAgregacao>('separado')
+  const [modoAgregacao, setModoAgregacao] = useState<ModoAgregacao>('porCaixinha')
   const [periodoIndice, setPeriodoIndice] = useState(1)
   const [series, setSeries] = useState<SerieMensal[] | null>(null)
   const [erro, setErro] = useState<string | null>(null)
@@ -202,19 +287,7 @@ export function CaixinhaFluxo() {
       .catch((e) => setErro(e instanceof ApiError ? e.message : 'Falha ao carregar o fluxo da caixinha'))
   }, [selecionadas, mesInicio, mesFim])
 
-  const meses = series && series.length > 0 ? series[0].pontos.map((p) => p.vigencia_mes) : []
   const caixinhasSelecionadas = caixinhas.filter((c) => selecionadas.has(c.id))
-
-  const somado = useMemo(() => {
-    if (!series || meses.length === 0 || caixinhasSelecionadas.length === 0) return null
-    const chavesAporte = caixinhasSelecionadas.map((c) => `caixinha_aporte:${c.id}`)
-    const chavesRetirada = caixinhasSelecionadas.map((c) => `caixinha_retirada:${c.id}`)
-    return {
-      aporte: somarSeries(series, chavesAporte, meses),
-      retirada: somarSeries(series, chavesRetirada, meses),
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [series, meses.join(','), caixinhasSelecionadas.map((c) => c.id).join(',')])
 
   return (
     <div>
@@ -239,10 +312,10 @@ export function CaixinhaFluxo() {
           <>
             <button
               type="button"
-              className={`botao-chip ${modoAgregacao === 'separado' ? 'ativo' : ''}`}
-              onClick={() => setModoAgregacao('separado')}
+              className={`botao-chip ${modoAgregacao === 'porCaixinha' ? 'ativo' : ''}`}
+              onClick={() => setModoAgregacao('porCaixinha')}
             >
-              ⬍ Separado
+              ▥ Por caixinha
             </button>
             <button
               type="button"
@@ -260,28 +333,21 @@ export function CaixinhaFluxo() {
         <p style={{ color: 'var(--cor-texto-suave)', fontSize: 13 }}>Marque ao menos uma caixinha acima.</p>
       )}
 
-      {series && modoAgregacao === 'somado' && somado && (
+      {series && caixinhasSelecionadas.length === 1 && (
         <FluxoChart
-          aporte={somado.aporte}
-          retirada={somado.retirada}
-          titulo={`Somado (${caixinhasSelecionadas.length} caixinhas)`}
+          aporte={series.find((s) => s.chave === `caixinha_aporte:${caixinhasSelecionadas[0].id}`) ?? null}
+          retirada={series.find((s) => s.chave === `caixinha_retirada:${caixinhasSelecionadas[0].id}`) ?? null}
           oculto={oculto}
         />
       )}
 
-      {series && modoAgregacao === 'separado' && (
-        <div className={caixinhasSelecionadas.length > 1 ? 'comparador-fluxo-grid' : undefined}>
-          {caixinhasSelecionadas.map((c) => (
-            <FluxoChart
-              key={c.id}
-              aporte={series.find((s) => s.chave === `caixinha_aporte:${c.id}`) ?? null}
-              retirada={series.find((s) => s.chave === `caixinha_retirada:${c.id}`) ?? null}
-              titulo={caixinhasSelecionadas.length > 1 ? c.nome : undefined}
-              compacto={caixinhasSelecionadas.length > 1}
-              oculto={oculto}
-            />
-          ))}
-        </div>
+      {series && caixinhasSelecionadas.length >= 2 && (
+        <FluxoLiquidoChart
+          caixinhasSelecionadas={caixinhasSelecionadas}
+          series={series}
+          modoAgregacao={modoAgregacao}
+          oculto={oculto}
+        />
       )}
     </div>
   )
