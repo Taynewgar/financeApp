@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "{ cd \"$(git rev-parse --show-toplevel)\" && git fetch --quiet origin && git merge --ff-only \"origin/$(git rev-parse --abbrev-ref HEAD)\"; } 2>&1 || true",
+            "statusMessage": "Verificando atualizações do repo..."
+          }
+        ]
+      }
+    ]
+  }
+}
