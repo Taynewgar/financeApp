@@ -85,6 +85,13 @@ changelog já documenta quando e como cada um foi entregue).
   números (achado 2026-11-03: 35 ajustes sem vínculo em 2026, ex:
   "Ressarcimento mãe aniversário", R$ 509,80). *(trazido na conversa,
   2026-11-03)*
+- **95.** **Lista de despesas originais de um ressarcimento/estorno
+  precisa ser maior** `tipo: Melhoria` — ao vincular um ajuste à
+  despesa original (Novo Lançamento, tipo "ajuste"), a busca devolve só
+  as 20 primeiras (`res.slice(0, 20)` em `NovoLancamento.tsx`), o que
+  pode esconder a despesa certa quando a descrição bate com muitas
+  (ex: "Sócio Torcedor", "Youtube"). Aumentar/paginar a lista. *(trazido
+  na conversa, 2026-11-04)*
 - **74.** **Excluir categoria/subcategoria sem transação associada**
   `tipo: Implementação` (detalhe abaixo) — hoje só existe desativar
   (`PATCH .../ativo`), nenhum DELETE real. *(2026-10-14)*
