@@ -146,6 +146,16 @@ changelog já documenta quando e como cada um foi entregue).
 
 **Média**
 
+- **96.** **Avisar (ou exigir) subcategoria vazia ao criar despesa**
+  `tipo: Melhoria` — hoje só `categoria_id`, `estrutura_custo` e
+  `meio_pagamento` são obrigatórios; subcategoria é opcional, e numa
+  compra parcelada o campo vazio é replicado em todas as parcelas
+  (achado 2026-11-04: "Roupas Wagner", 3× R$ 248,40 em Pessoais, aparece
+  como "Sem subcategoria" no Pareto). Proposta: aviso na criação
+  (mesmo padrão de `forcar_duplicado`) em vez de bloqueio rígido, já que
+  nem toda categoria tem subcategoria; decidir se vale exigir de vez.
+  Prioridade/área sugeridas por mim, sem confirmação do usuário.
+  *(trazido na conversa, 2026-11-04)*
 - **85.** **Flag/marcador pra identificar transações que são "contas"**
   `tipo: Implementação` — prepara terreno pra feature futura Agenda de
   Contas (item 41, ainda stub). *(trazido em CSV, 2026-10-21)*
