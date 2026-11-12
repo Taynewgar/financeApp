@@ -135,6 +135,71 @@ def test_sincronizar_itens_preenche_retroativo_item_que_o_bug_antigo_deixou_falt
     assert item_variavel_novo[0]["ativo"] is True
 
 
+def test_sincronizar_itens_reativa_item_inativo_no_bucket_novo(client):
+    """Achado 2026-11-12 (bug reportado): usuário tinha 4 lançamentos de
+    uma categoria com estrutura_custo=variável e mudou os 4 pra sazonal —
+    "Sincronizar" pareceu não fazer nada. Causa raiz: sobrava um item
+    INATIVO em sazonalidades pra essa categoria (de uma experiência
+    anterior) — "já existe" não filtrava por `ativo`, travando a criação
+    de um item ativo sem a tela mostrar nada no lugar (só lista ativo).
+    Sincronizar agora reativa o item inativo em vez de ficar parado."""
+    conta = client.post("/contas", json={"nome": "Conta", "tipo_conta": "corrente"}).json()
+    categoria = client.post("/categorias", json={"nome": "Presentes"}).json()
+    orcamento = _criar_orcamento(client)
+
+    item_sazonal = client.post(
+        f"/orcamentos/{orcamento['id']}/itens",
+        json={"bucket": "sazonalidades", "categoria_id": categoria["id"], "orcamento_mensal": 0},
+    ).json()
+    client.patch(f"/orcamentos/{orcamento['id']}/itens/{item_sazonal['id']}/ativo", params={"ativo": False})
+
+    for i in range(4):
+        client.post(
+            "/transacoes",
+            json={
+                "data_compra": f"2026-09-0{i + 1}", "valor": 100, "tipo_movimento": "despesa",
+                "conta_id": conta["id"], "categoria_id": categoria["id"],
+                "estrutura_custo": "sazonal", "meio_pagamento": "pix",
+            },
+        )
+
+    resposta = client.post(f"/orcamentos/{orcamento['id']}/sincronizar-itens")
+    assert resposta.status_code == 200
+
+    itens = client.get(f"/orcamentos/{orcamento['id']}/itens").json()
+    ativos_sazonal = [i for i in itens if i["bucket"] == "sazonalidades" and i["categoria_id"] == categoria["id"] and i["ativo"]]
+    assert len(ativos_sazonal) == 1
+    assert ativos_sazonal[0]["id"] == item_sazonal["id"]  # reativou o mesmo item, não duplicou
+
+
+def test_sincronizar_item_orcamento_reativo_reativa_item_inativo(client):
+    """Mesmo achado/fix, caminho reativo (sincronizar_item_orcamento,
+    chamado a cada POST/PATCH de transação) — não só o endpoint manual."""
+    conta = client.post("/contas", json={"nome": "Conta", "tipo_conta": "corrente"}).json()
+    categoria = client.post("/categorias", json={"nome": "Presentes"}).json()
+    orcamento = _criar_orcamento(client)
+
+    item_sazonal = client.post(
+        f"/orcamentos/{orcamento['id']}/itens",
+        json={"bucket": "sazonalidades", "categoria_id": categoria["id"], "orcamento_mensal": 0},
+    ).json()
+    client.patch(f"/orcamentos/{orcamento['id']}/itens/{item_sazonal['id']}/ativo", params={"ativo": False})
+
+    client.post(
+        "/transacoes",
+        json={
+            "data_compra": "2026-09-05", "valor": 100, "tipo_movimento": "despesa",
+            "conta_id": conta["id"], "categoria_id": categoria["id"],
+            "estrutura_custo": "sazonal", "meio_pagamento": "pix",
+        },
+    )
+
+    itens = client.get(f"/orcamentos/{orcamento['id']}/itens").json()
+    ativos_sazonal = [i for i in itens if i["bucket"] == "sazonalidades" and i["categoria_id"] == categoria["id"] and i["ativo"]]
+    assert len(ativos_sazonal) == 1
+    assert ativos_sazonal[0]["id"] == item_sazonal["id"]
+
+
 def test_sincronizar_itens_em_orcamento_de_outro_usuario_retorna_404(client, current_user):
     orcamento = _criar_orcamento(client)
 

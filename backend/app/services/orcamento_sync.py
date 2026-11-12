@@ -68,7 +68,7 @@ def sincronizar_item_orcamento(db: Client, user_id: str, transacao: dict) -> Non
 
     itens_existentes = (
         db.table("orcamento_itens")
-        .select("bucket,categoria_id,subcategoria_id")
+        .select("id,ativo,bucket,categoria_id,subcategoria_id")
         .eq("orcamento_id", orcamento_id)
         .execute()
         .data
@@ -81,15 +81,29 @@ def sincronizar_item_orcamento(db: Client, user_id: str, transacao: dict) -> Non
     # nenhum em Planejamento (Estrutura de Custo não depende de item, por
     # isso só lá aparecia certo).
     if subcategoria_id:
-        ja_existe = any(
-            i.get("bucket") == bucket and i.get("subcategoria_id") == subcategoria_id for i in itens_existentes
-        )
+        correspondentes = [
+            i for i in itens_existentes if i.get("bucket") == bucket and i.get("subcategoria_id") == subcategoria_id
+        ]
     else:
-        ja_existe = any(
-            i.get("bucket") == bucket and i.get("categoria_id") == categoria_id and not i.get("subcategoria_id")
+        correspondentes = [
+            i
             for i in itens_existentes
-        )
-    if ja_existe:
+            if i.get("bucket") == bucket and i.get("categoria_id") == categoria_id and not i.get("subcategoria_id")
+        ]
+
+    # achado 2026-11-12 (bug reportado: sincronizar não refletia mudança de
+    # estrutura_custo): "já existe" não filtrava por `ativo` — um item
+    # INATIVO no bucket novo (ex: criado numa experiência anterior e
+    # desativado) fazia esta função achar que já tinha item e não criar
+    # nada, enquanto a tela só mostra item ATIVO — na prática nada
+    # aparecia. Agora só item ATIVO conta como "já existe"; achando um
+    # inativo correspondente, reativa em vez de duplicar.
+    if any(i["ativo"] for i in correspondentes):
+        return
+
+    inativo = next((i for i in correspondentes if not i["ativo"]), None)
+    if inativo:
+        db.table("orcamento_itens").update({"ativo": True}).eq("id", inativo["id"]).execute()
         return
 
     db.table("orcamento_itens").insert(

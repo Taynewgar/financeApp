@@ -7125,3 +7125,44 @@ build` sem erro novo.
       confirmar que o tooltip aparece com os valores certos.
 - [ ] Em qualquer um dos 4, confirmar que a fonte está legível (maior
       e mais contrastada que antes) sem precisar aproximar a tela.
+
+### Rodada 105 (2026-11-12) — Fix: "Sincronizar" de orçamento não refletia mudança de estrutura de custo
+
+Usuário reportou: mudou 4 lançamentos de uma categoria de `variável`
+pra `sazonal`, a lista de Planejamento não refletiu, e clicar em
+"Sincronizar" também não fez nada.
+
+**Investigação:** reproduzi o fluxo exato offline (criar transações com
+`variável`, editar pra `sazonal`, chamar o sincronizar) e o item novo no
+bucket certo nasceu normalmente — então o bug não era "nunca cria o item
+novo". Suspeita seguinte: "já existe" nunca filtrava por `ativo` (só por
+bucket+categoria/subcategoria) — testei com um item **inativo** sobrando
+no bucket novo (cenário plausível: usuário já tinha experimentado esse
+bucket antes pra essa categoria e desativado) e reproduzi o bug de
+verdade — "já existe" (inativo) travava a criação do item ativo, e a
+tela só lista item ativo: nada aparecia, nem no "Sincronizar" manual nem
+na sincronização reativa de cada transação salva.
+
+**Fix (`orcamento_sync.py::sincronizar_item_orcamento` e
+`orcamentos.py::_popular_itens_de_transacoes_existentes`, usada tanto
+por "Sincronizar" quanto por "Criar orçamento"/"Próximo mês"):**
+"já existe" agora só considera item **ativo**; achando um item inativo
+correspondente (mesmo bucket + categoria/subcategoria), reativa ele em
+vez de ficar parado ou duplicar.
+
+**Testes:** `test_sincronizar_itens_reativa_item_inativo_no_bucket_novo`
+e `test_sincronizar_item_orcamento_reativo_reativa_item_inativo` (os 2
+caminhos — manual e reativo) em `test_orcamentos_api.py`. Suíte
+completa: 437 passed/33 skipped (offline).
+
+**Status:** implementado 2026-11-12, aguardando teste do usuário — se o
+caso real tiver outra causa (não um item inativo sobrando), me avise
+com o resultado do teste pra investigar mais.
+
+**Checklist de teste manual (usuário, localmente):**
+- [ ] Repetir o cenário: mudar a estrutura de custo de lançamentos já
+      existentes (ex: variável → sazonal) e clicar "Sincronizar" em
+      Planejamento — confirmar que o item aparece no bucket novo.
+- [ ] Se esse fix não resolver seu caso específico, registre exatamente
+      o que ainda não aparece (bucket antigo some? bucket novo não
+      aparece mesmo criado? valor errado?) pra eu investigar mais.

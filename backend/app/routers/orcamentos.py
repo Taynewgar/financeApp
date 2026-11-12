@@ -135,30 +135,48 @@ def _popular_itens_de_transacoes_existentes(db: Client, user_id: str, orcamento:
 
     itens_existentes = (
         db.table(ITENS_TABLE)
-        .select("bucket,categoria_id,subcategoria_id")
+        .select("id,ativo,bucket,categoria_id,subcategoria_id")
         .eq("orcamento_id", orcamento["id"])
         .execute()
         .data
     )
     # achado 2026-10-11 (mesmo bug de sincronizar_item_orcamento): a chave
     # de "já existe" precisa incluir o bucket, senão um item de outro
-    # bucket com a mesma categoria/subcategoria impedia criar o item certo
-    chaves_existentes = {
+    # bucket com a mesma categoria/subcategoria impedia criar o item certo.
+    # achado 2026-11-12: só item ATIVO conta como "já existe" — um item
+    # inativo sobrado num bucket (ex: desativado numa experiência
+    # anterior) travava a criação do item novo sem a tela mostrar nada no
+    # lugar (ela só lista item ativo), fazendo "Sincronizar" parecer não
+    # fazer nada quando uma transação mudava de bucket (ex: variável →
+    # sazonal). Achando um inativo correspondente, reativa em vez de
+    # duplicar.
+    chaves_ativas = {
         (i["bucket"], i["subcategoria_id"], None) if i.get("subcategoria_id") else (i["bucket"], None, i.get("categoria_id"))
         for i in itens_existentes
+        if i["ativo"]
     }
+    ids_inativos_por_chave: dict[tuple[str, str | None, str | None], str] = {}
+    for i in itens_existentes:
+        if i["ativo"]:
+            continue
+        chave = (i["bucket"], i["subcategoria_id"], None) if i.get("subcategoria_id") else (i["bucket"], None, i.get("categoria_id"))
+        ids_inativos_por_chave.setdefault(chave, i["id"])
 
     chaves_novas: set[tuple[str, str | None, str | None]] = set()
     novos_itens = []
+    ids_para_reativar = []
     for transacao in transacoes:
         classificacao = classificar_transacao_para_orcamento(transacao)
         if classificacao is None:
             continue
         bucket, subcategoria_id, categoria_id = classificacao
         chave = (bucket, subcategoria_id, None) if subcategoria_id else (bucket, None, categoria_id)
-        if chave in chaves_existentes or chave in chaves_novas:
+        if chave in chaves_ativas or chave in chaves_novas:
             continue
         chaves_novas.add(chave)
+        if chave in ids_inativos_por_chave:
+            ids_para_reativar.append(ids_inativos_por_chave[chave])
+            continue
         novos_itens.append(
             {
                 "orcamento_id": orcamento["id"],
@@ -169,6 +187,8 @@ def _popular_itens_de_transacoes_existentes(db: Client, user_id: str, orcamento:
             }
         )
 
+    for item_id in ids_para_reativar:
+        db.table(ITENS_TABLE).update({"ativo": True}).eq("id", item_id).execute()
     if novos_itens:
         db.table(ITENS_TABLE).insert(novos_itens).execute()
 
