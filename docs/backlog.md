@@ -75,6 +75,14 @@ changelog já documenta quando e como cada um foi entregue).
 
 **Alta**
 
+- **102.** **Verificar divergências de estrutura de custo após definir
+  todas as subcategorias** `tipo: Verificação` — depois de definir a
+  estrutura de custo de todas as subcategorias, exportar o relatório do
+  app e pedir ao Claude pra varrer se ainda existem divergências
+  (subcategoria com lançamentos em mais de uma estrutura, despesa sem
+  estrutura). Já feito em 2026-11-12: último relatório sem nenhuma
+  subcategoria mista (99 de 99 com estrutura única); repetir após novas
+  subcategorias ou reclassificações. *(trazido na conversa, 2026-11-12)*
 - **91.** **Sinalizar no card se estorno/ressarcimento já está vinculado
   à despesa original** `tipo: Melhoria` — **✅ implementado 2026-11-03**
   (Rodada 103), aguardando teste do usuário. O card de um estorno/
