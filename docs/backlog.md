@@ -146,6 +146,13 @@ changelog já documenta quando e como cada um foi entregue).
 
 **Média**
 
+- **101.** **Estrutura de custo travada pelo padrão da subcategoria**
+  `tipo: Melhoria` — fazer com que a estrutura padrão da subcategoria
+  (`estrutura_custo_padrao`) seja fixa no lançamento, assim como já
+  acontece com o meio de pagamento "cartão de crédito" quando a conta é
+  um cartão. Decidir como fica o caso das subcategorias com mais de uma
+  estrutura (ex: Flamengo, Hobbies) — travar ou deixar liberar.
+  *(trazido em CSV, 2026-11-12)*
 - **96.** **Avisar (ou exigir) subcategoria vazia ao criar despesa**
   `tipo: Melhoria` — hoje só `categoria_id`, `estrutura_custo` e
   `meio_pagamento` são obrigatórios; subcategoria é opcional, e numa
@@ -178,6 +185,15 @@ changelog já documenta quando e como cada um foi entregue).
 
 #### Planejamento
 
+**Média**
+
+- **97.** **Percentual que a categoria pai consome de cada estrutura**
+  `tipo: Melhoria` — mostrar, em Planejamento, quanto cada categoria pai
+  representa de cada estrutura de custo (envelope); decidir se vale
+  mostrar o mesmo percentual nas categorias filhas. É valor de
+  visualização apenas (não entra em nenhuma regra de orçamento).
+  *(trazido em CSV, 2026-11-12)*
+
 **Baixa**
 
 - **59.** **Ordenação das subcategorias dentro dos envelopes**
@@ -201,6 +217,13 @@ changelog já documenta quando e como cada um foi entregue).
   (detalhe abaixo) — **✅ implementado 2026-10-12**, aguardando teste do
   usuário.
 
+**Média**
+
+- **98.** **Nome do arquivo de exportação do ano deve incluir a data**
+  `tipo: Melhoria` — hoje o arquivo exportado do ano vem só com o ano no
+  nome; incluir a data da exportação (item 10, Exportação de relatório
+  mensal/anual). *(trazido em CSV, 2026-11-12)*
+
 **Baixa**
 
 - **60.** **Ordenação das subcategorias dentro dos envelopes**
@@ -216,6 +239,9 @@ changelog já documenta quando e como cada um foi entregue).
 
 **Alta**
 
+- **99.** **Dropdown de 3 meses nos gráficos que já têm seletor de
+  período** `tipo: Melhoria` — inserir a opção "3 meses" nos gráficos
+  cujo dropdown hoje oferece ano atual, 12 meses e 6 meses. *(trazido em CSV, 2026-11-12)*
 - **90.** **Toggle despesa bruta × líquida no Pareto** `tipo: Melhoria`
   — o Pareto (tabela + curva de % acumulado, por categoria e por
   subcategoria) soma só despesa bruta (`_despesas_por_categoria_entre`),
@@ -268,6 +294,16 @@ changelog já documenta quando e como cada um foi entregue).
 
 **Alta**
 
+- **100.** **Separar gastos sazonais imprescindíveis de gastos pontuais
+  que distorcem o planejamento** `tipo: Escopo` — criar um meio lógico
+  de distinguir sazonalidade de fato (previsível e necessária) de gasto
+  pontual de valor alto que distorce o planejamento mensal dali pra
+  frente. Exemplo do usuário: com o orçamento ajustado e sendo seguido,
+  comprar um celular com dinheiro investido gera um custo pontual enorme
+  no mês e distorce tudo. A pesquisar: como a economia/finança doméstica
+  trata isso nas melhores práticas (ex: fundo de compras planejadas,
+  gasto extraordinário fora do orçamento recorrente). Relacionado ao
+  item 79 (saúde financeira prevendo sazonalidade). *(trazido em CSV, 2026-11-12)*
 - **32.** **Melhoria geral de layout da aplicação (V2, pós-MVP)**
   `tipo: Implantação` — reportado pelo usuário testando a Rodada 28-31: alguns elementos
   fora de escala, cabeçalho fixo um pouco desproporcional em algumas
