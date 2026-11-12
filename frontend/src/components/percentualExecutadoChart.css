@@ -1,0 +1,20 @@
+/* Eixo/grade/tooltip reaproveitam as classes genéricas de evolucaoChart.css
+ * — só a cor da série é própria: slot 5 da paleta categórica (magenta),
+ * distinta do slot 4 (amarelo) já usado por Taxa de Poupança na mesma tela. */
+.percentual-executado-chart {
+  --grade-cor: #e1e0d9;
+  --eixo-cor: #898781;
+  --serie-executado: #e87ba4;
+}
+
+@media (prefers-color-scheme: dark) {
+  .percentual-executado-chart {
+    --grade-cor: #2c2c2a;
+    --eixo-cor: #898781;
+    --serie-executado: #d55181;
+  }
+}
+
+.serie-executado {
+  background: var(--serie-executado);
+}

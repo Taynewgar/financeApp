@@ -1,0 +1,445 @@
+<title>Referência do Dashboard</title>
+<style>
+  :root {
+    --bg: #f4f6f8;
+    --surface: #ffffff;
+    --surface-2: #eef1f4;
+    --border: #dde2e8;
+    --text: #171b21;
+    --text-muted: #666f7c;
+    --accent: #2f5d8a;
+    --accent-soft: #e4ecf4;
+    --receita: #1f7a52;
+    --receita-bg: #e5f3ec;
+    --despesa: #a8402a;
+    --despesa-bg: #f6e8e4;
+    --investimento: #3457a6;
+    --investimento-bg: #e7ecf7;
+    --warn: #9c6b16;
+    --warn-bg: #f7ecd9;
+    --shadow: 0 1px 2px rgba(20, 24, 30, 0.04), 0 1px 12px rgba(20, 24, 30, 0.05);
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #12151a;
+      --surface: #191d24;
+      --surface-2: #20252d;
+      --border: #2b3038;
+      --text: #e8eaee;
+      --text-muted: #93999f;
+      --accent: #7fb0e0;
+      --accent-soft: #223349;
+      --receita: #5fbf8f;
+      --receita-bg: #163326;
+      --despesa: #e08267;
+      --despesa-bg: #3a2620;
+      --investimento: #93b3ec;
+      --investimento-bg: #232d47;
+      --warn: #e0b25f;
+      --warn-bg: #3a2f18;
+      --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 1px 16px rgba(0, 0, 0, 0.35);
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #12151a;
+    --surface: #191d24;
+    --surface-2: #20252d;
+    --border: #2b3038;
+    --text: #e8eaee;
+    --text-muted: #93999f;
+    --accent: #7fb0e0;
+    --accent-soft: #223349;
+    --receita: #5fbf8f;
+    --receita-bg: #163326;
+    --despesa: #e08267;
+    --despesa-bg: #3a2620;
+    --investimento: #93b3ec;
+    --investimento-bg: #232d47;
+    --warn: #e0b25f;
+    --warn-bg: #3a2f18;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 1px 16px rgba(0, 0, 0, 0.35);
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: "IBM Plex Sans", system-ui, sans-serif;
+    padding: 20px 16px 48px;
+  }
+  .wrap { max-width: 880px; margin: 0 auto; }
+
+  h1, h2, h3 { font-family: "Fraunces", Georgia, serif; margin: 0; }
+  .num { font-family: "IBM Plex Mono", ui-monospace, monospace; font-variant-numeric: tabular-nums; }
+
+  header.top {
+    display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 16px;
+    margin-bottom: 4px;
+  }
+  header.top h1 { font-size: 22px; font-weight: 600; }
+  .subtitulo { color: var(--text-muted); font-size: 13px; margin: 4px 0 20px; line-height: 1.5; }
+  .subtitulo strong { color: var(--text); }
+
+  .aviso {
+    background: var(--warn-bg); border: 1px solid color-mix(in srgb, var(--warn) 40%, transparent);
+    border-radius: 10px; padding: 12px 14px; font-size: 12.5px; line-height: 1.55; color: var(--text);
+    margin-bottom: 20px;
+  }
+  .aviso b { color: var(--warn); }
+
+  .controles {
+    display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    padding: 12px 14px; margin-bottom: 20px; box-shadow: var(--shadow);
+    position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5;
+  }
+  .campo { display: flex; flex-direction: column; gap: 4px; }
+  .campo label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); }
+  select {
+    font: inherit; font-size: 13.5px; color: var(--text); background: var(--surface-2);
+    border: 1px solid var(--border); border-radius: 8px; padding: 7px 10px; min-width: 190px;
+  }
+  .segmentado { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+  .segmentado button {
+    font: inherit; font-size: 13px; border: none; background: var(--surface-2); color: var(--text-muted);
+    padding: 7px 12px; cursor: pointer;
+  }
+  .segmentado button.ativo { background: var(--accent); color: white; }
+  .todos-btn {
+    margin-left: auto; font: inherit; font-size: 13px; border: 1px solid var(--border); background: var(--surface-2);
+    color: var(--text); border-radius: 8px; padding: 7px 12px; cursor: pointer;
+  }
+  .todos-btn.ativo { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); font-weight: 600; }
+
+  .hero { margin: 4px 0 22px; }
+  .hero-rotulo { font-size: 12px; color: var(--text-muted); }
+  .hero-valor { font-size: 42px; font-weight: 600; line-height: 1.1; margin-top: 2px; }
+  .hero-delta { font-size: 13px; color: var(--text-muted); }
+
+  .grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; margin-bottom: 22px;
+  }
+  .card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px;
+    box-shadow: var(--shadow); display: flex; flex-direction: column; gap: 3px; min-height: 84px;
+  }
+  .card-rotulo { font-size: 11.5px; color: var(--text-muted); }
+  .card-valor { font-size: 19px; font-weight: 600; }
+  .card-delta { font-size: 11.5px; color: var(--text-muted); }
+  .v-receita { color: var(--receita); }
+  .v-despesa { color: var(--despesa); }
+  .v-investimento { color: var(--investimento); }
+
+  section.bloco {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px;
+    box-shadow: var(--shadow); margin-bottom: 16px;
+  }
+  section.bloco h2 { font-size: 15px; font-weight: 600; margin-bottom: 2px; }
+  section.bloco .desc { font-size: 12px; color: var(--text-muted); margin-bottom: 10px; }
+
+  ul.lista { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+  ul.lista li {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    padding: 8px 10px; background: var(--surface-2); border-radius: 8px; font-size: 13px;
+  }
+  .item-titulo { font-weight: 500; }
+  .item-detalhe { font-size: 11.5px; color: var(--text-muted); display: block; }
+
+  .barra-fundo { background: var(--surface-2); border-radius: 6px; height: 6px; margin-top: 4px; overflow: hidden; }
+  .barra-preenchida { background: var(--despesa); height: 100%; border-radius: 6px; }
+
+  footer.notas { font-size: 11.5px; color: var(--text-muted); line-height: 1.6; margin-top: 24px; }
+  footer.notas summary { cursor: pointer; color: var(--text); font-weight: 600; margin-bottom: 6px; }
+</style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<div class="wrap">
+  <header class="top">
+    <h1>Referência do Dashboard</h1>
+  </header>
+  <p class="subtitulo">
+    Calculado direto do CSV histórico ("Lançamentos Calculado"), com uma reimplementação
+    <strong>independente</strong> das regras do Dashboard — não é o código do app, é a mesma
+    regra escrita do zero, pra comparar contra o que a aplicação responde de verdade.
+  </p>
+
+  <div class="aviso" id="aviso"></div>
+
+  <div class="controles">
+    <div class="campo">
+      <label for="sel-mes">Mês de referência</label>
+      <select id="sel-mes"></select>
+    </div>
+    <div class="segmentado" id="seg-leitura">
+      <button type="button" data-leitura="caixa" class="ativo">Leitura de Caixa</button>
+      <button type="button" data-leitura="saude">Leitura de Saúde</button>
+    </div>
+    <button type="button" class="todos-btn" id="btn-todos">Ver "Todos os meses" (até hoje)</button>
+  </div>
+
+  <div class="hero">
+    <div class="hero-rotulo" id="hero-rotulo">Resultado de caixa</div>
+    <div class="hero-valor num" id="hero-valor">—</div>
+    <div class="hero-delta" id="hero-delta"></div>
+  </div>
+
+  <div class="grid" id="grid-kpis"></div>
+
+  <section class="bloco">
+    <h2>Patrimônio em Caixinhas</h2>
+    <div class="desc">Saldo acumulado (aplicação − retirada) até o fim do mês de referência.</div>
+    <ul class="lista" id="lista-caixinhas"></ul>
+  </section>
+
+  <section class="bloco">
+    <h2>Despesas por Categoria</h2>
+    <div class="desc" id="desc-despesas">Categorias com despesa no mês de referência, maior para menor.</div>
+    <ul class="lista" id="lista-categorias"></ul>
+  </section>
+
+  <section class="bloco">
+    <h2>Compromissos Futuros</h2>
+    <div class="desc" id="desc-compromissos">A partir de hoje — não depende do mês de referência.</div>
+    <ul class="lista" id="lista-compromissos"></ul>
+  </section>
+
+  <footer class="notas">
+    <details>
+      <summary>Notas de leitura</summary>
+      <ul>
+        <li><code>ajustes_vinculados</code> é sempre 0 nos dados migrados — o CSV antigo não guardava o
+          vínculo de um estorno/ressarcimento com a despesa original, então todo ajuste migrado entra como
+          "solto" (conta como receita extra na leitura de saúde). Isso é esperado, não é bug.</li>
+        <li>Dezembro/2025 é um mês parcial (o CSV começa em 08/12/2025) com receita quase zero — a taxa de
+          poupança desse mês fica com um valor extremo (denominador perto de zero). Também esperado.</li>
+        <li>"Todos os meses" aqui é sempre do primeiro lançamento até <strong id="nota-hoje"></strong> — se
+          quiser comparar um "Todos os meses" com fim em outro mês, gere o JSON de novo com <code>--hoje</code>.</li>
+        <li>Compromissos Futuros usa a data real de hoje da sessão que gerou este arquivo, não a data em
+          que você está olhando esta página agora.</li>
+      </ul>
+    </details>
+  </footer>
+</div>
+
+<script type="application/json" id="ref-data">__DADOS_JSON__</script>
+<script>
+(function () {
+try {
+  const dados = JSON.parse(document.getElementById('ref-data').textContent);
+  const meses = dados.meses;
+  const chavesMeses = Object.keys(meses).sort();
+  const hoje = dados.hoje_referencia;
+  const mesHojeChave = hoje.slice(0, 7) + '-01';
+
+  // helpers precisam vir antes de qualquer uso (const é hoisted mas fica em
+  // "temporal dead zone" até a linha da declaração rodar — chamar
+  // formatarMesRotulo antes disso derrubava a IIFE inteira com
+  // ReferenceError, deixando a página só com os placeholders estáticos)
+  const NOMES_MES = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
+  function formatarMesRotulo(chave) {
+    const [ano, mes] = chave.split('-');
+    return NOMES_MES[parseInt(mes, 10) - 1] + '/' + ano;
+  }
+  function formatarData(iso) {
+    const [ano, mes, dia] = iso.split('-');
+    return dia + '/' + mes + '/' + ano;
+  }
+
+  document.getElementById('nota-hoje').textContent = formatarMesRotulo(mesHojeChave);
+  document.getElementById('aviso').innerHTML =
+    '<b>Como usar:</b> escolha um mês acima e compare os números desta página com o que o app mostra ' +
+    'pra esse mesmo mês (Dashboard → seletor de período). CSV cobre ' + formatarMesRotulo(chavesMeses[0]) +
+    ' a ' + formatarMesRotulo(chavesMeses[chavesMeses.length - 1]) +
+    ' · ' + dados.total_lancamentos + ' lançamentos · hoje de referência: ' + formatarData(hoje) + '.';
+
+  function moeda(v) {
+    if (v === null || v === undefined) return '—';
+    const sinal = v < 0 ? '-' : '';
+    return sinal + 'R$ ' + Math.abs(v).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+  function pct(v) {
+    return v === null || v === undefined ? '—' : v.toFixed(1).replace('.', ',') + '%';
+  }
+  function delta(atual, anterior) {
+    if (anterior === 0) {
+      return atual === 0 ? 'Estável vs mês anterior' : (atual > 0 ? '+' : '') + moeda(atual) + ' vs mês anterior';
+    }
+    const variacao = ((atual - anterior) / Math.abs(anterior)) * 100;
+    if (Math.abs(variacao) < 0.05) return 'Estável vs mês anterior';
+    const seta = variacao > 0 ? '↗' : '↘';
+    return seta + ' ' + Math.abs(variacao).toFixed(1).replace('.', ',') + '% vs mês anterior';
+  }
+
+  const selMes = document.getElementById('sel-mes');
+  chavesMeses.forEach((chave) => {
+    const opt = document.createElement('option');
+    opt.value = chave;
+    opt.textContent = formatarMesRotulo(chave) + (chave === mesHojeChave ? ' (mês atual)' : '');
+    selMes.appendChild(opt);
+  });
+  selMes.value = meses[mesHojeChave] ? mesHojeChave : chavesMeses[chavesMeses.length - 1];
+
+  let leitura = 'caixa';
+  let modoTodos = false;
+
+  document.getElementById('seg-leitura').addEventListener('click', (e) => {
+    const btn = e.target.closest('button');
+    if (!btn) return;
+    leitura = btn.dataset.leitura;
+    document.querySelectorAll('#seg-leitura button').forEach((b) => b.classList.toggle('ativo', b === btn));
+    render();
+  });
+
+  const btnTodos = document.getElementById('btn-todos');
+  btnTodos.addEventListener('click', () => {
+    modoTodos = !modoTodos;
+    btnTodos.classList.toggle('ativo', modoTodos);
+    selMes.disabled = modoTodos;
+    render();
+  });
+
+  selMes.addEventListener('change', render);
+
+  function card(rotulo, valor, classe, deltaTxt) {
+    const div = document.createElement('div');
+    div.className = 'card';
+    div.innerHTML =
+      '<span class="card-rotulo">' + rotulo + '</span>' +
+      '<span class="card-valor num ' + (classe || '') + '">' + valor + '</span>' +
+      (deltaTxt ? '<span class="card-delta">' + deltaTxt + '</span>' : '');
+    return div;
+  }
+
+  function render() {
+    const chaveAtual = selMes.value;
+    const idx = chavesMeses.indexOf(chaveAtual);
+    const mesAnterior = idx > 0 ? meses[chavesMeses[idx - 1]] : null;
+
+    const resumo = modoTodos ? dados.todos_os_meses_ate_hoje : meses[chaveAtual];
+    const rotuloPeriodo = modoTodos
+      ? 'do início até ' + formatarMesRotulo(mesHojeChave)
+      : formatarMesRotulo(chaveAtual);
+
+    const hero = leitura === 'caixa' ? resumo.resultado_fluxo_caixa : resumo.resultado_saude;
+    const heroAnterior = !modoTodos && mesAnterior ? (leitura === 'caixa' ? mesAnterior.resultado_fluxo_caixa : mesAnterior.resultado_saude) : null;
+
+    document.getElementById('hero-rotulo').textContent =
+      (leitura === 'caixa' ? 'Resultado de caixa — ' : 'Resultado de saúde — ') + rotuloPeriodo;
+    const heroEl = document.getElementById('hero-valor');
+    heroEl.textContent = moeda(hero);
+    heroEl.className = 'hero-valor num ' + (hero >= 0 ? 'v-receita' : 'v-despesa');
+    document.getElementById('hero-delta').textContent = heroAnterior !== null ? delta(hero, heroAnterior) : '';
+
+    const grid = document.getElementById('grid-kpis');
+    grid.innerHTML = '';
+
+    if (leitura === 'caixa') {
+      grid.appendChild(card('Receitas', moeda(resumo.receitas), 'v-receita', mesAnterior && !modoTodos ? delta(resumo.receitas, mesAnterior.receitas) : ''));
+      grid.appendChild(card('Despesas', moeda(resumo.despesas_brutas), 'v-despesa', mesAnterior && !modoTodos ? delta(resumo.despesas_brutas, mesAnterior.despesas_brutas) : ''));
+    } else {
+      const receitaAjustada = resumo.receitas + resumo.ajustes_nao_vinculados;
+      const receitaAjustadaAnterior = mesAnterior ? mesAnterior.receitas + mesAnterior.ajustes_nao_vinculados : null;
+      grid.appendChild(card('Receita ajustada', moeda(receitaAjustada), 'v-receita', mesAnterior && !modoTodos ? delta(receitaAjustada, receitaAjustadaAnterior) : ''));
+      grid.appendChild(card('Despesas líquidas', moeda(resumo.despesas_liquidas), 'v-despesa', mesAnterior && !modoTodos ? delta(resumo.despesas_liquidas, mesAnterior.despesas_liquidas) : ''));
+    }
+    grid.appendChild(card('Reservas', moeda(resumo.reservas), 'v-investimento', mesAnterior && !modoTodos ? delta(resumo.reservas, mesAnterior.reservas) : ''));
+    grid.appendChild(card('Investimentos', moeda(resumo.investimentos), 'v-investimento', mesAnterior && !modoTodos ? delta(resumo.investimentos, mesAnterior.investimentos) : ''));
+
+    const taxaCard = card('Taxa de poupança', pct(resumo.taxa_poupanca), '', '');
+    if (!modoTodos) {
+      const extra = [];
+      if (mesAnterior && mesAnterior.taxa_poupanca !== null && resumo.taxa_poupanca !== null) {
+        extra.push(delta(resumo.taxa_poupanca, mesAnterior.taxa_poupanca));
+      }
+      if (meses[chaveAtual].taxa_poupanca_acumulada_no_ano !== null) {
+        extra.push('Acumulado no ano: ' + pct(meses[chaveAtual].taxa_poupanca_acumulada_no_ano));
+      }
+      extra.push('Resultado acumulado no ano: ' + moeda(meses[chaveAtual].resultado_saude_acumulado_no_ano));
+      taxaCard.querySelector('.card-valor').insertAdjacentHTML(
+        'afterend', extra.map((t) => '<span class="card-delta">' + t + '</span>').join('')
+      );
+    }
+    grid.appendChild(taxaCard);
+
+    if (!modoTodos) {
+      const m = meses[chaveAtual];
+      const negCard = card('Meses com resultado negativo', String(m.meses_negativos_no_ano_até_aqui), '', 'de ' + m.total_meses_no_ano_até_aqui + ' meses no ano');
+      grid.appendChild(negCard);
+    }
+
+    const maiorCat = resumo.maior_categoria_despesa;
+    grid.appendChild(card('Maior categoria de despesa', maiorCat ? maiorCat.categoria_nome : '—', 'v-despesa', maiorCat ? moeda(maiorCat.valor) : ''));
+
+    // patrimônio de caixinhas — sempre referente ao mês selecionado no
+    // dropdown (mesmo em modo "todos os meses", igual ao app real: o
+    // seletor de período do resumo é independente do "mês de referência"
+    // usado por Caixinhas/Despesas por categoria)
+    const listaCaixinhas = document.getElementById('lista-caixinhas');
+    listaCaixinhas.innerHTML = '';
+    const caixinhas = meses[chaveAtual].patrimonio_caixinhas || {};
+    const nomesCaixinhas = Object.keys(caixinhas).sort();
+    if (nomesCaixinhas.length === 0) {
+      listaCaixinhas.innerHTML = '<li style="color:var(--text-muted)">Nenhuma caixinha com movimento até este mês.</li>';
+    } else {
+      nomesCaixinhas.forEach((nome) => {
+        const li = document.createElement('li');
+        li.innerHTML = '<span class="item-titulo">' + nome + '</span><span class="num v-investimento">' + moeda(caixinhas[nome]) + '</span>';
+        listaCaixinhas.appendChild(li);
+      });
+    }
+
+    document.getElementById('desc-despesas').textContent = modoTodos
+      ? 'Categorias com despesa do início até ' + formatarMesRotulo(mesHojeChave) + ', maior para menor.'
+      : 'Categorias com despesa em ' + formatarMesRotulo(chaveAtual) + ', maior para menor.';
+
+    const listaCategorias = document.getElementById('lista-categorias');
+    listaCategorias.innerHTML = '';
+    const despesasCat = resumo.despesas_por_categoria || [];
+    if (despesasCat.length === 0) {
+      listaCategorias.innerHTML = '<li style="color:var(--text-muted)">Sem despesas nesse período.</li>';
+    } else {
+      despesasCat.forEach((c) => {
+        const li = document.createElement('li');
+        li.style.flexDirection = 'column';
+        li.style.alignItems = 'stretch';
+        li.innerHTML =
+          '<div style="display:flex;justify-content:space-between;gap:10px;">' +
+          '<span class="item-titulo">' + c.categoria_nome + '</span>' +
+          '<span class="num v-despesa">' + moeda(c.valor) + ' <span class="item-detalhe" style="display:inline">(' + pct(c.percentual) + ')</span></span>' +
+          '</div>' +
+          '<div class="barra-fundo"><div class="barra-preenchida" style="width:' + Math.min(c.percentual, 100) + '%"></div></div>';
+        listaCategorias.appendChild(li);
+      });
+    }
+
+    const listaCompromissos = document.getElementById('lista-compromissos');
+    listaCompromissos.innerHTML = '';
+    const compromissos = dados.compromissos_futuros || [];
+    if (compromissos.length === 0) {
+      listaCompromissos.innerHTML = '<li style="color:var(--text-muted)">Nenhum compromisso futuro em aberto.</li>';
+    } else {
+      compromissos.forEach((c) => {
+        const li = document.createElement('li');
+        li.innerHTML =
+          '<div class="item-titulo">' + (c.descricao || 'Sem descrição') +
+          '<span class="item-detalhe">Parcela ' + c.parcela_atual + ' de ' + c.parcela_total + ' · ' + formatarData(c.data_compra) + '</span></div>' +
+          '<span class="num v-despesa">' + moeda(c.valor) + '</span>';
+        listaCompromissos.appendChild(li);
+      });
+    }
+  }
+
+  render();
+} catch (erro) {
+  document.getElementById('aviso').innerHTML =
+    '<b>Erro ao montar a página:</b> ' + (erro && erro.message ? erro.message : String(erro)) +
+    ' — os dados estão no JSON embutido, mas algo no script falhou antes de exibi-los.';
+  console.error(erro);
+}
+})();
+</script>
